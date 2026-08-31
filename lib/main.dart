@@ -1,6 +1,8 @@
 // lib/main.dart
+import 'package:basa_capstone/core/console/commands/config_commands.dart';
 import 'package:basa_capstone/core/console/commands/debug_commands.dart';
 import 'package:basa_capstone/core/console/commands/test_data_commands.dart';
+import 'package:basa_capstone/core/data/remote/supabase_config.dart';
 import 'package:basa_capstone/core/viewmodels/viewmodel_registry.dart';
 import 'package:flutter/material.dart';
 import 'core/console/console_registry.dart';
@@ -39,7 +41,9 @@ vmRegistry.register('TextViewModel', textVm);
   registerDebugCommands(registry, session, vmRegistry);
   final testDataVm = TestDataViewModel(repo: TestRepositorySqlite(localDb), logger: session);
   vmRegistry.register('TestDataViewModel', testDataVm);
-  registerTestDataCommands(registry, testDataVm, localDb);
+  final config = await SupabaseConfigStore.load(docsDir.path);
+  registerConfigCommands(registry, config);
+  registerTestDataCommands(registry, testDataVm, localDb, config);
 
   runApp(BasaApp(session: session, textVm: textVm));
 }

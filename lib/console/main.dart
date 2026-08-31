@@ -1,5 +1,12 @@
 // lib/console/main.dart
 import 'dart:io';
+import 'package:basa_capstone/core/console/commands/student_commands.dart';
+import 'package:basa_capstone/core/data/local/import_conflict_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/local/school_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/local/section_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/local/student_repository_sqlite.dart';
+import 'package:basa_capstone/core/services/roster_exporter.dart';
+import 'package:basa_capstone/core/services/sf1_importer.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite_common/sqflite.dart';
 import '../core/data/local/local_database.dart';
@@ -35,6 +42,19 @@ Future<void> main() async {
 
   final testDataVm = TestDataViewModel(repo: TestRepositorySqlite(localDb), logger: session);
   vmRegistry.register('TestDataViewModel', testDataVm);
+
+  final schoolRepo = SchoolRepositorySqlite(localDb);
+  final sectionRepo = SectionRepositorySqlite(localDb);
+  final studentRepo = StudentRepositorySqlite(localDb);
+  final conflictRepo = ImportConflictRepositorySqlite(localDb);
+  final importer = Sf1Importer(
+    schoolRepo: schoolRepo, sectionRepo: sectionRepo,
+    studentRepo: studentRepo, conflictRepo: conflictRepo, logger: session,
+  );
+  final exporter = RosterExporter();
+
+  registerStudentCommands(registry, importer, exporter, sectionRepo, studentRepo, conflictRepo);
+
   registerTestDataCommands(registry, testDataVm, localDb);
 
   registerDebugCommands(registry, session, vmRegistry);

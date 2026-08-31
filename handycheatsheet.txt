@@ -1,0 +1,12 @@
+--- All defaults regarding databases are in lib/core/data/remote/supabase_config.dart
+
+--- supabase password: genesis11inthebeginninggodcreatedtheheavensandtheearth
+
+XX--- anon public key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNzZ2V3c2xhbWRsYmxscWNna3JyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczMzkxNzEsImV4cCI6MjEwMjkxNTE3MX0.f296gY91U9HQsv5fbv5OutL2a7eZrDfpO8P5eEnYmIc
+
+XX--- service_role secret eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNzZ2V3c2xhbWRsYmxscWNna3JyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NzMzOTE3MSwiZXhwIjoyMTAyOTE1MTcxfQ.yKmCbxmPdrm0rf1cYLeiIc4MdiwuANfg1jCzjOMSeH4
+
+---publishable key : sb_publishable_7f9og99jvpbMyroXyUCDsQ_zEGPtlL3
+
+
+resolve-conflict in student_commands.dart is not implemented

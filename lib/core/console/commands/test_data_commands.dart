@@ -12,6 +12,7 @@ void registerTestDataCommands(
   ConsoleRegistry registry,
   TestDataViewModel vm,
   Database localDb,
+  SupabaseConfigStore config,  
 ) {
   registry.register(ConsoleCommand(
     name: 'db-add',
@@ -53,15 +54,15 @@ void registerTestDataCommands(
           vm.useRepository(TestRepositorySqlite(localDb), 'local sqlite');
           return 'Now using local SQLite.';
         case 'cloud':
-          final cfg = SupabaseConfig.cloud();
-          final client = SupabaseClient(cfg.url, cfg.anonKey);
+          if (config.cloud.url.isEmpty) return 'cloud.url not set. Use config-set-cloud-url first.';
+          final client = SupabaseClient(config.cloud.url, config.cloud.anonKey);
           vm.useRepository(TestRepositorySupabase(client), 'cloud supabase');
-          return 'Now using cloud Supabase (${cfg.url}).';
+          return 'Now using cloud Supabase (${config.cloud.url}).';
         case 'lan':
-          final cfg = SupabaseConfig.lan(); // edit the host IP in supabase_config.dart
-          final client = SupabaseClient(cfg.url, cfg.anonKey);
+          if (config.lan.url.isEmpty) return 'lan.url not set. Use config-set-lan-url first.';
+          final client = SupabaseClient(config.lan.url, config.lan.anonKey);
           vm.useRepository(TestRepositorySupabase(client), 'LAN supabase');
-          return 'Now using LAN Supabase (${cfg.url}).';
+          return 'Now using LAN Supabase (${config.lan.url}).';
         default:
           return 'Usage: db-use <local|cloud|lan>';
       }
