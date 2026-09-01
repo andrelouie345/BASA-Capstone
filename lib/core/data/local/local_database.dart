@@ -43,7 +43,6 @@ class LocalDatabase {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         school_id TEXT UNIQUE NOT NULL,
         school_name TEXT NOT NULL,
-        school_name TEXT NOT NULL,
         region TEXT,
         division TEXT)
     ''');
@@ -83,7 +82,7 @@ class LocalDatabase {
         learning_modality TEXT,
         remarks TEXT,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
       )
     ''');
 
