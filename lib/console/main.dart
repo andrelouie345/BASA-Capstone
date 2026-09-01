@@ -1,10 +1,12 @@
 // lib/console/main.dart
 import 'dart:io';
+import 'package:basa_capstone/core/console/commands/config_commands.dart';
 import 'package:basa_capstone/core/console/commands/student_commands.dart';
 import 'package:basa_capstone/core/data/local/import_conflict_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/school_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/section_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/student_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/remote/supabase_config.dart';
 import 'package:basa_capstone/core/services/roster_exporter.dart';
 import 'package:basa_capstone/core/services/sf1_importer.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -53,9 +55,10 @@ Future<void> main() async {
   );
   final exporter = RosterExporter();
 
+  final config = await SupabaseConfigStore.load(dir.path);
   registerStudentCommands(registry, importer, exporter, sectionRepo, studentRepo, conflictRepo);
-
-  registerTestDataCommands(registry, testDataVm, localDb);
+  registerConfigCommands(registry, config);
+  registerTestDataCommands(registry, testDataVm, localDb, config);
 
   registerDebugCommands(registry, session, vmRegistry);
 }
