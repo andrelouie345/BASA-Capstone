@@ -1,7 +1,9 @@
 // lib/core/services/sf1_importer.dart
 import 'dart:convert';
 import 'dart:io';
-import 'package:excel/excel.dart';
+// import 'package:basa_capstone/core/services/xlsx_repair_service.dart'; removed
+import 'package:basa_capstone/core/services/xls_to_xlsx_converter.dart';
+import 'package:excel_plus/excel_plus.dart';
 import 'package:sqflite_common/sqflite.dart';
 import '../console/logger.dart';
 import '../models/school.dart';
@@ -26,6 +28,7 @@ class Sf1Importer {
   final StudentRepository studentRepo;
   final ImportConflictRepository conflictRepo;
   final ScopedLogger _log;
+  final XlsToXlsxConverter _converter;
 
   Sf1Importer({
     required this.schoolRepo,
@@ -33,7 +36,29 @@ class Sf1Importer {
     required this.studentRepo,
     required this.conflictRepo,
     Logger? logger,
-  }) : _log = ScopedLogger(logger, 'Sf1Importer');
+  }) : 
+  _log = ScopedLogger(logger, 'Sf1Importer'),
+  _converter = XlsToXlsxConverter(logger: logger);
+
+
+  Future<String> _resolveToXlsx(String filePath) async {
+    if (filePath.toLowerCase().endsWith('.xls')) {
+      return _converter.convert(filePath);
+    }
+    return filePath; // already .xlsx
+  }
+
+  Future<Excel> _decodeWithRepair(String filePath) async {
+    try {
+      final bytes = File(filePath).readAsBytesSync();
+      return Excel.decodeBytes(bytes);
+    } catch (e) {
+      _log('Failed to decode Excel file, likely because xls. Will make an xlsx copy: $e');
+      final xlsxPath = await _resolveToXlsx(filePath);
+      final bytes = File(xlsxPath).readAsBytesSync();
+      return Excel.decodeBytes(bytes);
+    }
+  }
 
   String? _cell(Sheet sheet, int row, int col) {
     if (row >= sheet.maxRows || col >= sheet.maxColumns) return null;
@@ -43,9 +68,9 @@ class Sf1Importer {
   }
 
   /// For verifying column mapping before a real import.
-  List<String?> previewRow(String filePath, int rowIndex) {
+  Future<List<String?>> previewRow(String filePath, int rowIndex) async {
     final bytes = File(filePath).readAsBytesSync();
-    final excelFile = Excel.decodeBytes(bytes);
+    final excelFile = await _decodeWithRepair(filePath);
     final sheet = excelFile.tables[excelFile.tables.keys.first]!;
     return List.generate(sheet.maxColumns, (c) => _cell(sheet, rowIndex, c));
   }
@@ -69,7 +94,7 @@ class Sf1Importer {
     final result = Sf1ImportResult();
 
     final bytes = File(filePath).readAsBytesSync();
-    final excelFile = Excel.decodeBytes(bytes);
+    final excelFile = await _decodeWithRepair(filePath);
     final sheet = excelFile.tables[excelFile.tables.keys.first]!;
 
     // 1. Metadata -> get-or-create school + section

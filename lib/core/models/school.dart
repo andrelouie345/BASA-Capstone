@@ -16,16 +16,16 @@ class School {
 
   Map<String, Object?> toMap() =>{
     if(id != null) 'id': id,
-    'schoolId': schoolId,
-    'schoolName': schoolName,
+    'school_id': schoolId,
+    'school_name': schoolName,
     'region': region,
     'division': division,
   };
 
   factory School.fromMap(Map<String, Object?> map) => School(
     id: map['id'] as int?,
-    schoolId: map['schoolId'] as String,
-    schoolName: map['schoolName'] as String,
+    schoolId: map['school_id'] as String,
+    schoolName: map['school_name'] as String,
     region: map['region'] as String?,
     division: map['division'] as String?,
   );

@@ -19,18 +19,18 @@ class Section {
 
   Map<String, Object?> toMap() => {
     if(id != null) 'id': id,
-    'schoolId': schoolId,
-    'schoolYear': schoolYear,
-    'gradeLevel': gradeLevel,
-    'sectionName': sectionName,
+    'school_id': schoolId,
+    'school_year': schoolYear,
+    'grade_level': gradeLevel,
+    'section_name': sectionName,
   };
 
   factory Section.fromMap(Map<String, Object?> map) => Section(
     id: map['id'] as int?,
-    schoolId: map['schoolId'] as int,
-    schoolYear: map['schoolYear'] as String,
-    gradeLevel: map['gradeLevel'] as String,
-    sectionName: map['sectionName'] as String,
+    schoolId: map['school_id'] as int,
+    schoolYear: map['school_year'] as String,
+    gradeLevel: map['grade_level'] as String,
+    sectionName: map['section_name'] as String,
   );
 
   @override

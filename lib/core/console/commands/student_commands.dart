@@ -22,7 +22,7 @@ void registerStudentCommands(
       if (args.length < 2) return 'Usage: import-preview <file.xlsx> <rowIndex>';
       final row = int.tryParse(args[1]);
       if (row == null) return 'rowIndex must be a number';
-      final cells = importer.previewRow(args[0], row);
+      final cells = await importer.previewRow(args[0], row);
       return cells.asMap().entries.map((e) => '[${e.key}] ${e.value ?? "(empty)"}').join('\n');
     },
   ));
