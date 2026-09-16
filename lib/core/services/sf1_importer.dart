@@ -152,7 +152,7 @@ class Sf1Importer {
         await studentRepo.enroll(studentId: inserted.id!, sectionId: section.id!, schoolYear: section.schoolYear);
         result.inserted++;
       } else {
-        // Per your instruction: flag conflicts for manual review, never auto-overwrite.
+        //flag conflicts for manual review, never auto-overwrite.
         await conflictRepo.log(ImportConflict(
           lrn: lrn,
           sectionId: section.id,

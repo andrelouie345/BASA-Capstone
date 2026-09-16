@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/console/console_session.dart';
 import 'tilde_trigger.dart';
+import 'record_commands.dart';
 
 class DebugConsoleShell extends StatefulWidget {
   final Widget child;
@@ -23,6 +24,7 @@ class DebugConsoleShell extends StatefulWidget {
 class _DebugConsoleShellState extends State<DebugConsoleShell> {
   bool _visible = false;
   late final TripleTildeDetector _detector;
+  late final CommandRecorder _commandRecorder;
   final _inputController = TextEditingController();
   final _focusNode = FocusNode();
 
@@ -37,12 +39,16 @@ class _DebugConsoleShellState extends State<DebugConsoleShell> {
     _detector = TripleTildeDetector(
       onTriggered: () => setState(() => _visible = !_visible),
     );
+    _commandRecorder = CommandRecorder();
+
     HardwareKeyboard.instance.addHandler(_onKey);
     widget.session.addListener(_onSessionChanged); 
   }
 
+  
   bool _onKey(KeyEvent event) {
     _detector.handleKeyEvent(event);
+    _commandRecorder.handleKeyEvent(event, _inputController);
     return false; // don't swallow the key elsewhere
   }
 
@@ -58,8 +64,15 @@ class _DebugConsoleShellState extends State<DebugConsoleShell> {
   void _submit(String value) {
     if (value.trim().isEmpty) return;
     widget.session.run(value);
+    _commandRecorder.recordCommand(value);
+    if (_commandRecorder.historyPointer == -1 && _commandRecorder.commandHistory.isNotEmpty) {
+      _commandRecorder.historyPointer = _commandRecorder.commandHistory.length - 1;
+    }
     _inputController.clear();
+
+
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +84,7 @@ class _DebugConsoleShellState extends State<DebugConsoleShell> {
             top: 40,
             left: 40,
             right: 40,
-            height: 320,
+            height: 420,
             child: Material(
               elevation: 12,
               color: Colors.black.withOpacity(0.9),
