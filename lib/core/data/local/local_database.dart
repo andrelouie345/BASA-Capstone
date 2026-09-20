@@ -16,7 +16,7 @@ class LocalDatabase {
     _db = await databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 2,
+        version: 3,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
@@ -29,6 +29,9 @@ class LocalDatabase {
         onUpgrade: (db, oldVersion, newVersion) async{
           if (oldVersion < 2) {
             await _createStudentTables(db);
+          }
+          if (oldVersion < 3) {
+            await _createUserManagementTables(db);
           }
         },
       ),
@@ -110,6 +113,32 @@ class LocalDatabase {
       )
     ''');
     
+  }
+
+  static Future<void> _createUserManagementTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE users (
+        id TEXT PRIMARY KEY,           -- matches Supabase Auth UID
+        email TEXT UNIQUE NOT NULL,
+        full_name TEXT NOT NULL,
+        role TEXT NOT NULL,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        created_by TEXT REFERENCES users(id)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE login_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT REFERENCES users(id),
+        email_attempted TEXT NOT NULL,
+        success INTEGER NOT NULL,
+        method TEXT NOT NULL,
+        timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+        failure_reason TEXT
+      )
+    ''');
   }
 
   static Future<void> close() async {

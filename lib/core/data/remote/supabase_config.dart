@@ -38,6 +38,8 @@ class SupabaseConfigStore {
     }
 
     // Sensible empty defaults — commands below fill these in.
+
+    // I added these in to not get the hassle of putting them again and again.
     final store = SupabaseConfigStore._(
       SupabaseProfile(url: 'https://ssgewslamdlbllqcgkrr.supabase.co', anonKey: 'sb_publishable_7f9og99jvpbMyroXyUCDsQ_zEGPtlL3'),
       SupabaseProfile(url: 'http://192.168.1.100:8000', anonKey: ''),

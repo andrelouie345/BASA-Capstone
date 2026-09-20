@@ -1,16 +1,30 @@
 // lib/main.dart
+/// The main directory of the project
+/// This is where all the magic happens.There's a giant wall of imports here for the commands for the console.
+library;
+
+
+import 'package:basa_capstone/core/console/commands/auth_commands.dart';
 import 'package:basa_capstone/core/console/commands/config_commands.dart';
 import 'package:basa_capstone/core/console/commands/debug_commands.dart';
 import 'package:basa_capstone/core/console/commands/student_commands.dart';
 import 'package:basa_capstone/core/console/commands/test_data_commands.dart';
+import 'package:basa_capstone/core/console/commands/login_commands.dart';
+import 'package:basa_capstone/core/console/commands/admin_bootstrap_commands.dart';
+import 'package:basa_capstone/core/console/commands/user_commands.dart';
 import 'package:basa_capstone/core/data/local/import_conflict_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/school_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/section_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/student_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/local/login_log_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/remote/auth_session_store.dart';// Useless now but kept for etce. purposes
 import 'package:basa_capstone/core/data/remote/supabase_config.dart';
+import 'package:basa_capstone/core/data/remote/user_repository_supabase.dart';
 import 'package:basa_capstone/core/services/roster_exporter.dart';
 import 'package:basa_capstone/core/services/sf1_importer.dart';
 import 'package:basa_capstone/core/viewmodels/viewmodel_registry.dart';
+import 'package:basa_capstone/viewmodels/auth_viewmodel.dart';
+import 'package:basa_capstone/viewmodels/login_log_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'core/console/console_registry.dart';
 import 'core/console/console_session.dart';
@@ -49,8 +63,22 @@ vmRegistry.register('TextViewModel', textVm);
   final testDataVm = TestDataViewModel(repo: TestRepositorySqlite(localDb), logger: session);
   vmRegistry.register('TestDataViewModel', testDataVm);
   final config = await SupabaseConfigStore.load(docsDir.path);
+  registerAdminBootstrapCommands(registry, config, session);
   registerConfigCommands(registry, config);
   registerTestDataCommands(registry, testDataVm, localDb, config);
+
+  final authVm = AuthViewModel(
+    loginLogRepo: LoginLogRepositorySqlite(localDb),
+    config: config,
+    userRepoFactory: (client) => UserRepositorySupabase(client),
+    logger: session,
+  );
+  registerAuthCommands(registry, authVm);
+  registerUserCommands(registry, authVm, session);
+  
+  final loginLogVm = LoginLogViewModel(repo: LoginLogRepositorySqlite(localDb), logger: session);
+  vmRegistry.register('LoginLogViewModel', loginLogVm);
+  registerLoginCommands(registry, LoginLogViewModel(repo: LoginLogRepositorySqlite(localDb), logger: session), authVm);
 
   final schoolRepo = SchoolRepositorySqlite(localDb);
   final sectionRepo = SectionRepositorySqlite(localDb);
