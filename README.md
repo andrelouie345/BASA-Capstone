@@ -11,7 +11,7 @@ schema or app forces either choice.
 
 > Note: this schema is currently only documented here, not tracked as a
 > real Supabase migration file. Turning it into one is a known follow-up,
-> not yet done.
+> not yet done. (`supabase db pull` against a linked project produces one.)
 
 ## 1. Provision the backend
 
@@ -20,10 +20,14 @@ self-hosted LAN instance. Note its **URL** and **anon key**.
 
 ## 2. Apply the schema
 
-Run the following against the new project's SQL editor, in order.
+Run the following against the new project's SQL editor, in order. Tables
+are ordered so every foreign key points at a table that already exists
+(`users` must come before `tutor_section_assignments`).
 
 ```sql
+-- =====================================================================
 -- Core data
+-- =====================================================================
 CREATE TABLE public.schools (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   school_id text NOT NULL UNIQUE,
@@ -97,17 +101,9 @@ CREATE TABLE public.import_conflicts (
   CONSTRAINT import_conflicts_pkey PRIMARY KEY (id)
 );
 
-CREATE TABLE public.tutor_section_assignments (
-  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
-  tutor_id uuid NOT NULL REFERENCES public.users(id),
-  section_id bigint NOT NULL REFERENCES public.sections(id),
-  assigned_by uuid REFERENCES public.users(id),
-  assigned_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT tutor_section_assignments_pkey PRIMARY KEY (id),
-  CONSTRAINT tutor_section_assignments_tutor_section_key UNIQUE (tutor_id, section_id)
-);
-
+-- =====================================================================
 -- Users & auth
+-- =====================================================================
 CREATE TABLE public.users (
   id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   email text NOT NULL UNIQUE,
@@ -131,31 +127,50 @@ CREATE TABLE public.login_logs (
   CONSTRAINT login_logs_pkey PRIMARY KEY (id)
 );
 
+CREATE TABLE public.tutor_section_assignments (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  tutor_id uuid NOT NULL REFERENCES public.users(id),
+  section_id bigint NOT NULL REFERENCES public.sections(id),
+  assigned_by uuid REFERENCES public.users(id),
+  assigned_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT tutor_section_assignments_pkey PRIMARY KEY (id),
+  CONSTRAINT tutor_section_assignments_tutor_section_key UNIQUE (tutor_id, section_id)
+);
+
+-- =====================================================================
 -- Helpers (all SECURITY DEFINER — needed to avoid RLS recursion when a
 -- policy has to check the caller's own row, or a related table's row,
--- from inside another table's policy)
+-- from inside another table's policy).
+-- Every SECURITY DEFINER function pins search_path = public so it can't
+-- be hijacked by a same-named object in another schema.
+-- =====================================================================
 CREATE OR REPLACE FUNCTION public.current_user_role()
 RETURNS text LANGUAGE sql SECURITY DEFINER SET search_path = public STABLE AS $$
   SELECT role FROM public.users WHERE id = auth.uid();
 $$;
 
 CREATE OR REPLACE FUNCTION public.current_user_school_id()
-RETURNS bigint LANGUAGE sql SECURITY DEFINER STABLE AS $$
+RETURNS bigint LANGUAGE sql SECURITY DEFINER SET search_path = public STABLE AS $$
   SELECT school_id FROM public.users WHERE id = auth.uid();
 $$;
 
 CREATE OR REPLACE FUNCTION public.is_superadmin()
-RETURNS boolean LANGUAGE sql SECURITY DEFINER STABLE AS $$
+RETURNS boolean LANGUAGE sql SECURITY DEFINER SET search_path = public STABLE AS $$
   SELECT role = 'admin' AND school_id IS NULL FROM public.users WHERE id = auth.uid();
 $$;
 
 CREATE OR REPLACE FUNCTION public.section_in_school(p_section_id bigint, p_school_id bigint)
-RETURNS boolean LANGUAGE sql SECURITY DEFINER STABLE AS $$
+RETURNS boolean LANGUAGE sql SECURITY DEFINER SET search_path = public STABLE AS $$
   SELECT EXISTS (SELECT 1 FROM public.sections WHERE id = p_section_id AND school_id = p_school_id);
 $$;
 
+CREATE OR REPLACE FUNCTION public.user_in_school(p_user_id uuid, p_school_id bigint)
+RETURNS boolean LANGUAGE sql SECURITY DEFINER SET search_path = public STABLE AS $$
+  SELECT EXISTS (SELECT 1 FROM public.users WHERE id = p_user_id AND school_id = p_school_id);
+$$;
+
 CREATE OR REPLACE FUNCTION public.tutor_has_section(p_section_id bigint)
-RETURNS boolean LANGUAGE sql SECURITY DEFINER STABLE AS $$
+RETURNS boolean LANGUAGE sql SECURITY DEFINER SET search_path = public STABLE AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.tutor_section_assignments
     WHERE tutor_id = auth.uid() AND section_id = p_section_id
@@ -163,7 +178,7 @@ RETURNS boolean LANGUAGE sql SECURITY DEFINER STABLE AS $$
 $$;
 
 CREATE OR REPLACE FUNCTION public.tutor_has_student(p_student_id bigint)
-RETURNS boolean LANGUAGE sql SECURITY DEFINER STABLE AS $$
+RETURNS boolean LANGUAGE sql SECURITY DEFINER SET search_path = public STABLE AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.enrollments e
     JOIN public.tutor_section_assignments tsa ON tsa.section_id = e.section_id
@@ -173,7 +188,7 @@ $$;
 
 -- Trigger: keeps students.school_id pointed at the newest enrollment's school
 CREATE OR REPLACE FUNCTION public.sync_student_school_id()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER AS $$
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   UPDATE public.students
   SET school_id = (SELECT school_id FROM public.sections WHERE id = NEW.section_id)
@@ -216,7 +231,9 @@ CREATE TRIGGER tutor_section_assignments_validate
   BEFORE INSERT OR UPDATE ON public.tutor_section_assignments
   FOR EACH ROW EXECUTE FUNCTION public.validate_tutor_section_assignment();
 
+-- =====================================================================
 -- RLS
+-- =====================================================================
 ALTER TABLE public.schools ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;
@@ -228,6 +245,7 @@ ALTER TABLE public.login_logs ENABLE ROW LEVEL SECURITY;
 -- ^ Don't assume this is on by default for a table you create — it
 --   wasn't, for schools/students, and cost real debugging time to catch.
 
+-- schools
 CREATE POLICY "schools_select_scoped" ON public.schools FOR SELECT TO authenticated
   USING (is_superadmin() OR (current_user_role() IN ('admin','coordinator') AND id = current_user_school_id()));
 CREATE POLICY "schools_insert_superadmin" ON public.schools FOR INSERT TO authenticated
@@ -236,6 +254,7 @@ CREATE POLICY "schools_update_scoped" ON public.schools FOR UPDATE TO authentica
   USING (is_superadmin() OR (current_user_role() IN ('admin','coordinator') AND id = current_user_school_id()))
   WITH CHECK (is_superadmin() OR (current_user_role() IN ('admin','coordinator') AND id = current_user_school_id()));
 
+-- sections
 CREATE POLICY "sections_select_scoped" ON public.sections FOR SELECT TO authenticated
   USING (is_superadmin() OR (current_user_role() IN ('admin','coordinator') AND school_id = current_user_school_id())
          OR (current_user_role() = 'tutor' AND tutor_has_section(id)));
@@ -247,15 +266,26 @@ CREATE POLICY "sections_update_scoped" ON public.sections FOR UPDATE TO authenti
 CREATE POLICY "sections_delete_scoped" ON public.sections FOR DELETE TO authenticated
   USING (is_superadmin() OR (current_user_role() IN ('admin','coordinator') AND school_id = current_user_school_id()));
 
+-- students
 CREATE POLICY "students_select_scoped" ON public.students FOR SELECT TO authenticated
   USING (is_superadmin() OR (current_user_role() IN ('admin','coordinator') AND school_id = current_user_school_id())
          OR (current_user_role() = 'tutor' AND tutor_has_student(id)));
+-- INSERT: school_id is normally NULL at insert (the enrollment trigger fills it in),
+-- so NULL is allowed; a non-NULL value must be the caller's own school.
 CREATE POLICY "students_insert_scoped" ON public.students FOR INSERT TO authenticated
-  WITH CHECK (is_superadmin() OR current_user_role() IN ('admin','coordinator'));
+  WITH CHECK (is_superadmin()
+              OR (current_user_role() IN ('admin','coordinator')
+                  AND (school_id IS NULL OR school_id = current_user_school_id())));
 CREATE POLICY "students_update_scoped" ON public.students FOR UPDATE TO authenticated
   USING (is_superadmin() OR (current_user_role() IN ('admin','coordinator') AND (school_id = current_user_school_id() OR school_id IS NULL)))
   WITH CHECK (is_superadmin() OR (current_user_role() IN ('admin','coordinator') AND (school_id = current_user_school_id() OR school_id IS NULL)));
+-- DELETE: own school only. Students with school_id NULL (never enrolled) can only be
+-- deleted by a superadmin, since no school owns them. Delete the student's enrollments
+-- (and any import_conflicts pointing at them) first — the FKs don't cascade.
+CREATE POLICY "students_delete_scoped" ON public.students FOR DELETE TO authenticated
+  USING (is_superadmin() OR (current_user_role() IN ('admin','coordinator') AND school_id = current_user_school_id()));
 
+-- enrollments
 CREATE POLICY "enrollments_select_scoped" ON public.enrollments FOR SELECT TO authenticated
   USING (is_superadmin() OR (current_user_role() IN ('admin','coordinator') AND section_in_school(section_id, current_user_school_id()))
          OR (current_user_role() = 'tutor' AND tutor_has_section(section_id)));
@@ -267,6 +297,7 @@ CREATE POLICY "enrollments_update_scoped" ON public.enrollments FOR UPDATE TO au
 CREATE POLICY "enrollments_delete_scoped" ON public.enrollments FOR DELETE TO authenticated
   USING (is_superadmin() OR (current_user_role() IN ('admin','coordinator') AND section_in_school(section_id, current_user_school_id())));
 
+-- import_conflicts
 CREATE POLICY "import_conflicts_select_scoped" ON public.import_conflicts FOR SELECT TO authenticated
   USING (is_superadmin() OR (current_user_role() IN ('admin','coordinator') AND section_id IS NOT NULL AND section_in_school(section_id, current_user_school_id())));
 CREATE POLICY "import_conflicts_insert_scoped" ON public.import_conflicts FOR INSERT TO authenticated
@@ -274,7 +305,10 @@ CREATE POLICY "import_conflicts_insert_scoped" ON public.import_conflicts FOR IN
 CREATE POLICY "import_conflicts_update_scoped" ON public.import_conflicts FOR UPDATE TO authenticated
   USING (is_superadmin() OR (current_user_role() IN ('admin','coordinator') AND section_id IS NOT NULL AND section_in_school(section_id, current_user_school_id())))
   WITH CHECK (is_superadmin() OR (current_user_role() IN ('admin','coordinator') AND section_id IS NOT NULL AND section_in_school(section_id, current_user_school_id())));
+CREATE POLICY "import_conflicts_delete_scoped" ON public.import_conflicts FOR DELETE TO authenticated
+  USING (is_superadmin() OR (current_user_role() IN ('admin','coordinator') AND section_id IS NOT NULL AND section_in_school(section_id, current_user_school_id())));
 
+-- tutor_section_assignments (no UPDATE policy on purpose: reassign = delete + insert)
 CREATE POLICY "tsa_select_scoped" ON public.tutor_section_assignments FOR SELECT TO authenticated
   USING (is_superadmin() OR tutor_id = auth.uid()
          OR (current_user_role() IN ('admin','coordinator') AND section_in_school(section_id, current_user_school_id())));
@@ -283,10 +317,12 @@ CREATE POLICY "tsa_insert_scoped" ON public.tutor_section_assignments FOR INSERT
 CREATE POLICY "tsa_delete_scoped" ON public.tutor_section_assignments FOR DELETE TO authenticated
   USING (is_superadmin() OR (current_user_role() IN ('admin','coordinator') AND section_in_school(section_id, current_user_school_id())));
 
+-- users
 CREATE POLICY "Users can read own profile" ON public.users FOR SELECT TO authenticated
   USING (auth.uid() = id);
-CREATE POLICY "Admins and coordinators can read all users" ON public.users FOR SELECT TO authenticated
-  USING (public.current_user_role() IN ('admin', 'coordinator'));
+CREATE POLICY "users_select_scoped" ON public.users FOR SELECT TO authenticated
+  USING (is_superadmin()
+         OR (current_user_role() IN ('admin','coordinator') AND school_id = current_user_school_id()));
 CREATE POLICY "users_update_scoped" ON public.users FOR UPDATE TO authenticated
   USING (
     is_superadmin()
@@ -297,15 +333,31 @@ CREATE POLICY "users_update_scoped" ON public.users FOR UPDATE TO authenticated
     OR (current_user_role() IN ('admin','coordinator') AND school_id = current_user_school_id())
   );
 
+-- login_logs
+-- Anyone (incl. not-yet-signed-in clients) may INSERT so failed attempts can be logged.
 CREATE POLICY "Anyone can insert a login attempt" ON public.login_logs FOR INSERT TO anon, authenticated
   WITH CHECK (true);
-CREATE POLICY "Admins and coordinators can read login logs" ON public.login_logs FOR SELECT TO authenticated
-  USING (public.current_user_role() IN ('admin', 'coordinator'));
+-- Superadmin sees everything; school-bound admins/coordinators see only attempts
+-- by users of their own school. Attempts with user_id NULL (unknown email) are
+-- therefore visible to the superadmin only.
+CREATE POLICY "login_logs_select_scoped" ON public.login_logs FOR SELECT TO authenticated
+  USING (is_superadmin()
+         OR (current_user_role() IN ('admin','coordinator')
+             AND user_id IS NOT NULL
+             AND user_in_school(user_id, current_user_school_id())));
 ```
 
-No `INSERT`/`DELETE` policies exist for `users` on purpose — account
-creation only ever happens through the `create-user` Edge Function
-(service role key, bypasses RLS).
+**Deliberately missing policies** (an absent policy means "denied"):
+
+- `users` INSERT/DELETE — accounts are created only through the
+  `create-user` Edge Function (service role key, bypasses RLS). An
+  INSERT policy would let an admin/coordinator write profile rows
+  directly, around that function's checks. Accounts are deactivated with
+  `is_active`, not deleted: deleting the `public.users` row would leave
+  the `auth.users` login behind (the cascade only runs the other way).
+- `login_logs` UPDATE/DELETE — logs are append-only.
+- `tutor_section_assignments` UPDATE — see above.
+- `schools` DELETE — schools aren't removed through the app.
 
 ## 3. Deploy the Edge Functions
 
@@ -343,7 +395,32 @@ NULL`, making them a **superadmin** by definition — the account meant to
 create schools and other admins. Temp password is **`password`**,
 changed on first login.
 
-## 6. Day-to-day commands
+## 6. Verify the policies
+
+Run this after applying the schema, and again any time a table or policy
+is touched. There should be no policy you didn't write, and no `true`
+qualifier except the `login_logs` INSERT.
+
+```sql
+-- every live policy
+select tablename, policyname, cmd, roles, qual, with_check
+from pg_policies
+where schemaname = 'public'
+order by tablename, cmd, policyname;
+
+-- RLS switched on for every table?
+select c.relname, c.relrowsecurity
+from pg_class c
+join pg_namespace n on n.oid = c.relnamespace
+where n.nspname = 'public' and c.relkind = 'r'
+order by c.relname;
+```
+
+Watch for leftover "allow all" / "authenticated users can read X"
+placeholder policies — they have caused false-passing tests before
+(schools, students, testTable).
+
+## 7. Day-to-day commands
 
 **Auth**
 
@@ -426,6 +503,15 @@ export-section <sectionId> <outputPath.csv>
 - **Login is always online** — no offline/cached fallback exists.
 - **Cloud login-log sync has no retry** — an attempt logged locally while
   offline never gets flushed to the cloud once connectivity returns.
+- **`login_logs` INSERT is open to `anon`** — required so failed attempts
+  can be logged before sign-in. Side effect: anyone holding the anon key
+  can insert fake log rows. Accepted trade-off (reading real data would
+  still require compromising an account).
+- **Unknown-email login attempts are superadmin-only** — they have no
+  `user_id`, so no school can claim them; school-bound admins never see
+  them.
+- **Orphaned students** (`school_id` NULL, never enrolled) can be updated
+  by any admin/coordinator but deleted only by a superadmin.
 - **Local cache isn't scoped per user yet** — a second user signing in on
   a shared device is intended to replace the local cache (with a warning
   to the user), but this isn't implemented.
@@ -442,3 +528,6 @@ export-section <sectionId> <outputPath.csv>
 - **`resolve-conflicts-all`** applies its action to every pending
   conflict with no individual review — fine for seeded test data, risky
   if ever exposed for real admin use without a confirmation step.
+- **No user hard-delete** — accounts are deactivated (`is_active`), never
+  removed; a real delete would need an Edge Function that also removes
+  the `auth.users` row.
