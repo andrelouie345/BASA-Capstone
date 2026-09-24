@@ -287,10 +287,15 @@ CREATE POLICY "Users can read own profile" ON public.users FOR SELECT TO authent
   USING (auth.uid() = id);
 CREATE POLICY "Admins and coordinators can read all users" ON public.users FOR SELECT TO authenticated
   USING (public.current_user_role() IN ('admin', 'coordinator'));
-CREATE POLICY "Admins and coordinators can update users" ON public.users FOR UPDATE TO authenticated
-  USING (public.current_user_role() IN ('admin', 'coordinator'))
-  WITH CHECK (public.current_user_role() IN ('admin', 'coordinator'));
--- ^ NOT school-scoped yet — known gap, see below.
+CREATE POLICY "users_update_scoped" ON public.users FOR UPDATE TO authenticated
+  USING (
+    is_superadmin()
+    OR (current_user_role() IN ('admin','coordinator') AND school_id = current_user_school_id())
+  )
+  WITH CHECK (
+    is_superadmin()
+    OR (current_user_role() IN ('admin','coordinator') AND school_id = current_user_school_id())
+  );
 
 CREATE POLICY "Anyone can insert a login attempt" ON public.login_logs FOR INSERT TO anon, authenticated
   WITH CHECK (true);
@@ -418,9 +423,6 @@ export-section <sectionId> <outputPath.csv>
 
 - **Schema isn't a tracked migration** — this file's SQL block is the
   closest thing to one right now; copy-pasted per new project.
-- **`users` UPDATE policy isn't school-scoped** — any admin/coordinator
-  can currently update any user, including ones in a different school.
-  Inconsistent with every other table's scoping; not fixed yet.
 - **Login is always online** — no offline/cached fallback exists.
 - **Cloud login-log sync has no retry** — an attempt logged locally while
   offline never gets flushed to the cloud once connectivity returns.
