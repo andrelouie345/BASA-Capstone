@@ -15,41 +15,55 @@ import '../../../viewmodels/user_viewmodel.dart';
 import '../../../viewmodels/auth_viewmodel.dart';
 
 void registerUserCommands(ConsoleRegistry registry, AuthViewModel authVm, Logger? logger) {
-  registry.register(ConsoleCommand(
-    name: 'user-create',
-    description:
-        'user-create <email> <role:admin|coordinator|tutor> <full name...> — create a new account (requires sign-in)',
-    handler: (args) async {
-      if (args.length < 3) {
-        return 'Usage: user-create <email> <role:admin|coordinator|tutor> <full name...>';
-      }
-      final client = authVm.client;
-      if (client == null) return 'Not signed in. Use sign-in <cloud|lan> <email> <password> first.';
+    registry.register(ConsoleCommand(
+      name: 'user-create',
+      description:
+          'user-create <email> <role:admin|coordinator|tutor> <schoolId> <full name...> — create a new account (requires sign-in)',
+      handler: (args) async {
+        if (args.length < 4) {
+          return 'Usage: user-create <email> <role:admin|coordinator|tutor> <schoolId> <full name...>';
+        }
+        final client = authVm.client;
+        if (client == null) return 'Not signed in. Use sign-in <cloud|lan> <email> <password> first.';
 
-      final email = args[0];
-      UserRole role;
-      try {
-        role = UserRole.fromString(args[1]);
-      } catch (_) {
-        return 'Invalid role: "${args[1]}" (expected admin, coordinator, or tutor)';
-      }
+        final email = args[0];
+        UserRole role;
+        try {
+          role = UserRole.fromString(args[1]);
+        } catch (_) {
+          return 'Invalid role: "${args[1]}" (expected admin, coordinator, or tutor)';
+        }
 
-      final vm = UserViewModel(repo: UserRepositorySupabase(client), logger: logger);
-      try {
-        await vm.create(User(
-          id: '',
-          email: email,
-          fullName: args.sublist(2).join(' '),
-          role: role,
-          createdAt: DateTime.now(),
-          createdBy: authVm.currentUser?.id, // now resolved — was null before signIn() existed
-        ));
-        return 'Created: $email as ${role.name}.';
-      } catch (e) {
-        return 'Create failed: $e';
-      }
-    },
-  ));
+        int? schoolId;
+        if (args[2] == '-') {
+          final actingUser = authVm.currentUser;
+          final callerIsSuperadmin = actingUser?.role == UserRole.admin && actingUser?.schoolId == null;
+          if (!(callerIsSuperadmin && role == UserRole.admin)) {
+            return 'Forbidden: only a superadmin can create another admin with no school (use "-").';
+          }
+          schoolId = null;
+        } else {
+          schoolId = int.tryParse(args[2]);
+          if (schoolId == null) return 'Invalid schoolId: "${args[2]}" (expected a number or "-")';
+        }
+
+        final vm = UserViewModel(repo: UserRepositorySupabase(client), logger: logger);
+        try {
+          await vm.create(User(
+            id: '',
+            email: email,
+            fullName: args.sublist(3).join(' '),
+            role: role,
+            schoolId: schoolId,
+            createdAt: DateTime.now(),
+            createdBy: authVm.currentUser?.id,
+          ));
+          return 'Created: $email as ${role.name} at school $schoolId.';
+        } catch (e) {
+          return 'Create failed: $e';
+        }
+      },
+    ));
 
   registry.register(ConsoleCommand(
     name: 'user-set-active',

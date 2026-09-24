@@ -35,10 +35,10 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
-
+///
     const { data: callerProfile, error: profileErr } = await adminClient
       .from('users')
-      .select('role')
+      .select('role, school_id')
       .eq('id', caller.id)
       .single()
 
@@ -48,7 +48,9 @@ Deno.serve(async (req) => {
       })
     }
 
-    const { email, full_name, role, created_by } = await req.json()
+    const callerIsSuperadmin = callerProfile.role === 'admin' && callerProfile.school_id === null
+
+    const { email, full_name, role, school_id, created_by } = await req.json()
 
     if (!email || !full_name || !role) {
       return new Response(JSON.stringify({ error: 'email, full_name, and role are required' }), {
@@ -61,12 +63,27 @@ Deno.serve(async (req) => {
       })
     }
 
+    // A requested school_id of null/undefined means "create a superadmin" —
+    // only a superadmin creating another admin is allowed to do that.
+    if (school_id === null || school_id === undefined) {
+      if (!(callerIsSuperadmin && role === 'admin')) {
+        return new Response(JSON.stringify({ error: 'school_id is required' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+    } else if (!callerIsSuperadmin && school_id !== callerProfile.school_id) {
+      // School-bound admin/coordinator can only create users within their own school.
+      return new Response(JSON.stringify({ error: 'Forbidden: can only create users for your own school' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     // Step 1: create the Auth account with the shared temp password,
     // flagged so the (future) login flow knows to force a change.
     const { data: created, error: createErr } = await adminClient.auth.admin.createUser({
       email,
       password: DEFAULT_TEMP_PASSWORD,
-      email_confirm: true, // admin-created — usable immediately, no confirmation step
+      email_confirm: true,
       user_metadata: { must_change_password: true },
     })
     if (createErr || !created.user) {
@@ -81,9 +98,10 @@ Deno.serve(async (req) => {
       email,
       full_name,
       role,
+      school_id: school_id ?? null,
       created_by: created_by ?? caller.id,
     })
-
+///
     if (insertErr) {
       // Roll back the orphaned Auth account if the profile insert fails
       await adminClient.auth.admin.deleteUser(created.user.id)

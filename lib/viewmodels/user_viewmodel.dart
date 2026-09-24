@@ -1,4 +1,6 @@
 // lib/viewmodels/user_viewmodel.dart
+
+import 'package:basa_capstone/core/models/user_role.dart';
 import '../core/console/logger.dart';
 import '../core/models/user.dart';
 import '../core/repositories/user_repository.dart';
@@ -29,6 +31,9 @@ class UserViewModel {
   // that already exists in Auth, not for originating new accounts.
   Future<void> create(User user) async {
     _log('create(email: "${user.email}", role: ${user.role.name})');
+    if (user.schoolId == null && user.role != UserRole.admin) {
+      throw ArgumentError('schoolId is required for non-admin accounts');
+    }
     await _repo.create(user);
     await refresh();
   }

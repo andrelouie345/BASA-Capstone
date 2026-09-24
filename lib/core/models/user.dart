@@ -6,6 +6,7 @@ class User {
   final String email;
   final String fullName;
   final UserRole role;
+  final int? schoolId;
   final bool isActive;
   final DateTime createdAt;
   final String? createdBy;
@@ -16,6 +17,7 @@ class User {
     required this.fullName,
     required this.role,
     required this.createdAt,
+    this.schoolId,
     this.isActive = true,
     this.createdBy,
   });
@@ -25,6 +27,7 @@ class User {
         email: map['email'] as String,
         fullName: map['full_name'] as String,
         role: UserRole.fromString(map['role'] as String),
+        schoolId: map['school_id']as int?,
         isActive: map['is_active'] is bool ? map['is_active'] as bool : (map['is_active'] as int? ?? 1) == 1,
         createdAt: DateTime.parse(map['created_at'] as String),
         createdBy: map['created_by'] as String?,
@@ -35,6 +38,7 @@ class User {
         'email': email,
         'full_name': fullName,
         'role': role.name,
+        'school_id': schoolId,
         'is_active': isActive,
         'created_at': createdAt.toIso8601String(),
         'created_by': createdBy,

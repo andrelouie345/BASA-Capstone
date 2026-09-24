@@ -16,6 +16,7 @@ class UserRepositorySupabase implements UserRepository {
     final response = await client.functions.invoke('create-user', body: {
       'email': user.email,
       'full_name': user.fullName,
+      'school_id':user.schoolId,
       'role': user.role.name,
       'created_by': user.createdBy,
     });

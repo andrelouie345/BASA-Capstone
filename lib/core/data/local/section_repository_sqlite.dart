@@ -37,4 +37,25 @@ class SectionRepositorySqlite implements SectionRepository {
     final rows = await db.query('sections', where: 'id = ?', whereArgs: [id]);
     return rows.isEmpty ? null : Section.fromMap(rows.first);
   }
+
+  @override
+  Future<Section> update(Section section) async {
+    if (section.id == null) throw ArgumentError('Cannot update a Section with no id');
+    final payload = section.toMap()..remove('id');
+    await db.update('sections', payload, where: 'id = ?', whereArgs: [section.id]);
+    return section;
+  }
+
+  @override
+  Future<void> delete(int id) async {
+    await db.delete('sections', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // add to SectionRepositorySqlite
+  @override
+  Future<Section> upsertWithId(Section section) async {
+    if (section.id == null) throw ArgumentError('Cannot upsertWithId a Section with no id');
+    await db.insert('sections', section.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    return section;
+  }
 }

@@ -48,5 +48,18 @@ class StudentRepositorySqlite implements StudentRepository {
       conflictAlgorithm: ConflictAlgorithm.replace, // one row per student per school_year (see UNIQUE constraint)
     );
   }
+
+  @override
+  Future<Student> upsertWithId(Student student) async {
+    if (student.id == null) throw ArgumentError('Cannot upsertWithId a Student with no id');
+    await db.insert('students', student.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    return student;
+  }
+
+    @override
+  Future<List<Student>> getAll() async {
+    final rows = await db.query('students', orderBy: 'last_name COLLATE NOCASE, first_name COLLATE NOCASE');
+    return rows.map(Student.fromMap).toList();
+  }
 }
 // MIght need to add a delete methode here or actually denote that they are finished from the program.

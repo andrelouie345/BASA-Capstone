@@ -2,19 +2,23 @@
 import 'dart:io';
 import 'package:basa_capstone/core/console/commands/auth_commands.dart';
 import 'package:basa_capstone/core/console/commands/config_commands.dart';
+import 'package:basa_capstone/core/console/commands/section-commands.dart';
 import 'package:basa_capstone/core/console/commands/student_commands.dart';
 import 'package:basa_capstone/core/console/commands/admin_bootstrap_commands.dart';
+import 'package:basa_capstone/core/console/commands/tutor_section_commands.dart';
 import 'package:basa_capstone/core/console/commands/user_commands.dart';
-import 'package:basa_capstone/core/data/local/import_conflict_repository_sqlite.dart';
+import 'package:basa_capstone/core/console/commands/school_commands.dart';
+// import 'package:basa_capstone/core/data/local/import_conflict_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/school_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/section_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/student_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/login_log_repository_sqlite.dart';
-import 'package:basa_capstone/core/data/remote/auth_session_store.dart';
+// import 'package:basa_capstone/core/data/remote/auth_session_store.dart';
+import 'package:basa_capstone/core/console/commands/import_commands.dart';
 import 'package:basa_capstone/core/data/remote/supabase_config.dart';
 import 'package:basa_capstone/core/data/remote/user_repository_supabase.dart';
 import 'package:basa_capstone/core/services/roster_exporter.dart';
-import 'package:basa_capstone/core/services/sf1_importer.dart';
+// import 'package:basa_capstone/core/services/sf1_importer.dart';
 import 'package:basa_capstone/viewmodels/auth_viewmodel.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite_common/sqflite.dart';
@@ -58,18 +62,18 @@ Future<void> main() async {
   final schoolRepo = SchoolRepositorySqlite(localDb);
   final sectionRepo = SectionRepositorySqlite(localDb);
   final studentRepo = StudentRepositorySqlite(localDb);
-  final conflictRepo = ImportConflictRepositorySqlite(localDb);
+  // final conflictRepo = ImportConflictRepositorySqlite(localDb);
   final loginLogRepo = LoginLogRepositorySqlite(localDb);
   
-  final importer = Sf1Importer(
-    schoolRepo: schoolRepo, sectionRepo: sectionRepo,
-    studentRepo: studentRepo, conflictRepo: conflictRepo, logger: session,
-  );
+  // final importer = Sf1Importer(
+  //   schoolRepo: schoolRepo, sectionRepo: sectionRepo,
+  //   studentRepo: studentRepo, conflictRepo: conflictRepo, logger: session,
+  // );
   final exporter = RosterExporter();
 
   final config = await SupabaseConfigStore.load(dir.path);
   registerAdminBootstrapCommands(registry, config, session);
-  registerStudentCommands(registry, importer, exporter, sectionRepo, studentRepo, conflictRepo);
+  registerStudentCommands(registry, exporter, sectionRepo, studentRepo);
   registerConfigCommands(registry, config);
   registerTestDataCommands(registry, testDataVm, localDb, config);
   
@@ -78,9 +82,13 @@ Future<void> main() async {
   config: config,
   userRepoFactory: (client) => UserRepositorySupabase(client),
   logger: session,
-);
-registerAuthCommands(registry, authVm);
-registerUserCommands(registry, authVm, session);
+  );
+  registerAuthCommands(registry, authVm);
+  registerUserCommands(registry, authVm, session);
+  registerImportCommands(registry, authVm, schoolRepo, sectionRepo, studentRepo, session);
+  registerSectionCommands(registry, authVm, session);
+  registerSchoolCommands(registry, authVm, session);
+  registerTutorSectionCommands(registry, authVm, session);
 
   final loginLogVm = LoginLogViewModel(repo: LoginLogRepositorySqlite(localDb), logger: session);
   vmRegistry.register('LoginLogViewModel', loginLogVm);

@@ -3,25 +3,28 @@
 /// This is where all the magic happens.There's a giant wall of imports here for the commands for the console.
 library;
 
-
+import 'package:basa_capstone/core/console/commands/school_commands.dart';
 import 'package:basa_capstone/core/console/commands/auth_commands.dart';
 import 'package:basa_capstone/core/console/commands/config_commands.dart';
 import 'package:basa_capstone/core/console/commands/debug_commands.dart';
+import 'package:basa_capstone/core/console/commands/section-commands.dart';
 import 'package:basa_capstone/core/console/commands/student_commands.dart';
 import 'package:basa_capstone/core/console/commands/test_data_commands.dart';
 import 'package:basa_capstone/core/console/commands/login_commands.dart';
 import 'package:basa_capstone/core/console/commands/admin_bootstrap_commands.dart';
+import 'package:basa_capstone/core/console/commands/tutor_section_commands.dart';
 import 'package:basa_capstone/core/console/commands/user_commands.dart';
-import 'package:basa_capstone/core/data/local/import_conflict_repository_sqlite.dart';
+// import 'package:basa_capstone/core/data/local/import_conflict_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/school_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/section_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/student_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/login_log_repository_sqlite.dart';
-import 'package:basa_capstone/core/data/remote/auth_session_store.dart';// Useless now but kept for etce. purposes
+// import 'package:basa_capstone/core/data/remote/auth_session_store.dart';// Useless now but kept for etce. purposes
+import 'package:basa_capstone/core/console/commands/import_commands.dart';
 import 'package:basa_capstone/core/data/remote/supabase_config.dart';
 import 'package:basa_capstone/core/data/remote/user_repository_supabase.dart';
 import 'package:basa_capstone/core/services/roster_exporter.dart';
-import 'package:basa_capstone/core/services/sf1_importer.dart';
+// import 'package:basa_capstone/core/services/sf1_importer.dart';
 import 'package:basa_capstone/core/viewmodels/viewmodel_registry.dart';
 import 'package:basa_capstone/viewmodels/auth_viewmodel.dart';
 import 'package:basa_capstone/viewmodels/login_log_viewmodel.dart';
@@ -75,6 +78,9 @@ vmRegistry.register('TextViewModel', textVm);
   );
   registerAuthCommands(registry, authVm);
   registerUserCommands(registry, authVm, session);
+  registerSectionCommands(registry, authVm, session);
+  registerSchoolCommands(registry, authVm, session);
+  registerTutorSectionCommands(registry, authVm, session);
   
   final loginLogVm = LoginLogViewModel(repo: LoginLogRepositorySqlite(localDb), logger: session);
   vmRegistry.register('LoginLogViewModel', loginLogVm);
@@ -83,14 +89,15 @@ vmRegistry.register('TextViewModel', textVm);
   final schoolRepo = SchoolRepositorySqlite(localDb);
   final sectionRepo = SectionRepositorySqlite(localDb);
   final studentRepo = StudentRepositorySqlite(localDb);
-  final conflictRepo = ImportConflictRepositorySqlite(localDb);
-  final importer = Sf1Importer(
-  schoolRepo: schoolRepo, sectionRepo: sectionRepo,
-  studentRepo: studentRepo, conflictRepo: conflictRepo, logger: session,
-  );
+  // final conflictRepo = ImportConflictRepositorySqlite(localDb);
+  // final importer = Sf1Importer(
+  // schoolRepo: schoolRepo, sectionRepo: sectionRepo,
+  // studentRepo: studentRepo, conflictRepo: conflictRepo, logger: session,
+  // ); kept for history purposes
   final exporter = RosterExporter();
 
-  registerStudentCommands(registry, importer, exporter, sectionRepo, studentRepo, conflictRepo);
+  registerStudentCommands(registry, exporter, sectionRepo, studentRepo);
+  registerImportCommands(registry, authVm, schoolRepo, sectionRepo, studentRepo, session);
 
   runApp(BasaApp(session: session, textVm: textVm));
 }

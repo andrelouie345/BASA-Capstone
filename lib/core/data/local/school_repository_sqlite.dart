@@ -15,4 +15,25 @@ class SchoolRepositorySqlite implements SchoolRepository {
     final id = await db.insert('schools', school.toMap());
     return School(id: id, schoolId: school.schoolId, schoolName: school.schoolName, region: school.region, division: school.division);
   }
+
+  @override
+  Future<List<School>> getAll() async {
+    final rows = await db.query('schools', orderBy: 'school_name COLLATE NOCASE');
+    return rows.map(School.fromMap).toList();
+  }
+
+    @override
+  Future<School> upsertWithId(School school) async {
+    if (school.id == null) throw ArgumentError('Cannot upsertWithId a School with no id');
+    await db.insert('schools', school.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    return school;
+  }
+
+    @override
+  Future<School> update(School school) async {
+    if (school.id == null) throw ArgumentError('Cannot update a School with no id');
+    final payload = school.toMap()..remove('id');
+    await db.update('schools', payload, where: 'id = ?', whereArgs: [school.id]);
+    return school;
+  }
 }

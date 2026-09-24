@@ -20,10 +20,10 @@ class Sf1ColumnMap {
   static const fatherName = 27;
   static const motherMaidenName = 31;
   static const guardianName = 35;
-  static const guardianRelationship = 43;
-  static const contactNumber = 44;
-  static const learningModality = 44; // NOTE: verify — sample had ambiguous spacing near here
-  static const remarks = 45;
+  static const guardianRelationship = 40;
+  static const contactNumber = 41;
+  static const learningModality = 43; // NOTE: verify — sample had ambiguous spacing near here
+  static const remarks = 44;
 
   // Metadata cells (fixed positions in the header block, 0-indexed row/col)
   static const schoolIdRow = 2, schoolIdCol = 5;

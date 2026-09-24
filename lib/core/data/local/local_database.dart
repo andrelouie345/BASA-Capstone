@@ -16,7 +16,7 @@ class LocalDatabase {
     _db = await databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 3,
+        version: 5, // was 4
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
@@ -25,13 +25,31 @@ class LocalDatabase {
             )
           ''');
           await _createStudentTables(db);
+          await _createUserManagementTables(db);
         },
-        onUpgrade: (db, oldVersion, newVersion) async{
+        onUpgrade: (db, oldVersion, newVersion) async {
           if (oldVersion < 2) {
             await _createStudentTables(db);
           }
-          if (oldVersion < 3) {
+
+          final usersExists = (await db.rawQuery(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='users'",
+          )).isNotEmpty;
+
+          if (!usersExists) {
             await _createUserManagementTables(db);
+          } else {
+            final userColumns = await db.rawQuery('PRAGMA table_info(users)');
+            final usersHasSchoolId = userColumns.any((c) => c['name'] == 'school_id');
+            if (!usersHasSchoolId) {
+              await db.execute('ALTER TABLE users ADD COLUMN school_id INTEGER REFERENCES schools(id)');
+            }
+          }
+
+          final studentColumns = await db.rawQuery('PRAGMA table_info(students)');
+          final studentsHasSchoolId = studentColumns.any((c) => c['name'] == 'school_id');
+          if (!studentsHasSchoolId) {
+            await db.execute('ALTER TABLE students ADD COLUMN school_id INTEGER REFERENCES schools(id)');
           }
         },
       ),
@@ -84,6 +102,7 @@ class LocalDatabase {
         contact_number TEXT,
         learning_modality TEXT,
         remarks TEXT,
+        school_id INTEGER REFERENCES schools(id),
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
         updated_at TEXT NOT NULL DEFAULT (datetime('now'))
       )
@@ -122,6 +141,7 @@ class LocalDatabase {
         email TEXT UNIQUE NOT NULL,
         full_name TEXT NOT NULL,
         role TEXT NOT NULL,
+        school_id INTEGER REFERENCES schools(id),
         is_active INTEGER NOT NULL DEFAULT 1,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
         created_by TEXT REFERENCES users(id)

@@ -12,5 +12,4 @@ XX--- service_role secret eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhY
 resolve-conflict in student_commands.dart is not implemented
 
 
-
-admin new password is abcd1234
+admin new password is abc123

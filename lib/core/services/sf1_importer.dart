@@ -1,10 +1,8 @@
 // lib/core/services/sf1_importer.dart
 import 'dart:convert';
 import 'dart:io';
-// import 'package:basa_capstone/core/services/xlsx_repair_service.dart'; removed
 import 'package:basa_capstone/core/services/xls_to_xlsx_converter.dart';
 import 'package:excel_plus/excel_plus.dart';
-import 'package:sqflite_common/sqflite.dart';
 import '../console/logger.dart';
 import '../models/school.dart';
 import '../models/section.dart';
@@ -23,29 +21,33 @@ class Sf1ImportResult {
 }
 
 class Sf1Importer {
-  final SchoolRepository schoolRepo;
+  final SchoolRepository schoolRepo;       // Supabase — source of truth
+  final SchoolRepository localSchoolRepo;  // SQLite — mirror
   final SectionRepository sectionRepo;
+  final SectionRepository localSectionRepo;
   final StudentRepository studentRepo;
-  final ImportConflictRepository conflictRepo;
+  final StudentRepository localStudentRepo;
+  final ImportConflictRepository conflictRepo; // Supabase only, no local mirror
   final ScopedLogger _log;
   final XlsToXlsxConverter _converter;
 
   Sf1Importer({
     required this.schoolRepo,
+    required this.localSchoolRepo,
     required this.sectionRepo,
+    required this.localSectionRepo,
     required this.studentRepo,
+    required this.localStudentRepo,
     required this.conflictRepo,
     Logger? logger,
-  }) : 
-  _log = ScopedLogger(logger, 'Sf1Importer'),
-  _converter = XlsToXlsxConverter(logger: logger);
-
+  })  : _log = ScopedLogger(logger, 'Sf1Importer'),
+        _converter = XlsToXlsxConverter(logger: logger);
 
   Future<String> _resolveToXlsx(String filePath) async {
     if (filePath.toLowerCase().endsWith('.xls')) {
       return _converter.convert(filePath);
     }
-    return filePath; // already .xlsx
+    return filePath;
   }
 
   Future<Excel> _decodeWithRepair(String filePath) async {
@@ -67,9 +69,7 @@ class Sf1Importer {
     return v.toString().trim().isEmpty ? null : v.toString().trim();
   }
 
-  /// For verifying column mapping before a real import.
   Future<List<String?>> previewRow(String filePath, int rowIndex) async {
-    final bytes = File(filePath).readAsBytesSync();
     final excelFile = await _decodeWithRepair(filePath);
     final sheet = excelFile.tables[excelFile.tables.keys.first]!;
     return List.generate(sheet.maxColumns, (c) => _cell(sheet, rowIndex, c));
@@ -77,7 +77,6 @@ class Sf1Importer {
 
   String? _normalizeDate(String? raw) {
     if (raw == null) return null;
-    // Expects mm-dd-yyyy per sample data — adjust if your converted file differs.
     final parts = raw.split('-');
     if (parts.length != 3) return null;
     final mm = parts[0].padLeft(2, '0');
@@ -93,15 +92,15 @@ class Sf1Importer {
     _log('import($filePath)');
     final result = Sf1ImportResult();
 
-    final bytes = File(filePath).readAsBytesSync();
     final excelFile = await _decodeWithRepair(filePath);
     final sheet = excelFile.tables[excelFile.tables.keys.first]!;
 
-    // 1. Metadata -> get-or-create school + section
+    // 1. Metadata -> get-or-create school + section IN SUPABASE, then mirror locally with the same id
     final school = await schoolRepo.getOrCreate(School(
       schoolId: _cell(sheet, Sf1ColumnMap.schoolIdRow, Sf1ColumnMap.schoolIdCol) ?? 'UNKNOWN',
       schoolName: _cell(sheet, Sf1ColumnMap.schoolNameRow, Sf1ColumnMap.schoolNameCol) ?? 'UNKNOWN',
     ));
+    await localSchoolRepo.upsertWithId(school);
 
     final section = await sectionRepo.getOrCreate(Section(
       schoolId: school.id!,
@@ -109,6 +108,7 @@ class Sf1Importer {
       gradeLevel: _cell(sheet, Sf1ColumnMap.gradeLevelRow, Sf1ColumnMap.gradeLevelCol) ?? 'UNKNOWN',
       sectionName: _cell(sheet, Sf1ColumnMap.sectionNameRow, Sf1ColumnMap.sectionNameCol) ?? 'UNKNOWN',
     ));
+    await localSectionRepo.upsertWithId(section);
 
     _log('resolved section: $section (id=${section.id})');
 
@@ -116,8 +116,9 @@ class Sf1Importer {
     for (var row = Sf1ColumnMap.dataStartRow; row < sheet.maxRows; row++) {
       final lrn = _cell(sheet, row, Sf1ColumnMap.lrn);
       final lastName = _cell(sheet, row, Sf1ColumnMap.lastName);
+      final sex = _cell(sheet, row, Sf1ColumnMap.sex);
 
-      if (lrn == null || lastName == null || _isTotalRow(lastName)) {
+      if (lrn == null || lastName == null || sex == null ||_isTotalRow(lastName)) {
         result.skippedBlankOrTotal++;
         continue;
       }
@@ -148,11 +149,44 @@ class Sf1Importer {
       final existing = await studentRepo.findByLrn(lrn);
 
       if (existing == null) {
-        final inserted = await studentRepo.insert(parsed);
-        await studentRepo.enroll(studentId: inserted.id!, sectionId: section.id!, schoolYear: section.schoolYear);
+        final inserted = await studentRepo.insert(parsed); // Supabase — school_id is still null here
+        await studentRepo.enroll(
+          studentId: inserted.id!,
+          sectionId: section.id!,
+          schoolYear: section.schoolYear,
+        ); // trigger sets school_id server-side
+
+        // Mirror locally. We know school_id will now equal section.schoolId —
+        // that's exactly what the Postgres trigger just computed — so we set
+        // it directly rather than round-tripping a re-fetch from Supabase.
+        final mirrored = Student(
+          id: inserted.id,
+          lrn: parsed.lrn,
+          lastName: parsed.lastName,
+          firstName: parsed.firstName,
+          middleName: parsed.middleName,
+          sex: parsed.sex,
+          birthDate: parsed.birthDate,
+          motherTongue: parsed.motherTongue,
+          ipGroup: parsed.ipGroup,
+          religion: parsed.religion,
+          addressStreet: parsed.addressStreet,
+          barangay: parsed.barangay,
+          municipality: parsed.municipality,
+          province: parsed.province,
+          fatherName: parsed.fatherName,
+          motherMaidenName: parsed.motherMaidenName,
+          guardianName: parsed.guardianName,
+          guardianRelationship: parsed.guardianRelationship,
+          contactNumber: parsed.contactNumber,
+          learningModality: parsed.learningModality,
+          remarks: parsed.remarks,
+          schoolId: section.schoolId,
+        );
+        await localStudentRepo.upsertWithId(mirrored);
+
         result.inserted++;
       } else {
-        //flag conflicts for manual review, never auto-overwrite.
         await conflictRepo.log(ImportConflict(
           lrn: lrn,
           sectionId: section.id,

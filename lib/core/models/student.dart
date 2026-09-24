@@ -1,13 +1,13 @@
-// lib/core/models/section.dart
+// lib/core/models/student.dart
 
-class Student{
-    final int? id;
+class Student {
+  final int? id;
   final String lrn;
   final String lastName;
   final String firstName;
   final String? middleName;
   final String? sex;
-  final String? birthDate; // YYYY-MM-DD
+  final String? birthDate;
   final String? motherTongue;
   final String? ipGroup;
   final String? religion;
@@ -22,7 +22,8 @@ class Student{
   final String? contactNumber;
   final String? learningModality;
   final String? remarks;
-  
+  final int? schoolId;
+
   Student({
     this.id,
     required this.lrn,
@@ -45,6 +46,7 @@ class Student{
     this.contactNumber,
     this.learningModality,
     this.remarks,
+    this.schoolId,
   });
 
   Map<String, Object?> toMap() => {
@@ -69,10 +71,10 @@ class Student{
         'contact_number': contactNumber,
         'learning_modality': learningModality,
         'remarks': remarks,
+        'school_id': schoolId,
       };
 
-
-        factory Student.fromMap(Map<String, Object?> m) => Student(
+  factory Student.fromMap(Map<String, Object?> m) => Student(
         id: m['id'] as int?,
         lrn: m['lrn'] as String,
         lastName: m['last_name'] as String,
@@ -94,5 +96,6 @@ class Student{
         contactNumber: m['contact_number'] as String?,
         learningModality: m['learning_modality'] as String?,
         remarks: m['remarks'] as String?,
+        schoolId: m['school_id'] as int?,
       );
 }
