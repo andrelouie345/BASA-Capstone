@@ -4,7 +4,9 @@
 library;
 
 import 'dart:convert';
+import 'package:basa_capstone/core/models/region.dart';
 import 'package:basa_capstone/core/models/student.dart';
+import 'package:basa_capstone/core/services/sf1_column_map.dart';
 
 import '../console_command.dart';
 import '../console_registry.dart';
@@ -26,6 +28,7 @@ void registerImportCommands(
   SchoolRepository localSchoolRepo,
   SectionRepository localSectionRepo,
   StudentRepository localStudentRepo,
+  Sf1ColumnMap columnMap,
   Logger? logger,
 ) {
   String? _forbiddenUnlessAdminOrCoordinator() {
@@ -47,6 +50,7 @@ void registerImportCommands(
       localStudentRepo: localStudentRepo,
       conflictRepo: ImportConflictRepositorySupabase(client),
       logger: logger,
+      columnMap: columnMap,
     );
   }
 
@@ -110,6 +114,27 @@ void registerImportCommands(
     return 'Conflict $id: student ${existing.id} updated$enrollNote.';
   }
   
+
+ registry.register(ConsoleCommand(
+    name: 'column-map-show',
+    description: 'column-map-show — display the current SF1 column mapping',
+    handler: (_) async {
+      final m = columnMap.toMap();
+      return m.entries.map((e) => '${e.key}: ${e.value}').join('\n');
+    },
+  ));
+
+  registry.register(ConsoleCommand(
+    name: 'column-map-set',
+    description: 'column-map-set <field> <value> — edit one SF1 column mapping field (persisted)',
+    handler: (args) async {
+      if (args.length < 2) return 'Usage: column-map-set <field> <value>';
+      final value = int.tryParse(args[1]);
+      if (value == null) return 'Invalid value: "${args[1]}" (expected a non-negative integer)';
+      final error = await columnMap.set(args[0], value);
+      return error ?? '${args[0]} set to $value.';
+    },
+  ));
 
   registry.register(ConsoleCommand(
     name: 'import-preview',
@@ -231,13 +256,13 @@ void registerImportCommands(
 
     registry.register(ConsoleCommand(
     name: 'student-list',
-    description: 'student-list — list all students visible to you (Supabase, RLS-scoped)',
-    handler: (_) async {
+    description: 'student-list <sort> — list all students visible to you (Supabase, RLS-scoped\n sort: "lastname" or "lrn" or "id")',
+    handler: (args) async {
       final guardError = authVm.requireActiveSession();
       if (guardError != null) return guardError;
       final studentRepo = StudentRepositorySupabase(authVm.client!);
       try {
-        final students = await studentRepo.getAll();
+        final students = await studentRepo.getAll(args.isNotEmpty ? args[0] : 'lastname');
         if (students.isEmpty) return '(no students found)';
         return students.map((s) => '${s.id} | ${s.lrn} | ${s.lastName}, ${s.firstName}').join('\n');
       } catch (e) {
@@ -267,4 +292,32 @@ void registerImportCommands(
     },
   ));
   
+  registry.register(ConsoleCommand(
+    name: 'import-trial',
+    description: 'import-trial <file.xlsx> — parse and preview an SF1 import without writing anything (admin/coordinator only)',
+    handler: (args) async {
+      final guardError = authVm.requireActiveSession();
+      if (guardError != null) return guardError;
+      final forbidden = _forbiddenUnlessAdminOrCoordinator();
+      if (forbidden != null) return forbidden;
+      if (args.isEmpty) return 'Usage: import-trial <file.xlsx>';
+
+      try {
+        final t = await _buildImporter().trial(args[0]);
+        final buf = StringBuffer();
+        buf.writeln('Region: "${t.rawRegion ?? "(empty)"}" -> ${t.regionError ?? Region.byId(t.regionId!)}');
+        buf.writeln('School: ${t.schoolIdCode} | ${t.schoolName}');
+        buf.writeln('Section: ${t.gradeLevel} - ${t.sectionName} (${t.schoolYear})');
+        buf.writeln('Would insert: ${t.wouldInsert}, would conflict: ${t.wouldConflict}, would skip: ${t.wouldSkip}');
+        buf.writeln('---');
+        for (final row in t.rows) {
+          buf.writeln('[${row.rowIndex}] ${row.outcome.toUpperCase()}: ${row.name}${row.reason != null ? " (${row.reason})" : ""}');
+        }
+        return buf.toString();
+      } catch (e) {
+        return 'Trial failed: $e';
+      }
+    },
+  ));
+
 }

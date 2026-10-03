@@ -1,24 +1,24 @@
-//lib/cor/models/school.dart
+// lib/core/models/school.dart
 class School {
   final int? id;
   final String schoolId;
   final String schoolName;
-  final String? region;
+  final int? regionId;
   final String? division;
 
   School({
     this.id,
     required this.schoolId,
     required this.schoolName,
-    this.region,
+    this.regionId,
     this.division,
   });
 
-  Map<String, Object?> toMap() =>{
-    if(id != null) 'id': id,
+  Map<String, Object?> toMap() => {
+    if (id != null) 'id': id,
     'school_id': schoolId,
     'school_name': schoolName,
-    'region': region,
+    'region_id': regionId,
     'division': division,
   };
 
@@ -26,7 +26,7 @@ class School {
     id: map['id'] as int?,
     schoolId: map['school_id'] as String,
     schoolName: map['school_name'] as String,
-    region: map['region'] as String?,
+    regionId: map['region_id'] as int?,
     division: map['division'] as String?,
   );
 }

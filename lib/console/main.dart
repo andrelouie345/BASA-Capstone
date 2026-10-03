@@ -18,6 +18,7 @@ import 'package:basa_capstone/core/console/commands/import_commands.dart';
 import 'package:basa_capstone/core/data/remote/supabase_config.dart';
 import 'package:basa_capstone/core/data/remote/user_repository_supabase.dart';
 import 'package:basa_capstone/core/services/roster_exporter.dart';
+import 'package:basa_capstone/core/services/sf1_column_map.dart';
 // import 'package:basa_capstone/core/services/sf1_importer.dart';
 import 'package:basa_capstone/viewmodels/auth_viewmodel.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -70,6 +71,7 @@ Future<void> main() async {
   //   studentRepo: studentRepo, conflictRepo: conflictRepo, logger: session,
   // );
   final exporter = RosterExporter();
+  final columnMap = await Sf1ColumnMap.load(dir.path);
 
   final config = await SupabaseConfigStore.load(dir.path);
   registerAdminBootstrapCommands(registry, config, session);
@@ -85,7 +87,7 @@ Future<void> main() async {
   );
   registerAuthCommands(registry, authVm);
   registerUserCommands(registry, authVm, session);
-  registerImportCommands(registry, authVm, schoolRepo, sectionRepo, studentRepo, session);
+  registerImportCommands(registry, authVm, schoolRepo, sectionRepo, studentRepo, columnMap, session);
   registerSectionCommands(registry, authVm, session);
   registerSchoolCommands(registry, authVm, session);
   registerTutorSectionCommands(registry, authVm, session);

@@ -8,6 +8,7 @@ import '../models/school.dart';
 import '../models/section.dart';
 import '../models/student.dart';
 import '../models/import_conflict.dart';
+import '../models/region.dart';
 import '../repositories/school_repository.dart';
 import '../repositories/section_repository.dart';
 import '../repositories/student_repository.dart';
@@ -20,6 +21,57 @@ class Sf1ImportResult {
   int skippedBlankOrTotal = 0;
 }
 
+/// One parsed data row's outcome, before any write happens.
+class Sf1TrialRow {
+  final int rowIndex;
+  final String? lrn;
+  final String name;
+  final String outcome; // 'insert' | 'conflict' | 'skip'
+  final String? reason;
+  final int? existingStudentId; // set only when outcome == 'conflict'
+
+  Sf1TrialRow({
+    required this.rowIndex,
+    required this.lrn,
+    required this.name,
+    required this.outcome,
+    this.reason,
+    this.existingStudentId,
+  });
+}
+
+/// Everything import() needs, computed read-only — shared by both
+/// import() (which then performs writes) and trial() (which doesn't).
+class Sf1TrialResult {
+  final String? rawRegion;
+  final int? regionId;
+  final String? regionError;
+  final String schoolIdCode;
+  final String schoolName;
+  final String schoolYear;
+  final String gradeLevel;
+  final String sectionName;
+  final List<Sf1TrialRow> rows;
+  final Map<int, Student> parsedStudents; // rowIndex -> parsed Student, insert+conflict rows only
+
+  Sf1TrialResult({
+    required this.rawRegion,
+    required this.regionId,
+    required this.regionError,
+    required this.schoolIdCode,
+    required this.schoolName,
+    required this.schoolYear,
+    required this.gradeLevel,
+    required this.sectionName,
+    required this.rows,
+    required this.parsedStudents,
+  });
+
+  int get wouldInsert => rows.where((r) => r.outcome == 'insert').length;
+  int get wouldConflict => rows.where((r) => r.outcome == 'conflict').length;
+  int get wouldSkip => rows.where((r) => r.outcome == 'skip').length;
+}
+
 class Sf1Importer {
   final SchoolRepository schoolRepo;       // Supabase — source of truth
   final SchoolRepository localSchoolRepo;  // SQLite — mirror
@@ -28,6 +80,7 @@ class Sf1Importer {
   final StudentRepository studentRepo;
   final StudentRepository localStudentRepo;
   final ImportConflictRepository conflictRepo; // Supabase only, no local mirror
+  final Sf1ColumnMap columnMap;
   final ScopedLogger _log;
   final XlsToXlsxConverter _converter;
 
@@ -39,6 +92,7 @@ class Sf1Importer {
     required this.studentRepo,
     required this.localStudentRepo,
     required this.conflictRepo,
+    required this.columnMap,
     Logger? logger,
   })  : _log = ScopedLogger(logger, 'Sf1Importer'),
         _converter = XlsToXlsxConverter(logger: logger);
@@ -88,114 +142,231 @@ class Sf1Importer {
   bool _isTotalRow(String? nameCell) =>
       nameCell != null && nameCell.toUpperCase().contains('TOTAL');
 
+  bool _hasMergedName(String cell) => cell.contains(',');
+
+  // Returns [last, first, middle, suffix] with blanks collapsed to null.
+  List<String?> _splitMergedName(String raw) {
+    final parts = raw.split(',').map((p) => p.trim()).toList();
+    return List.generate(4, (i) {
+      if (i >= parts.length) return null;
+      final v = parts[i];
+      return v.isEmpty ? null : v;
+    });
+  }
+
+  /// Parses the sheet and checks for LRN conflicts (read-only — findByLrn
+  /// is a lookup, never a write). Does NOT create anything. Shared by
+  /// import() and trial(), so the two can never drift apart on what
+  /// counts as "would insert" vs "would conflict" vs "would skip".
+  Future<Sf1TrialResult> _parseSheet(Excel excelFile) async {
+    final sheet = excelFile.tables[excelFile.tables.keys.first]!;
+
+    final rawRegion = _cell(sheet, columnMap.regionRow, columnMap.regionCol);
+    final regionId = Region.resolve(rawRegion);
+
+    final schoolIdCode = _cell(sheet, columnMap.schoolIdRow, columnMap.schoolIdCol) ?? 'UNKNOWN';
+    final schoolName = _cell(sheet, columnMap.schoolNameRow, columnMap.schoolNameCol) ?? 'UNKNOWN';
+    final schoolYear = _cell(sheet, columnMap.schoolYearRow, columnMap.schoolYearCol) ?? 'UNKNOWN';
+    final gradeLevel = _cell(sheet, columnMap.gradeLevelRow, columnMap.gradeLevelCol) ?? 'UNKNOWN';
+    final sectionName = _cell(sheet, columnMap.sectionNameRow, columnMap.sectionNameCol) ?? 'UNKNOWN';
+
+    final rows = <Sf1TrialRow>[];
+    final parsedStudents = <int, Student>{};
+
+    for (var row = columnMap.dataStartRow; row < sheet.maxRows; row++) {
+      final lrn = _cell(sheet, row, columnMap.lrn);
+      final lastName = _cell(sheet, row, columnMap.lastName);
+      final sex = _cell(sheet, row, columnMap.sex);
+
+      if (lrn == null || lastName == null || sex == null || _isTotalRow(lastName)) {
+        rows.add(Sf1TrialRow(
+          rowIndex: row,
+          lrn: lrn,
+          name: lastName ?? '',
+          outcome: 'skip',
+          reason: 'blank or total row',
+        ));
+        continue;
+      }
+
+      final Student parsed;
+      if (_hasMergedName(lastName)) {
+        final n = _splitMergedName(lastName);
+        parsed = Student(
+          lrn: lrn,
+          lastName: n[0] ?? '',
+          firstName: n[1] ?? '',
+          middleName: n[2],
+          sex: sex,
+          birthDate: _normalizeDate(_cell(sheet, row, columnMap.birthDate)),
+          motherTongue: _cell(sheet, row, columnMap.motherTongue),
+          ipGroup: _cell(sheet, row, columnMap.ipGroup),
+          religion: _cell(sheet, row, columnMap.religion),
+          addressStreet: _cell(sheet, row, columnMap.addressStreet),
+          barangay: _cell(sheet, row, columnMap.barangay),
+          municipality: _cell(sheet, row, columnMap.municipality),
+          province: _cell(sheet, row, columnMap.province),
+          fatherName: _cell(sheet, row, columnMap.fatherName),
+          motherMaidenName: _cell(sheet, row, columnMap.motherMaidenName),
+          guardianName: _cell(sheet, row, columnMap.guardianName),
+          guardianRelationship: _cell(sheet, row, columnMap.guardianRelationship),
+          contactNumber: _cell(sheet, row, columnMap.contactNumber),
+          learningModality: _cell(sheet, row, columnMap.learningModality),
+          remarks: _cell(sheet, row, columnMap.remarks),
+        );
+      } else {
+        parsed = Student(
+          lrn: lrn,
+          lastName: lastName,
+          firstName: _cell(sheet, row, columnMap.firstName) ?? '',
+          middleName: _cell(sheet, row, columnMap.middleName),
+          sex: _cell(sheet, row, columnMap.sex),
+          birthDate: _normalizeDate(_cell(sheet, row, columnMap.birthDate)),
+          motherTongue: _cell(sheet, row, columnMap.motherTongue),
+          ipGroup: _cell(sheet, row, columnMap.ipGroup),
+          religion: _cell(sheet, row, columnMap.religion),
+          addressStreet: _cell(sheet, row, columnMap.addressStreet),
+          barangay: _cell(sheet, row, columnMap.barangay),
+          municipality: _cell(sheet, row, columnMap.municipality),
+          province: _cell(sheet, row, columnMap.province),
+          fatherName: _cell(sheet, row, columnMap.fatherName),
+          motherMaidenName: _cell(sheet, row, columnMap.motherMaidenName),
+          guardianName: _cell(sheet, row, columnMap.guardianName),
+          guardianRelationship: _cell(sheet, row, columnMap.guardianRelationship),
+          contactNumber: _cell(sheet, row, columnMap.contactNumber),
+          learningModality: _cell(sheet, row, columnMap.learningModality),
+          remarks: _cell(sheet, row, columnMap.remarks),
+        );
+      }
+
+      final displayName =
+          '${parsed.lastName}, ${parsed.firstName}${parsed.middleName != null ? " ${parsed.middleName}" : ""}';
+      final existing = await studentRepo.findByLrn(lrn);
+
+      if (existing == null) {
+        rows.add(Sf1TrialRow(rowIndex: row, lrn: lrn, name: displayName, outcome: 'insert'));
+      } else {
+        rows.add(Sf1TrialRow(
+          rowIndex: row,
+          lrn: lrn,
+          name: displayName,
+          outcome: 'conflict',
+          reason: 'LRN already exists (existing student id ${existing.id})',
+          existingStudentId: existing.id,
+        ));
+      }
+      parsedStudents[row] = parsed;
+    }
+
+    return Sf1TrialResult(
+      rawRegion: rawRegion,
+      regionId: regionId,
+      regionError: regionId == null
+          ? 'Could not resolve region from cell value "${rawRegion ?? "(empty)"}" '
+              '(row ${columnMap.regionRow}, col ${columnMap.regionCol})'
+          : null,
+      schoolIdCode: schoolIdCode,
+      schoolName: schoolName,
+      schoolYear: schoolYear,
+      gradeLevel: gradeLevel,
+      sectionName: sectionName,
+      rows: rows,
+      parsedStudents: parsedStudents,
+    );
+  }
+
+  /// Parses and reports what import() WOULD do, without writing anything
+  /// anywhere — no Supabase writes, no local mirror writes. Safe to run
+  /// as many times as you like, including against files you're not sure
+  /// about yet.
+  Future<Sf1TrialResult> trial(String filePath) async {
+    _log('trial($filePath)');
+    final excelFile = await _decodeWithRepair(filePath);
+    return _parseSheet(excelFile);
+  }
+
   Future<Sf1ImportResult> import(String filePath) async {
     _log('import($filePath)');
     final result = Sf1ImportResult();
 
     final excelFile = await _decodeWithRepair(filePath);
-    final sheet = excelFile.tables[excelFile.tables.keys.first]!;
+    final parsed = await _parseSheet(excelFile);
 
-    // 1. Metadata -> get-or-create school + section IN SUPABASE, then mirror locally with the same id
+    if (parsed.regionId == null) {
+      throw Exception('${parsed.regionError}. Fix the source file or the Region matcher, then retry.');
+    }
+    _log('resolved region: ${Region.byId(parsed.regionId!)}');
+
     final school = await schoolRepo.getOrCreate(School(
-      schoolId: _cell(sheet, Sf1ColumnMap.schoolIdRow, Sf1ColumnMap.schoolIdCol) ?? 'UNKNOWN',
-      schoolName: _cell(sheet, Sf1ColumnMap.schoolNameRow, Sf1ColumnMap.schoolNameCol) ?? 'UNKNOWN',
+      schoolId: parsed.schoolIdCode,
+      schoolName: parsed.schoolName,
+      regionId: parsed.regionId,
     ));
     await localSchoolRepo.upsertWithId(school);
 
     final section = await sectionRepo.getOrCreate(Section(
       schoolId: school.id!,
-      schoolYear: _cell(sheet, Sf1ColumnMap.schoolYearRow, Sf1ColumnMap.schoolYearCol) ?? 'UNKNOWN',
-      gradeLevel: _cell(sheet, Sf1ColumnMap.gradeLevelRow, Sf1ColumnMap.gradeLevelCol) ?? 'UNKNOWN',
-      sectionName: _cell(sheet, Sf1ColumnMap.sectionNameRow, Sf1ColumnMap.sectionNameCol) ?? 'UNKNOWN',
+      schoolYear: parsed.schoolYear,
+      gradeLevel: parsed.gradeLevel,
+      sectionName: parsed.sectionName,
     ));
     await localSectionRepo.upsertWithId(section);
-
     _log('resolved section: $section (id=${section.id})');
 
-    // 2. Student rows
-    for (var row = Sf1ColumnMap.dataStartRow; row < sheet.maxRows; row++) {
-      final lrn = _cell(sheet, row, Sf1ColumnMap.lrn);
-      final lastName = _cell(sheet, row, Sf1ColumnMap.lastName);
-      final sex = _cell(sheet, row, Sf1ColumnMap.sex);
-
-      if (lrn == null || lastName == null || sex == null ||_isTotalRow(lastName)) {
+    for (final row in parsed.rows) {
+      if (row.outcome == 'skip') {
         result.skippedBlankOrTotal++;
         continue;
       }
 
-      final parsed = Student(
-        lrn: lrn,
-        lastName: lastName,
-        firstName: _cell(sheet, row, Sf1ColumnMap.firstName) ?? '',
-        middleName: _cell(sheet, row, Sf1ColumnMap.middleName),
-        sex: _cell(sheet, row, Sf1ColumnMap.sex),
-        birthDate: _normalizeDate(_cell(sheet, row, Sf1ColumnMap.birthDate)),
-        motherTongue: _cell(sheet, row, Sf1ColumnMap.motherTongue),
-        ipGroup: _cell(sheet, row, Sf1ColumnMap.ipGroup),
-        religion: _cell(sheet, row, Sf1ColumnMap.religion),
-        addressStreet: _cell(sheet, row, Sf1ColumnMap.addressStreet),
-        barangay: _cell(sheet, row, Sf1ColumnMap.barangay),
-        municipality: _cell(sheet, row, Sf1ColumnMap.municipality),
-        province: _cell(sheet, row, Sf1ColumnMap.province),
-        fatherName: _cell(sheet, row, Sf1ColumnMap.fatherName),
-        motherMaidenName: _cell(sheet, row, Sf1ColumnMap.motherMaidenName),
-        guardianName: _cell(sheet, row, Sf1ColumnMap.guardianName),
-        guardianRelationship: _cell(sheet, row, Sf1ColumnMap.guardianRelationship),
-        contactNumber: _cell(sheet, row, Sf1ColumnMap.contactNumber),
-        learningModality: _cell(sheet, row, Sf1ColumnMap.learningModality),
-        remarks: _cell(sheet, row, Sf1ColumnMap.remarks),
-      );
+      final studentParsed = parsed.parsedStudents[row.rowIndex]!;
 
-      final existing = await studentRepo.findByLrn(lrn);
-
-      if (existing == null) {
-        final inserted = await studentRepo.insert(parsed); // Supabase — school_id is still null here
+      if (row.outcome == 'insert') {
+        final inserted = await studentRepo.insert(studentParsed);
         await studentRepo.enroll(
           studentId: inserted.id!,
           sectionId: section.id!,
           schoolYear: section.schoolYear,
-        ); // trigger sets school_id server-side
+        );
 
-        // Mirror locally. We know school_id will now equal section.schoolId —
-        // that's exactly what the Postgres trigger just computed — so we set
-        // it directly rather than round-tripping a re-fetch from Supabase.
         final mirrored = Student(
           id: inserted.id,
-          lrn: parsed.lrn,
-          lastName: parsed.lastName,
-          firstName: parsed.firstName,
-          middleName: parsed.middleName,
-          sex: parsed.sex,
-          birthDate: parsed.birthDate,
-          motherTongue: parsed.motherTongue,
-          ipGroup: parsed.ipGroup,
-          religion: parsed.religion,
-          addressStreet: parsed.addressStreet,
-          barangay: parsed.barangay,
-          municipality: parsed.municipality,
-          province: parsed.province,
-          fatherName: parsed.fatherName,
-          motherMaidenName: parsed.motherMaidenName,
-          guardianName: parsed.guardianName,
-          guardianRelationship: parsed.guardianRelationship,
-          contactNumber: parsed.contactNumber,
-          learningModality: parsed.learningModality,
-          remarks: parsed.remarks,
+          lrn: studentParsed.lrn,
+          lastName: studentParsed.lastName,
+          firstName: studentParsed.firstName,
+          middleName: studentParsed.middleName,
+          sex: studentParsed.sex,
+          birthDate: studentParsed.birthDate,
+          motherTongue: studentParsed.motherTongue,
+          ipGroup: studentParsed.ipGroup,
+          religion: studentParsed.religion,
+          addressStreet: studentParsed.addressStreet,
+          barangay: studentParsed.barangay,
+          municipality: studentParsed.municipality,
+          province: studentParsed.province,
+          fatherName: studentParsed.fatherName,
+          motherMaidenName: studentParsed.motherMaidenName,
+          guardianName: studentParsed.guardianName,
+          guardianRelationship: studentParsed.guardianRelationship,
+          contactNumber: studentParsed.contactNumber,
+          learningModality: studentParsed.learningModality,
+          remarks: studentParsed.remarks,
           schoolId: section.schoolId,
         );
         await localStudentRepo.upsertWithId(mirrored);
 
         result.inserted++;
       } else {
+        // conflict
         await conflictRepo.log(ImportConflict(
-          lrn: lrn,
+          lrn: row.lrn!,
           sectionId: section.id,
-          reason: 'LRN already exists (existing student id ${existing.id})',
-          incomingDataJson: jsonEncode(parsed.toMap()),
-          existingStudentId: existing.id,
+          reason: row.reason!,
+          incomingDataJson: jsonEncode(studentParsed.toMap()),
+          existingStudentId: row.existingStudentId,
         ));
         result.conflicts++;
-        _log('conflict flagged: LRN $lrn already exists');
+        _log('conflict flagged: LRN ${row.lrn} already exists');
       }
     }
 

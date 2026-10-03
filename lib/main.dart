@@ -24,6 +24,7 @@ import 'package:basa_capstone/core/console/commands/import_commands.dart';
 import 'package:basa_capstone/core/data/remote/supabase_config.dart';
 import 'package:basa_capstone/core/data/remote/user_repository_supabase.dart';
 import 'package:basa_capstone/core/services/roster_exporter.dart';
+import 'package:basa_capstone/core/services/sf1_column_map.dart';
 // import 'package:basa_capstone/core/services/sf1_importer.dart';
 import 'package:basa_capstone/core/viewmodels/viewmodel_registry.dart';
 import 'package:basa_capstone/viewmodels/auth_viewmodel.dart';
@@ -95,9 +96,10 @@ vmRegistry.register('TextViewModel', textVm);
   // studentRepo: studentRepo, conflictRepo: conflictRepo, logger: session,
   // ); kept for history purposes
   final exporter = RosterExporter();
+  final columnMap = await Sf1ColumnMap.load(docsDir.path);
 
   registerStudentCommands(registry, exporter, sectionRepo, studentRepo);
-  registerImportCommands(registry, authVm, schoolRepo, sectionRepo, studentRepo, session);
+  registerImportCommands(registry, authVm, schoolRepo, sectionRepo, studentRepo, columnMap, session);
 
   runApp(BasaApp(session: session, textVm: textVm));
 }

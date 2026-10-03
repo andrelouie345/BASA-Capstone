@@ -16,7 +16,7 @@ class LocalDatabase {
     _db = await databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 5, // was 4
+        version: 6, // was 5
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
@@ -24,6 +24,7 @@ class LocalDatabase {
               name TEXT NOT NULL
             )
           ''');
+          await _createRegionsTable(db);
           await _createStudentTables(db);
           await _createUserManagementTables(db);
         },
@@ -51,10 +52,75 @@ class LocalDatabase {
           if (!studentsHasSchoolId) {
             await db.execute('ALTER TABLE students ADD COLUMN school_id INTEGER REFERENCES schools(id)');
           }
+
+          final regionsExists = (await db.rawQuery(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='regions'",
+          )).isNotEmpty;
+          if (!regionsExists) {
+            await _createRegionsTable(db);
+          }
+
+          final schoolColumns = await db.rawQuery('PRAGMA table_info(schools)');
+          final schoolsHasOldRegionText = schoolColumns.any((c) => c['name'] == 'region');
+          final schoolsHasRegionId = schoolColumns.any((c) => c['name'] == 'region_id');
+          if (schoolsHasOldRegionText && !schoolsHasRegionId) {
+            // Rebuild-copy-rename rather than ALTER TABLE DROP COLUMN —
+            // avoids depending on a specific SQLite version's feature support
+            // across desktop (FFI) vs mobile (OS-bundled) builds.
+            await db.execute('''
+              CREATE TABLE schools_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                school_id TEXT UNIQUE NOT NULL,
+                school_name TEXT NOT NULL,
+                region_id INTEGER REFERENCES regions(id),
+                division TEXT
+              )
+            ''');
+            await db.execute('''
+              INSERT INTO schools_new (id, school_id, school_name, division, region_id)
+              SELECT id, school_id, school_name, division, NULL FROM schools
+            ''');
+            await db.execute('DROP TABLE schools');
+            await db.execute('ALTER TABLE schools_new RENAME TO schools');
+          }
         },
       ),
     );
     return _db!;
+  }
+
+  static Future<void> _createRegionsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE regions (
+        id INTEGER PRIMARY KEY,
+        code TEXT UNIQUE NOT NULL,
+        name TEXT NOT NULL
+      )
+    ''');
+
+    const regions = [
+      [1, 'Region I', 'Ilocos Region'],
+      [2, 'Region II', 'Cagayan Valley'],
+      [3, 'Region III', 'Central Luzon'],
+      [4, 'Region IV-A', 'CALABARZON'],
+      [5, 'Region IV-B', 'MIMAROPA'],
+      [6, 'Region V', 'Bicol Region'],
+      [7, 'NCR', 'National Capital Region'],
+      [8, 'CAR', 'Cordillera Administrative Region'],
+      [9, 'Region VI', 'Western Visayas'],
+      [10, 'Region VII', 'Central Visayas'],
+      [11, 'Region VIII', 'Eastern Visayas'],
+      [12, 'Region IX', 'Zamboanga Peninsula'],
+      [13, 'Region X', 'Northern Mindanao'],
+      [14, 'Region XI', 'Davao Region'],
+      [15, 'Region XII', 'SOCCSKSARGEN'],
+      [16, 'Region XIII', 'Caraga'],
+      [17, 'BARMM', 'Bangsamoro Autonomous Region in Muslim Mindanao'],
+      [18, 'NIR', 'Negros Island Region'],
+    ];
+    for (final r in regions) {
+      await db.insert('regions', {'id': r[0], 'code': r[1], 'name': r[2]});
+    }
   }
 
   static Future<void> _createStudentTables(Database db) async{
@@ -64,7 +130,7 @@ class LocalDatabase {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         school_id TEXT UNIQUE NOT NULL,
         school_name TEXT NOT NULL,
-        region TEXT,
+        region_id INTEGER REFERENCES regions(id),
         division TEXT)
     ''');
 

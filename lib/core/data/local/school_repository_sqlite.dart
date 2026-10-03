@@ -13,7 +13,7 @@ class SchoolRepositorySqlite implements SchoolRepository {
     if (existing.isNotEmpty) return School.fromMap(existing.first);
 
     final id = await db.insert('schools', school.toMap());
-    return School(id: id, schoolId: school.schoolId, schoolName: school.schoolName, region: school.region, division: school.division);
+    return School(id: id, schoolId: school.schoolId, schoolName: school.schoolName, regionId: school.regionId, division: school.division);
   }
 
   @override

@@ -57,9 +57,19 @@ class StudentRepositorySqlite implements StudentRepository {
   }
 
     @override
-  Future<List<Student>> getAll() async {
-    final rows = await db.query('students', orderBy: 'last_name COLLATE NOCASE, first_name COLLATE NOCASE');
-    return rows.map(Student.fromMap).toList();
+  Future<List<Student>> getAll(String sort) async {
+    if (sort == 'lastname') {
+      final rows = await db.query('students', orderBy: 'last_name COLLATE NOCASE, first_name COLLATE NOCASE');
+      return rows.map(Student.fromMap).toList();
+    } else if (sort == 'lrn') {
+      final rows = await db.query('students', orderBy: 'lrn');
+      return rows.map(Student.fromMap).toList();
+    } else if (sort == 'id') {
+      final rows = await db.query('students', orderBy: 'id');
+      return rows.map(Student.fromMap).toList();
+    } else {
+      throw ArgumentError('Invalid sort option: $sort');
+    }
   }
 }
 // MIght need to add a delete methode here or actually denote that they are finished from the program.

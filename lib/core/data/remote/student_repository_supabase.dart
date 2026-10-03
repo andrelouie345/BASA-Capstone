@@ -59,8 +59,18 @@ class StudentRepositorySupabase implements StudentRepository {
   }
 
     @override
-  Future<List<Student>> getAll() async {
-    final rows = await client.from('students').select().order('last_name').order('first_name');
-    return (rows as List).map((r) => Student.fromMap(r as Map<String, Object?>)).toList();
+  Future<List<Student>> getAll(String sort) async {
+    if (sort == 'lastname') {
+      final rows = await client.from('students').select().order('last_name', ascending: true).order('first_name', ascending: true);
+      return (rows as List).map((r) => Student.fromMap(r as Map<String, Object?>)).toList();
+    } else if (sort == 'lrn') {
+      final rows = await client.from('students').select().order('lrn', ascending: true);
+      return (rows as List).map((r) => Student.fromMap(r as Map<String, Object?>)).toList();
+    } else if (sort == 'id') {
+      final rows = await client.from('students').select().order('id', ascending: true);
+      return (rows as List).map((r) => Student.fromMap(r as Map<String, Object?>)).toList();
+    } else {
+      throw ArgumentError('Invalid sort option: $sort');
+    }
   }
 }
