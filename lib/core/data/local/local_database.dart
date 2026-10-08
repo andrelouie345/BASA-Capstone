@@ -16,7 +16,7 @@ class LocalDatabase {
     _db = await databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 6, // was 5
+        version: 10, // was 9
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
@@ -27,10 +27,16 @@ class LocalDatabase {
           await _createRegionsTable(db);
           await _createStudentTables(db);
           await _createUserManagementTables(db);
+          await _createCrlaTables(db);
+          await _createCrlaScoreTables(db);
+          await _createCrlaViews(db);
+
         },
         onUpgrade: (db, oldVersion, newVersion) async {
           if (oldVersion < 2) {
             await _createStudentTables(db);
+
+
           }
 
           final usersExists = (await db.rawQuery(
@@ -83,6 +89,10 @@ class LocalDatabase {
             await db.execute('DROP TABLE schools');
             await db.execute('ALTER TABLE schools_new RENAME TO schools');
           }
+
+            await _createCrlaTables(db);
+            await _createCrlaScoreTables(db);
+            await _createCrlaViews(db);
         },
       ),
     );
@@ -224,6 +234,294 @@ class LocalDatabase {
         timestamp TEXT NOT NULL DEFAULT (datetime('now')),
         failure_reason TEXT
       )
+    ''');
+  }
+
+  static Future<void> _createCrlaTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS crla_stories (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        region_id INTEGER NOT NULL REFERENCES regions(id),
+        language TEXT NOT NULL,
+        grade INTEGER NOT NULL CHECK (grade IN (1, 2, 3)),
+        story_no INTEGER NOT NULL CHECK (story_no IN (1, 2)),
+        title TEXT NOT NULL,
+        word_count INTEGER NOT NULL CHECK (word_count > 0),
+        source_story_no INTEGER,
+        UNIQUE(region_id, language, grade, story_no)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS crla_assessments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        student_id INTEGER NOT NULL REFERENCES students(id),
+        school_id INTEGER NOT NULL REFERENCES schools(id),
+        section_id INTEGER NOT NULL REFERENCES sections(id),
+        school_year TEXT NOT NULL,
+        subject_variant TEXT NOT NULL CHECK (subject_variant IN ('mt', 'fil', 'eng')),
+        language TEXT NOT NULL,
+        attempt_no INTEGER NOT NULL DEFAULT 0 CHECK (attempt_no >= 0),
+        assessed_at TEXT NOT NULL,
+        administered_by TEXT REFERENCES users(id),
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE(student_id, school_id, section_id, subject_variant, school_year, attempt_no)
+      )
+    ''');
+
+    // attempt_no = 0 means "assign the next number"; mirrored rows arrive with the real one.
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS set_crla_attempt_no
+      AFTER INSERT ON crla_assessments
+      WHEN NEW.attempt_no = 0
+      BEGIN
+        UPDATE crla_assessments
+        SET attempt_no = COALESCE((
+          SELECT MAX(attempt_no) FROM crla_assessments
+          WHERE student_id = NEW.student_id
+            AND school_id = NEW.school_id
+            AND section_id = NEW.section_id
+            AND subject_variant = NEW.subject_variant
+            AND school_year = NEW.school_year
+            AND id <> NEW.id
+        ), 0) + 1
+        WHERE id = NEW.id;
+      END
+    ''');
+  }
+
+  static Future<void> _createCrlaScoreTables(Database db) async {
+    // ---- Part 1 (standard: mt / fil) ----
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS crla_part1_standard (
+        assessment_id INTEGER PRIMARY KEY REFERENCES crla_assessments(id),
+        task1_score INTEGER NOT NULL CHECK (task1_score BETWEEN 0 AND 10),
+        task2_low_score INTEGER CHECK (task2_low_score BETWEEN 0 AND 10),
+        task2_high_score INTEGER CHECK (task2_high_score BETWEEN 0 AND 10),
+        total_score INTEGER,
+        reading_level TEXT,
+        CHECK (task2_low_score IS NULL OR task1_score < 7),
+        CHECK (task2_high_score IS NULL OR task1_score >= 7)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS check_crla_part1_standard_variant
+      BEFORE INSERT ON crla_part1_standard
+      WHEN IFNULL((SELECT subject_variant FROM crla_assessments WHERE id = NEW.assessment_id), '')
+           NOT IN ('mt', 'fil')
+      BEGIN
+        SELECT RAISE(ABORT, 'Standard Part 1 requires an mt or fil assessment');
+      END
+    ''');
+
+        // after check_crla_part1_standard_variant
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS check_crla_part1_standard_variant_upd
+      BEFORE UPDATE OF assessment_id ON crla_part1_standard
+      WHEN IFNULL((SELECT subject_variant FROM crla_assessments WHERE id = NEW.assessment_id), '')
+           NOT IN ('mt', 'fil')
+      BEGIN
+        SELECT RAISE(ABORT, 'Standard Part 1 requires an mt or fil assessment');
+      END
+    ''');
+
+    const standardCompute = '''
+      UPDATE crla_part1_standard
+      SET total_score = CASE
+            WHEN task1_score < 7 THEN task1_score + IFNULL(task2_low_score, 0)
+            ELSE task1_score + 10 + IFNULL(task2_high_score, 0)
+          END,
+          reading_level = CASE
+            WHEN task1_score < 7 THEN
+              CASE WHEN task1_score + IFNULL(task2_low_score, 0) <= 10
+                   THEN 'Full Refresher' ELSE 'Moderate Refresher' END
+            ELSE
+              CASE WHEN task1_score + 10 + IFNULL(task2_high_score, 0) < 27
+                   THEN 'Light Refresher' ELSE 'Grade Ready' END
+          END
+      WHERE assessment_id = NEW.assessment_id;
+    ''';
+
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS compute_crla_part1_standard_ins
+      AFTER INSERT ON crla_part1_standard
+      BEGIN $standardCompute END
+    ''');
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS compute_crla_part1_standard_upd
+      AFTER UPDATE OF task1_score, task2_low_score, task2_high_score ON crla_part1_standard
+      BEGIN $standardCompute END
+    ''');
+
+    // ---- Part 1 (English: eng) ----
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS crla_part1_english (
+        assessment_id INTEGER PRIMARY KEY REFERENCES crla_assessments(id),
+        task1_score INTEGER NOT NULL CHECK (task1_score BETWEEN 0 AND 10),
+        task2_score INTEGER CHECK (task2_score BETWEEN 0 AND 10),
+        total_score INTEGER,
+        reading_level TEXT,
+        CHECK (task2_score IS NULL OR task1_score >= 1)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS check_crla_part1_english_variant
+      BEFORE INSERT ON crla_part1_english
+      WHEN IFNULL((SELECT subject_variant FROM crla_assessments WHERE id = NEW.assessment_id), '')
+           <> 'eng'
+      BEGIN
+        SELECT RAISE(ABORT, 'English Part 1 requires an eng assessment');
+      END
+    ''');
+
+        // after check_crla_part1_english_variant
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS check_crla_part1_english_variant_upd
+      BEFORE UPDATE OF assessment_id ON crla_part1_english
+      WHEN IFNULL((SELECT subject_variant FROM crla_assessments WHERE id = NEW.assessment_id), '')
+           <> 'eng'
+      BEGIN
+        SELECT RAISE(ABORT, 'English Part 1 requires an eng assessment');
+      END
+    ''');
+
+    const englishCompute = '''
+      UPDATE crla_part1_english
+      SET total_score = task1_score + IFNULL(task2_score, 0),
+          reading_level = CASE
+            WHEN task1_score + IFNULL(task2_score, 0) = 0 THEN 'Full Refresher'
+            WHEN task1_score + IFNULL(task2_score, 0) <= 10 THEN 'Moderate Refresher'
+            WHEN task1_score + IFNULL(task2_score, 0) <= 16 THEN 'Light Refresher'
+            ELSE 'Grade Ready'
+          END
+      WHERE assessment_id = NEW.assessment_id;
+    ''';
+
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS compute_crla_part1_english_ins
+      AFTER INSERT ON crla_part1_english
+      BEGIN $englishCompute END
+    ''');
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS compute_crla_part1_english_upd
+      AFTER UPDATE OF task1_score, task2_score ON crla_part1_english
+      BEGIN $englishCompute END
+    ''');
+
+    // ---- Part 2 (fluency, all variants) ----
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS crla_part2_fluency (
+        assessment_id INTEGER PRIMARY KEY REFERENCES crla_assessments(id),
+        story_no INTEGER NOT NULL CHECK (story_no IN (1, 2)),
+        miscues INTEGER NOT NULL CHECK (miscues >= 0),
+        words_read INTEGER NOT NULL CHECK (words_read >= 0),
+        time_minutes INTEGER NOT NULL CHECK (time_minutes >= 0),
+        time_seconds INTEGER NOT NULL CHECK (time_seconds BETWEEN 0 AND 59),
+        wpm REAL,
+        comprehension_correct INTEGER NOT NULL CHECK (comprehension_correct BETWEEN 0 AND 5),
+        learner_experience_rating INTEGER CHECK (learner_experience_rating BETWEEN 1 AND 5),
+        observation_level INTEGER CHECK (observation_level BETWEEN 1 AND 4),
+        remarks TEXT
+      )
+    ''');
+
+    const fluencyCompute = '''
+      UPDATE crla_part2_fluency
+      SET wpm = CASE
+            WHEN time_minutes * 60 + time_seconds > 0
+            THEN ROUND(words_read * 1.0 / (time_minutes * 60 + time_seconds) * 60, 1)
+            ELSE NULL
+          END
+      WHERE assessment_id = NEW.assessment_id;
+    ''';
+
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS compute_crla_part2_fluency_ins
+      AFTER INSERT ON crla_part2_fluency
+      BEGIN $fluencyCompute END
+    ''');
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS compute_crla_part2_fluency_upd
+      AFTER UPDATE OF words_read, time_minutes, time_seconds ON crla_part2_fluency
+      BEGIN $fluencyCompute END
+    ''');
+
+    await db.execute('DROP TRIGGER IF EXISTS compute_crla_part2_fluency_ins');
+    await db.execute('''
+      CREATE TRIGGER compute_crla_part2_fluency_ins
+      AFTER INSERT ON crla_part2_fluency
+      WHEN NEW.wpm IS NULL
+      BEGIN $fluencyCompute END
+    ''');
+  }
+
+  static Future<void> _createCrlaViews(Database db) async {
+    // DROP + CREATE (not IF NOT EXISTS) so a changed definition always replaces the old one.
+    await db.execute('DROP VIEW IF EXISTS crla_results');
+    await db.execute('''
+      CREATE VIEW crla_results AS
+      SELECT
+        ca.id AS assessment_id,
+        ca.student_id,
+        ca.school_id,
+        ca.section_id,
+        ca.school_year,
+        ca.subject_variant,
+        ca.language,
+        ca.attempt_no,
+        ca.assessed_at,
+        COALESCE(p1s.total_score, p1e.total_score) AS part1_total_score,
+        COALESCE(p1s.reading_level, p1e.reading_level) AS part1_reading_level,
+        p2.story_no,
+        p2.words_read,
+        p2.miscues,
+        p2.wpm,
+        p2.comprehension_correct,
+        p2.learner_experience_rating,
+        p2.observation_level,
+        p2.remarks,
+        ROUND(p2.words_read * 1.0 / NULLIF(cs.word_count, 0), 4) AS pct_correct_words_read,
+        CASE
+          WHEN COALESCE(p1s.reading_level, p1e.reading_level)
+               IN ('Full Refresher', 'Moderate Refresher')
+            THEN 'Low Emerging Reader'
+          WHEN p2.story_no IS NULL OR cs.word_count IS NULL THEN NULL
+          WHEN (p2.words_read * 1.0 / cs.word_count) <= 0.25
+               OR ((p2.words_read * 1.0 / cs.word_count) > 0.25
+                   AND (p2.words_read * 1.0 / cs.word_count) <= 0.50
+                   AND p2.comprehension_correct = 0)
+            THEN 'High Emerging Reader'
+          WHEN ((p2.words_read * 1.0 / cs.word_count) > 0.25
+                AND (p2.words_read * 1.0 / cs.word_count) < 0.51
+                AND p2.comprehension_correct >= 1)
+               OR ((p2.words_read * 1.0 / cs.word_count) > 0.50
+                   AND (p2.words_read * 1.0 / cs.word_count) < 0.76
+                   AND p2.comprehension_correct <= 1)
+            THEN 'Developing Reader'
+          WHEN ((p2.words_read * 1.0 / cs.word_count) >= 0.51
+                AND (p2.words_read * 1.0 / cs.word_count) < 0.76
+                AND p2.comprehension_correct >= 2)
+               OR ((p2.words_read * 1.0 / cs.word_count) > 0.75
+                   AND p2.comprehension_correct <= 3)
+            THEN 'Transitioning Reader'
+          WHEN (p2.words_read * 1.0 / cs.word_count) > 0.75
+               AND p2.comprehension_correct >= 4
+            THEN 'Reading At Grade Level'
+          ELSE NULL
+        END AS reading_profile
+      FROM crla_assessments ca
+      LEFT JOIN crla_part1_standard p1s ON p1s.assessment_id = ca.id
+      LEFT JOIN crla_part1_english  p1e ON p1e.assessment_id = ca.id
+      LEFT JOIN crla_part2_fluency  p2  ON p2.assessment_id  = ca.id
+      JOIN sections sec ON sec.id = ca.section_id
+      JOIN schools  sch ON sch.id = ca.school_id
+      LEFT JOIN crla_stories cs
+        ON cs.region_id = sch.region_id
+       AND cs.language  = ca.language
+       AND cs.grade     = CAST(sec.grade_level AS INTEGER)
+       AND cs.story_no  = p2.story_no
     ''');
   }
 

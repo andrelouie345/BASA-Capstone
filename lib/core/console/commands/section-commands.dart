@@ -46,7 +46,7 @@ void registerSectionCommands(ConsoleRegistry registry, AuthViewModel authVm, Log
         final section = await repo.getOrCreate(Section(
           schoolId: schoolId,
           schoolYear: args[1],
-          gradeLevel: args[2],
+          gradeLevel: normalizeGradeLevel(args[2]),
           sectionName: args.sublist(3).join(' '),
         ));
         return 'OK: ${section.id} | $section';
@@ -99,7 +99,7 @@ void registerSectionCommands(ConsoleRegistry registry, AuthViewModel authVm, Log
           id: id,
           schoolId: existing.schoolId,
           schoolYear: args[1],
-          gradeLevel: args[2],
+          gradeLevel: normalizeGradeLevel(args[2]),
           sectionName: args.sublist(3).join(' '),
         ));
         return 'Updated: ${updated.id} | $updated';
@@ -136,4 +136,12 @@ void registerSectionCommands(ConsoleRegistry registry, AuthViewModel authVm, Log
       }
     },
   ));
+}
+
+String normalizeGradeLevel(String arg) {
+  final match = RegExp(r'\d+').firstMatch(arg);
+  if (match == null) {
+    throw FormatException('No numeric grade level found in "$arg"');
+  }
+  return int.parse(match.group(0)!).toString();
 }

@@ -1,0 +1,9 @@
+You left here btw:
+
+dart analyze outputs say no issues found, pragma say user version is 10
+Okay
+Okay
+Okay
+Here is the AuthViewModel: 
+I would want to check
+yes, leave it out until we get to tutor account capabilities(in which the tutor account can get and edit their assigned sections and students and store them offline. Like, it stores it offline first and then the edits happen in the local db and afterwards the local db data is synced into the 

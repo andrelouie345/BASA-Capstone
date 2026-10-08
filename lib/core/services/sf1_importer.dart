@@ -167,11 +167,12 @@ class Sf1Importer {
     final schoolIdCode = _cell(sheet, columnMap.schoolIdRow, columnMap.schoolIdCol) ?? 'UNKNOWN';
     final schoolName = _cell(sheet, columnMap.schoolNameRow, columnMap.schoolNameCol) ?? 'UNKNOWN';
     final schoolYear = _cell(sheet, columnMap.schoolYearRow, columnMap.schoolYearCol) ?? 'UNKNOWN';
-    final gradeLevel = _cell(sheet, columnMap.gradeLevelRow, columnMap.gradeLevelCol) ?? 'UNKNOWN';
+    final gradeLevel = normalizeGradeLevel(_cell(sheet, columnMap.gradeLevelRow, columnMap.gradeLevelCol) ?? 'UNKNOWN');
     final sectionName = _cell(sheet, columnMap.sectionNameRow, columnMap.sectionNameCol) ?? 'UNKNOWN';
 
     final rows = <Sf1TrialRow>[];
     final parsedStudents = <int, Student>{};
+
 
     for (var row = columnMap.dataStartRow; row < sheet.maxRows; row++) {
       final lrn = _cell(sheet, row, columnMap.lrn);
@@ -190,13 +191,24 @@ class Sf1Importer {
       }
 
       final Student parsed;
+      final String? lName ;
+      final String? fName ;
+      final String? mName ;
       if (_hasMergedName(lastName)) {
         final n = _splitMergedName(lastName);
-        parsed = Student(
+        lName = n[0] ?? '';
+        fName = n[1] ?? '';
+        mName = n[2];
+      } else {
+        lName = lastName;
+        fName = _cell(sheet, row, columnMap.firstName) ?? '';
+        mName = _cell(sheet, row, columnMap.middleName);
+      }
+      parsed = Student(
           lrn: lrn,
-          lastName: n[0] ?? '',
-          firstName: n[1] ?? '',
-          middleName: n[2],
+          lastName: lName,
+          firstName: fName,
+          middleName: mName,
           sex: sex,
           birthDate: _normalizeDate(_cell(sheet, row, columnMap.birthDate)),
           motherTongue: _cell(sheet, row, columnMap.motherTongue),
@@ -214,30 +226,6 @@ class Sf1Importer {
           learningModality: _cell(sheet, row, columnMap.learningModality),
           remarks: _cell(sheet, row, columnMap.remarks),
         );
-      } else {
-        parsed = Student(
-          lrn: lrn,
-          lastName: lastName,
-          firstName: _cell(sheet, row, columnMap.firstName) ?? '',
-          middleName: _cell(sheet, row, columnMap.middleName),
-          sex: _cell(sheet, row, columnMap.sex),
-          birthDate: _normalizeDate(_cell(sheet, row, columnMap.birthDate)),
-          motherTongue: _cell(sheet, row, columnMap.motherTongue),
-          ipGroup: _cell(sheet, row, columnMap.ipGroup),
-          religion: _cell(sheet, row, columnMap.religion),
-          addressStreet: _cell(sheet, row, columnMap.addressStreet),
-          barangay: _cell(sheet, row, columnMap.barangay),
-          municipality: _cell(sheet, row, columnMap.municipality),
-          province: _cell(sheet, row, columnMap.province),
-          fatherName: _cell(sheet, row, columnMap.fatherName),
-          motherMaidenName: _cell(sheet, row, columnMap.motherMaidenName),
-          guardianName: _cell(sheet, row, columnMap.guardianName),
-          guardianRelationship: _cell(sheet, row, columnMap.guardianRelationship),
-          contactNumber: _cell(sheet, row, columnMap.contactNumber),
-          learningModality: _cell(sheet, row, columnMap.learningModality),
-          remarks: _cell(sheet, row, columnMap.remarks),
-        );
-      }
 
       final displayName =
           '${parsed.lastName}, ${parsed.firstName}${parsed.middleName != null ? " ${parsed.middleName}" : ""}';
@@ -372,5 +360,13 @@ class Sf1Importer {
 
     _log('done: ${result.inserted} inserted, ${result.conflicts} conflicts, ${result.skippedBlankOrTotal} skipped');
     return result;
+  }
+
+  String normalizeGradeLevel(String gradeLevel) {
+    final match = RegExp(r'\d+').firstMatch(gradeLevel);
+    if (match == null) {
+      throw FormatException('No numeric grade level found in "$gradeLevel"');
+    }
+    return int.parse(match.group(0)!).toString();
   }
 }
