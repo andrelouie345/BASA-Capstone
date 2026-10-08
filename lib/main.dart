@@ -42,7 +42,13 @@ import 'package:path_provider/path_provider.dart';
 import 'core/data/local/local_database.dart';
 import 'core/data/local/test_repository_sqlite.dart';
 import 'viewmodels/test_data_viewmodel.dart';
-
+import 'package:basa_capstone/core/console/commands/crla_commands.dart';
+import 'package:basa_capstone/core/data/local/crla_assessment_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/local/crla_part1_english_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/local/crla_part1_standard_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/local/crla_part2_fluency_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/local/crla_result_repository_sqlite.dart';
+import 'package:basa_capstone/viewmodels/crla_viewmodel.dart';
 Future <void> main() async{
 
   // Desktop needs FFI explicitly. Android/iOS get sqflite's native
@@ -63,6 +69,7 @@ vmRegistry.register('TextViewModel', textVm);
 
 
   registerTextCommands(registry, textVm);
+
   registerDebugCommands(registry, session, vmRegistry);
   final testDataVm = TestDataViewModel(repo: TestRepositorySqlite(localDb), logger: session);
   vmRegistry.register('TestDataViewModel', testDataVm);
@@ -82,6 +89,18 @@ vmRegistry.register('TextViewModel', textVm);
   registerSectionCommands(registry, authVm, session);
   registerSchoolCommands(registry, authVm, session);
   registerTutorSectionCommands(registry, authVm, session);
+
+  
+    final crlaVm = CrlaViewModel(
+    assessments: CrlaAssessmentRepositorySqlite(localDb),
+    part1Standard: CrlaPart1StandardRepositorySqlite(localDb),
+    part1English: CrlaPart1EnglishRepositorySqlite(localDb),
+    part2Fluency: CrlaPart2FluencyRepositorySqlite(localDb),
+    results: CrlaResultRepositorySqlite(localDb),
+    logger: session,
+  );
+  vmRegistry.register('CrlaViewModel', crlaVm);
+  registerCrlaCommands(registry, authVm, crlaVm);
   
   final loginLogVm = LoginLogViewModel(repo: LoginLogRepositorySqlite(localDb), logger: session);
   vmRegistry.register('LoginLogViewModel', loginLogVm);

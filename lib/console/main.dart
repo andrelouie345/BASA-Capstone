@@ -35,7 +35,13 @@ import '../core/viewmodels/viewmodel_registry.dart';
 import '../viewmodels/text_viewmodel.dart';
 import '../viewmodels/test_data_viewmodel.dart';
 import '../viewmodels/login_log_viewmodel.dart';
-
+import 'package:basa_capstone/core/console/commands/crla_commands.dart';
+import 'package:basa_capstone/core/data/local/crla_assessment_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/local/crla_part1_english_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/local/crla_part1_standard_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/local/crla_part2_fluency_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/local/crla_result_repository_sqlite.dart';
+import 'package:basa_capstone/viewmodels/crla_viewmodel.dart';
 
 Future<void> main() async {
   // Pure `dart run` has no Flutter engine, so we MUST use the FFI
@@ -95,5 +101,15 @@ Future<void> main() async {
   final loginLogVm = LoginLogViewModel(repo: LoginLogRepositorySqlite(localDb), logger: session);
   vmRegistry.register('LoginLogViewModel', loginLogVm);
   registerLoginCommands(registry, LoginLogViewModel(repo: loginLogRepo, logger: session), authVm);
+    final crlaVm = CrlaViewModel(
+    assessments: CrlaAssessmentRepositorySqlite(localDb),
+    part1Standard: CrlaPart1StandardRepositorySqlite(localDb),
+    part1English: CrlaPart1EnglishRepositorySqlite(localDb),
+    part2Fluency: CrlaPart2FluencyRepositorySqlite(localDb),
+    results: CrlaResultRepositorySqlite(localDb),
+    logger: session,
+  );
+  vmRegistry.register('CrlaViewModel', crlaVm);
+  registerCrlaCommands(registry, authVm, crlaVm);
   registerDebugCommands(registry, session, vmRegistry);
 }
