@@ -7,6 +7,7 @@ import '../console_command.dart';
 import '../console_registry.dart';
 import '../../../viewmodels/auth_viewmodel.dart';
 import '../../../viewmodels/crla_viewmodel.dart';
+import '../../models/crla_result.dart';
 
 void registerCrlaCommands(ConsoleRegistry registry, AuthViewModel authVm, CrlaViewModel vm) {
   registry.register(ConsoleCommand(
@@ -106,4 +107,112 @@ void registerCrlaCommands(ConsoleRegistry registry, AuthViewModel authVm, CrlaVi
       }
     },
   ));
+    registry.register(ConsoleCommand(
+    name: 'crla-part2',
+    description: 'crla-part2 <assessmentId> <storyNo> <miscues> <wordsRead> <minutes> <seconds> '
+        '<comprehension> [experience|-] [observation|-] [remarks...] — save Part 2 (fluency)',
+    handler: (args) async {
+      final guardError = authVm.requireActiveSession();
+      if (guardError != null) return guardError;
+
+      const usage = 'Usage: crla-part2 <assessmentId> <storyNo> <miscues> <wordsRead> '
+          '<minutes> <seconds> <comprehension> [experience|-] [observation|-] [remarks...]';
+      if (args.length < 7) return usage;
+
+      final names = ['assessmentId', 'storyNo', 'miscues', 'wordsRead', 'minutes', 'seconds', 'comprehension'];
+      final nums = <int>[];
+      for (var i = 0; i < 7; i++) {
+        final n = int.tryParse(args[i]);
+        if (n == null) return 'Invalid ${names[i]}: "${args[i]}" (expected a number)';
+        nums.add(n);
+      }
+
+      // Optional rating and observation: a number, or "-" to skip it.
+      int? optional(int index, String name) {
+        if (args.length <= index || args[index] == '-') return null;
+        final n = int.tryParse(args[index]);
+        if (n == null) throw FormatException('Invalid $name: "${args[index]}" (expected a number or -)');
+        return n;
+      }
+
+      try {
+        final experience = optional(7, 'experience');
+        final observation = optional(8, 'observation');
+        final remarks = args.length > 9 ? args.sublist(9).join(' ') : null;
+
+        final stored = await vm.savePart2Fluency(
+          assessmentId: nums[0],
+          storyNo: nums[1],
+          miscues: nums[2],
+          wordsRead: nums[3],
+          timeMinutes: nums[4],
+          timeSeconds: nums[5],
+          comprehensionCorrect: nums[6],
+          learnerExperienceRating: experience,
+          observationLevel: observation,
+          remarks: remarks,
+        );
+
+        final result = await vm.getResult(nums[0]);
+        final out = StringBuffer('Saved Part 2 for assessment ${nums[0]}: '
+            'wpm ${stored.wpm?.toStringAsFixed(1) ?? "-"}.');
+        if (result != null) {
+          out.write('\n${_formatResult(result)}');
+          if (result.pctCorrectWordsRead == null) {
+            out.write('\nNo story matched (check the school\'s region, language, grade and story number).');
+          }
+        }
+        return out.toString();
+      } on FormatException catch (e) {
+        return e.message;
+      } catch (e) {
+        return 'Part 2 failed: $e';
+      }
+    },
+  ));
+
+  registry.register(ConsoleCommand(
+    name: 'crla-results',
+    description: 'crla-results assessment <id> | section <id> [schoolYear] | student <id> '
+        '— show combined CRLA results',
+    handler: (args) async {
+      final guardError = authVm.requireActiveSession();
+      if (guardError != null) return guardError;
+
+      const usage = 'Usage: crla-results assessment <id> | section <id> [schoolYear] | student <id>';
+      if (args.length < 2) return usage;
+
+      final id = int.tryParse(args[1]);
+      if (id == null) return 'Invalid id: "${args[1]}" (expected a number)';
+
+      try {
+        switch (args[0]) {
+          case 'assessment':
+            final r = await vm.getResult(id);
+            return r == null ? 'No assessment with id $id.' : _formatResult(r);
+          case 'section':
+            await vm.loadResultsForSection(id, schoolYear: args.length > 2 ? args[2] : null);
+          case 'student':
+            await vm.loadResultsForStudent(id);
+          default:
+            return usage;
+        }
+        if (vm.results.isEmpty) return '(no results found)';
+        return vm.results.map(_formatResult).join('\n');
+      } catch (e) {
+        return 'Results failed: $e';
+      }
+    },
+  ));
+}
+
+String _formatResult(CrlaResult r) {
+  final p1 = r.part1TotalScore == null ? '-' : '${r.part1TotalScore} ${r.part1ReadingLevel}';
+  final pct = r.pctCorrectWordsRead == null
+      ? '-'
+      : '${(r.pctCorrectWordsRead! * 100).toStringAsFixed(1)}%';
+  return '#${r.assessmentId} | student ${r.studentId} | ${r.subjectVariant} ${r.language} '
+      'attempt ${r.attemptNo} | P1 $p1 | '
+      'P2 story ${r.storyNo ?? "-"} wpm ${r.wpm?.toStringAsFixed(1) ?? "-"} '
+      'comp ${r.comprehensionCorrect ?? "-"} words $pct | ${r.readingProfile ?? "-"}';
 }

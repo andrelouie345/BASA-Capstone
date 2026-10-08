@@ -42,6 +42,7 @@ import 'package:basa_capstone/core/data/local/crla_part1_standard_repository_sql
 import 'package:basa_capstone/core/data/local/crla_part2_fluency_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/crla_result_repository_sqlite.dart';
 import 'package:basa_capstone/viewmodels/crla_viewmodel.dart';
+import 'package:basa_capstone/core/console/commands/pull_commands.dart';
 
 Future<void> main() async {
   // Pure `dart run` has no Flutter engine, so we MUST use the FFI
@@ -97,6 +98,7 @@ Future<void> main() async {
   registerSectionCommands(registry, authVm, session);
   registerSchoolCommands(registry, authVm, session);
   registerTutorSectionCommands(registry, authVm, session);
+  registerPullCommands(registry, authVm, localDb);
 
   final loginLogVm = LoginLogViewModel(repo: LoginLogRepositorySqlite(localDb), logger: session);
   vmRegistry.register('LoginLogViewModel', loginLogVm);
