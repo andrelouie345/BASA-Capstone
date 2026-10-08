@@ -24,7 +24,7 @@ class CrlaViewModel {
 
 
   List<CrlaAssessment> assessments = [];
-
+  List<CrlaResult> results = [];
   // Remembers which query populated `assessments`, so refresh() can repeat it.
   int? _lastSectionId;
   String? _lastSchoolYear;
@@ -227,6 +227,19 @@ class CrlaViewModel {
   Future<CrlaResult?> getResult(int assessmentId) {
     _log('getResult(assessmentId: $assessmentId)');
     return _results.findByAssessmentId(assessmentId);
+  }
+
+  /// Loads every attempt in a section (Part 1 + Part 2 + reading profile),
+  /// ordered by student, variant, then attempt.
+  Future<void> loadResultsForSection(int sectionId, {String? schoolYear}) async {
+    _log('loadResultsForSection(sectionId: $sectionId, schoolYear: $schoolYear)');
+    results = await _results.getBySection(sectionId, schoolYear: schoolYear);
+  }
+
+  /// Loads every attempt for one student, newest first.
+  Future<void> loadResultsForStudent(int studentId) async {
+    _log('loadResultsForStudent(studentId: $studentId)');
+    results = await _results.getByStudent(studentId);
   }
 
   // ---- helpers ----
