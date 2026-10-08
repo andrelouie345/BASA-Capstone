@@ -229,6 +229,11 @@ class CrlaViewModel {
     return _results.findByAssessmentId(assessmentId);
   }
 
+    Future<CrlaAssessment?> getAssessment(int assessmentId) {
+    _log('getAssessment(assessmentId: $assessmentId)');
+    return _assessments.findById(assessmentId);
+  }
+
   /// Loads every attempt in a section (Part 1 + Part 2 + reading profile),
   /// ordered by student, variant, then attempt.
   Future<void> loadResultsForSection(int sectionId, {String? schoolYear}) async {
