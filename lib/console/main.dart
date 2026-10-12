@@ -101,9 +101,9 @@ Future<void> main() async {
   registerTutorSectionCommands(registry, authVm, session);
   registerPullCommands(registry, authVm, localDb);
 
-  final loginLogVm = LoginLogViewModel(repo: LoginLogRepositorySqlite(localDb), logger: session);
+  final loginLogVm = LoginLogViewModel(repo: loginLogRepo, logger: session);
   vmRegistry.register('LoginLogViewModel', loginLogVm);
-  registerLoginCommands(registry, LoginLogViewModel(repo: loginLogRepo, logger: session), authVm);
+  registerLoginCommands(registry, loginLogVm, authVm);
     final crlaVm = CrlaViewModel(
     stories: CrlaStoryRepositorySqlite(localDb),
     assessments: CrlaAssessmentRepositorySqlite(localDb),

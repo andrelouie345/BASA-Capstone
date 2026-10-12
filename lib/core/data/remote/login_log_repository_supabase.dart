@@ -14,7 +14,8 @@ class LoginLogRepositorySupabase implements LoginLogRepository {
       'email_attempted': attempt.emailAttempted,
       'success': attempt.success,
       'method': attempt.method.name,
-      'timestamp': attempt.timestamp.toIso8601String(),
+      // UTC with offset: a bare local time is read by Postgres as UTC (+8h off in PH).
+      'timestamp': attempt.timestamp.toUtc().toIso8601String(),
       'failure_reason': attempt.failureReason,
     });
   }

@@ -14,7 +14,7 @@ class LoginLogRepositorySqlite implements LoginLogRepository {
       'email_attempted': attempt.emailAttempted,
       'success': attempt.success ? 1 : 0,
       'method': attempt.method.name,
-      'timestamp': attempt.timestamp.toIso8601String(),
+      'timestamp': attempt.timestamp.toUtc().toIso8601String(),
       'failure_reason': attempt.failureReason,
     });
   }

@@ -36,7 +36,7 @@ class LoginLog {
         'email_attempted': emailAttempted,
         'success': success ? 1 : 0,
         'method': method.name,
-        'timestamp': timestamp.toIso8601String(),
+        'timestamp': timestamp.toUtc().toIso8601String(),
         'failure_reason': failureReason,
       };
 }

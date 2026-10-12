@@ -109,7 +109,7 @@ vmRegistry.register('TextViewModel', textVm);
   
   final loginLogVm = LoginLogViewModel(repo: LoginLogRepositorySqlite(localDb), logger: session);
   vmRegistry.register('LoginLogViewModel', loginLogVm);
-  registerLoginCommands(registry, LoginLogViewModel(repo: LoginLogRepositorySqlite(localDb), logger: session), authVm);
+  registerLoginCommands(registry, loginLogVm, authVm);
 
   final schoolRepo = SchoolRepositorySqlite(localDb);
   final sectionRepo = SectionRepositorySqlite(localDb);

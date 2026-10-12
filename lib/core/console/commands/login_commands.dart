@@ -4,6 +4,7 @@ import 'package:basa_capstone/viewmodels/auth_viewmodel.dart';
 import 'package:basa_capstone/core/models/user_role.dart';
 import '../console_command.dart';
 import '../console_registry.dart';
+import '../../data/remote/login_log_repository_supabase.dart';
 import '../../models/login_log.dart';
 import '../../models/login_method.dart';
 import '../../../viewmodels/login_log_viewmodel.dart';
@@ -47,7 +48,7 @@ void registerLoginCommands(ConsoleRegistry registry, LoginLogViewModel vm, AuthV
 
   registry.register(ConsoleCommand(
     name: 'login-recent',
-    description: 'login-recent [limit] — show recent login attempts on this device (default 50; admin/coordinator only)',
+    description: 'login-recent [limit] — recent login attempts from this device and the cloud, tagged by source (default 50; admin/coordinator only)',
     handler: (args) async {
       final guardError = authVm.requireActiveSession();
       if (guardError != null) return guardError;
@@ -56,19 +57,15 @@ void registerLoginCommands(ConsoleRegistry registry, LoginLogViewModel vm, AuthV
         return 'Forbidden: admin or coordinator only.';
       }
       final limit = args.isNotEmpty ? int.tryParse(args[0]) ?? 50 : 50;
-      await vm.loadRecent(limit: limit);
+      await vm.loadRecent(limit: limit, cloud: LoginLogRepositorySupabase(authVm.client!));
       if (vm.items.isEmpty) return 'No login attempts recorded.';
-      return vm.items
-          .map((l) =>
-              '[${l.timestamp}] ${l.emailAttempted} - ${l.success ? "OK" : "FAILED"} (${l.method.name})'
-              '${l.failureReason != null ? " - ${l.failureReason}" : ""}')
-          .join('\n');
+      return _formatLogs(vm);
     },
   ));
 
   registry.register(ConsoleCommand(
     name: 'login-history',
-    description: 'login-history <userId> — show login attempts on this device for a specific user (admin/coordinator only)',
+    description: 'login-history <userId> — login attempts for one user from this device and the cloud, tagged by source (admin/coordinator only)',
     handler: (args) async {
       final guardError = authVm.requireActiveSession();
       if (guardError != null) return guardError;
@@ -77,12 +74,20 @@ void registerLoginCommands(ConsoleRegistry registry, LoginLogViewModel vm, AuthV
         return 'Forbidden: admin or coordinator only.';
       }
       if (args.isEmpty) return 'Usage: login-history <userId>';
-      await vm.loadForUser(args[0]);
+      await vm.loadForUser(args[0], cloud: LoginLogRepositorySupabase(authVm.client!));
       if (vm.items.isEmpty) return 'No login attempts for user "${args[0]}".';
-      return vm.items
-          .map((l) =>
-              '[${l.timestamp}] ${l.emailAttempted} - ${l.success ? "OK" : "FAILED"} (${l.method.name})')
-          .join('\n');
+      return _formatLogs(vm);
     },
   ));
+}
+
+String _formatLogs(LoginLogViewModel vm) {
+  final lines = vm.items.map((s) {
+    final l = s.log;
+    return '[${l.timestamp.toLocal()}] [${s.sourceLabel}] ${l.emailAttempted} - '
+        '${l.success ? "OK" : "FAILED"} (${l.method.name})'
+        '${l.failureReason != null ? " - ${l.failureReason}" : ""}';
+  }).toList();
+  if (vm.cloudError != null) lines.add('(cloud log unavailable, showing local only: ${vm.cloudError})');
+  return lines.join('\n');
 }
