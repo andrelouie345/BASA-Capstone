@@ -11,7 +11,8 @@ class XlsToXlsxConverter {
   final ScopedLogger _log;
   XlsToXlsxConverter({Logger? logger}) : _log = ScopedLogger(logger, 'XlsToXlsxConverter');
 
-  /// Writes "<name>_converted.xlsx" beside [inputPath], returns that path.
+  /// Writes "<name>_converted.xlsx" to a fresh folder under the system temp
+  /// directory (never beside the user's file) and returns that path.
 Future<String> convert(String inputPath) async {
   _log('convert($inputPath)');
   final reader = legacy.XlsReader(inputPath);
@@ -60,7 +61,9 @@ Future<String> convert(String inputPath) async {
     excel.delete(defaultSheetName);
   }
 
-    final outputPath = inputPath.replaceAll(RegExp(r'\.xls$', caseSensitive: false), '_converted.xlsx');
+    final baseName = File(inputPath).uri.pathSegments.last.replaceAll(RegExp(r'\.xls$', caseSensitive: false), '');
+    final outDir = Directory.systemTemp.createTempSync('basa_sf1_');
+    final outputPath = '${outDir.path}${Platform.pathSeparator}${baseName}_converted.xlsx';
     final bytes = excel.save()!;
     await File(outputPath).writeAsBytes(bytes);
     _log('converted -> $outputPath');

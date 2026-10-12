@@ -119,6 +119,7 @@ class Sf1Importer {
       _log('Failed to decode Excel file, likely because xls. Will make an xlsx copy: $e');
       final xlsxPath = await _resolveToXlsx(filePath);
       final bytes = File(xlsxPath).readAsBytesSync();
+      if (xlsxPath != filePath) File(xlsxPath).parent.deleteSync(recursive: true); // converter's temp folder
       return Excel.decodeBytes(bytes);
     }
   }
@@ -171,11 +172,22 @@ class Sf1Importer {
     final rawRegion = _cell(sheet, columnMap.regionRow, columnMap.regionCol);
     final regionId = Region.resolve(rawRegion);
 
-    final schoolIdCode = _cell(sheet, columnMap.schoolIdRow, columnMap.schoolIdCol) ?? 'UNKNOWN';
-    final schoolName = _cell(sheet, columnMap.schoolNameRow, columnMap.schoolNameCol) ?? 'UNKNOWN';
-    final schoolYear = normalizeSchoolYear(_cell(sheet, columnMap.schoolYearRow, columnMap.schoolYearCol) ?? '');
-    final gradeLevel = normalizeGradeLevel(_cell(sheet, columnMap.gradeLevelRow, columnMap.gradeLevelCol) ?? 'UNKNOWN');
-    final sectionName = _cell(sheet, columnMap.sectionNameRow, columnMap.sectionNameCol) ?? 'UNKNOWN';
+    // Header cells are required: a blank one used to become the literal
+    // "UNKNOWN" and created a school/section by that name.
+    String header(String label, int row, int col) {
+      final v = _cell(sheet, row, col);
+      if (v == null) {
+        throw FormatException('SF1 header "$label" is empty (row $row, col $col). '
+            'Fix the file, or check the mapping with column-map-show / import-preview.');
+      }
+      return v;
+    }
+
+    final schoolIdCode = header('School ID', columnMap.schoolIdRow, columnMap.schoolIdCol);
+    final schoolName = header('School Name', columnMap.schoolNameRow, columnMap.schoolNameCol);
+    final schoolYear = normalizeSchoolYear(header('School Year', columnMap.schoolYearRow, columnMap.schoolYearCol));
+    final gradeLevel = normalizeGradeLevel(header('Grade Level', columnMap.gradeLevelRow, columnMap.gradeLevelCol));
+    final sectionName = header('Section', columnMap.sectionNameRow, columnMap.sectionNameCol);
 
     // Learners already enrolled in this exact section (re-import of the same
     // roster): skipped instead of raised as conflicts. Read-only lookups, so

@@ -28,7 +28,7 @@ class StudentRepositorySqlite implements StudentRepository {
   Future<void> update(Student student) async {
     await db.update(
       'students',
-      {...student.toMap(), 'updated_at': DateTime.now().toIso8601String()},
+      {...student.toMap(), 'updated_at': DateTime.now().toUtc().toIso8601String()},
       where: 'id = ?',
       whereArgs: [student.id],
     );
