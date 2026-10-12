@@ -1,6 +1,6 @@
 # BASA (ARAL-Read) — project guide
 
-Flutter/Dart reading-assessment app for tutors (DepEd ARAL-Reading program, Junior High School, Phil-IRI / CRLA instruments). Capstone project, team of several; **this repo's owner works on the backend only** (models, repositories, ViewModels, console, SQL). Groupmates own UI — do not build or restyle UI unless explicitly asked.
+Flutter/Dart reading-assessment app for tutors (DepEd ARAL-Reading program, Phil-IRI / CRLA instruments; CRLA is administered to Grades 1–3 only). Capstone project, team of several; **this repo's owner works on the backend only** (models, repositories, ViewModels, console, SQL). Groupmates own UI — do not build or restyle UI unless explicitly asked.
 
 > These guides were assembled from working notes, not generated from the code. If anything here disagrees with the repo, the repo wins: tell the user about the mismatch and fix the doc.
 
@@ -59,7 +59,7 @@ Module checklist: Login/user management (done), Learner Management (covered by s
 - Sync + DB-switching redesign (above).
 - Grade-based rule checks (e.g. English only for Grade 3) are intentionally NOT in the ViewModel until the tutor-capabilities phase.
 - A build variant that physically excludes admin-only modules from the tutor build (not just hides them in UI) is a high-priority future requirement.
-- `crla_stories` is seeded only for region 13 (Northern Mindanao), grades 1–3. A section of any other grade or region gets no story match, so the view returns NULL for `pct_correct_words_read` and `reading_profile`. This is expected, not a bug.
+- `crla_stories` is seeded only for region 13 (Northern Mindanao), grades 1–3. A section in another region gets no story match, so the view returns NULL for `pct_correct_words_read` and `reading_profile`. This is expected, not a bug. CRLA assessments for sections outside Grades 1–3 are refused by the cloud insert policy (M4).
 - Story import from source workbooks is planned (see the language normalization note in `lib/core/CLAUDE.md`).
 - `config-set-*-url` commands don't validate the URL.
 
