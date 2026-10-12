@@ -69,7 +69,9 @@ void registerImportCommands(
     final studentRepo = StudentRepositorySupabase(client);
     final existing = await studentRepo.findByLrn(conflict.lrn);
     if (existing == null) {
-      return 'Conflict $id: cannot update — no existing student with LRN ${conflict.lrn}.';
+      return conflict.reason == transferConflictReason
+          ? 'Conflict $id: LRN ${conflict.lrn} belongs to a learner in another school — only the superadmin can resolve it.'
+          : 'Conflict $id: cannot update — no existing student with LRN ${conflict.lrn}.';
     }
 
     final incomingMap = jsonDecode(conflict.incomingDataJson) as Map<String, Object?>;
@@ -90,19 +92,25 @@ void registerImportCommands(
       final sectionRepo = SectionRepositorySupabase(client);
       final section = await sectionRepo.getById(conflict.sectionId!);
       if (section != null) {
-        await studentRepo.enroll(
+        final enrollmentId = await studentRepo.enroll(
           studentId: existing.id!,
           sectionId: conflict.sectionId!,
           schoolYear: section.schoolYear,
         );
         enrollNote = ', enrolled into section ${conflict.sectionId} (${section.schoolYear})';
 
-        final localSection = await localSectionRepo.getById(conflict.sectionId!);
+        await localSectionRepo.upsertWithId(section);
         await localStudentRepo.upsertWithId(Student.fromMap({
           ...incomingMap,
           'id': existing.id,
-          'school_id': localSection?.schoolId ?? existing.schoolId,
+          'school_id': section.schoolId, // the enrollment moved the learner there
         }));
+        await localStudentRepo.enroll(
+          studentId: existing.id!,
+          sectionId: section.id!,
+          schoolYear: section.schoolYear,
+          id: enrollmentId,
+        );
       } else {
         enrollNote = ' (section ${conflict.sectionId} not found — enrollment skipped)';
       }
@@ -161,7 +169,8 @@ void registerImportCommands(
       if (args.isEmpty) return 'Usage: import-students <file.xlsx>';
       try {
         final result = await _buildImporter().import(args[0]);
-        return 'Inserted: ${result.inserted}, Conflicts: ${result.conflicts}, Skipped: ${result.skippedBlankOrTotal}';
+        return 'Inserted: ${result.inserted}, Conflicts: ${result.conflicts}, '
+            'Already enrolled: ${result.alreadyEnrolled}, Skipped: ${result.skippedBlankOrTotal}';
       } catch (e) {
         return 'Import failed: $e';
       }
@@ -308,7 +317,9 @@ void registerImportCommands(
         buf.writeln('Region: "${t.rawRegion ?? "(empty)"}" -> ${t.regionError ?? Region.byId(t.regionId!)}');
         buf.writeln('School: ${t.schoolIdCode} | ${t.schoolName}');
         buf.writeln('Section: ${t.gradeLevel} - ${t.sectionName} (${t.schoolYear})');
-        buf.writeln('Would insert: ${t.wouldInsert}, would conflict: ${t.wouldConflict}, would skip: ${t.wouldSkip}');
+        buf.writeln('Would insert: ${t.wouldInsert}, would conflict: ${t.wouldConflict}, '
+            'already enrolled: ${t.alreadyEnrolled}, would skip: ${t.wouldSkip}');
+        buf.writeln('(A learner registered at another school shows as INSERT here and becomes a transfer conflict on import.)');
         buf.writeln('---');
         for (final row in t.rows) {
           buf.writeln('[${row.rowIndex}] ${row.outcome.toUpperCase()}: ${row.name}${row.reason != null ? " (${row.reason})" : ""}');

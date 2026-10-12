@@ -15,8 +15,13 @@ class StudentRepositorySqlite implements StudentRepository {
 
   @override
   Future<Student> insert(Student student) async {
-    final id = await db.insert('students', student.toMap());
-    return Student.fromMap({...student.toMap(), 'id': id});
+    try {
+      final id = await db.insert('students', student.toMap());
+      return Student.fromMap({...student.toMap(), 'id': id});
+    } on DatabaseException catch (e) {
+      if (e.isUniqueConstraintError()) throw DuplicateLrnException(student.lrn);
+      rethrow;
+    }
   }
 
   @override
@@ -41,10 +46,13 @@ class StudentRepositorySqlite implements StudentRepository {
   }
 
   @override
-  Future<void> enroll({required int studentId, required int sectionId, required String schoolYear}) async {
-    await db.insert(
+  Future<int> enroll({required int studentId, required int sectionId, required String schoolYear, int? id}) async {
+    return db.insert(
       'enrollments',
-      {'student_id': studentId, 'section_id': sectionId, 'school_year': schoolYear, 'status': 'active'},
+      {
+        'id': ?id,
+        'student_id': studentId, 'section_id': sectionId, 'school_year': schoolYear, 'status': 'active',
+      },
       conflictAlgorithm: ConflictAlgorithm.replace, // one row per student per school_year (see UNIQUE constraint)
     );
   }

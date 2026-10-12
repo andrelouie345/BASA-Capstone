@@ -19,6 +19,7 @@ import 'normalizers.dart';
 class Sf1ImportResult {
   int inserted = 0;
   int conflicts = 0;
+  int alreadyEnrolled = 0;
   int skippedBlankOrTotal = 0;
 }
 
@@ -27,7 +28,7 @@ class Sf1TrialRow {
   final int rowIndex;
   final String? lrn;
   final String name;
-  final String outcome; // 'insert' | 'conflict' | 'skip'
+  final String outcome; // 'insert' | 'conflict' | 'enrolled' (already in this section) | 'skip'
   final String? reason;
   final int? existingStudentId; // set only when outcome == 'conflict'
 
@@ -71,7 +72,12 @@ class Sf1TrialResult {
   int get wouldInsert => rows.where((r) => r.outcome == 'insert').length;
   int get wouldConflict => rows.where((r) => r.outcome == 'conflict').length;
   int get wouldSkip => rows.where((r) => r.outcome == 'skip').length;
+  int get alreadyEnrolled => rows.where((r) => r.outcome == 'enrolled').length;
 }
+
+/// Reason recorded for a row whose LRN belongs to a learner in another school.
+const transferConflictReason =
+    'LRN registered at another school (transfer) - only the superadmin can resolve';
 
 class Sf1Importer {
   final SchoolRepository schoolRepo;       // Supabase — source of truth
@@ -171,6 +177,22 @@ class Sf1Importer {
     final gradeLevel = normalizeGradeLevel(_cell(sheet, columnMap.gradeLevelRow, columnMap.gradeLevelCol) ?? 'UNKNOWN');
     final sectionName = _cell(sheet, columnMap.sectionNameRow, columnMap.sectionNameCol) ?? 'UNKNOWN';
 
+    // Learners already enrolled in this exact section (re-import of the same
+    // roster): skipped instead of raised as conflicts. Read-only lookups, so
+    // trial() reports it too.
+    final existingSchool = await schoolRepo.getByCode(schoolIdCode);
+    final existingSection = existingSchool == null
+        ? null
+        : await sectionRepo.findExisting(Section(
+            schoolId: existingSchool.id!,
+            schoolYear: schoolYear,
+            gradeLevel: gradeLevel,
+            sectionName: sectionName,
+          ));
+    final enrolledLrns = existingSection == null
+        ? <String>{}
+        : (await studentRepo.getBySection(existingSection.id!)).map((s) => s.lrn).toSet();
+
     final rows = <Sf1TrialRow>[];
     final parsedStudents = <int, Student>{};
 
@@ -232,7 +254,12 @@ class Sf1Importer {
           '${parsed.lastName}, ${parsed.firstName}${parsed.middleName != null ? " ${parsed.middleName}" : ""}';
       final existing = await studentRepo.findByLrn(lrn);
 
-      if (existing == null) {
+      if (enrolledLrns.contains(lrn)) {
+        rows.add(Sf1TrialRow(
+            rowIndex: row, lrn: lrn, name: displayName, outcome: 'enrolled', reason: 'already enrolled in this section'));
+      } else if (existing == null) {
+        // May still be a transfer: a learner in another school is invisible
+        // here (RLS) and only shows up as a duplicate LRN at insert time.
         rows.add(Sf1TrialRow(rowIndex: row, lrn: lrn, name: displayName, outcome: 'insert'));
       } else {
         rows.add(Sf1TrialRow(
@@ -307,20 +334,45 @@ class Sf1Importer {
         result.skippedBlankOrTotal++;
         continue;
       }
+      if (row.outcome == 'enrolled') {
+        result.alreadyEnrolled++;
+        continue;
+      }
 
       final studentParsed = parsed.parsedStudents[row.rowIndex]!;
 
       if (row.outcome == 'insert') {
         // Insert with the section's school: RLS only lets a school admin
         // create (and read back) students of their own school.
-        final inserted = await studentRepo.insert(
-            Student.fromMap({...studentParsed.toMap(), 'school_id': section.schoolId}));
-        await studentRepo.enroll(
+        final Student inserted;
+        try {
+          inserted = await studentRepo.insert(
+              Student.fromMap({...studentParsed.toMap(), 'school_id': section.schoolId}));
+        } on DuplicateLrnException {
+          // The LRN exists in a school we can't see: a transfer. Logged for a
+          // superadmin, who can see both schools, to resolve.
+          await conflictRepo.log(ImportConflict(
+            lrn: row.lrn!,
+            sectionId: section.id,
+            reason: transferConflictReason,
+            incomingDataJson: jsonEncode(studentParsed.toMap()),
+          ));
+          result.conflicts++;
+          _log('conflict flagged: LRN ${row.lrn} is registered at another school');
+          continue;
+        }
+        final enrollmentId = await studentRepo.enroll(
           studentId: inserted.id!,
           sectionId: section.id!,
           schoolYear: section.schoolYear,
         );
         await localStudentRepo.upsertWithId(inserted);
+        await localStudentRepo.enroll(
+          studentId: inserted.id!,
+          sectionId: section.id!,
+          schoolYear: section.schoolYear,
+          id: enrollmentId,
+        );
 
         result.inserted++;
       } else {
@@ -337,7 +389,8 @@ class Sf1Importer {
       }
     }
 
-    _log('done: ${result.inserted} inserted, ${result.conflicts} conflicts, ${result.skippedBlankOrTotal} skipped');
+    _log('done: ${result.inserted} inserted, ${result.conflicts} conflicts, '
+        '${result.alreadyEnrolled} already enrolled, ${result.skippedBlankOrTotal} skipped');
     return result;
   }
 }

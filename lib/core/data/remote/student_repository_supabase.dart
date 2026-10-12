@@ -15,8 +15,15 @@ class StudentRepositorySupabase implements StudentRepository {
 
   @override
   Future<Student> insert(Student student) async {
-    final inserted = await client.from('students').insert(student.toMap()).select();
-    return Student.fromMap((inserted as List).first as Map<String, Object?>);
+    try {
+      final inserted = await client.from('students').insert(student.toMap()).select();
+      return Student.fromMap((inserted as List).first as Map<String, Object?>);
+    } on PostgrestException catch (e) {
+      if (e.code == '23505' && e.message.contains('students_lrn_key')) {
+        throw DuplicateLrnException(student.lrn);
+      }
+      rethrow;
+    }
   }
 
   @override
@@ -46,11 +53,16 @@ class StudentRepositorySupabase implements StudentRepository {
   }
 
   @override
-  Future<void> enroll({required int studentId, required int sectionId, required String schoolYear}) async {
-    await client.from('enrollments').upsert(
-      {'student_id': studentId, 'section_id': sectionId, 'school_year': schoolYear, 'status': 'active'},
-      onConflict: 'student_id,school_year',
-    );
+  Future<int> enroll({required int studentId, required int sectionId, required String schoolYear, int? id}) async {
+    final row = await client
+        .from('enrollments')
+        .upsert(
+          {'student_id': studentId, 'section_id': sectionId, 'school_year': schoolYear, 'status': 'active'},
+          onConflict: 'student_id,school_year',
+        )
+        .select('id')
+        .single();
+    return row['id'] as int;
   }
 
     @override
