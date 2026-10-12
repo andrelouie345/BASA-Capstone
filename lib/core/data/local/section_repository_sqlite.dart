@@ -9,12 +9,8 @@ class SectionRepositorySqlite implements SectionRepository {
 
   @override
   Future<Section> getOrCreate(Section section) async {
-    final existing = await db.query(
-      'sections',
-      where: 'school_id = ? AND school_year = ? AND grade_level = ? AND section_name = ?',
-      whereArgs: [section.schoolId, section.schoolYear, section.gradeLevel, section.sectionName],
-    );
-    if (existing.isNotEmpty) return Section.fromMap(existing.first);
+    final existing = await findExisting(section);
+    if (existing != null) return existing;
 
     final id = await db.insert('sections', section.toMap());
     return Section(
@@ -24,6 +20,16 @@ class SectionRepositorySqlite implements SectionRepository {
       gradeLevel: section.gradeLevel,
       sectionName: section.sectionName,
     );
+  }
+
+  @override
+  Future<Section?> findExisting(Section section) async {
+    final rows = await db.query(
+      'sections',
+      where: 'school_id = ? AND school_year = ? AND grade_level = ? AND section_name = ?',
+      whereArgs: [section.schoolId, section.schoolYear, section.gradeLevel, section.sectionName],
+    );
+    return rows.isEmpty ? null : Section.fromMap(rows.first);
   }
 
   @override

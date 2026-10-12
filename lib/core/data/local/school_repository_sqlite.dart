@@ -9,11 +9,17 @@ class SchoolRepositorySqlite implements SchoolRepository {
 
   @override
   Future<School> getOrCreate(School school) async {
-    final existing = await db.query('schools', where: 'school_id = ?', whereArgs: [school.schoolId]);
-    if (existing.isNotEmpty) return School.fromMap(existing.first);
+    final existing = await getByCode(school.schoolId);
+    if (existing != null) return existing;
 
     final id = await db.insert('schools', school.toMap());
     return School(id: id, schoolId: school.schoolId, schoolName: school.schoolName, regionId: school.regionId, division: school.division);
+  }
+
+  @override
+  Future<School?> getByCode(String schoolCode) async {
+    final rows = await db.query('schools', where: 'school_id = ?', whereArgs: [schoolCode]);
+    return rows.isEmpty ? null : School.fromMap(rows.first);
   }
 
   @override

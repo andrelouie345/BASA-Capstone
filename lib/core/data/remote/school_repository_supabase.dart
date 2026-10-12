@@ -9,18 +9,22 @@ class SchoolRepositorySupabase implements SchoolRepository {
 
   @override
   Future<School> getOrCreate(School school) async {
-    final existing = await client.from('schools').select().eq('school_id', school.schoolId);
-    if ((existing as List).isNotEmpty) {
-      return School.fromMap(existing.first as Map<String, Object?>);
-    }
+    final existing = await getByCode(school.schoolId);
+    if (existing != null) return existing;
 
     final inserted = await client.from('schools').insert(school.toMap()).select();
     return School.fromMap((inserted as List).first as Map<String, Object?>);
   }
 
   @override
+  Future<School?> getByCode(String schoolCode) async {
+    final rows = await client.from('schools').select().eq('school_id', schoolCode);
+    return (rows as List).isEmpty ? null : School.fromMap(rows.first as Map<String, Object?>);
+  }
+
+  @override
   Future<List<School>> getAll() async {
-    final rows = await client.from('schools').select().order('school_name');
+    final rows = await client.from('schools').select().order('school_name', ascending: true);
     return (rows as List).map((r) => School.fromMap(r as Map<String, Object?>)).toList();
   }
 

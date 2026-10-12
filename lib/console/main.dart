@@ -1,5 +1,12 @@
 // lib/console/main.dart
+import 'dart:convert';
 import 'dart:io';
+import 'package:basa_capstone/core/data/remote/school_repository_supabase.dart';
+import 'package:basa_capstone/core/data/remote/section_repository_supabase.dart';
+import 'package:basa_capstone/core/data/remote/tutor_section_assignment_repository_supabase.dart';
+import 'package:basa_capstone/viewmodels/school_viewmodel.dart';
+import 'package:basa_capstone/viewmodels/section_viewmodel.dart';
+import 'package:basa_capstone/viewmodels/tutor_section_assignment_viewmodel.dart';
 import 'package:basa_capstone/core/console/commands/auth_commands.dart';
 import 'package:basa_capstone/core/console/commands/config_commands.dart';
 import 'package:basa_capstone/core/console/commands/section-commands.dart';
@@ -96,9 +103,21 @@ Future<void> main() async {
   registerAuthCommands(registry, authVm);
   registerUserCommands(registry, authVm, session);
   registerImportCommands(registry, authVm, schoolRepo, sectionRepo, studentRepo, columnMap, session);
-  registerSectionCommands(registry, authVm, session);
-  registerSchoolCommands(registry, authVm, session);
-  registerTutorSectionCommands(registry, authVm, session);
+
+  final schoolVm = SchoolViewModel(auth: authVm, repoFactory: SchoolRepositorySupabase.new, logger: session);
+  vmRegistry.register('SchoolViewModel', schoolVm);
+  registerSchoolCommands(registry, schoolVm);
+  final sectionVm = SectionViewModel(auth: authVm, repoFactory: SectionRepositorySupabase.new, logger: session);
+  vmRegistry.register('SectionViewModel', sectionVm);
+  registerSectionCommands(registry, sectionVm);
+  final tutorSectionVm = TutorSectionAssignmentViewModel(
+    auth: authVm,
+    repoFactory: TutorSectionAssignmentRepositorySupabase.new,
+    logger: session,
+  );
+  vmRegistry.register('TutorSectionAssignmentViewModel', tutorSectionVm);
+  registerTutorSectionCommands(registry, tutorSectionVm);
+
   registerPullCommands(registry, authVm, localDb);
 
   final loginLogVm = LoginLogViewModel(repo: loginLogRepo, logger: session);
@@ -122,7 +141,7 @@ Future<void> main() async {
   var printed = session.entries.length;
   while (true) {
     stdout.write('> ');
-    final line = stdin.readLineSync();
+    final line = stdin.readLineSync(encoding: utf8); // not the Windows codepage
     if (line == null || line.trim() == 'exit') break; // null = end of piped input
     await session.run(line);
     for (final e in session.entries.skip(printed)) {

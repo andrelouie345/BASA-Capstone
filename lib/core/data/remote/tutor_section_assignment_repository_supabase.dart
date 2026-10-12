@@ -25,7 +25,7 @@ class TutorSectionAssignmentRepositorySupabase implements TutorSectionAssignment
         .from('tutor_section_assignments')
         .select(_embed)
         .eq('tutor_id', tutorId)
-        .order('assigned_at');
+        .order('assigned_at', ascending: true);
     return (rows as List).map((r) => TutorSectionAssignment.fromMap(r as Map<String, Object?>)).toList();
   }
 
@@ -35,7 +35,7 @@ class TutorSectionAssignmentRepositorySupabase implements TutorSectionAssignment
         .from('tutor_section_assignments')
         .select(_embed)
         .eq('section_id', sectionId)
-        .order('assigned_at');
+        .order('assigned_at', ascending: true);
     return (rows as List).map((r) => TutorSectionAssignment.fromMap(r as Map<String, Object?>)).toList();
   }
 

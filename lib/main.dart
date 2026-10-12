@@ -29,6 +29,12 @@ import 'package:basa_capstone/core/services/sf1_column_map.dart';
 import 'package:basa_capstone/core/viewmodels/viewmodel_registry.dart';
 import 'package:basa_capstone/viewmodels/auth_viewmodel.dart';
 import 'package:basa_capstone/viewmodels/login_log_viewmodel.dart';
+import 'package:basa_capstone/core/data/remote/school_repository_supabase.dart';
+import 'package:basa_capstone/core/data/remote/section_repository_supabase.dart';
+import 'package:basa_capstone/core/data/remote/tutor_section_assignment_repository_supabase.dart';
+import 'package:basa_capstone/viewmodels/school_viewmodel.dart';
+import 'package:basa_capstone/viewmodels/section_viewmodel.dart';
+import 'package:basa_capstone/viewmodels/tutor_section_assignment_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'core/console/console_registry.dart';
 import 'core/console/console_session.dart';
@@ -89,9 +95,21 @@ vmRegistry.register('TextViewModel', textVm);
   );
   registerAuthCommands(registry, authVm);
   registerUserCommands(registry, authVm, session);
-  registerSectionCommands(registry, authVm, session);
-  registerSchoolCommands(registry, authVm, session);
-  registerTutorSectionCommands(registry, authVm, session);
+
+  final schoolVm = SchoolViewModel(auth: authVm, repoFactory: SchoolRepositorySupabase.new, logger: session);
+  vmRegistry.register('SchoolViewModel', schoolVm);
+  registerSchoolCommands(registry, schoolVm);
+  final sectionVm = SectionViewModel(auth: authVm, repoFactory: SectionRepositorySupabase.new, logger: session);
+  vmRegistry.register('SectionViewModel', sectionVm);
+  registerSectionCommands(registry, sectionVm);
+  final tutorSectionVm = TutorSectionAssignmentViewModel(
+    auth: authVm,
+    repoFactory: TutorSectionAssignmentRepositorySupabase.new,
+    logger: session,
+  );
+  vmRegistry.register('TutorSectionAssignmentViewModel', tutorSectionVm);
+  registerTutorSectionCommands(registry, tutorSectionVm);
+
   registerPullCommands(registry, authVm, localDb);
 
   

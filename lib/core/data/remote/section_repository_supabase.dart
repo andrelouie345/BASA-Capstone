@@ -1,5 +1,4 @@
 // lib/core/data/remote/section_repository_supabase.dart
-import 'package:basa_capstone/core/models/school.dart';
 import 'package:supabase/supabase.dart';
 import '../../models/section.dart';
 import '../../repositories/section_repository.dart';
@@ -10,24 +9,28 @@ class SectionRepositorySupabase implements SectionRepository {
 
   @override
   Future<Section> getOrCreate(Section section) async {
-    final existing = await client
-        .from('sections')
-        .select()
-        .eq('school_id', section.schoolId)
-        .eq('school_year', section.schoolYear)
-        .eq('grade_level', section.gradeLevel)
-        .eq('section_name', section.sectionName);
-    if ((existing as List).isNotEmpty) {
-      return Section.fromMap(existing.first as Map<String, Object?>);
-    }
+    final existing = await findExisting(section);
+    if (existing != null) return existing;
 
     final inserted = await client.from('sections').insert(section.toMap()).select();
     return Section.fromMap((inserted as List).first as Map<String, Object?>);
   }
 
   @override
+  Future<Section?> findExisting(Section section) async {
+    final rows = await client
+        .from('sections')
+        .select()
+        .eq('school_id', section.schoolId)
+        .eq('school_year', section.schoolYear)
+        .eq('grade_level', section.gradeLevel)
+        .eq('section_name', section.sectionName);
+    return (rows as List).isEmpty ? null : Section.fromMap(rows.first as Map<String, Object?>);
+  }
+
+  @override
   Future<List<Section>> getAll() async {
-    final rows = await client.from('sections').select().order('grade_level').order('section_name');
+    final rows = await client.from('sections').select().order('grade_level', ascending: true).order('section_name', ascending: true);
     return (rows as List).map((r) => Section.fromMap(r as Map<String, Object?>)).toList();
   }
 
