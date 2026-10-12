@@ -41,8 +41,6 @@ void registerTutorSectionCommands(ConsoleRegistry registry, AuthViewModel authVm
         await vm.assign(TutorSectionAssignment(
           tutorId: tutorId,
           sectionId: sectionId,
-          assignedBy: authVm.currentUser?.id,
-          assignedAt: DateTime.now(),
         ));
         return 'Assigned tutor $tutorId to section $sectionId.';
       } catch (e) {
@@ -90,7 +88,7 @@ void registerTutorSectionCommands(ConsoleRegistry registry, AuthViewModel authVm
       try {
         await vm.loadForTutor(args[0]);
         if (vm.items.isEmpty) return '(no assignments found)';
-        return vm.items.map((a) => '${a.id} | ${a.section?.toString() ?? "section ${a.sectionId}"} | assigned ${a.assignedAt}').join('\n');
+        return vm.items.map((a) => '${a.id} | ${a.section?.toString() ?? "section ${a.sectionId}"} | assigned ${a.assignedAt?.toLocal()}').join('\n');
       } catch (e) {
         return 'List failed: $e';
       }
@@ -114,7 +112,7 @@ void registerTutorSectionCommands(ConsoleRegistry registry, AuthViewModel authVm
       try {
         await vm.loadForSection(sectionId);
         if (vm.items.isEmpty) return '(no assignments found)';
-        return vm.items.map((a) => '${a.id} | ${a.tutorFullName ?? "tutor ${a.tutorId}"} (${a.tutorEmail ?? ""}) | assigned ${a.assignedAt}').join('\n');
+        return vm.items.map((a) => '${a.id} | ${a.tutorFullName ?? "tutor ${a.tutorId}"} (${a.tutorEmail ?? ""}) | assigned ${a.assignedAt?.toLocal()}').join('\n');
       } catch (e) {
         return 'List failed: $e';
       }

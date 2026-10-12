@@ -5,8 +5,10 @@ class TutorSectionAssignment {
   final int? id;
   final String tutorId;
   final int sectionId;
+  // Stamped by the server on insert (trigger), never sent by the client.
+  // Null on an assignment that hasn't been saved yet.
   final String? assignedBy;
-  final DateTime assignedAt;
+  final DateTime? assignedAt;
   final String? tutorFullName;
   final String? tutorEmail;
   final Section? section;
@@ -15,7 +17,7 @@ class TutorSectionAssignment {
     this.id,
     required this.tutorId,
     required this.sectionId,
-    required this.assignedAt,
+    this.assignedAt,
     this.assignedBy,
     this.tutorFullName,
     this.tutorEmail,
@@ -26,8 +28,6 @@ class TutorSectionAssignment {
     if (id != null) 'id': id,
     'tutor_id': tutorId,
     'section_id': sectionId,
-    'assigned_at': assignedAt.toIso8601String(),
-    if (assignedBy != null) 'assigned_by': assignedBy,
   };
 
   factory TutorSectionAssignment.fromMap(Map<String, Object?> map) {
