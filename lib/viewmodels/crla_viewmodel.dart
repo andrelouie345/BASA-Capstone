@@ -12,6 +12,7 @@ import '../core/repositories/crla_part2_fluency_repository.dart';
 import '../core/repositories/crla_result_repository.dart';
 import '../core/models/crla_story.dart';
 import '../core/repositories/crla_story_repository.dart';
+import '../core/services/normalizers.dart';
 
 class CrlaViewModel {
   static const _variants = {'mt', 'fil', 'eng'};
@@ -50,6 +51,7 @@ class CrlaViewModel {
 
   Future<void> loadForSection(int sectionId, {String? schoolYear}) async {
     _log('loadForSection(sectionId: $sectionId, schoolYear: $schoolYear)');
+    if (schoolYear != null) schoolYear = normalizeSchoolYear(schoolYear);
     _lastSectionId = sectionId;
     _lastSchoolYear = schoolYear;
     assessments = await _assessments.getBySection(sectionId, schoolYear: schoolYear);
@@ -77,6 +79,7 @@ class CrlaViewModel {
   }) async {
     _log('startAssessment(studentId: $studentId, sectionId: $sectionId, '
         'variant: $subjectVariant, year: $schoolYear)');
+    schoolYear = normalizeSchoolYear(schoolYear);
 
     if (!_variants.contains(subjectVariant)) {
       throw ArgumentError("subjectVariant must be one of mt, fil, eng (got '$subjectVariant')");
@@ -243,6 +246,7 @@ class CrlaViewModel {
   /// ordered by student, variant, then attempt.
   Future<void> loadResultsForSection(int sectionId, {String? schoolYear}) async {
     _log('loadResultsForSection(sectionId: $sectionId, schoolYear: $schoolYear)');
+    if (schoolYear != null) schoolYear = normalizeSchoolYear(schoolYear);
     results = await _results.getBySection(sectionId, schoolYear: schoolYear);
   }
 

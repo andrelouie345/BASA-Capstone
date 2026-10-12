@@ -14,6 +14,7 @@ import '../repositories/section_repository.dart';
 import '../repositories/student_repository.dart';
 import '../repositories/import_conflict_repository.dart';
 import 'sf1_column_map.dart';
+import 'normalizers.dart';
 
 class Sf1ImportResult {
   int inserted = 0;
@@ -166,7 +167,7 @@ class Sf1Importer {
 
     final schoolIdCode = _cell(sheet, columnMap.schoolIdRow, columnMap.schoolIdCol) ?? 'UNKNOWN';
     final schoolName = _cell(sheet, columnMap.schoolNameRow, columnMap.schoolNameCol) ?? 'UNKNOWN';
-    final schoolYear = _cell(sheet, columnMap.schoolYearRow, columnMap.schoolYearCol) ?? 'UNKNOWN';
+    final schoolYear = normalizeSchoolYear(_cell(sheet, columnMap.schoolYearRow, columnMap.schoolYearCol) ?? '');
     final gradeLevel = normalizeGradeLevel(_cell(sheet, columnMap.gradeLevelRow, columnMap.gradeLevelCol) ?? 'UNKNOWN');
     final sectionName = _cell(sheet, columnMap.sectionNameRow, columnMap.sectionNameCol) ?? 'UNKNOWN';
 
@@ -360,13 +361,5 @@ class Sf1Importer {
 
     _log('done: ${result.inserted} inserted, ${result.conflicts} conflicts, ${result.skippedBlankOrTotal} skipped');
     return result;
-  }
-
-  String normalizeGradeLevel(String gradeLevel) {
-    final match = RegExp(r'\d+').firstMatch(gradeLevel);
-    if (match == null) {
-      throw FormatException('No numeric grade level found in "$gradeLevel"');
-    }
-    return int.parse(match.group(0)!).toString();
   }
 }

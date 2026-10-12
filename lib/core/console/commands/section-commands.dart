@@ -9,6 +9,7 @@ import '../logger.dart';
 import '../../models/user_role.dart';
 import '../../models/section.dart';
 import '../../data/remote/section_repository_supabase.dart';
+import '../../services/normalizers.dart';
 import '../../../viewmodels/auth_viewmodel.dart';
 
 void registerSectionCommands(ConsoleRegistry registry, AuthViewModel authVm, Logger? logger) {
@@ -45,7 +46,7 @@ void registerSectionCommands(ConsoleRegistry registry, AuthViewModel authVm, Log
       try {
         final section = await repo.getOrCreate(Section(
           schoolId: schoolId,
-          schoolYear: args[1],
+          schoolYear: normalizeSchoolYear(args[1]),
           gradeLevel: normalizeGradeLevel(args[2]),
           sectionName: args.sublist(3).join(' '),
         ));
@@ -98,7 +99,7 @@ void registerSectionCommands(ConsoleRegistry registry, AuthViewModel authVm, Log
         final updated = await repo.update(Section(
           id: id,
           schoolId: existing.schoolId,
-          schoolYear: args[1],
+          schoolYear: normalizeSchoolYear(args[1]),
           gradeLevel: normalizeGradeLevel(args[2]),
           sectionName: args.sublist(3).join(' '),
         ));
@@ -136,12 +137,4 @@ void registerSectionCommands(ConsoleRegistry registry, AuthViewModel authVm, Log
       }
     },
   ));
-}
-
-String normalizeGradeLevel(String arg) {
-  final match = RegExp(r'\d+').firstMatch(arg);
-  if (match == null) {
-    throw FormatException('No numeric grade level found in "$arg"');
-  }
-  return int.parse(match.group(0)!).toString();
 }
