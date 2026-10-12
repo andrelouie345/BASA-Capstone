@@ -311,38 +311,16 @@ class Sf1Importer {
       final studentParsed = parsed.parsedStudents[row.rowIndex]!;
 
       if (row.outcome == 'insert') {
-        final inserted = await studentRepo.insert(studentParsed);
+        // Insert with the section's school: RLS only lets a school admin
+        // create (and read back) students of their own school.
+        final inserted = await studentRepo.insert(
+            Student.fromMap({...studentParsed.toMap(), 'school_id': section.schoolId}));
         await studentRepo.enroll(
           studentId: inserted.id!,
           sectionId: section.id!,
           schoolYear: section.schoolYear,
         );
-
-        final mirrored = Student(
-          id: inserted.id,
-          lrn: studentParsed.lrn,
-          lastName: studentParsed.lastName,
-          firstName: studentParsed.firstName,
-          middleName: studentParsed.middleName,
-          sex: studentParsed.sex,
-          birthDate: studentParsed.birthDate,
-          motherTongue: studentParsed.motherTongue,
-          ipGroup: studentParsed.ipGroup,
-          religion: studentParsed.religion,
-          addressStreet: studentParsed.addressStreet,
-          barangay: studentParsed.barangay,
-          municipality: studentParsed.municipality,
-          province: studentParsed.province,
-          fatherName: studentParsed.fatherName,
-          motherMaidenName: studentParsed.motherMaidenName,
-          guardianName: studentParsed.guardianName,
-          guardianRelationship: studentParsed.guardianRelationship,
-          contactNumber: studentParsed.contactNumber,
-          learningModality: studentParsed.learningModality,
-          remarks: studentParsed.remarks,
-          schoolId: section.schoolId,
-        );
-        await localStudentRepo.upsertWithId(mirrored);
+        await localStudentRepo.upsertWithId(inserted);
 
         result.inserted++;
       } else {
