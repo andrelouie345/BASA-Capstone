@@ -4,13 +4,48 @@ import '../console_registry.dart';
 import '../../services/roster_exporter.dart';
 import '../../repositories/section_repository.dart';
 import '../../repositories/student_repository.dart';
+import '../../../viewmodels/student_viewmodel.dart';
 
+/// Cloud learner lists (signed in, RLS-scoped) through [vm]; the
+/// list-sections / list-students / export-section commands read the local
+/// SQLite cache.
 void registerStudentCommands(
   ConsoleRegistry registry,
   RosterExporter exporter,
   SectionRepository sectionRepo,
   StudentRepository studentRepo,
+  StudentViewModel vm,
 ) {
+  registry.register(ConsoleCommand(
+    name: 'student-list',
+    description: 'student-list [lastname|lrn|id] — list all learners visible to you (cloud, RLS-scoped)',
+    handler: (args) async {
+      try {
+        await vm.loadAll(sort: args.isNotEmpty ? args[0] : 'lastname');
+        if (vm.items.isEmpty) return '(no students found)';
+        return vm.items.map((s) => '${s.id} | ${s.lrn} | ${s.lastName}, ${s.firstName}').join('\n');
+      } catch (e) {
+        return 'List failed: $e';
+      }
+    },
+  ));
+
+  registry.register(ConsoleCommand(
+    name: 'student-list-section',
+    description: 'student-list-section <sectionId> — list learners in a section (cloud, RLS-scoped)',
+    handler: (args) async {
+      final sectionId = int.tryParse(args.isNotEmpty ? args[0] : '');
+      if (sectionId == null) return 'Usage: student-list-section <sectionId>';
+      try {
+        await vm.loadForSection(sectionId);
+        if (vm.items.isEmpty) return '(no students found in this section)';
+        return vm.items.map((s) => '${s.id} | ${s.lrn} | ${s.lastName}, ${s.firstName}').join('\n');
+      } catch (e) {
+        return 'List failed: $e';
+      }
+    },
+  ));
+
   registry.register(ConsoleCommand(
     name: 'list-sections',
     description: 'list-sections — show all locally cached sections',

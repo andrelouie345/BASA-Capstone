@@ -29,6 +29,10 @@ import 'package:basa_capstone/core/services/sf1_column_map.dart';
 import 'package:basa_capstone/core/viewmodels/viewmodel_registry.dart';
 import 'package:basa_capstone/viewmodels/auth_viewmodel.dart';
 import 'package:basa_capstone/viewmodels/login_log_viewmodel.dart';
+import 'package:basa_capstone/core/data/remote/student_repository_supabase.dart';
+import 'package:basa_capstone/core/data/remote/import_conflict_repository_supabase.dart';
+import 'package:basa_capstone/viewmodels/import_viewmodel.dart';
+import 'package:basa_capstone/viewmodels/student_viewmodel.dart';
 import 'package:basa_capstone/core/data/remote/school_repository_supabase.dart';
 import 'package:basa_capstone/core/data/remote/section_repository_supabase.dart';
 import 'package:basa_capstone/core/data/remote/tutor_section_assignment_repository_supabase.dart';
@@ -140,8 +144,26 @@ vmRegistry.register('TextViewModel', textVm);
   final exporter = RosterExporter();
   final columnMap = await Sf1ColumnMap.load(docsDir.path);
 
-  registerStudentCommands(registry, exporter, sectionRepo, studentRepo);
-  registerImportCommands(registry, authVm, schoolRepo, sectionRepo, studentRepo, columnMap, session);
+
+  final importVm = ImportViewModel(
+    auth: authVm,
+    cloudFactory: (client) => ImportCloudRepos(
+      schools: SchoolRepositorySupabase(client),
+      sections: SectionRepositorySupabase(client),
+      students: StudentRepositorySupabase(client),
+      conflicts: ImportConflictRepositorySupabase(client),
+    ),
+    localSchools: schoolRepo,
+    localSections: sectionRepo,
+    localStudents: studentRepo,
+    columnMap: columnMap,
+    logger: session,
+  );
+  vmRegistry.register('ImportViewModel', importVm);
+  registerImportCommands(registry, importVm);
+  final studentVm = StudentViewModel(auth: authVm, repoFactory: StudentRepositorySupabase.new, logger: session);
+  vmRegistry.register('StudentViewModel', studentVm);
+  registerStudentCommands(registry, exporter, sectionRepo, studentRepo, studentVm);
 
   runApp(BasaApp(session: session, textVm: textVm));
 }

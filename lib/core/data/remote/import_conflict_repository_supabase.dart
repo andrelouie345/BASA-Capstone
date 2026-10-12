@@ -1,4 +1,5 @@
 // lib/core/data/remote/import_conflict_repository_supabase.dart
+import 'dart:convert';
 import 'package:supabase/supabase.dart';
 import '../../models/import_conflict.dart';
 import '../../repositories/import_conflict_repository.dart';
@@ -13,7 +14,7 @@ class ImportConflictRepositorySupabase implements ImportConflictRepository {
       'lrn': conflict.lrn,
       'section_id': conflict.sectionId,
       'reason': conflict.reason,
-      'incoming_data': conflict.incomingDataJson,
+      'incoming_data': jsonDecode(conflict.incomingDataJson), // a jsonb object, not a JSON string
       'existing_student_id': conflict.existingStudentId,
       'status': conflict.status,
     });
@@ -21,7 +22,7 @@ class ImportConflictRepositorySupabase implements ImportConflictRepository {
 
   @override
   Future<List<ImportConflict>> getPending() async {
-    final rows = await client.from('import_conflicts').select().eq('status', 'pending').order('id');
+    final rows = await client.from('import_conflicts').select().eq('status', 'pending').order('id', ascending: true);
     return (rows as List).map((r) => ImportConflict.fromMap(r as Map<String, Object?>)).toList();
   }
 
@@ -32,9 +33,13 @@ class ImportConflictRepositorySupabase implements ImportConflictRepository {
   }
 
   @override
-  Future<void> resolve(int id, String status) async {
-    await client.from('import_conflicts').update({'status': status}).eq('id', id);
+  Future<bool> resolve(int id, String status) async {
+    final rows = await client
+        .from('import_conflicts')
+        .update({'status': status})
+        .eq('id', id)
+        .eq('status', 'pending')
+        .select('id');
+    return (rows as List).isNotEmpty;
   }
-
-  
 }

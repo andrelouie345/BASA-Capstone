@@ -32,7 +32,9 @@ class ImportConflictRepositorySqlite implements ImportConflictRepository {
   }
 
   @override
-  Future<void> resolve(int id, String status) async {
-    await db.update('import_conflicts', {'status': status}, where: 'id = ?', whereArgs: [id]);
+  Future<bool> resolve(int id, String status) async {
+    final count = await db.update('import_conflicts', {'status': status},
+        where: "id = ? AND status = 'pending'", whereArgs: [id]);
+    return count > 0;
   }
 }

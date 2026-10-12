@@ -329,6 +329,26 @@ class Sf1Importer {
     await localSectionRepo.upsertWithId(section);
     _log('resolved section: $section (id=${section.id})');
 
+    // A re-import must not stack a second identical pending conflict.
+    final pendingHere = (await conflictRepo.getPending())
+        .where((c) => c.sectionId == section.id)
+        .map((c) => c.lrn)
+        .toSet();
+    Future<void> logConflict(String lrn, String reason, Student incoming, {int? existingStudentId}) async {
+      if (pendingHere.add(lrn)) {
+        await conflictRepo.log(ImportConflict(
+          lrn: lrn,
+          sectionId: section.id,
+          reason: reason,
+          incomingDataJson: jsonEncode(incoming.toMap()),
+          existingStudentId: existingStudentId,
+        ));
+      } else {
+        _log('conflict for LRN $lrn already pending in this section — not logged again');
+      }
+      result.conflicts++;
+    }
+
     for (final row in parsed.rows) {
       if (row.outcome == 'skip') {
         result.skippedBlankOrTotal++;
@@ -351,13 +371,7 @@ class Sf1Importer {
         } on DuplicateLrnException {
           // The LRN exists in a school we can't see: a transfer. Logged for a
           // superadmin, who can see both schools, to resolve.
-          await conflictRepo.log(ImportConflict(
-            lrn: row.lrn!,
-            sectionId: section.id,
-            reason: transferConflictReason,
-            incomingDataJson: jsonEncode(studentParsed.toMap()),
-          ));
-          result.conflicts++;
+          await logConflict(row.lrn!, transferConflictReason, studentParsed);
           _log('conflict flagged: LRN ${row.lrn} is registered at another school');
           continue;
         }
@@ -377,14 +391,7 @@ class Sf1Importer {
         result.inserted++;
       } else {
         // conflict
-        await conflictRepo.log(ImportConflict(
-          lrn: row.lrn!,
-          sectionId: section.id,
-          reason: row.reason!,
-          incomingDataJson: jsonEncode(studentParsed.toMap()),
-          existingStudentId: row.existingStudentId,
-        ));
-        result.conflicts++;
+        await logConflict(row.lrn!, row.reason!, studentParsed, existingStudentId: row.existingStudentId);
         _log('conflict flagged: LRN ${row.lrn} already exists');
       }
     }

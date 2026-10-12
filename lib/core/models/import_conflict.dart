@@ -1,4 +1,6 @@
 // lib/core/models/import_conflict.dart
+import 'dart:convert';
+
 class ImportConflict {
   final int? id;
   final String lrn;
@@ -23,7 +25,8 @@ class ImportConflict {
         lrn: m['lrn'] as String,
         sectionId: m['section_id'] as int?,
         reason: m['reason'] as String,
-        incomingDataJson: m['incoming_data'] as String,
+        // jsonb comes back decoded (a Map); older rows hold a JSON string.
+        incomingDataJson: m['incoming_data'] is String ? m['incoming_data'] as String : jsonEncode(m['incoming_data']),
         existingStudentId: m['existing_student_id'] as int?,
         status: m['status'] as String,
       );

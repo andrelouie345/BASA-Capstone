@@ -1,6 +1,10 @@
 // lib/console/main.dart
 import 'dart:convert';
 import 'dart:io';
+import 'package:basa_capstone/core/data/remote/student_repository_supabase.dart';
+import 'package:basa_capstone/core/data/remote/import_conflict_repository_supabase.dart';
+import 'package:basa_capstone/viewmodels/import_viewmodel.dart';
+import 'package:basa_capstone/viewmodels/student_viewmodel.dart';
 import 'package:basa_capstone/core/data/remote/school_repository_supabase.dart';
 import 'package:basa_capstone/core/data/remote/section_repository_supabase.dart';
 import 'package:basa_capstone/core/data/remote/tutor_section_assignment_repository_supabase.dart';
@@ -90,7 +94,6 @@ Future<void> main() async {
 
   final config = await SupabaseConfigStore.load(dir.path);
   registerAdminBootstrapCommands(registry, config, session);
-  registerStudentCommands(registry, exporter, sectionRepo, studentRepo);
   registerConfigCommands(registry, config);
   registerTestDataCommands(registry, testDataVm, localDb, config);
   
@@ -102,7 +105,26 @@ Future<void> main() async {
   );
   registerAuthCommands(registry, authVm);
   registerUserCommands(registry, authVm, session);
-  registerImportCommands(registry, authVm, schoolRepo, sectionRepo, studentRepo, columnMap, session);
+
+  final importVm = ImportViewModel(
+    auth: authVm,
+    cloudFactory: (client) => ImportCloudRepos(
+      schools: SchoolRepositorySupabase(client),
+      sections: SectionRepositorySupabase(client),
+      students: StudentRepositorySupabase(client),
+      conflicts: ImportConflictRepositorySupabase(client),
+    ),
+    localSchools: schoolRepo,
+    localSections: sectionRepo,
+    localStudents: studentRepo,
+    columnMap: columnMap,
+    logger: session,
+  );
+  vmRegistry.register('ImportViewModel', importVm);
+  registerImportCommands(registry, importVm);
+  final studentVm = StudentViewModel(auth: authVm, repoFactory: StudentRepositorySupabase.new, logger: session);
+  vmRegistry.register('StudentViewModel', studentVm);
+  registerStudentCommands(registry, exporter, sectionRepo, studentRepo, studentVm);
 
   final schoolVm = SchoolViewModel(auth: authVm, repoFactory: SchoolRepositorySupabase.new, logger: session);
   vmRegistry.register('SchoolViewModel', schoolVm);
