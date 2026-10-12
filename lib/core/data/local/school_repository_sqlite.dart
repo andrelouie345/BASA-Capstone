@@ -42,4 +42,9 @@ class SchoolRepositorySqlite implements SchoolRepository {
     await db.update('schools', payload, where: 'id = ?', whereArgs: [school.id]);
     return school;
   }
+
+  @override
+  Future<void> delete(int id) async {
+    await db.delete('schools', where: 'id = ?', whereArgs: [id]);
+  }
 }

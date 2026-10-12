@@ -7,4 +7,5 @@ abstract class SchoolRepository {
   Future<List<School>> getAll();
   Future<School> upsertWithId(School school); // school.id must be set — forces this exact id locally
   Future<School> update(School school);
+  Future<void> delete(int id);
 }

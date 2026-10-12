@@ -38,12 +38,10 @@ class SchoolViewModel {
   }
 
   /// Every school visible to the user: all of them for a superadmin, their
-  /// own for a school-bound admin/coordinator.
+  /// own for anyone school-bound (admin, coordinator or tutor).
   Future<void> loadAll() async {
     _log('loadAll()');
-    final repo = _repo();
-    if (!_isAdminOrCoordinator) throw const ViewModelException('Forbidden: admin or coordinator only.');
-    items = await repo.getAll();
+    items = await _repo().getAll();
   }
 
   /// Superadmin only. Returns the existing school (created: false) when the
@@ -98,6 +96,24 @@ class SchoolViewModel {
     final updated = await repo.update(school);
     await _refreshIfLoaded();
     return updated;
+  }
+
+  /// Superadmin only. The database refuses while sections, students, users
+  /// or assessments still reference the school, so only empty schools go.
+  Future<void> delete(int id) async {
+    _log('delete($id)');
+    final repo = _repo();
+    if (!_isSuperadmin) throw const ViewModelException('Forbidden: superadmin only.');
+    try {
+      await repo.delete(id);
+    } on PostgrestException catch (e) {
+      if (e.code == '23503') {
+        throw const ViewModelException(
+            'School is still in use (sections, students, users or assessments). Remove those first.');
+      }
+      rethrow;
+    }
+    await _refreshIfLoaded();
   }
 
   void _checkRegion(int? regionId) {

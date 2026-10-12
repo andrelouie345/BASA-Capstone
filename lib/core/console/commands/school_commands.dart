@@ -13,14 +13,13 @@ import '../../../viewmodels/school_viewmodel.dart';
 // "IV-A", "NCR", "BARMM") and resolved by Region.resolve, the same matcher
 // the SF1 importer uses. Internal region ids are never typed: id 10 is
 // Central Visayas, which is exactly the "Region 10" mix-up this avoids.
-// (Console args split on spaces, so multi-word names need the code.)
-const _regionHelp =
-    'Region: a code or number, e.g. X, 10, IV-A, NCR, CAR, BARMM, NIR; "-" for none.';
+const _regionHelp = 'Region: a code, number or quoted name, e.g. X, 10, IV-A, NCR, BARMM, '
+    '"Northern Mindanao"; "-" for none.';
 
 void registerSchoolCommands(ConsoleRegistry registry, SchoolViewModel vm) {
   registry.register(ConsoleCommand(
     name: 'school-list',
-    description: 'school-list — list all schools (admin/coordinator only)',
+    description: 'school-list — list the schools visible to you (superadmin: all; others: their own)',
     handler: (_) async {
       try {
         await vm.loadAll();
@@ -80,6 +79,21 @@ void registerSchoolCommands(ConsoleRegistry registry, SchoolViewModel vm) {
         return 'Updated: ${_describe(updated)}';
       } catch (e) {
         return 'Update failed: $e';
+      }
+    },
+  ));
+
+  registry.register(ConsoleCommand(
+    name: 'school-delete',
+    description: 'school-delete <id> — delete an empty school (superadmin only; refused while anything references it)',
+    handler: (args) async {
+      final id = int.tryParse(args.isEmpty ? '' : args[0]);
+      if (id == null) return 'Usage: school-delete <id>';
+      try {
+        await vm.delete(id);
+        return 'Deleted school $id.';
+      } catch (e) {
+        return 'Delete failed: $e';
       }
     },
   ));

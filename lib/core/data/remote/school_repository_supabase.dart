@@ -43,4 +43,12 @@ class SchoolRepositorySupabase implements SchoolRepository {
     }
     return School.fromMap(rows.first as Map<String, Object?>);
   }
+
+  @override
+  Future<void> delete(int id) async {
+    final rows = await client.from('schools').delete().eq('id', id).select();
+    if ((rows as List).isEmpty) {
+      throw Exception('No school deleted — check the id or your permissions ("$id")');
+    }
+  }
 }
