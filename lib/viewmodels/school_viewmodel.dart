@@ -75,7 +75,8 @@ class SchoolViewModel {
     return (school: school, created: true);
   }
 
-  /// Superadmin: any school. School-bound admin/coordinator: their own only.
+  /// Superadmin: any school, any field. School-bound admin/coordinator: their
+  /// own school, name and division only.
   Future<School> update(School school) async {
     _log('update(id: ${school.id})');
     final repo = _repo();
@@ -84,6 +85,13 @@ class SchoolViewModel {
       if (!_isAdminOrCoordinator) throw const ViewModelException('Forbidden: admin or coordinator only.');
       if (_auth.currentUser?.schoolId != school.id) {
         throw const ViewModelException('Forbidden: can only update your own school.');
+      }
+      // Name and division only; the DB trigger schools_guard_identity enforces it.
+      final current = (await repo.getAll()).where((s) => s.id == school.id).firstOrNull;
+      if (current != null &&
+          (current.schoolId != school.schoolId || current.regionId != school.regionId)) {
+        throw const ViewModelException(
+            "Forbidden: only the superadmin can change a school's DepEd school ID or region.");
       }
     }
     _checkRegion(school.regionId);
