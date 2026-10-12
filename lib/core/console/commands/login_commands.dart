@@ -12,8 +12,14 @@ void registerLoginCommands(ConsoleRegistry registry, LoginLogViewModel vm, AuthV
   registry.register(ConsoleCommand(
     name: 'login-log',
     description:
-        'login-log <email> <true|false> <online|cachedSession> [failureReason] — record a login attempt',
+        'login-log <email> <true|false> <online|cachedSession> [failureReason] — record a test login attempt locally (admin/coordinator only; dev tool)',
     handler: (args) async {
+      final guardError = authVm.requireActiveSession();
+      if (guardError != null) return guardError;
+      final actingRole = authVm.currentUser?.role;
+      if (actingRole != UserRole.admin && actingRole != UserRole.coordinator) {
+        return 'Forbidden: admin or coordinator only.';
+      }
       if (args.length < 3) {
         return 'Usage: login-log <email> <true|false> <online|cachedSession> [failureReason]';
       }
@@ -41,11 +47,10 @@ void registerLoginCommands(ConsoleRegistry registry, LoginLogViewModel vm, AuthV
 
   registry.register(ConsoleCommand(
     name: 'login-recent',
-    description: 'login-recent [limit] — show recent login attempts (default 50)',
+    description: 'login-recent [limit] — show recent login attempts on this device (default 50; admin/coordinator only)',
     handler: (args) async {
       final guardError = authVm.requireActiveSession();
       if (guardError != null) return guardError;
-      final client = authVm.client!;
       final actingRole = authVm.currentUser?.role;
       if (actingRole != UserRole.admin && actingRole != UserRole.coordinator) {
         return 'Forbidden: admin or coordinator only.';
@@ -63,8 +68,14 @@ void registerLoginCommands(ConsoleRegistry registry, LoginLogViewModel vm, AuthV
 
   registry.register(ConsoleCommand(
     name: 'login-history',
-    description: 'login-history <userId> — show login attempts for a specific user',
+    description: 'login-history <userId> — show login attempts on this device for a specific user (admin/coordinator only)',
     handler: (args) async {
+      final guardError = authVm.requireActiveSession();
+      if (guardError != null) return guardError;
+      final actingRole = authVm.currentUser?.role;
+      if (actingRole != UserRole.admin && actingRole != UserRole.coordinator) {
+        return 'Forbidden: admin or coordinator only.';
+      }
       if (args.isEmpty) return 'Usage: login-history <userId>';
       await vm.loadForUser(args[0]);
       if (vm.items.isEmpty) return 'No login attempts for user "${args[0]}".';

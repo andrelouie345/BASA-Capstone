@@ -10,8 +10,8 @@ class AdminBootstrapViewModel {
       : _service = service,
         _log = ScopedLogger(logger, 'AdminBootstrapViewModel');
 
-  Future<void> bootstrap(String email, String fullName) async {
+  Future<String?> bootstrap(String email, String fullName) async {
     _log('bootstrap(email: "$email", fullName: "$fullName")');
-    await _service.bootstrapFirstAdmin(email: email, fullName: fullName);
+    return _service.bootstrapFirstAdmin(email: email, fullName: fullName);
   }
 }

@@ -10,7 +10,8 @@ import '../core/models/crla_part2_fluency.dart';
 import '../core/models/crla_result.dart';
 import '../core/repositories/crla_part2_fluency_repository.dart';
 import '../core/repositories/crla_result_repository.dart';
-
+import '../core/models/crla_story.dart';
+import '../core/repositories/crla_story_repository.dart';
 
 class CrlaViewModel {
   static const _variants = {'mt', 'fil', 'eng'};
@@ -21,10 +22,12 @@ class CrlaViewModel {
   final CrlaPart1EnglishRepository _part1English;
   final CrlaPart2FluencyRepository _part2Fluency;
   final CrlaResultRepository _results;
+  final CrlaStoryRepository _stories;
 
 
   List<CrlaAssessment> assessments = [];
   List<CrlaResult> results = [];
+    List<CrlaStory> stories = [];
   // Remembers which query populated `assessments`, so refresh() can repeat it.
   int? _lastSectionId;
   String? _lastSchoolYear;
@@ -35,12 +38,14 @@ class CrlaViewModel {
     required CrlaPart1EnglishRepository part1English,
     required CrlaPart2FluencyRepository part2Fluency,
     required CrlaResultRepository results,
+    required CrlaStoryRepository stories,
     Logger? logger,
   })  : _assessments = assessments,
         _part1Standard = part1Standard,
         _part1English = part1English,
         _part2Fluency = part2Fluency,
         _results = results,
+        _stories = stories,
         _log = ScopedLogger(logger, 'CrlaViewModel');
 
   Future<void> loadForSection(int sectionId, {String? schoolYear}) async {
@@ -248,6 +253,12 @@ class CrlaViewModel {
   }
 
   // ---- helpers ----
+
+  /// Loads stories for a region, optionally narrowed by language and/or grade.
+  Future<void> loadStories(int regionId, {String? language, int? grade}) async {
+    _log('loadStories(regionId: $regionId, language: $language, grade: $grade)');
+    stories = await _stories.getByRegion(regionId, language: language, grade: grade);
+  }
 
   Future<CrlaAssessment> _requireVariant(
     int assessmentId,

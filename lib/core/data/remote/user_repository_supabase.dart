@@ -8,7 +8,7 @@ class UserRepositorySupabase implements UserRepository {
   UserRepositorySupabase(this.client);
 
   @override
-  Future<void> create(User user) async {
+  Future<String?> create(User user) async {
     // Account creation is NOT a direct insert — it goes through a
     // server-side Edge Function that holds the service role key.
     // The function creates the Supabase Auth user AND the public.users
@@ -18,12 +18,13 @@ class UserRepositorySupabase implements UserRepository {
       'full_name': user.fullName,
       'school_id':user.schoolId,
       'role': user.role.name,
-      'created_by': user.createdBy,
+      // created_by is taken from the caller's JWT server-side.
     });
 
     if (response.status != 200) {
       throw Exception('create-user failed (${response.status}): ${response.data}');
     }
+    return (response.data as Map?)?['temp_password'] as String?;
   }
 
   @override

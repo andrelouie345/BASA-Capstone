@@ -43,3 +43,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# BASA local-only files
+CLAUDE.local.md
+/sample-files/
+/data/supabase_config.json
+/data/basa_local.db*

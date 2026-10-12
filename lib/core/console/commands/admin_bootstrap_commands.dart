@@ -36,8 +36,10 @@ void registerAdminBootstrapCommands(
       final vm = AdminBootstrapViewModel(service: AdminBootstrapService(client), logger: logger);
 
       try {
-        await vm.bootstrap(email, fullName);
-        return 'Bootstrapped admin on $target: $email ($fullName). Default password is "password" — change it on first login.';
+        final tempPassword = await vm.bootstrap(email, fullName);
+        return 'Bootstrapped admin on $target: $email ($fullName). '
+            'Temporary password: ${tempPassword ?? "(not returned — is the bootstrap-admin function deployed?)"} '
+            '(shown once; must be changed on first login).';
       } catch (e) {
         return 'Bootstrap failed: $e';
       }

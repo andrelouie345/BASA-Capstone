@@ -34,7 +34,7 @@ void registerCrlaCommands(ConsoleRegistry registry, AuthViewModel authVm, CrlaVi
 
       // fil and eng imply their language; mt needs one spelled out.
       final language = args.length > 5
-          ? args[5]
+          ? args.sublist(5).join(' ')
           : switch (variant) {
               'fil' => 'Tagalog',
               'eng' => 'English',
@@ -201,6 +201,38 @@ void registerCrlaCommands(ConsoleRegistry registry, AuthViewModel authVm, CrlaVi
         return vm.results.map(_formatResult).join('\n');
       } catch (e) {
         return 'Results failed: $e';
+      }
+    },
+  ));
+  registry.register(ConsoleCommand(
+    name: 'crla-stories',
+    description: 'crla-stories <regionId> [language...] [grade] — list CRLA stories '
+        '(language may have spaces, e.g. Sinugbuanong Binisaya)',
+    handler: (args) async {
+      final guardError = authVm.requireActiveSession();
+      if (guardError != null) return guardError;
+
+      if (args.isEmpty) return 'Usage: crla-stories <regionId> [language...] [grade]';
+      final regionId = int.tryParse(args[0]);
+      if (regionId == null) return 'Invalid regionId: "${args[0]}" (expected a number)';
+
+      // A trailing number is the grade; whatever sits between is the language.
+      final rest = args.sublist(1);
+      int? grade;
+      if (rest.isNotEmpty && int.tryParse(rest.last) != null) {
+        grade = int.parse(rest.removeLast());
+      }
+      final language = rest.isEmpty ? null : rest.join(' ');
+
+      try {
+        await vm.loadStories(regionId, language: language, grade: grade);
+        if (vm.stories.isEmpty) return '(no stories found)';
+        final lines = vm.stories.map((s) =>
+            '${s.id} | ${s.language} | grade ${s.grade} story ${s.storyNo} | '
+            '${s.title} | ${s.wordCount} words');
+        return '${lines.join('\n')}\n(${vm.stories.length} stories)';
+      } catch (e) {
+        return 'Stories failed: $e';
       }
     },
   ));

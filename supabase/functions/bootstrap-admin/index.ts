@@ -7,7 +7,19 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const DEFAULT_TEMP_PASSWORD = 'password'
+// Random per-account temp password (unambiguous characters, no modulo bias).
+// Returned once in the response so the creating admin can hand it over.
+function generateTempPassword(length = 12): string {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'
+  const limit = 256 - (256 % alphabet.length)
+  let out = ''
+  while (out.length < length) {
+    for (const b of crypto.getRandomValues(new Uint8Array(length))) {
+      if (b < limit && out.length < length) out += alphabet[b % alphabet.length]
+    }
+  }
+  return out
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -44,9 +56,10 @@ Deno.serve(async (req) => {
       })
     }
 
+    const tempPassword = generateTempPassword()
     const { data: created, error: createErr } = await adminClient.auth.admin.createUser({
       email,
-      password: DEFAULT_TEMP_PASSWORD,
+      password: tempPassword,
       email_confirm: true,
       user_metadata: { must_change_password: true },
     })
@@ -71,7 +84,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    return new Response(JSON.stringify({ id: created.user.id, email, role: 'admin' }), {
+    return new Response(JSON.stringify({ id: created.user.id, email, role: 'admin', temp_password: tempPassword }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (e) {

@@ -43,6 +43,7 @@ import 'package:basa_capstone/core/data/local/crla_part2_fluency_repository_sqli
 import 'package:basa_capstone/core/data/local/crla_result_repository_sqlite.dart';
 import 'package:basa_capstone/viewmodels/crla_viewmodel.dart';
 import 'package:basa_capstone/core/console/commands/pull_commands.dart';
+import 'package:basa_capstone/core/data/local/crla_story_repository_sqlite.dart';
 
 Future<void> main() async {
   // Pure `dart run` has no Flutter engine, so we MUST use the FFI
@@ -104,6 +105,7 @@ Future<void> main() async {
   vmRegistry.register('LoginLogViewModel', loginLogVm);
   registerLoginCommands(registry, LoginLogViewModel(repo: loginLogRepo, logger: session), authVm);
     final crlaVm = CrlaViewModel(
+    stories: CrlaStoryRepositorySqlite(localDb),
     assessments: CrlaAssessmentRepositorySqlite(localDb),
     part1Standard: CrlaPart1StandardRepositorySqlite(localDb),
     part1English: CrlaPart1EnglishRepositorySqlite(localDb),
@@ -114,4 +116,20 @@ Future<void> main() async {
   vmRegistry.register('CrlaViewModel', crlaVm);
   registerCrlaCommands(registry, authVm, crlaVm);
   registerDebugCommands(registry, session, vmRegistry);
+
+  // Headless REPL: lets the console run from a terminal or a piped script.
+  stdout.writeln('BASA console ready. Type "help", or "exit" to quit.');
+  var printed = session.entries.length;
+  while (true) {
+    stdout.write('> ');
+    final line = stdin.readLineSync();
+    if (line == null || line.trim() == 'exit') break; // null = end of piped input
+    await session.run(line);
+    for (final e in session.entries.skip(printed)) {
+      if (e.type == ConsoleEntryType.input) continue;
+      stdout.writeln(e.type == ConsoleEntryType.log ? '[${e.source}] ${e.message}' : e.message);
+    }
+    printed = session.entries.length;
+  }
+  exit(0); // the Supabase client can keep the process alive otherwise
 }

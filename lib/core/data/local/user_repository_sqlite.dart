@@ -8,8 +8,9 @@ class UserRepositorySqlite implements UserRepository {
   UserRepositorySqlite(this.db);
 
   @override
-  Future<void> create(User user) async {
+  Future<String?> create(User user) async {
     await db.insert('users', user.toMap());
+    return null; // local mirror only; no Auth account, so no password
   }
 
   @override

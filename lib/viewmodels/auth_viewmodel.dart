@@ -55,30 +55,48 @@ class AuthViewModel {
       final res = await client.auth.signInWithPassword(email: email, password: password);
       final authUser = res.user;
       if (authUser == null) {
-        await _recordAttempt(email, success: false, failureReason: 'no user returned', client: client );
+        await _recordAttempt(email, success: false, failureReason: 'no user returned', client: client);
         return 'Sign-in failed: no user returned';
       }
 
       final userRepo = _userRepoFactory(client);
       final profileRow = await userRepo.getById(authUser.id);
       if (profileRow == null) {
-        await _recordAttempt(email, success: false, failureReason: 'no matching profile row', client: client);
+        await _recordAttempt(email, success: false, userId: authUser.id,
+            failureReason: 'no matching profile row', client: client);
+        await _abandon(client);
         return 'Sign-in failed: account has no profile row (contact admin)';
       }
       if (!profileRow.isActive) {
-        await _recordAttempt(email, success: false, failureReason: 'account inactive', client: client);
+        await _recordAttempt(email, success: false, userId: authUser.id,
+            failureReason: 'account inactive', client: client);
+        await _abandon(client);
         return 'Sign-in failed: account is inactive';
       }
+
+      // Replacing an existing session: end the old one so its refresh token dies.
+      final previous = _client;
+      if (previous != null && previous != client) await _abandon(previous);
 
       _client = client;
       currentUser = profileRow;
       mustChangePassword = authUser.userMetadata?['must_change_password'] == true;
 
-      await _recordAttempt(email, success: true, client: client);
+      await _recordAttempt(email, success: true, userId: authUser.id, client: client);
       return null; // null return = success
     } catch (e) {
       await _recordAttempt(email, success: false, failureReason: e.toString(), client: client);
       return 'Sign-in failed: $e';
+    }
+  }
+
+  /// Signs a client out without touching the current session state.
+  /// Used for clients that authenticated but must not be kept.
+  Future<void> _abandon(SupabaseClient client) async {
+    try {
+      await client.auth.signOut();
+    } catch (e) {
+      _log('sign-out of abandoned client failed (non-fatal): $e');
     }
   }
 
@@ -110,12 +128,13 @@ class AuthViewModel {
   Future<void> _recordAttempt(
     String email, {
     required bool success,
+    String? userId, // the account this attempt resolved to; null if it never did
     String? failureReason,
     SupabaseClient? client,
   }) async {
     final entry = LoginLog(
       emailAttempted: email,
-      userId: currentUser?.id,
+      userId: userId,
       success: success,
       method: LoginMethod.online,
       timestamp: DateTime.now(),

@@ -23,8 +23,9 @@ void registerUserCommands(ConsoleRegistry registry, AuthViewModel authVm, Logger
         if (args.length < 4) {
           return 'Usage: user-create <email> <role:admin|coordinator|tutor> <schoolId> <full name...>';
         }
-        final client = authVm.client;
-        if (client == null) return 'Not signed in. Use sign-in <cloud|lan> <email> <password> first.';
+        final guardError = authVm.requireActiveSession();
+        if (guardError != null) return guardError;
+        final client = authVm.client!;
 
         final email = args[0];
         UserRole role;
@@ -49,7 +50,7 @@ void registerUserCommands(ConsoleRegistry registry, AuthViewModel authVm, Logger
 
         final vm = UserViewModel(repo: UserRepositorySupabase(client), logger: logger);
         try {
-          await vm.create(User(
+          final tempPassword = await vm.create(User(
             id: '',
             email: email,
             fullName: args.sublist(3).join(' '),
@@ -58,7 +59,9 @@ void registerUserCommands(ConsoleRegistry registry, AuthViewModel authVm, Logger
             createdAt: DateTime.now(),
             createdBy: authVm.currentUser?.id,
           ));
-          return 'Created: $email as ${role.name} at school $schoolId.';
+          return 'Created: $email as ${role.name} at school ${schoolId ?? "- (regional)"}.\n'
+              'Temporary password: ${tempPassword ?? "(not returned — is the create-user function deployed?)"} '
+              '(shown once; must be changed on first login).';
         } catch (e) {
           return 'Create failed: $e';
         }
@@ -70,8 +73,9 @@ void registerUserCommands(ConsoleRegistry registry, AuthViewModel authVm, Logger
     description: 'user-set-active <userId> <true|false> — activate/deactivate an account (admin/coordinator only)',
     handler: (args) async {
       if (args.length < 2) return 'Usage: user-set-active <userId> <true|false>';
-      final client = authVm.client;
-      if (client == null) return 'Not signed in. Use sign-in <cloud|lan> <email> <password> first.';
+      final guardError = authVm.requireActiveSession();
+      if (guardError != null) return guardError;
+      final client = authVm.client!;
 
       final actingRole = authVm.currentUser?.role;
       if (actingRole != UserRole.admin && actingRole != UserRole.coordinator) {
@@ -85,7 +89,7 @@ void registerUserCommands(ConsoleRegistry registry, AuthViewModel authVm, Logger
 
       final vm = UserViewModel(repo: UserRepositorySupabase(client), logger: logger);
       try {
-        await vm.setActive(args[0], activeArg == 'true');
+        await vm.setActive(args[0], activeArg == 'true', actingUserId: authVm.currentUser?.id);
         return 'Set ${args[0]} active=$activeArg.';
       } catch (e) {
         return 'Update failed: $e';
@@ -112,7 +116,8 @@ void registerUserCommands(ConsoleRegistry registry, AuthViewModel authVm, Logger
         if (vm.items.isEmpty) return '(no users found)';
         return vm.items
             .map((u) =>
-                '${u.id} | ${u.email} | ${u.fullName} | ${u.role.name} | ${u.isActive ? "active" : "inactive"}')
+                '${u.id} | ${u.email} | ${u.fullName} | ${u.role.name} | '
+                '${u.schoolId == null ? "school -" : "school ${u.schoolId}"} | ${u.isActive ? "active" : "inactive"}')
             .join('\n');
       } catch (e) {
         return 'List failed: $e';

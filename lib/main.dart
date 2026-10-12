@@ -50,6 +50,8 @@ import 'package:basa_capstone/core/data/local/crla_part2_fluency_repository_sqli
 import 'package:basa_capstone/core/data/local/crla_result_repository_sqlite.dart';
 import 'package:basa_capstone/viewmodels/crla_viewmodel.dart';
 import 'package:basa_capstone/core/console/commands/pull_commands.dart';
+import 'package:basa_capstone/core/data/local/crla_story_repository_sqlite.dart';
+
 Future <void> main() async{
 
   // Desktop needs FFI explicitly. Android/iOS get sqflite's native
@@ -94,6 +96,7 @@ vmRegistry.register('TextViewModel', textVm);
 
   
     final crlaVm = CrlaViewModel(
+    stories: CrlaStoryRepositorySqlite(localDb),
     assessments: CrlaAssessmentRepositorySqlite(localDb),
     part1Standard: CrlaPart1StandardRepositorySqlite(localDb),
     part1English: CrlaPart1EnglishRepositorySqlite(localDb),

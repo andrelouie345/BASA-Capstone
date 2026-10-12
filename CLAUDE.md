@@ -1,0 +1,68 @@
+# BASA (ARAL-Read) — project guide
+
+Flutter/Dart reading-assessment app for tutors (DepEd ARAL-Reading program, Junior High School, Phil-IRI / CRLA instruments). Capstone project, team of several; **this repo's owner works on the backend only** (models, repositories, ViewModels, console, SQL). Groupmates own UI — do not build or restyle UI unless explicitly asked.
+
+> These guides were assembled from working notes, not generated from the code. If anything here disagrees with the repo, the repo wins: tell the user about the mismatch and fix the doc.
+
+## Stack
+- Flutter/Dart, MVVM. Offline-first: **SQLite** (sqflite on mobile, sqflite_common_ffi on desktop/console) mirrored from **Supabase** (cloud, plus an optional self-hosted LAN Supabase/Postgres using the same client with a different URL).
+- Supabase URL/anon key (cloud + LAN) are runtime-editable via console `config-*` commands and persisted to disk. The hardcoded dev URL/key in `supabase_config.dart` is a temporary convenience and must be removed before distribution.
+- The app only ever uses the anon key. Never put a `service_role` key in the app or console. Admin account creation goes through a server-side Edge Function.
+- Tests are done through the developer console (`lib/console/main.dart`, plain `dart run`, no Flutter engine), plus `dart analyze`.
+
+## Layout (lib/)
+```
+console/main.dart                  console entry point
+main.dart                          Flutter entry point
+core/                              pure Dart — NEVER imports Flutter
+  console/                         command framework + commands/ (one file per module)
+  data/local/                      SQLite repos + local_database.dart (schema, triggers, views, migrations)
+  data/remote/                     Supabase repos, supabase_config, auth_session_store
+  models/                          plain Dart models
+  repositories/                    abstract interfaces
+  services/                        sf1_importer, sf1_column_map, roster_exporter, xls_to_xlsx_converter, ...
+  viewmodels/viewmodel_registry.dart
+viewmodels/                        ViewModels (also never import Flutter)
+ui/                                debug overlay, mobile/, windows/  (not the owner's area)
+```
+
+## Module workflow (follow this order)
+pure-Dart model → abstract repository interface → SQLite implementation (+ Supabase implementation) → ViewModel with a per-module `ScopedLogger` → console commands (one action per command, files in `core/console/commands/`) → wire into **both** `console/main.dart` and `main.dart` → test through the console → only then does UI call the **ViewModel directly** (never the console command strings).
+
+Module checklist: Login/user management (done), Learner Management (covered by student/enrollment code), Import-export (SF1 import/export done; CRLA/ARAL import-export pending), **CRLA (backend, ViewModel and console done)**, Phil-IRI, ARAL, Learning material recommendations, Dashboard, Statistics/Report (built last). Build order is fixed: CRLA → Phil-IRI → ARAL (ARAL depends on both).
+
+## Data model (Postgres, snake_case; SQLite uses identical table names)
+- Core: `regions` (18 PH regions, id = region number), `schools` (region_id FK), `sections` (school_id, school_year, grade_level, section_name), `students` (keyed by `lrn`, school_id), `enrollments` (student-section-year, status), `import_conflicts`, `users`, `login_logs`, `tutor_section_assignments` (many-to-many: a tutor can have many sections, a section many tutors).
+- CRLA: `crla_stories`, `crla_assessments`, `crla_part1_standard`, `crla_part1_english`, `crla_part2_fluency`, plus views `crla_results`, `crla_latest_attempts`, `crla_section_summary`, `crla_school_summary`, `crla_school_summary_weighted`. Details and gotchas are in `lib/core/CLAUDE.md`.
+- Multi-school by design: one regional database, many schools. Identical section names across schools must not collide.
+- `sections.grade_level` is always a bare numeric string ("7", not "Grade 7") — normalized by `normalizeGradeLevel()` (SF1 importer, section-create). It throws on non-numeric input on purpose (no Kindergarten in BASA).
+
+## Roles and access
+- Roles: `admin`, `coordinator`, `tutor`. Admin and coordinator have identical permissions (the two names are kept distinct, nothing more).
+- Superadmin = admin with `school_id` null (regional). Admin/coordinator with `school_id` set are school-bound. Coordinators are always school-bound.
+- Tutors only see/edit their assigned sections and those sections' students (RLS via `tutor_has_section` / `tutor_has_student`).
+- Login: first login requires being online (Supabase Auth); sessions do **not** persist across app restarts; login attempts are logged to local SQLite **and** Supabase; `is_active` is enforced as part of user management; admin-created accounts get a temp password and `must_change_password`.
+
+## RLS rules (important)
+- Whenever a table or view is added or touched, raise its RLS policies in the same piece of work.
+- Before trusting a test result, check for leftover wide-open placeholder policies ("allow all", "authenticated users can read X"). They have caused false passes twice (schools, students).
+- Every view must be `security_invoker = true`, otherwise it bypasses RLS. All five `crla_*` views were verified.
+- Policy pattern: `is_superadmin()` OR own-school-only for admin/coordinator; tutors via the section/student helper functions. All SECURITY DEFINER functions use `SET search_path = public`.
+
+## Offline and sync (design intent; sync is PARKED)
+- Intended flow: login (online) pulls the cloud data scoped to that user into the local DB; modules work offline from the local copy; offline edits sync back later after a review step. A different user logging in on the same device replaces the local cache (warn first).
+- DB switching (`db-use local|cloud|lan`) only works on `testTable`, and its clients are anonymous. Real repos will need the signed-in client. Deliberately not designed yet.
+- `lib/core/console/commands/pull_commands.dart` (`pull-cloud`) is a **temporary one-way** cloud→local copy, meant to run on an empty local DB. The owner wants to reuse it as part of the eventual sync mechanism.
+- Sync gets designed after the remaining modules, but before real field data lives only on devices.
+
+## Parked / known follow-ups
+- Sync + DB-switching redesign (above).
+- Grade-based rule checks (e.g. English only for Grade 3) are intentionally NOT in the ViewModel until the tutor-capabilities phase.
+- A build variant that physically excludes admin-only modules from the tutor build (not just hides them in UI) is a high-priority future requirement.
+- `crla_stories` is seeded only for region 13 (Northern Mindanao), grades 1–3. A section of any other grade or region gets no story match, so the view returns NULL for `pct_correct_words_read` and `reading_profile`. This is expected, not a bug.
+- Story import from source workbooks is planned (see the language normalization note in `lib/core/CLAUDE.md`).
+- `config-set-*-url` commands don't validate the URL.
+
+## Commands
+- `dart analyze` — run after every piece. Existing lint warnings (unused imports, underscore names) are accepted; errors are not.
+- Console: `dart run lib/console/main.dart` (confirm the exact invocation; the console must work without Flutter).
