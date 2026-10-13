@@ -43,7 +43,7 @@ const _replaceTables = {
 void registerPullCommands(ConsoleRegistry registry, AuthViewModel authVm, Database localDb) {
   registry.register(ConsoleCommand(
     name: 'pull-cloud',
-    description: 'pull-cloud yes — copy cloud rows into the local DB (one-way, replaces rows with the same id)',
+    description: 'pull-cloud yes — copy cloud rows into the local DB (one-way, all or nothing, overwrites rows with the same id)',
     handler: (args) async {
       final guardError = authVm.requireActiveSession();
       if (guardError != null) return guardError;
@@ -56,29 +56,42 @@ void registerPullCommands(ConsoleRegistry registry, AuthViewModel authVm, Databa
       }
 
       final client = authVm.client!;
-      final out = StringBuffer();
+
+      // Fetch everything first, then write it in one transaction: a network
+      // error or a unique-key clash leaves the local DB exactly as it was.
+      final fetched = <String, List<Map<String, dynamic>>>{};
       try {
         for (final entry in _pullOrder.entries) {
-          final n = await _pullTable(client, localDb, entry.key, entry.value);
-          out.writeln('${entry.key}: $n rows');
+          fetched[entry.key] = await _fetchTable(client, entry.key, entry.value);
         }
-        out.write('Done.');
       } catch (e) {
-        out.write('Pull stopped: $e');
+        return 'Pull stopped while downloading, nothing was written: $e';
       }
+
+      try {
+        await localDb.transaction((txn) async {
+          for (final entry in _pullOrder.entries) {
+            await _writeTable(txn, entry.key, entry.value, fetched[entry.key]!);
+          }
+        });
+      } catch (e) {
+        return 'Pull stopped, nothing was written (rolled back): $e';
+      }
+
+      final out = StringBuffer();
+      for (final entry in fetched.entries) {
+        out.writeln('${entry.key}: ${entry.value.length} rows');
+      }
+      out.write('Done.');
       return out.toString();
     },
   ));
 }
 
-Future<int> _pullTable(SupabaseClient client, Database db, String table, String orderBy) async {
-  // Only copy columns the local table has, so extra cloud columns don't break the insert.
-  final info = await db.rawQuery('PRAGMA table_info($table)');
-  final localCols = info.map((c) => c['name'] as String).toSet();
-
+Future<List<Map<String, dynamic>>> _fetchTable(SupabaseClient client, String table, String orderBy) async {
   const pageSize = 1000; // Supabase caps a single request at 1000 rows by default
+  final all = <Map<String, dynamic>>[];
   var start = 0;
-  var total = 0;
   while (true) {
     final page = await client
         .from(table)
@@ -86,24 +99,26 @@ Future<int> _pullTable(SupabaseClient client, Database db, String table, String 
         .order(orderBy, ascending: true)
         .range(start, start + pageSize - 1);
     final rows = (page as List).cast<Map<String, dynamic>>();
-
-    if (rows.isNotEmpty) {
-      await db.transaction((txn) async {
-        for (final row in rows) {
-          final local = _toLocal(row, localCols);
-          if (_replaceTables.contains(table)) {
-            await txn.insert(table, local, conflictAlgorithm: ConflictAlgorithm.replace);
-          } else {
-            await upsertById(txn, table, local, key: orderBy);
-          }
-        }
-      });
-      total += rows.length;
-    }
+    all.addAll(rows);
     if (rows.length < pageSize) break;
     start += pageSize;
   }
-  return total;
+  return all;
+}
+
+Future<void> _writeTable(Transaction txn, String table, String key, List<Map<String, dynamic>> rows) async {
+  // Only copy columns the local table has, so extra cloud columns don't break the insert.
+  final info = await txn.rawQuery('PRAGMA table_info($table)');
+  final localCols = info.map((c) => c['name'] as String).toSet();
+
+  for (final row in rows) {
+    final local = _toLocal(row, localCols);
+    if (_replaceTables.contains(table)) {
+      await txn.insert(table, local, conflictAlgorithm: ConflictAlgorithm.replace);
+    } else {
+      await upsertById(txn, table, local, key: key);
+    }
+  }
 }
 
 Map<String, Object?> _toLocal(Map<String, dynamic> row, Set<String> localCols) {
