@@ -28,6 +28,7 @@ import 'package:basa_capstone/core/data/local/login_log_repository_sqlite.dart';
 import 'package:basa_capstone/core/console/commands/import_commands.dart';
 import 'package:basa_capstone/core/data/remote/supabase_config.dart';
 import 'package:basa_capstone/core/data/remote/user_repository_supabase.dart';
+import 'package:basa_capstone/viewmodels/user_viewmodel.dart';
 import 'package:basa_capstone/core/services/roster_exporter.dart';
 import 'package:basa_capstone/core/services/sf1_column_map.dart';
 // import 'package:basa_capstone/core/services/sf1_importer.dart';
@@ -104,7 +105,9 @@ Future<void> main() async {
   logger: session,
   );
   registerAuthCommands(registry, authVm);
-  registerUserCommands(registry, authVm, session);
+  final userVm = UserViewModel(auth: authVm, repoFactory: UserRepositorySupabase.new, logger: session);
+  vmRegistry.register('UserViewModel', userVm);
+  registerUserCommands(registry, userVm);
 
   final importVm = ImportViewModel(
     auth: authVm,

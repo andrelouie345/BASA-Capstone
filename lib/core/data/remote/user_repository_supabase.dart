@@ -41,7 +41,7 @@ class UserRepositorySupabase implements UserRepository {
 
   @override
   Future<List<User>> getAll() async {
-    final rows = await client.from('users').select().order('full_name');
+    final rows = await client.from('users').select().order('full_name', ascending: true); // postgrest defaults to descending
     return (rows as List).map((r) => User.fromMap(r as Map<String, Object?>)).toList();
   }
 

@@ -52,7 +52,7 @@ Module checklist: Login/user management (done), Learner Management (covered by s
 ## Offline and sync (design intent; sync is PARKED)
 - Intended flow: login (online) pulls the cloud data scoped to that user into the local DB; modules work offline from the local copy; offline edits sync back later after a review step. A different user logging in on the same device replaces the local cache (warn first).
 - DB switching (`db-use local|cloud|lan`) only works on `testTable`, and its clients are anonymous. Real repos will need the signed-in client. Deliberately not designed yet.
-- `lib/core/console/commands/pull_commands.dart` (`pull-cloud`) is a **temporary one-way** cloud→local copy, meant to run on an empty local DB. The owner wants to reuse it as part of the eventual sync mechanism.
+- `lib/core/console/commands/pull_commands.dart` (`pull-cloud`) is a **temporary one-way** cloud→local copy. It **replaces** the local data with everything the signed-in user can read: it downloads first, then clears and rewrites the data tables in one transaction (regions and login_logs kept). So an admin's pull holds everything, and a tutor's later pull leaves only the tutor's scope. It refuses while un-uploaded CRLA assessments exist (`crla_assessments.origin = 'local'`) unless run as `pull-cloud yes discard-local`. `sync_meta` records who pulled last. The owner wants to reuse it as part of the eventual sync mechanism; its logic still lives in the console command, not a ViewModel.
 - Sync gets designed after the remaining modules, but before real field data lives only on devices.
 
 ## Parked / known follow-ups

@@ -6,7 +6,6 @@ library;
 import 'dart:convert';
 import 'package:sqflite_common/sqflite.dart';
 import 'package:supabase/supabase.dart' show SupabaseClient;
-import '../../data/local/mirror_write.dart';
 import '../console_command.dart';
 import '../console_registry.dart';
 import '../../../viewmodels/auth_viewmodel.dart';
@@ -27,65 +26,123 @@ const _pullOrder = <String, String>{
   'crla_part2_fluency': 'assessment_id',
 };
 
-/// Tables still written with INSERT OR REPLACE. The part tables: their
-/// primary key is their only unique key, and an UPDATE would re-run the local
-/// compute triggers over the cloud's wpm/totals. enrollments: one per
-/// learner per year, the cloud's row wins (same as enroll()). Every other
-/// table goes through upsertById, so a unique-key clash stops the pull
-/// instead of silently deleting a local row.
-const _replaceTables = {
-  'enrollments',
-  'crla_part1_standard',
-  'crla_part1_english',
+/// Local tables a pull empties before writing (children first). Everything
+/// the signed-in user can read comes back from the cloud; regions (seed data)
+/// and login_logs (this device's sign-in history) are kept. import_conflicts
+/// lives in the cloud only; its local copy is unused but may hold old rows.
+const _clearedTables = [
   'crla_part2_fluency',
-};
+  'crla_part1_english',
+  'crla_part1_standard',
+  'crla_assessments',
+  'crla_stories',
+  'import_conflicts',
+  'enrollments',
+  'students',
+  'sections',
+  'users',
+  'schools',
+];
 
 void registerPullCommands(ConsoleRegistry registry, AuthViewModel authVm, Database localDb) {
   registry.register(ConsoleCommand(
     name: 'pull-cloud',
-    description: 'pull-cloud yes — copy cloud rows into the local DB (one-way, all or nothing, overwrites rows with the same id)',
+    description: 'pull-cloud yes [discard-local] — replace the local data with everything the signed-in '
+        'user can read in the cloud (all or nothing)',
     handler: (args) async {
       final guardError = authVm.requireActiveSession();
       if (guardError != null) return guardError;
 
+      final previous = await _lastPull(localDb);
+      final unsynced = await _unsyncedCrla(localDb);
+      final unsyncedTotal = unsynced.fold<int>(0, (n, r) => n + (r['n'] as int));
+
       if (args.isEmpty || args[0] != 'yes') {
-        return 'This copies cloud rows into the local DB and overwrites local rows that share an id. '
-            'It stops if a cloud row\'s unique key (LRN, school code, section) belongs to a '
-            'different local row. Local-only rows are kept. Back up data/basa_local.db first.\n'
+        return 'This CLEARS the local data (schools, users, sections, learners, enrollments, CRLA) and '
+            'pulls everything ${authVm.currentUser?.email} can read in the cloud. '
+            'Regions and login logs are kept.\n'
+            'Local data was last pulled by ${previous ?? "nobody (never pulled)"}.\n'
+            '${unsyncedTotal > 0 ? "$unsyncedTotal CRLA assessment(s) on this device are not uploaded yet; the pull will refuse.\n" : ""}'
             'Run "pull-cloud yes" to continue.';
+      }
+
+      final discardLocal = args.length > 1 && args[1] == 'discard-local';
+      if (unsyncedTotal > 0 && !discardLocal) {
+        final lines = unsynced.map((r) => '  ${r['n']} in section ${r['section_id']} '
+            '(grade ${r['grade_level'] ?? "?"} ${r['section_name'] ?? "unknown"}, ${r['school_year'] ?? ""})');
+        return 'Refused: $unsyncedTotal CRLA assessment(s) were entered on this device and are not in the cloud yet:\n'
+            '${lines.join('\n')}\n'
+            'A pull would delete them. Upload them first, or run "pull-cloud yes discard-local" to delete them.';
       }
 
       final client = authVm.client!;
 
-      // Fetch everything first, then write it in one transaction: a network
-      // error or a unique-key clash leaves the local DB exactly as it was.
+      // Fetch everything first, then clear and write in one transaction: a
+      // network error or any write error leaves the local DB exactly as it was.
       final fetched = <String, List<Map<String, dynamic>>>{};
       try {
         for (final entry in _pullOrder.entries) {
           fetched[entry.key] = await _fetchTable(client, entry.key, entry.value);
         }
       } catch (e) {
-        return 'Pull stopped while downloading, nothing was written: $e';
+        return 'Pull stopped while downloading, nothing was changed: $e';
       }
 
       try {
         await localDb.transaction((txn) async {
-          for (final entry in _pullOrder.entries) {
-            await _writeTable(txn, entry.key, entry.value, fetched[entry.key]!);
+          for (final table in _clearedTables) {
+            await txn.delete(table);
           }
+          for (final entry in _pullOrder.entries) {
+            await _writeTable(txn, entry.key, fetched[entry.key]!);
+          }
+          final user = authVm.currentUser;
+          await _setMeta(txn, {
+            'last_pull_user_id': user?.id,
+            'last_pull_user_email': user?.email,
+            'last_pull_at': DateTime.now().toUtc().toIso8601String(),
+          });
         });
       } catch (e) {
-        return 'Pull stopped, nothing was written (rolled back): $e';
+        return 'Pull stopped, nothing was changed (rolled back): $e';
       }
 
       final out = StringBuffer();
+      if (discardLocal && unsyncedTotal > 0) {
+        out.writeln('Discarded $unsyncedTotal local CRLA assessment(s).');
+      }
       for (final entry in fetched.entries) {
         out.writeln('${entry.key}: ${entry.value.length} rows');
       }
-      out.write('Done.');
+      out.write('Done. Local data now belongs to ${authVm.currentUser?.email}.');
       return out.toString();
     },
   ));
+}
+
+/// "email on UTC-time" of the last successful pull, or null if none.
+Future<String?> _lastPull(Database db) async {
+  final rows = await db.query('sync_meta');
+  final meta = {for (final r in rows) r['key'] as String: r['value'] as String?};
+  final email = meta['last_pull_user_email'];
+  return email == null ? null : '$email on ${meta['last_pull_at']}';
+}
+
+/// CRLA assessments entered on this device (origin 'local'), per section.
+Future<List<Map<String, Object?>>> _unsyncedCrla(Database db) => db.rawQuery('''
+      SELECT ca.section_id, COUNT(*) AS n, s.grade_level, s.section_name, s.school_year
+      FROM crla_assessments ca
+      LEFT JOIN sections s ON s.id = ca.section_id
+      WHERE ca.origin = 'local'
+      GROUP BY ca.section_id
+      ORDER BY ca.section_id
+    ''');
+
+Future<void> _setMeta(Transaction txn, Map<String, String?> values) async {
+  for (final e in values.entries) {
+    await txn.insert('sync_meta', {'key': e.key, 'value': e.value},
+        conflictAlgorithm: ConflictAlgorithm.replace);
+  }
 }
 
 Future<List<Map<String, dynamic>>> _fetchTable(SupabaseClient client, String table, String orderBy) async {
@@ -106,18 +163,16 @@ Future<List<Map<String, dynamic>>> _fetchTable(SupabaseClient client, String tab
   return all;
 }
 
-Future<void> _writeTable(Transaction txn, String table, String key, List<Map<String, dynamic>> rows) async {
+Future<void> _writeTable(Transaction txn, String table, List<Map<String, dynamic>> rows) async {
   // Only copy columns the local table has, so extra cloud columns don't break the insert.
   final info = await txn.rawQuery('PRAGMA table_info($table)');
   final localCols = info.map((c) => c['name'] as String).toSet();
 
+  // The tables were just emptied, so plain inserts: nothing can clash.
   for (final row in rows) {
     final local = _toLocal(row, localCols);
-    if (_replaceTables.contains(table)) {
-      await txn.insert(table, local, conflictAlgorithm: ConflictAlgorithm.replace);
-    } else {
-      await upsertById(txn, table, local, key: key);
-    }
+    if (table == 'crla_assessments') local['origin'] = 'cloud';
+    await txn.insert(table, local);
   }
 }
 

@@ -1,59 +1,127 @@
 // lib/viewmodels/user_viewmodel.dart
-
-import 'package:basa_capstone/core/models/user_role.dart';
+import 'package:supabase/supabase.dart' hide User;
 import '../core/console/logger.dart';
 import '../core/models/user.dart';
+import '../core/models/user_role.dart';
 import '../core/repositories/user_repository.dart';
+import 'auth_viewmodel.dart';
+import 'viewmodel_exception.dart';
 
+/// User accounts, read and written through the signed-in user's client (RLS
+/// applies). The checks here mirror the create-user edge function and the
+/// users policies so the UI gets a clear message; the server stays the real
+/// enforcement.
+///
+/// Accounts are only ever created in the cloud (the edge function creates
+/// the Auth user and the profile row together). A local-only profile row
+/// would have no Auth account behind it and could never log in.
 class UserViewModel {
   final ScopedLogger _log;
-  UserRepository _repo;
+  final AuthViewModel _auth;
+  final UserRepository Function(SupabaseClient client) _repoFor;
   List<User> items = [];
 
-  UserViewModel({required UserRepository repo, Logger? logger})
-      : _repo = repo,
+  UserViewModel({
+    required AuthViewModel auth,
+    required UserRepository Function(SupabaseClient client) repoFactory,
+    Logger? logger,
+  })  : _auth = auth,
+        _repoFor = repoFactory,
         _log = ScopedLogger(logger, 'UserViewModel');
 
-  void useRepository(UserRepository repo, String label) {
-    _repo = repo;
-    _log('switched backend -> $label');
+  bool get _isSuperadmin =>
+      _auth.currentUser?.role == UserRole.admin && _auth.currentUser?.schoolId == null;
+
+  bool get _isAdminOrCoordinator =>
+      _auth.currentUser?.role == UserRole.admin || _auth.currentUser?.role == UserRole.coordinator;
+
+  UserRepository _repo() {
+    final sessionError = _auth.requireActiveSession();
+    if (sessionError != null) throw ViewModelException(sessionError);
+    return _repoFor(_auth.client!);
   }
 
-  Future<void> refresh() async {
-    _log('refresh()');
-    items = await _repo.getAll();
+  void _requireAdminOrCoordinator() {
+    if (!_isAdminOrCoordinator) throw const ViewModelException('Forbidden: admin or coordinator only.');
   }
 
-  // NOTE: only meaningful against a Supabase-backed repo. Calling this
-  // against UserRepositorySqlite creates a profile row with no matching
-  // Supabase Auth account behind it — an unusable, orphaned "user" that
-  // can never actually log in. Local repo is for caching/reading a user
-  // that already exists in Auth, not for originating new accounts.
-  /// Returns the one-time temporary password for the new account (or null
-  /// if the backend didn't issue one). Show it to the creating admin once.
-  Future<String?> create(User user) async {
-    _log('create(email: "${user.email}", role: ${user.role.name})');
-    if (user.schoolId == null && user.role != UserRole.admin) {
-      throw ArgumentError('schoolId is required for non-admin accounts');
+  /// Every account the user can see: all of them for a superadmin, their own
+  /// school's for a school-bound admin/coordinator. Sorted by full name.
+  Future<void> loadAll() async {
+    _log('loadAll()');
+    final repo = _repo();
+    _requireAdminOrCoordinator();
+    items = await repo.getAll();
+  }
+
+  /// Creates the account through the create-user edge function and returns
+  /// the one-time temporary password (null if the function didn't send one).
+  /// Show it to the creating admin once; it must be changed on first login.
+  ///
+  /// [schoolId] null creates a regional admin (superadmin only). A
+  /// school-bound admin/coordinator can only create users for their school.
+  Future<String?> create({
+    required String email,
+    required String fullName,
+    required UserRole role,
+    int? schoolId,
+  }) async {
+    _log('create(email: "$email", role: ${role.name}, schoolId: $schoolId)');
+    final repo = _repo();
+    _requireAdminOrCoordinator();
+    if (email.trim().isEmpty || fullName.trim().isEmpty) {
+      throw const ViewModelException('Email and full name are required.');
     }
-    final tempPassword = await _repo.create(user);
-    await refresh();
+    if (schoolId == null && !(_isSuperadmin && role == UserRole.admin)) {
+      throw const ViewModelException('Only a superadmin can create an admin with no school.');
+    }
+    if (schoolId != null && !_isSuperadmin && schoolId != _auth.currentUser?.schoolId) {
+      throw const ViewModelException('Forbidden: you can only create users for your own school.');
+    }
+
+    final String? tempPassword;
+    try {
+      tempPassword = await repo.create(User(
+        id: '',
+        email: email.trim(),
+        fullName: fullName.trim(),
+        role: role,
+        schoolId: schoolId,
+        createdAt: DateTime.now(),
+        // created_by is taken from the caller's JWT server-side.
+      ));
+    } on FunctionException catch (e) {
+      final details = e.details;
+      final message = details is Map ? details['error'] : null;
+      throw ViewModelException('${message ?? details ?? e.reasonPhrase ?? e.status}');
+    }
+    await _refreshIfLoaded();
     return tempPassword;
   }
 
   Future<User?> findByEmail(String email) async {
     _log('findByEmail(email: "$email")');
-    return _repo.getByEmail(email);
+    return _repo().getByEmail(email);
   }
 
-  /// [actingUserId] is the signed-in user; changing your own active flag is
+  /// Activates or deactivates an account. Changing your own active flag is
   /// refused here (and by RLS) so an admin can't lock themselves out.
-  Future<void> setActive(String id, bool isActive, {String? actingUserId}) async {
+  Future<void> setActive(String id, bool isActive) async {
     _log('setActive(id: $id, isActive: $isActive)');
-    if (actingUserId != null && id == actingUserId) {
-      throw ArgumentError('You cannot change your own active status.');
+    final repo = _repo();
+    _requireAdminOrCoordinator();
+    if (id == _auth.currentUser?.id) {
+      throw const ViewModelException('You cannot change your own active status.');
     }
-    await _repo.setActive(id, isActive);
-    await refresh();
+    try {
+      await repo.setActive(id, isActive);
+    } on PostgrestException catch (e) {
+      throw ViewModelException(e.message);
+    }
+    await _refreshIfLoaded();
+  }
+
+  Future<void> _refreshIfLoaded() async {
+    if (items.isNotEmpty) items = await _repo().getAll();
   }
 }

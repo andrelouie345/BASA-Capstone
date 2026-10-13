@@ -79,7 +79,7 @@ class CrlaAssessmentRepositorySqlite implements CrlaAssessmentRepository {
       // the local trigger would renumber it and the two sides would drift.
       throw ArgumentError('upsertWithId requires the real attemptNo (got ${assessment.attemptNo})');
     }
-    await upsertById(db, 'crla_assessments', assessment.toMap());
+    await upsertById(db, 'crla_assessments', {...assessment.toMap(), 'origin': 'cloud'});
     return (await findById(assessment.id!))!;
   }
 }

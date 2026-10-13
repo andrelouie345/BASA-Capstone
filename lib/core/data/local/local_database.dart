@@ -16,7 +16,7 @@ class LocalDatabase {
     _db = await databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 11, // v11: grade-aware CRLA rules (M4)
+        version: 12, // v12: crla_assessments.origin + sync_meta (M5)
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
@@ -30,7 +30,7 @@ class LocalDatabase {
           await _createCrlaTables(db);
           await _createCrlaScoreTables(db);
           await _createCrlaViews(db);
-
+          await _createSyncTables(db);
         },
         onUpgrade: (db, oldVersion, newVersion) async {
           if (oldVersion < 2) {
@@ -99,6 +99,17 @@ class LocalDatabase {
             await _createCrlaTables(db);
             await _createCrlaScoreTables(db);
             await _createCrlaViews(db);
+
+          // v12. Checked by column, not version, like the other column adds.
+          final crlaColumns = await db.rawQuery('PRAGMA table_info(crla_assessments)');
+          if (!crlaColumns.any((c) => c['name'] == 'origin')) {
+            // Existing rows can't be told apart, so they count as 'local'
+            // (unsynced): a wipe refuses until they're pushed or discarded.
+            await db.execute(
+                "ALTER TABLE crla_assessments ADD COLUMN origin TEXT NOT NULL DEFAULT 'local' "
+                "CHECK (origin IN ('local', 'cloud'))");
+          }
+          await _createSyncTables(db);
         },
       ),
     );
@@ -271,6 +282,9 @@ class LocalDatabase {
         assessed_at TEXT NOT NULL,
         administered_by TEXT REFERENCES users(id),
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        -- Local only (no cloud column): 'local' = entered on this device and
+        -- not yet uploaded; 'cloud' = mirrored from Supabase.
+        origin TEXT NOT NULL DEFAULT 'local' CHECK (origin IN ('local', 'cloud')),
         UNIQUE(student_id, school_id, section_id, subject_variant, school_year, attempt_no)
       )
     ''');
@@ -643,6 +657,16 @@ class LocalDatabase {
            AND cs.story_no  = p2.story_no
         ) b
       ) t
+    ''');
+  }
+
+  /// Local-only bookkeeping for pull-cloud (who pulled last, and when).
+  static Future<void> _createSyncTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS sync_meta (
+        key TEXT PRIMARY KEY,
+        value TEXT
+      )
     ''');
   }
 
