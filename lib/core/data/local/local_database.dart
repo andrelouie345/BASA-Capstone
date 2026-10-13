@@ -16,7 +16,7 @@ class LocalDatabase {
     _db = await databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 10, // was 9
+        version: 11, // v11: grade-aware CRLA rules (M4)
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
@@ -88,6 +88,12 @@ class LocalDatabase {
             ''');
             await db.execute('DROP TABLE schools');
             await db.execute('ALTER TABLE schools_new RENAME TO schools');
+          }
+
+          if (oldVersion < 11) {
+            // Must run before the creators below, which recreate the
+            // triggers and view this drops.
+            await _rebuildCrlaPart2ForV11(db);
           }
 
             await _createCrlaTables(db);
@@ -288,6 +294,67 @@ class LocalDatabase {
         WHERE id = NEW.id;
       END
     ''');
+
+    // Same rules as the cloud insert policy: a grade 1-3 section of that
+    // school, and an active enrollment in it for that year. Local inserts
+    // only (attempt_no = 0); rows mirrored from the cloud were checked there.
+    await db.execute('DROP TRIGGER IF EXISTS check_crla_assessment_target');
+    await db.execute('''
+      CREATE TRIGGER check_crla_assessment_target
+      BEFORE INSERT ON crla_assessments
+      WHEN NEW.attempt_no = 0
+      BEGIN
+        SELECT RAISE(ABORT, 'No such section')
+        WHERE NOT EXISTS (SELECT 1 FROM sections WHERE id = NEW.section_id);
+        SELECT RAISE(ABORT, 'CRLA is for Grade 1-3 sections only')
+        WHERE (SELECT grade_level FROM sections WHERE id = NEW.section_id) NOT IN ('1', '2', '3');
+        SELECT RAISE(ABORT, 'Section does not belong to that school')
+        WHERE (SELECT school_id FROM sections WHERE id = NEW.section_id) IS NOT NEW.school_id;
+        SELECT RAISE(ABORT, 'Learner has no active enrollment in this section for that school year')
+        WHERE NOT EXISTS (
+          SELECT 1 FROM enrollments
+          WHERE student_id = NEW.student_id AND section_id = NEW.section_id
+            AND school_year = NEW.school_year AND status = 'active');
+      END
+    ''');
+  }
+
+  /// v11: crla_part2_fluency's comprehension CHECK widens from 0..5 to 0..7.
+  /// SQLite can't alter a CHECK, so copy into a new table. The view and the
+  /// table's triggers go with the old table; the CRLA creators that run after
+  /// this in onUpgrade recreate them.
+  static Future<void> _rebuildCrlaPart2ForV11(Database db) async {
+    final exists = (await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='crla_part2_fluency'",
+    )).isNotEmpty;
+    if (!exists) return; // the creators build it fresh
+
+    await db.transaction((txn) async {
+      await txn.execute('DROP VIEW IF EXISTS crla_results');
+      await txn.execute('''
+        CREATE TABLE crla_part2_fluency_v11 (
+          assessment_id INTEGER PRIMARY KEY REFERENCES crla_assessments(id),
+          story_no INTEGER NOT NULL CHECK (story_no IN (1, 2)),
+          miscues INTEGER NOT NULL CHECK (miscues >= 0),
+          words_read INTEGER NOT NULL CHECK (words_read >= 0),
+          time_minutes INTEGER NOT NULL CHECK (time_minutes >= 0),
+          time_seconds INTEGER NOT NULL CHECK (time_seconds BETWEEN 0 AND 59),
+          wpm REAL,
+          comprehension_correct INTEGER NOT NULL CHECK (comprehension_correct BETWEEN 0 AND 7),
+          learner_experience_rating INTEGER CHECK (learner_experience_rating BETWEEN 1 AND 5),
+          observation_level INTEGER CHECK (observation_level BETWEEN 1 AND 4),
+          remarks TEXT
+        )
+      ''');
+      await txn.execute('''
+        INSERT INTO crla_part2_fluency_v11
+        SELECT assessment_id, story_no, miscues, words_read, time_minutes, time_seconds,
+               wpm, comprehension_correct, learner_experience_rating, observation_level, remarks
+        FROM crla_part2_fluency
+      ''');
+      await txn.execute('DROP TABLE crla_part2_fluency');
+      await txn.execute('ALTER TABLE crla_part2_fluency_v11 RENAME TO crla_part2_fluency');
+    });
   }
 
   static Future<void> _createCrlaScoreTables(Database db) async {
@@ -420,7 +487,7 @@ class LocalDatabase {
         time_minutes INTEGER NOT NULL CHECK (time_minutes >= 0),
         time_seconds INTEGER NOT NULL CHECK (time_seconds BETWEEN 0 AND 59),
         wpm REAL,
-        comprehension_correct INTEGER NOT NULL CHECK (comprehension_correct BETWEEN 0 AND 5),
+        comprehension_correct INTEGER NOT NULL CHECK (comprehension_correct BETWEEN 0 AND 7),
         learner_experience_rating INTEGER CHECK (learner_experience_rating BETWEEN 1 AND 5),
         observation_level INTEGER CHECK (observation_level BETWEEN 1 AND 4),
         remarks TEXT
@@ -455,73 +522,127 @@ class LocalDatabase {
       WHEN NEW.wpm IS NULL
       BEGIN $fluencyCompute END
     ''');
+
+    // Per-grade comprehension max and reading-time cap (crla_rules.dart,
+    // Postgres check_crla_part2_limits). Inserts only when wpm is NULL, i.e.
+    // local entries; mirrored cloud rows carry wpm and were checked there.
+    const limitsCheck = '''
+      SELECT RAISE(ABORT, 'Comprehension score is above the maximum for this grade')
+      WHERE NEW.comprehension_correct > (
+        SELECT CASE
+                 WHEN CAST(sec.grade_level AS INTEGER) = 1 THEN 5
+                 WHEN CAST(sec.grade_level AS INTEGER) = 3 AND ca.subject_variant IN ('mt', 'fil') THEN 7
+                 ELSE 6
+               END
+        FROM crla_assessments ca JOIN sections sec ON sec.id = ca.section_id
+        WHERE ca.id = NEW.assessment_id);
+      SELECT RAISE(ABORT, 'Reading time is over the limit for this grade')
+      WHERE NEW.time_minutes * 60 + NEW.time_seconds > (
+        SELECT CASE
+                 WHEN CAST(sec.grade_level AS INTEGER) = 1 THEN 60
+                 WHEN CAST(sec.grade_level AS INTEGER) = 3 AND ca.subject_variant IN ('mt', 'fil') THEN 180
+                 ELSE 120
+               END
+        FROM crla_assessments ca JOIN sections sec ON sec.id = ca.section_id
+        WHERE ca.id = NEW.assessment_id);
+    ''';
+    await db.execute('DROP TRIGGER IF EXISTS check_crla_part2_limits_ins');
+    await db.execute('''
+      CREATE TRIGGER check_crla_part2_limits_ins
+      BEFORE INSERT ON crla_part2_fluency
+      WHEN NEW.wpm IS NULL
+      BEGIN $limitsCheck END
+    ''');
+    await db.execute('DROP TRIGGER IF EXISTS check_crla_part2_limits_upd');
+    await db.execute('''
+      CREATE TRIGGER check_crla_part2_limits_upd
+      BEFORE UPDATE OF comprehension_correct, time_minutes, time_seconds ON crla_part2_fluency
+      BEGIN $limitsCheck END
+    ''');
   }
 
   static Future<void> _createCrlaViews(Database db) async {
     // DROP + CREATE (not IF NOT EXISTS) so a changed definition always replaces the old one.
     await db.execute('DROP VIEW IF EXISTS crla_results');
+    // Per-grade rules as in Postgres crla_reading_profile() (see
+    // crla_rules.dart): m = comprehension max, h / d2 / g = cut-offs.
     await db.execute('''
       CREATE VIEW crla_results AS
       SELECT
-        ca.id AS assessment_id,
-        ca.student_id,
-        ca.school_id,
-        ca.section_id,
-        ca.school_year,
-        ca.subject_variant,
-        ca.language,
-        ca.attempt_no,
-        ca.assessed_at,
-        COALESCE(p1s.total_score, p1e.total_score) AS part1_total_score,
-        COALESCE(p1s.reading_level, p1e.reading_level) AS part1_reading_level,
-        p2.story_no,
-        p2.words_read,
-        p2.miscues,
-        p2.wpm,
-        p2.comprehension_correct,
-        p2.learner_experience_rating,
-        p2.observation_level,
-        p2.remarks,
-        ROUND(p2.words_read * 1.0 / NULLIF(cs.word_count, 0), 4) AS pct_correct_words_read,
+        assessment_id, student_id, school_id, section_id, school_year,
+        subject_variant, language, attempt_no, assessed_at,
+        part1_total_score, part1_reading_level,
+        story_no, words_read, miscues, wpm, comprehension_correct,
+        learner_experience_rating, observation_level, remarks,
+        ROUND(pct, 4) AS pct_correct_words_read,
         CASE
-          WHEN COALESCE(p1s.reading_level, p1e.reading_level)
-               IN ('Full Refresher', 'Moderate Refresher')
+          WHEN part1_reading_level IS NULL THEN NULL
+          WHEN part1_reading_level = 'Full Refresher'
+               OR (grade = 1 AND part1_reading_level = 'Moderate Refresher')
             THEN 'Low Emerging Reader'
-          WHEN p2.story_no IS NULL OR cs.word_count IS NULL THEN NULL
-          WHEN (p2.words_read * 1.0 / cs.word_count) <= 0.25
-               OR ((p2.words_read * 1.0 / cs.word_count) > 0.25
-                   AND (p2.words_read * 1.0 / cs.word_count) <= 0.50
-                   AND p2.comprehension_correct = 0)
+          WHEN pct IS NULL OR comprehension_correct IS NULL THEN NULL
+          WHEN pct <= 0.25
+               OR (pct > 0.25 AND pct <= 0.50 AND comprehension_correct <= h)
             THEN 'High Emerging Reader'
-          WHEN ((p2.words_read * 1.0 / cs.word_count) > 0.25
-                AND (p2.words_read * 1.0 / cs.word_count) < 0.51
-                AND p2.comprehension_correct >= 1)
-               OR ((p2.words_read * 1.0 / cs.word_count) > 0.50
-                   AND (p2.words_read * 1.0 / cs.word_count) < 0.76
-                   AND p2.comprehension_correct <= 1)
+          WHEN (pct > 0.25 AND pct < 0.51 AND comprehension_correct >= h + 1)
+               OR (pct > 0.50 AND pct < 0.76 AND comprehension_correct <= d2)
             THEN 'Developing Reader'
-          WHEN ((p2.words_read * 1.0 / cs.word_count) >= 0.51
-                AND (p2.words_read * 1.0 / cs.word_count) < 0.76
-                AND p2.comprehension_correct >= 2)
-               OR ((p2.words_read * 1.0 / cs.word_count) > 0.75
-                   AND p2.comprehension_correct <= 3)
+          WHEN (pct >= 0.51 AND pct < 0.76 AND comprehension_correct >= d2 + 1)
+               OR (pct > 0.75 AND comprehension_correct <= g - 1)
             THEN 'Transitioning Reader'
-          WHEN (p2.words_read * 1.0 / cs.word_count) > 0.75
-               AND p2.comprehension_correct >= 4
+          WHEN pct > 0.75 AND comprehension_correct >= g
             THEN 'Reading At Grade Level'
           ELSE NULL
         END AS reading_profile
-      FROM crla_assessments ca
-      LEFT JOIN crla_part1_standard p1s ON p1s.assessment_id = ca.id
-      LEFT JOIN crla_part1_english  p1e ON p1e.assessment_id = ca.id
-      LEFT JOIN crla_part2_fluency  p2  ON p2.assessment_id  = ca.id
-      JOIN sections sec ON sec.id = ca.section_id
-      JOIN schools  sch ON sch.id = ca.school_id
-      LEFT JOIN crla_stories cs
-        ON cs.region_id = sch.region_id
-       AND cs.language  = ca.language
-       AND cs.grade     = CAST(sec.grade_level AS INTEGER)
-       AND cs.story_no  = p2.story_no
+      FROM (
+        SELECT b.*,
+               CASE WHEN m = 7 THEN 1 ELSE 0 END AS h,
+               m - 4 AS d2,
+               m - 1 AS g
+        FROM (
+          SELECT
+            ca.id AS assessment_id,
+            ca.student_id,
+            ca.school_id,
+            ca.section_id,
+            ca.school_year,
+            ca.subject_variant,
+            ca.language,
+            ca.attempt_no,
+            ca.assessed_at,
+            COALESCE(p1s.total_score, p1e.total_score) AS part1_total_score,
+            COALESCE(p1s.reading_level, p1e.reading_level) AS part1_reading_level,
+            p2.story_no,
+            p2.words_read,
+            p2.miscues,
+            p2.wpm,
+            p2.comprehension_correct,
+            p2.learner_experience_rating,
+            p2.observation_level,
+            p2.remarks,
+            p2.words_read * 1.0 / NULLIF(cs.word_count, 0) AS pct,
+            gr.grade,
+            CASE
+              WHEN gr.grade = 1 THEN 5
+              WHEN gr.grade = 3 AND ca.subject_variant IN ('mt', 'fil') THEN 7
+              ELSE 6
+            END AS m
+          FROM crla_assessments ca
+          LEFT JOIN crla_part1_standard p1s ON p1s.assessment_id = ca.id
+          LEFT JOIN crla_part1_english  p1e ON p1e.assessment_id = ca.id
+          LEFT JOIN crla_part2_fluency  p2  ON p2.assessment_id  = ca.id
+          JOIN schools  sch ON sch.id = ca.school_id
+          JOIN (SELECT id,
+                       CASE WHEN grade_level <> '' AND grade_level NOT GLOB '*[^0-9]*'
+                            THEN CAST(grade_level AS INTEGER) END AS grade
+                FROM sections) gr ON gr.id = ca.section_id
+          LEFT JOIN crla_stories cs
+            ON cs.region_id = sch.region_id
+           AND cs.language  = ca.language
+           AND cs.grade     = gr.grade
+           AND cs.story_no  = p2.story_no
+        ) b
+      ) t
     ''');
   }
 

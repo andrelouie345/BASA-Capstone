@@ -12,7 +12,10 @@ import '../core/repositories/crla_part2_fluency_repository.dart';
 import '../core/repositories/crla_result_repository.dart';
 import '../core/models/crla_story.dart';
 import '../core/repositories/crla_story_repository.dart';
+import '../core/repositories/section_repository.dart';
+import '../core/services/crla_rules.dart';
 import '../core/services/normalizers.dart';
+import 'viewmodel_exception.dart';
 
 class CrlaViewModel {
   static const _variants = {'mt', 'fil', 'eng'};
@@ -24,11 +27,11 @@ class CrlaViewModel {
   final CrlaPart2FluencyRepository _part2Fluency;
   final CrlaResultRepository _results;
   final CrlaStoryRepository _stories;
-
+  final SectionRepository _sections;
 
   List<CrlaAssessment> assessments = [];
   List<CrlaResult> results = [];
-    List<CrlaStory> stories = [];
+  List<CrlaStory> stories = [];
   // Remembers which query populated `assessments`, so refresh() can repeat it.
   int? _lastSectionId;
   String? _lastSchoolYear;
@@ -40,6 +43,7 @@ class CrlaViewModel {
     required CrlaPart2FluencyRepository part2Fluency,
     required CrlaResultRepository results,
     required CrlaStoryRepository stories,
+    required SectionRepository sections,
     Logger? logger,
   })  : _assessments = assessments,
         _part1Standard = part1Standard,
@@ -47,6 +51,7 @@ class CrlaViewModel {
         _part2Fluency = part2Fluency,
         _results = results,
         _stories = stories,
+        _sections = sections,
         _log = ScopedLogger(logger, 'CrlaViewModel');
 
   Future<void> loadForSection(int sectionId, {String? schoolYear}) async {
@@ -66,10 +71,12 @@ class CrlaViewModel {
 
   /// Starts a new attempt. A retake is just another call with the same
   /// student/section/variant/year: the DB assigns the next attempt_no.
+  /// The school is taken from the section, which must be Grade 1-3 (CRLA
+  /// covers only those). The learner needs an active enrollment in the
+  /// section for that year (the DB checks it).
   /// Returns the stored row (with its attempt_no and id).
   Future<CrlaAssessment> startAssessment({
     required int studentId,
-    required int schoolId,
     required int sectionId,
     required String schoolYear,
     required String subjectVariant,
@@ -82,18 +89,24 @@ class CrlaViewModel {
     schoolYear = normalizeSchoolYear(schoolYear);
 
     if (!_variants.contains(subjectVariant)) {
-      throw ArgumentError("subjectVariant must be one of mt, fil, eng (got '$subjectVariant')");
+      throw ViewModelException("Variant must be one of mt, fil, eng (got '$subjectVariant').");
+    }
+    final section = await _sections.getById(sectionId);
+    if (section == null) throw ViewModelException('No section with id $sectionId.');
+    if (crlaGradeOf(section.gradeLevel) == null) {
+      throw ViewModelException(
+          'CRLA is for Grade 1-3 sections only (section $sectionId is Grade ${section.gradeLevel}).');
     }
 
     final stored = await _assessments.insert(
       CrlaAssessment(
         studentId: studentId,
-        schoolId: schoolId,
+        schoolId: section.schoolId,
         sectionId: sectionId,
         schoolYear: schoolYear,
         subjectVariant: subjectVariant,
         language: language,
-        assessedAt: (assessedAt ?? DateTime.now()).toUtc().toIso8601String(),
+        assessedAt: _localDate(assessedAt ?? DateTime.now()),
         administeredBy: administeredBy,
       ),
     );
@@ -101,7 +114,8 @@ class CrlaViewModel {
     await refresh();
     return stored;
   }
-    /// Saves Part 1 for a mt/fil assessment. Inserts, or corrects the existing row.
+
+  /// Saves Part 1 for a mt/fil assessment. Inserts, or corrects the existing row.
   /// Returns the stored row with the DB-computed total_score and reading_level.
   Future<CrlaPart1Standard> savePart1Standard({
     required int assessmentId,
@@ -120,13 +134,13 @@ class CrlaViewModel {
     // Branch rule (same as the DB CHECKs): task 1 below 7 uses the low
     // task 2, 7 or above uses the high one, and never both.
     if (task2LowScore != null && task2HighScore != null) {
-      throw ArgumentError('Provide task2LowScore or task2HighScore, not both');
+      throw const ViewModelException('Provide task2LowScore or task2HighScore, not both.');
     }
     if (task2LowScore != null && task1Score >= 7) {
-      throw ArgumentError('task2LowScore only applies when task1Score is below 7');
+      throw const ViewModelException('task2LowScore only applies when task1Score is below 7.');
     }
     if (task2HighScore != null && task1Score < 7) {
-      throw ArgumentError('task2HighScore only applies when task1Score is 7 or above');
+      throw const ViewModelException('task2HighScore only applies when task1Score is 7 or above.');
     }
 
     final part1 = CrlaPart1Standard(
@@ -157,7 +171,7 @@ class CrlaViewModel {
     if (task2Score != null) {
       _checkScore('task2Score', task2Score, 10);
       if (task1Score < 1) {
-        throw ArgumentError('task2Score only applies when task1Score is 1 or above');
+        throw const ViewModelException('task2Score only applies when task1Score is 1 or above.');
       }
     }
 
@@ -176,6 +190,8 @@ class CrlaViewModel {
   }
 
   /// Saves Part 2 for any variant. Inserts, or corrects the existing row.
+  /// The comprehension maximum and the reading-time limit depend on the
+  /// section's grade and the variant (crla_rules.dart).
   /// Returns the stored row with the DB-computed wpm.
   Future<CrlaPart2Fluency> savePart2Fluency({
     required int assessmentId,
@@ -192,13 +208,25 @@ class CrlaViewModel {
     _log('savePart2Fluency(assessmentId: $assessmentId, story: $storyNo, '
         'words: $wordsRead, miscues: $miscues, time: $timeMinutes:$timeSeconds)');
 
-    await _requireVariant(assessmentId, {'mt', 'fil', 'eng'}, 'Part 2');
+    final assessment = await _requireVariant(assessmentId, {'mt', 'fil', 'eng'}, 'Part 2');
+    final section = await _sections.getById(assessment.sectionId);
+    final grade = section == null ? null : crlaGradeOf(section.gradeLevel);
+    if (grade == null) {
+      throw ViewModelException('Assessment $assessmentId is not in a Grade 1-3 section.');
+    }
+    final variant = assessment.subjectVariant;
+    final timeCap = crlaTimeCapSeconds(grade, variant);
+
     _checkRange('storyNo', storyNo, 1, 2);
     _checkRange('miscues', miscues, 0, 1 << 30);
     _checkRange('wordsRead', wordsRead, 0, 1 << 30);
     _checkRange('timeMinutes', timeMinutes, 0, 1 << 30);
     _checkRange('timeSeconds', timeSeconds, 0, 59);
-    _checkRange('comprehensionCorrect', comprehensionCorrect, 0, 5);
+    _checkRange('comprehensionCorrect', comprehensionCorrect, 0, crlaComprehensionMax(grade, variant));
+    if (timeMinutes * 60 + timeSeconds > timeCap) {
+      throw ViewModelException('Reading time ${_mmss(timeMinutes * 60 + timeSeconds)} is over the '
+          'Grade $grade $variant limit of ${_mmss(timeCap)}.');
+    }
     if (learnerExperienceRating != null) {
       _checkRange('learnerExperienceRating', learnerExperienceRating, 1, 5);
     }
@@ -230,14 +258,15 @@ class CrlaViewModel {
   /// The combined result for one assessment (Part 1 + Part 2 + reading profile),
   /// or null if the assessment doesn't exist.
   ///
-  /// If Part 2 is saved but pctCorrectWordsRead is null, no crla_stories row
-  /// matched this school's region, language, grade and story number.
+  /// The reading profile stays null until Part 1 is saved. If Part 2 is saved
+  /// but pctCorrectWordsRead is null, no crla_stories row matched this
+  /// school's region, language, grade and story number.
   Future<CrlaResult?> getResult(int assessmentId) {
     _log('getResult(assessmentId: $assessmentId)');
     return _results.findByAssessmentId(assessmentId);
   }
 
-    Future<CrlaAssessment?> getAssessment(int assessmentId) {
+  Future<CrlaAssessment?> getAssessment(int assessmentId) {
     _log('getAssessment(assessmentId: $assessmentId)');
     return _assessments.findById(assessmentId);
   }
@@ -256,13 +285,13 @@ class CrlaViewModel {
     results = await _results.getByStudent(studentId);
   }
 
-  // ---- helpers ----
-
   /// Loads stories for a region, optionally narrowed by language and/or grade.
   Future<void> loadStories(int regionId, {String? language, int? grade}) async {
     _log('loadStories(regionId: $regionId, language: $language, grade: $grade)');
     stories = await _stories.getByRegion(regionId, language: language, grade: grade);
   }
+
+  // ---- helpers ----
 
   Future<CrlaAssessment> _requireVariant(
     int assessmentId,
@@ -271,25 +300,33 @@ class CrlaViewModel {
   ) async {
     final a = await _assessments.findById(assessmentId);
     if (a == null) {
-      throw StateError('No assessment with id $assessmentId');
+      throw ViewModelException('No assessment with id $assessmentId.');
     }
     if (!allowed.contains(a.subjectVariant)) {
-      throw ArgumentError(
+      throw ViewModelException(
         '$what needs a ${allowed.join('/')} assessment, but assessment '
-        '$assessmentId is "${a.subjectVariant}"',
+        '$assessmentId is "${a.subjectVariant}".',
       );
     }
     return a;
   }
 
-  void _checkScore(String name, int value, int max) {
-    if (value < 0 || value > max) {
-      throw ArgumentError('$name must be between 0 and $max (got $value)');
+  void _checkScore(String name, int value, int max) => _checkRange(name, value, 0, max);
+
+  void _checkRange(String name, int value, int min, int max) {
+    if (value < min || value > max) {
+      throw ViewModelException('$name must be between $min and $max (got $value).');
     }
   }
-    void _checkRange(String name, int value, int min, int max) {
-    if (value < min || value > max) {
-      throw ArgumentError('$name must be between $min and $max (got $value)');
-    }
+
+  static String _mmss(int seconds) =>
+      '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
+
+  /// assessed_at is a DATE in Postgres: the tutor's local calendar day, not
+  /// the UTC one (before 08:00 in the Philippines those differ).
+  static String _localDate(DateTime t) {
+    final d = t.toLocal();
+    return '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-'
+        '${d.day.toString().padLeft(2, '0')}';
   }
 }

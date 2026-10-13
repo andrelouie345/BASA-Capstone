@@ -68,9 +68,4 @@ class CrlaAssessmentRepositorySupabase implements CrlaAssessmentRepository {
   Future<CrlaAssessment> upsertWithId(CrlaAssessment assessment) async {
     throw UnimplementedError('upsertWithId is a local-mirroring operation — not meaningful against Supabase');
   }
-
-//   String _normalizeCrlaLanguage(String subjectVariant, String language) {
-//   if (subjectVariant == 'fil') return 'Tagalog';
-//   return language;
-// }
 }

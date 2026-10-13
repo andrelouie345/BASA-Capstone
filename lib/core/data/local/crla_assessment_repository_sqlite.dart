@@ -35,7 +35,7 @@ class CrlaAssessmentRepositorySqlite implements CrlaAssessmentRepository {
       'crla_assessments',
       where: schoolYear == null ? 'section_id = ?' : 'section_id = ? AND school_year = ?',
       whereArgs: schoolYear == null ? [sectionId] : [sectionId, schoolYear],
-      orderBy: 'assessed_at DESC, id DESC',
+      orderBy: 'student_id, subject_variant, attempt_no', // same as the Supabase repo
     );
     return rows.map(CrlaAssessment.fromMap).toList();
   }

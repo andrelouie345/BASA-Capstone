@@ -152,6 +152,7 @@ Future<void> main() async {
     part1English: CrlaPart1EnglishRepositorySqlite(localDb),
     part2Fluency: CrlaPart2FluencyRepositorySqlite(localDb),
     results: CrlaResultRepositorySqlite(localDb),
+    sections: SectionRepositorySqlite(localDb),
     logger: session,
   );
   vmRegistry.register('CrlaViewModel', crlaVm);

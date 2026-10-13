@@ -35,7 +35,7 @@ class CrlaAssessment {
         'section_id': sectionId,
         'school_year': schoolYear,
         'subject_variant': subjectVariant,
-        'language': normalizedLanguage, // was: language
+        'language': normalizedLanguage,
         if (attemptNo != null) 'attempt_no': attemptNo,
         'assessed_at': assessedAt,
         if (administeredBy != null) 'administered_by': administeredBy,
@@ -53,10 +53,4 @@ class CrlaAssessment {
         assessedAt: m['assessed_at'] as String,
         administeredBy: m['administered_by'] as String?,
       );
-  // String normalizeCrlaLanguage(String subjectVariant, String language) {
-  // if (subjectVariant == 'fil') return 'Tagalog';
-  // return language;
-  // }
-
-  
 }

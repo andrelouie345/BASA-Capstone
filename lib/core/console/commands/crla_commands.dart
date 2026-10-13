@@ -12,29 +12,26 @@ import '../../models/crla_result.dart';
 void registerCrlaCommands(ConsoleRegistry registry, AuthViewModel authVm, CrlaViewModel vm) {
   registry.register(ConsoleCommand(
     name: 'crla-start',
-    description: 'crla-start <studentId> <sectionId> <schoolId> <schoolYear> <mt|fil|eng> [language] '
-        '— start a CRLA attempt (retakes just run it again)',
+    description: 'crla-start <studentId> <sectionId> <schoolYear> <mt|fil|eng> [language] '
+        '— start a CRLA attempt in a Grade 1-3 section (retakes just run it again)',
     handler: (args) async {
       final guardError = authVm.requireActiveSession();
       if (guardError != null) return guardError;
 
-      const usage = 'Usage: crla-start <studentId> <sectionId> <schoolId> '
-          '<schoolYear> <mt|fil|eng> [language]';
-      if (args.length < 5) return usage;
+      const usage = 'Usage: crla-start <studentId> <sectionId> <schoolYear> <mt|fil|eng> [language]';
+      if (args.length < 4) return usage;
 
       final studentId = int.tryParse(args[0]);
       final sectionId = int.tryParse(args[1]);
-      final schoolId = int.tryParse(args[2]);
       if (studentId == null) return 'Invalid studentId: "${args[0]}" (expected a number)';
       if (sectionId == null) return 'Invalid sectionId: "${args[1]}" (expected a number)';
-      if (schoolId == null) return 'Invalid schoolId: "${args[2]}" (expected a number)';
 
-      final schoolYear = args[3];
-      final variant = args[4];
+      final schoolYear = args[2];
+      final variant = args[3];
 
       // fil and eng imply their language; mt needs one spelled out.
-      final language = args.length > 5
-          ? args.sublist(5).join(' ')
+      final language = args.length > 4
+          ? args.sublist(4).join(' ')
           : switch (variant) {
               'fil' => 'Tagalog',
               'eng' => 'English',
@@ -45,7 +42,6 @@ void registerCrlaCommands(ConsoleRegistry registry, AuthViewModel authVm, CrlaVi
       try {
         final stored = await vm.startAssessment(
           studentId: studentId,
-          schoolId: schoolId,
           sectionId: sectionId,
           schoolYear: schoolYear,
           subjectVariant: variant,
@@ -110,7 +106,8 @@ void registerCrlaCommands(ConsoleRegistry registry, AuthViewModel authVm, CrlaVi
     registry.register(ConsoleCommand(
     name: 'crla-part2',
     description: 'crla-part2 <assessmentId> <storyNo> <miscues> <wordsRead> <minutes> <seconds> '
-        '<comprehension> [experience|-] [observation|-] [remarks...] — save Part 2 (fluency)',
+        '<comprehension> [experience|-] [observation|-] [remarks...] — save Part 2 (fluency; '
+        'comprehension max and time limit depend on grade/variant)',
     handler: (args) async {
       final guardError = authVm.requireActiveSession();
       if (guardError != null) return guardError;
