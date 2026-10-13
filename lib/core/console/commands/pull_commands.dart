@@ -6,6 +6,7 @@ library;
 import 'dart:convert';
 import 'package:sqflite_common/sqflite.dart';
 import 'package:supabase/supabase.dart' show SupabaseClient;
+import '../../data/local/mirror_write.dart';
 import '../console_command.dart';
 import '../console_registry.dart';
 import '../../../viewmodels/auth_viewmodel.dart';
@@ -26,6 +27,19 @@ const _pullOrder = <String, String>{
   'crla_part2_fluency': 'assessment_id',
 };
 
+/// Tables still written with INSERT OR REPLACE. The part tables: their
+/// primary key is their only unique key, and an UPDATE would re-run the local
+/// compute triggers over the cloud's wpm/totals. enrollments: one per
+/// learner per year, the cloud's row wins (same as enroll()). Every other
+/// table goes through upsertById, so a unique-key clash stops the pull
+/// instead of silently deleting a local row.
+const _replaceTables = {
+  'enrollments',
+  'crla_part1_standard',
+  'crla_part1_english',
+  'crla_part2_fluency',
+};
+
 void registerPullCommands(ConsoleRegistry registry, AuthViewModel authVm, Database localDb) {
   registry.register(ConsoleCommand(
     name: 'pull-cloud',
@@ -35,8 +49,9 @@ void registerPullCommands(ConsoleRegistry registry, AuthViewModel authVm, Databa
       if (guardError != null) return guardError;
 
       if (args.isEmpty || args[0] != 'yes') {
-        return 'This copies cloud rows into the local DB and REPLACES local rows that share an id '
-            'or unique key. Local-only rows are kept. Back up data/basa_local.db first.\n'
+        return 'This copies cloud rows into the local DB and overwrites local rows that share an id. '
+            'It stops if a cloud row\'s unique key (LRN, school code, section) belongs to a '
+            'different local row. Local-only rows are kept. Back up data/basa_local.db first.\n'
             'Run "pull-cloud yes" to continue.';
       }
 
@@ -74,15 +89,14 @@ Future<int> _pullTable(SupabaseClient client, Database db, String table, String 
 
     if (rows.isNotEmpty) {
       await db.transaction((txn) async {
-        final batch = txn.batch();
         for (final row in rows) {
-          batch.insert(
-            table,
-            _toLocal(row, localCols),
-            conflictAlgorithm: ConflictAlgorithm.replace, // INSERT OR REPLACE
-          );
+          final local = _toLocal(row, localCols);
+          if (_replaceTables.contains(table)) {
+            await txn.insert(table, local, conflictAlgorithm: ConflictAlgorithm.replace);
+          } else {
+            await upsertById(txn, table, local, key: orderBy);
+          }
         }
-        await batch.commit(noResult: true);
       });
       total += rows.length;
     }

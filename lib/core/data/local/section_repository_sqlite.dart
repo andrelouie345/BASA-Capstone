@@ -1,5 +1,6 @@
 // lib/core/data/local/section_repository_sqlite.dart
 import 'package:sqflite_common/sqflite.dart';
+import 'mirror_write.dart';
 import '../../models/section.dart';
 import '../../repositories/section_repository.dart';
 
@@ -61,7 +62,7 @@ class SectionRepositorySqlite implements SectionRepository {
   @override
   Future<Section> upsertWithId(Section section) async {
     if (section.id == null) throw ArgumentError('Cannot upsertWithId a Section with no id');
-    await db.insert('sections', section.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    await upsertById(db, 'sections', section.toMap());
     return section;
   }
 }

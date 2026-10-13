@@ -12,7 +12,7 @@ Nothing in `core/` imports Flutter. Keep it that way.
 
 ## Repositories
 - Interface in `repositories/`, SQLite impl in `data/local/`, Supabase impl in `data/remote/`.
-- `upsertWithId(...)` is for local mirroring only (keeps the cloud-generated id). Supabase impls throw `UnimplementedError`.
+- `upsertWithId(...)` is for local mirroring only (keeps the cloud-generated id). Supabase impls throw `UnimplementedError`. SQLite impls (schools, sections, students, crla_stories, crla_assessments) go through `data/local/mirror_write.dart` → `upsertById()`: UPDATE by id, else plain INSERT. A unique-key clash under a different id (LRN, school code, section 4-tuple, attempt) throws `MirrorConflictException` instead of INSERT OR REPLACE silently deleting the other row. `pull-cloud` uses the same helper.
 - Supabase `update()` pattern: remove the key from the payload, filter on it, call `.select()`, and throw if the result is empty (that is how an RLS rejection looks from the client).
 - Supabase `insert()` returns the stored row via `.select()` so DB-assigned and DB-computed values (`attempt_no`, totals, wpm) come back.
 - Repos don't catch `PostgrestException`; ViewModels and console commands decide how to report it.
@@ -32,7 +32,8 @@ Nothing in `core/` imports Flutter. Keep it that way.
 - Version-numbered schema (v11 as of M4 — check the file). v11 rebuilt `crla_part2_fluency` to widen the comprehension CHECK to 0..7 (`_rebuildCrlaPart2ForV11`, runs before the CRLA creators). `onCreate` builds everything; `onUpgrade` re-runs the CRLA creators unconditionally at the end (all `IF NOT EXISTS`), after the schools rebuild, so new CRLA objects appear on upgrade. **Do not put new-table creators inside `if (oldVersion < N)` blocks that existing installs skip.** Bump the version when adding anything.
 - Order matters: regions → students/schools/sections/enrollments → users → CRLA tables (they reference schools, students, sections, users).
 - SQLite can't do `BEFORE INSERT` row rewrites, hence the attempt_no pattern above. Generated columns are avoided (need SQLite ≥ 3.31, which older Android lacks): totals, reading levels and wpm are computed by `AFTER INSERT` / `AFTER UPDATE OF <score cols>` triggers that write only the computed columns, so they cannot loop.
-- The fluency insert trigger runs only `WHEN NEW.wpm IS NULL`, so rows mirrored from the cloud keep the cloud's wpm. Postgres and SQLite can differ by 0.1 at rounding boundaries; the cloud value wins. Mirroring `upsertWithId` uses `INSERT OR REPLACE` so ids, `attempt_no` and wpm are preserved (verified in M4).
+- The fluency insert trigger runs only `WHEN NEW.wpm IS NULL`, so rows mirrored from the cloud keep the cloud's wpm. Postgres and SQLite can differ by 0.1 at rounding boundaries; the cloud value wins. The CRLA Part 1/2 tables (and `enrollments`, one per learner per year) are still mirrored with `INSERT OR REPLACE`: their primary key is their only unique key, and an UPDATE would re-run the compute triggers over the cloud's wpm/totals. Mirrored `crla_assessments` keep their id and `attempt_no`.
+- **Local foreign keys are off on purpose** (`PRAGMA foreign_keys` is never enabled). The local DB is a role-scoped partial copy: e.g. `users.created_by` and `crla_assessments.administered_by` can point at users the signed-in account can't read, so enforcing FKs would break `pull-cloud`. The cloud enforces them. Never write mirrors with INSERT OR REPLACE on tables with secondary UNIQUE keys or child rows.
 - `crla_results` also exists as a SQLite view with the same column names as the Postgres one.
 - Anything changed here must keep local and cloud behavior symmetric (offline and cloud attempt numbering, CHECKs and triggers must agree).
 

@@ -1,5 +1,6 @@
 // lib/core/data/local/crla_story_repository_sqlite.dart
 import 'package:sqflite_common/sqflite.dart';
+import 'mirror_write.dart';
 import '../../models/crla_language.dart';
 import '../../models/crla_story.dart';
 import '../../repositories/crla_story_repository.dart';
@@ -76,11 +77,7 @@ class CrlaStoryRepositorySqlite implements CrlaStoryRepository {
     if (story.id == null) {
       throw ArgumentError('Cannot upsertWithId a CrlaStory with no id');
     }
-    await db.insert(
-      'crla_stories',
-      story.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace, // INSERT OR REPLACE
-    );
+    await upsertById(db, 'crla_stories', story.toMap());
     return (await findById(story.id!))!;
   }
 }

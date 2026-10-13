@@ -1,5 +1,6 @@
 // lib/core/data/local/student_repository_sqlite.dart
 import 'package:sqflite_common/sqflite.dart';
+import 'mirror_write.dart';
 import '../../models/student.dart';
 import '../../repositories/student_repository.dart';
 
@@ -60,7 +61,7 @@ class StudentRepositorySqlite implements StudentRepository {
   @override
   Future<Student> upsertWithId(Student student) async {
     if (student.id == null) throw ArgumentError('Cannot upsertWithId a Student with no id');
-    await db.insert('students', student.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    await upsertById(db, 'students', student.toMap());
     return student;
   }
 

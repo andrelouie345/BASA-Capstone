@@ -1,5 +1,6 @@
 // lib/core/data/local/crla_assessment_repository_sqlite.dart
 import 'package:sqflite_common/sqflite.dart';
+import 'mirror_write.dart';
 import '../../models/crla_assessment.dart';
 import '../../repositories/crla_assessment_repository.dart';
 
@@ -78,11 +79,7 @@ class CrlaAssessmentRepositorySqlite implements CrlaAssessmentRepository {
       // the local trigger would renumber it and the two sides would drift.
       throw ArgumentError('upsertWithId requires the real attemptNo (got ${assessment.attemptNo})');
     }
-    await db.insert(
-      'crla_assessments',
-      assessment.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace, // INSERT OR REPLACE
-    );
+    await upsertById(db, 'crla_assessments', assessment.toMap());
     return (await findById(assessment.id!))!;
   }
 }
