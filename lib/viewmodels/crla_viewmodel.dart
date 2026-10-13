@@ -20,6 +20,20 @@ import 'viewmodel_exception.dart';
 class CrlaViewModel {
   static const _variants = {'mt', 'fil', 'eng'};
 
+  // RAISE(ABORT, ...) texts of the CRLA triggers in local_database.dart.
+  // A write refused by one of them is rethrown as a ViewModelException with
+  // just this text, not the raw sqflite exception. Keep in sync.
+  static const _dbRefusals = [
+    'No such section',
+    'CRLA is for Grade 1-3 sections only',
+    'Section does not belong to that school',
+    'Learner has no active enrollment in this section for that school year',
+    'Comprehension score is above the maximum for this grade',
+    'Reading time is over the limit for this grade',
+    'Standard Part 1 requires an mt or fil assessment',
+    'English Part 1 requires an eng assessment',
+  ];
+
   final ScopedLogger _log;
   final CrlaAssessmentRepository _assessments;
   final CrlaPart1StandardRepository _part1Standard;
@@ -98,7 +112,7 @@ class CrlaViewModel {
           'CRLA is for Grade 1-3 sections only (section $sectionId is Grade ${section.gradeLevel}).');
     }
 
-    final stored = await _assessments.insert(
+    final stored = await _write(() => _assessments.insert(
       CrlaAssessment(
         studentId: studentId,
         schoolId: section.schoolId,
@@ -109,7 +123,7 @@ class CrlaViewModel {
         assessedAt: _localDate(assessedAt ?? DateTime.now()),
         administeredBy: administeredBy,
       ),
-    );
+    ));
     _log('started assessment ${stored.id} (attempt ${stored.attemptNo})');
     await refresh();
     return stored;
@@ -152,9 +166,9 @@ class CrlaViewModel {
 
     final existing = await _part1Standard.findByAssessmentId(assessmentId);
     if (existing == null) {
-      return _part1Standard.insert(part1);
+      return _write(() => _part1Standard.insert(part1));
     }
-    await _part1Standard.update(part1);
+    await _write(() => _part1Standard.update(part1));
     return (await _part1Standard.findByAssessmentId(assessmentId))!;
   }
 
@@ -183,9 +197,9 @@ class CrlaViewModel {
 
     final existing = await _part1English.findByAssessmentId(assessmentId);
     if (existing == null) {
-      return _part1English.insert(part1);
+      return _write(() => _part1English.insert(part1));
     }
-    await _part1English.update(part1);
+    await _write(() => _part1English.update(part1));
     return (await _part1English.findByAssessmentId(assessmentId))!;
   }
 
@@ -249,9 +263,9 @@ class CrlaViewModel {
 
     final existing = await _part2Fluency.findByAssessmentId(assessmentId);
     if (existing == null) {
-      return _part2Fluency.insert(fluency);
+      return _write(() => _part2Fluency.insert(fluency));
     }
-    await _part2Fluency.update(fluency);
+    await _write(() => _part2Fluency.update(fluency));
     return (await _part2Fluency.findByAssessmentId(assessmentId))!;
   }
 
@@ -316,6 +330,20 @@ class CrlaViewModel {
   void _checkRange(String name, int value, int min, int max) {
     if (value < min || value > max) {
       throw ViewModelException('$name must be between $min and $max (got $value).');
+    }
+  }
+
+  /// Runs a repository write; a refusal from one of our DB triggers becomes a
+  /// ViewModelException carrying only the trigger's message.
+  Future<T> _write<T>(Future<T> Function() write) async {
+    try {
+      return await write();
+    } catch (e) {
+      final text = e.toString();
+      for (final refusal in _dbRefusals) {
+        if (text.contains(refusal)) throw ViewModelException('$refusal.');
+      }
+      rethrow;
     }
   }
 
