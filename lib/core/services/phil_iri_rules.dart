@@ -1,21 +1,27 @@
 // lib/core/services/phil_iri_rules.dart
 //
-// Scoring rules for the Phil-IRI graded passages (oral reading), English only.
-// Sources: Phil-IRI Manual 2018 (Grades 4–6) and Phil-IRI for JHS Manual 2024
-// (Grades 7–10), sections "Computing the Oral Reading Score", Tables 6–8.
+// Scoring rules for the Phil-IRI graded passages (oral reading), English only,
+// Grades 4–10. Sources: Phil-IRI Manual 2018 (Grades 4–6) and Phil-IRI for JHS
+// Manual 2024 (Grades 7–10), "Computing the Oral Reading Score", Tables 6–8.
 //
-// Owner decision (2026-10-13): the word reading + comprehension combination
-// follows the reading coordinator's workbook (sheet "Bases", H4:J12), not the
-// misaligned Table 8 in the 2018 PDF. Non-reader and reading-speed rules are
-// not here yet (pending decision).
+// Owner decisions (2026-10-13): the rules follow the reading coordinator's
+// workbook where it differs from the manual:
+// - word reading + comprehension combination: sheet "Bases" H4:J12 (the
+//   Table 8 in the 2018 PDF is misaligned);
+// - non-reader when word recognition is at or below a cut-off (Sample!AF);
+// - reading speed bands (Sample!AH), and accuracy-Independent only counts as
+//   Independent word reading when the speed is Fast (Sample!AI).
+// Every range is adjustable through PhilIriThresholds, because DepEd changes
+// acceptable ranges; the defaults are the workbook's values.
 //
 // Percentages are classified after rounding to a whole percent (half up),
-// because the manual's bands are whole numbers (e.g. 96.5% -> 97 -> Independent).
+// because the bands are whole numbers (e.g. 96.5% -> 97 -> Independent).
 
 enum PhilIriLevel {
   independent('Independent'),
   instructional('Instructional'),
-  frustration('Frustration');
+  frustration('Frustration'),
+  nonReader('Non-Reader');
 
   final String label;
   const PhilIriLevel(this.label);
@@ -28,12 +34,84 @@ enum PhilIriLevel {
   }
 }
 
-/// Lowest and highest English graded-passage levels across both manuals
-/// (2018: Grades 2–7, JHS 2024: Grades 4–10).
-const philIriMinPassageLevel = 2;
-const philIriMaxPassageLevel = 10;
+enum PhilIriSpeed {
+  struggling('Struggling'),
+  slow('Slow'),
+  average('Average'),
+  fast('Fast');
 
-/// Learner grades the English Phil-IRI covers (2018 English GST: 4–6, JHS: 7–10).
+  final String label;
+  const PhilIriSpeed(this.label);
+
+  static PhilIriSpeed fromString(String value) {
+    return PhilIriSpeed.values.firstWhere(
+      (s) => s.name == value || s.label == value,
+      orElse: () => throw ArgumentError('Invalid PhilIriSpeed value: $value'),
+    );
+  }
+}
+
+/// Adjustable ranges. Percentages are whole numbers (0–100), speeds are wpm.
+/// A value is the boundary itself: e.g. nonReaderMax 50 means 50% and below
+/// is Non-Reader, wordReadingInstructionalMin 90 means 90% and up.
+class PhilIriThresholds {
+  final int nonReaderMax;                   // word recognition ≤ this: Non-Reader
+  final int wordReadingInstructionalMin;    // ≥ this: Instructional (below: Frustration)
+  final int wordReadingIndependentMin;      // ≥ this: Independent
+  final int comprehensionInstructionalMin;  // ≥ this: Instructional (below: Frustration)
+  final int comprehensionIndependentMin;    // ≥ this: Independent
+  final int speedStrugglingMax;             // wpm ≤ this: Struggling
+  final int speedSlowMax;                   // wpm ≤ this: Slow
+  final int speedFastMin;                   // wpm ≥ this: Fast (between: Average)
+  final int gstElementaryThreeDownMax;      // Grades 4–6, GST /20
+  final int gstElementaryPassMin;
+  final int gstJhsThreeDownMax;             // Grades 7–10, GST /40
+  final int gstJhsPassMin;
+
+  const PhilIriThresholds({
+    this.nonReaderMax = 50,
+    this.wordReadingInstructionalMin = 90,
+    this.wordReadingIndependentMin = 97,
+    this.comprehensionInstructionalMin = 59,
+    this.comprehensionIndependentMin = 80,
+    this.speedStrugglingMax = 75,
+    this.speedSlowMax = 120,
+    this.speedFastMin = 151,
+    this.gstElementaryThreeDownMax = 7,
+    this.gstElementaryPassMin = 14,
+    this.gstJhsThreeDownMax = 15,
+    this.gstJhsPassMin = 28,
+  });
+
+  static const defaults = PhilIriThresholds();
+
+  /// Throws ArgumentError when the ranges overlap or leave their scale.
+  void validate() {
+    void ordered(String what, List<int> values, int min, int max) {
+      for (var i = 0; i < values.length; i++) {
+        if (values[i] < min || values[i] > max) {
+          throw ArgumentError('$what must be within $min..$max');
+        }
+        if (i > 0 && values[i] <= values[i - 1]) {
+          throw ArgumentError('$what boundaries must increase: $values');
+        }
+      }
+    }
+
+    ordered('Word reading',
+        [nonReaderMax, wordReadingInstructionalMin, wordReadingIndependentMin], 0, 100);
+    ordered('Comprehension',
+        [comprehensionInstructionalMin, comprehensionIndependentMin], 0, 100);
+    ordered('Speed', [speedStrugglingMax, speedSlowMax, speedFastMin], 0, 1000);
+    ordered('GST (Grades 4–6)', [gstElementaryThreeDownMax, gstElementaryPassMin], 0, 20);
+    ordered('GST (Grades 7–10)', [gstJhsThreeDownMax, gstJhsPassMin], 0, 40);
+  }
+}
+
+/// Graded-passage levels a passage may have, and learner grades covered.
+/// The lowest is 1: in practice learners go more than 3 levels down.
+const philIriMinPassageLevel = 1;
+const philIriMaxPassageLevel = 10;
 const philIriGrades = {4, 5, 6, 7, 8, 9, 10};
 
 /// The section's grade as a Phil-IRI grade, or null when it isn't 4–10.
@@ -44,8 +122,9 @@ int? philIriGradeOf(String gradeLevel) {
 
 int _wholePercent(double fraction) => (fraction * 100 + 0.5).floor();
 
-/// Word reading score as a 0–1 fraction: (words − miscues) / words.
-/// Only counted miscues go in (self-corrections are not counted).
+/// Word recognition (accuracy) as a 0–1 fraction: (words − miscues) / words.
+/// Only counted miscues go in (self-corrections are not counted). For a
+/// one-minute reading, wordCount is the number of words read in the minute.
 double philIriWordReadingScore(int wordCount, int countedMiscues) {
   if (wordCount <= 0) throw ArgumentError('wordCount must be positive');
   if (countedMiscues < 0) throw ArgumentError('miscues cannot be negative');
@@ -68,28 +147,60 @@ double philIriWordsPerMinute(int wordCount, int readingSeconds) {
   return (wordCount * 60 / readingSeconds * 100).round() / 100;
 }
 
-/// Table 7, word reading: 97–100 Independent, 90–96 Instructional, ≤89 Frustration.
-PhilIriLevel philIriWordReadingLevel(double score) {
+/// Accuracy band (workbook "Word Recognition Desc"): Non-Reader, Frustration,
+/// Instructional or Independent.
+PhilIriLevel philIriAccuracyLevel(double score,
+    [PhilIriThresholds t = PhilIriThresholds.defaults]) {
   final pct = _wholePercent(score);
-  if (pct >= 97) return PhilIriLevel.independent;
-  if (pct >= 90) return PhilIriLevel.instructional;
+  if (pct <= t.nonReaderMax) return PhilIriLevel.nonReader;
+  if (pct >= t.wordReadingIndependentMin) return PhilIriLevel.independent;
+  if (pct >= t.wordReadingInstructionalMin) return PhilIriLevel.instructional;
   return PhilIriLevel.frustration;
 }
 
-/// Table 7, comprehension: 80–100 Independent, 59–79 Instructional, ≤58 Frustration.
-PhilIriLevel philIriComprehensionLevel(double score) {
+/// Reading speed band (workbook "Reading Speed Desc").
+PhilIriSpeed philIriSpeed(double wpm,
+    [PhilIriThresholds t = PhilIriThresholds.defaults]) {
+  if (wpm <= t.speedStrugglingMax) return PhilIriSpeed.struggling;
+  if (wpm <= t.speedSlowMax) return PhilIriSpeed.slow;
+  if (wpm >= t.speedFastMin) return PhilIriSpeed.fast;
+  return PhilIriSpeed.average;
+}
+
+/// Word reading profile (workbook "Word Reading Profile"): accuracy
+/// Independent needs a Fast speed to stay Independent, otherwise it is
+/// Instructional. Frustration and Non-Reader stay as they are.
+PhilIriLevel philIriWordReadingLevel(PhilIriLevel accuracy, PhilIriSpeed speed) {
+  if (accuracy == PhilIriLevel.independent) {
+    return speed == PhilIriSpeed.fast
+        ? PhilIriLevel.independent
+        : PhilIriLevel.instructional;
+  }
+  return accuracy;
+}
+
+/// Comprehension band. There is no comprehension Non-Reader: Non-Reader
+/// comes from word recognition only.
+PhilIriLevel philIriComprehensionLevel(double score,
+    [PhilIriThresholds t = PhilIriThresholds.defaults]) {
   final pct = _wholePercent(score);
-  if (pct >= 80) return PhilIriLevel.independent;
-  if (pct >= 59) return PhilIriLevel.instructional;
+  if (pct >= t.comprehensionIndependentMin) return PhilIriLevel.independent;
+  if (pct >= t.comprehensionInstructionalMin) return PhilIriLevel.instructional;
   return PhilIriLevel.frustration;
 }
 
-/// Reading profile for one passage (workbook "Bases" H4:J12).
+/// Reading profile for one passage (workbook "Bases" H4:J13). A Non-Reader
+/// word reading makes the passage Non-Reader whatever the comprehension.
 PhilIriLevel philIriPassageProfile(PhilIriLevel wordReading, PhilIriLevel comprehension) {
   const ind = PhilIriLevel.independent;
   const ins = PhilIriLevel.instructional;
   const frus = PhilIriLevel.frustration;
+  if (comprehension == PhilIriLevel.nonReader) {
+    throw ArgumentError('comprehension has no Non-Reader level');
+  }
   switch (wordReading) {
+    case PhilIriLevel.nonReader:
+      return PhilIriLevel.nonReader;
     case PhilIriLevel.independent:
       return comprehension; // Ind+Ind Ind, Ind+Ins Ins, Ind+Frus Frus
     case PhilIriLevel.instructional:
@@ -100,11 +211,11 @@ PhilIriLevel philIriPassageProfile(PhilIriLevel wordReading, PhilIriLevel compre
 }
 
 /// Starting passage level from the English GST raw score, or null when the
-/// learner passed the GST (no graded passages needed).
-/// Grades 4–6 (GST out of 20): 0–7 three levels down, 8–13 two down, ≥14 passed.
-/// Grades 7–10 (GST out of 40): 0–15 three down, 16–27 two down, ≥28 passed.
-/// Clamped to [philIriMinPassageLevel] (there is no Grade 1 English passage).
-int? philIriStartingLevel(int learnerGrade, int gstScore) {
+/// learner passed the GST (no graded passages needed). Default ranges:
+/// Grades 4–6 (/20): 0–7 three levels down, 8–13 two down, ≥14 passed.
+/// Grades 7–10 (/40): 0–15 three down, 16–27 two down, ≥28 passed.
+int? philIriStartingLevel(int learnerGrade, int gstScore,
+    [PhilIriThresholds t = PhilIriThresholds.defaults]) {
   if (!philIriGrades.contains(learnerGrade)) {
     throw ArgumentError('Phil-IRI English covers Grades 4–10, got $learnerGrade');
   }
@@ -113,16 +224,10 @@ int? philIriStartingLevel(int learnerGrade, int gstScore) {
   if (gstScore < 0 || gstScore > maxScore) {
     throw ArgumentError('GST score must be 0..$maxScore');
   }
-  final int levelsDown;
-  if (gstScore <= (jhs ? 15 : 7)) {
-    levelsDown = 3;
-  } else if (gstScore <= (jhs ? 27 : 13)) {
-    levelsDown = 2;
-  } else {
-    return null;
-  }
-  final start = learnerGrade - levelsDown;
-  return start < philIriMinPassageLevel ? philIriMinPassageLevel : start;
+  if (gstScore >= (jhs ? t.gstJhsPassMin : t.gstElementaryPassMin)) return null;
+  final levelsDown =
+      gstScore <= (jhs ? t.gstJhsThreeDownMax : t.gstElementaryThreeDownMax) ? 3 : 2;
+  return learnerGrade - levelsDown;
 }
 
 /// Next passage level to give, from the profiles found so far
@@ -130,12 +235,15 @@ int? philIriStartingLevel(int learnerGrade, int gstScore) {
 ///
 /// Manual Stage 2: go one level up until Frustration is found; after that,
 /// go one level below the lowest passage read until Independent is found.
-/// Stops at the passage-level bounds. The tutor may override.
+/// Non-Reader counts as Frustration here. Stops at the passage-level bounds.
+/// The tutor may override.
 int? philIriNextLevel(Map<int, PhilIriLevel> profiles) {
   if (profiles.isEmpty) return null;
   final levels = profiles.keys.toList()..sort();
   final found = profiles.values.toSet();
-  if (!found.contains(PhilIriLevel.frustration)) {
+  final frustrationFound = found.contains(PhilIriLevel.frustration) ||
+      found.contains(PhilIriLevel.nonReader);
+  if (!frustrationFound) {
     final next = levels.last + 1;
     return next > philIriMaxPassageLevel ? null : next;
   }
