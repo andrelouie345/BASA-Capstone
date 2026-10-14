@@ -85,6 +85,43 @@ class PhilIriThresholds {
 
   static const defaults = PhilIriThresholds();
 
+  /// Stored as the session snapshot at finalization and as a school/region
+  /// setting. Missing keys fall back to the defaults, so a snapshot written
+  /// before a new threshold existed still loads.
+  Map<String, Object?> toMap() => {
+        'non_reader_max': nonReaderMax,
+        'word_reading_instructional_min': wordReadingInstructionalMin,
+        'word_reading_independent_min': wordReadingIndependentMin,
+        'comprehension_instructional_min': comprehensionInstructionalMin,
+        'comprehension_independent_min': comprehensionIndependentMin,
+        'speed_struggling_max': speedStrugglingMax,
+        'speed_slow_max': speedSlowMax,
+        'speed_fast_min': speedFastMin,
+        'gst_elementary_three_down_max': gstElementaryThreeDownMax,
+        'gst_elementary_pass_min': gstElementaryPassMin,
+        'gst_jhs_three_down_max': gstJhsThreeDownMax,
+        'gst_jhs_pass_min': gstJhsPassMin,
+      };
+
+  factory PhilIriThresholds.fromMap(Map<String, Object?> m) {
+    const d = PhilIriThresholds.defaults;
+    int v(String key, int fallback) => (m[key] as num?)?.toInt() ?? fallback;
+    return PhilIriThresholds(
+      nonReaderMax: v('non_reader_max', d.nonReaderMax),
+      wordReadingInstructionalMin: v('word_reading_instructional_min', d.wordReadingInstructionalMin),
+      wordReadingIndependentMin: v('word_reading_independent_min', d.wordReadingIndependentMin),
+      comprehensionInstructionalMin: v('comprehension_instructional_min', d.comprehensionInstructionalMin),
+      comprehensionIndependentMin: v('comprehension_independent_min', d.comprehensionIndependentMin),
+      speedStrugglingMax: v('speed_struggling_max', d.speedStrugglingMax),
+      speedSlowMax: v('speed_slow_max', d.speedSlowMax),
+      speedFastMin: v('speed_fast_min', d.speedFastMin),
+      gstElementaryThreeDownMax: v('gst_elementary_three_down_max', d.gstElementaryThreeDownMax),
+      gstElementaryPassMin: v('gst_elementary_pass_min', d.gstElementaryPassMin),
+      gstJhsThreeDownMax: v('gst_jhs_three_down_max', d.gstJhsThreeDownMax),
+      gstJhsPassMin: v('gst_jhs_pass_min', d.gstJhsPassMin),
+    );
+  }
+
   /// Throws ArgumentError when the ranges overlap or leave their scale.
   void validate() {
     void ordered(String what, List<int> values, int min, int max) {
@@ -178,6 +215,12 @@ PhilIriLevel philIriWordReadingLevel(PhilIriLevel accuracy, PhilIriSpeed speed) 
   }
   return accuracy;
 }
+
+/// "Struggling Reader" label (SHARP paper): Frustration-level word recognition
+/// above the non-reader cut-off (default 51–89%). Non-Readers are not
+/// Struggling Readers; they have their own level.
+bool philIriIsStrugglingReader(PhilIriLevel accuracy) =>
+    accuracy == PhilIriLevel.frustration;
 
 /// Comprehension band. There is no comprehension Non-Reader: Non-Reader
 /// comes from word recognition only.
