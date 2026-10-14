@@ -4,6 +4,12 @@
 // Grades 4–10. Sources: Phil-IRI Manual 2018 (Grades 4–6) and Phil-IRI for JHS
 // Manual 2024 (Grades 7–10), "Computing the Oral Reading Score", Tables 6–8.
 //
+// BASA uses ONE grade-level passage per assessment (FLT, BOSY, MOSY, EOSY):
+// a learner reads a passage of their own grade, and the adjusted grade level
+// is worked out from there (phil_iri_results.dart). The manual's Stage 2
+// up/down passage ladder and GST starting levels are not used (owner and
+// reading coordinator, 2026-10-14).
+//
 // Owner decisions (2026-10-13): the rules follow the reading coordinator's
 // workbook where it differs from the manual:
 // - word reading + comprehension combination: sheet "Bases" H4:J12 (the
@@ -63,10 +69,8 @@ class PhilIriThresholds {
   final int speedStrugglingMax;             // wpm ≤ this: Struggling
   final int speedSlowMax;                   // wpm ≤ this: Slow
   final int speedFastMin;                   // wpm ≥ this: Fast (between: Average)
-  final int gstElementaryThreeDownMax;      // Grades 4–6, GST /20
-  final int gstElementaryPassMin;
-  final int gstJhsThreeDownMax;             // Grades 7–10, GST /40
-  final int gstJhsPassMin;
+  final int gstElementaryPassMin;           // Grades 4–6, GST /20: ≥ this passes
+  final int gstJhsPassMin;                  // Grades 7–10, GST /40: ≥ this passes
   // Adjusted grade level for a Frustration profile, by comprehension %
   // (workbook "Adj. Grade Level"): ≤ fourDown -> 4 levels down, ≤ threeDown
   // -> 3, ≤ twoDown -> 2, otherwise 1; ≥ keepLevel -> stays at the base level.
@@ -74,6 +78,11 @@ class PhilIriThresholds {
   final int frustrationThreeDownMax;
   final int frustrationTwoDownMax;
   final int frustrationKeepLevelMin;
+  // Report grouping of "levels down" (Phil-IRI reports only have 2-LD and
+  // 3-LD). Each value closes a group: [2] = 1–2 down -> "2-LD", 3+ -> "3-LD".
+  // groupLevelsDown false reports each level on its own (1-LD, 2-LD, ...).
+  final bool groupLevelsDown;
+  final List<int> levelsDownGroups;
 
   const PhilIriThresholds({
     this.nonReaderMax = 50,
@@ -84,14 +93,14 @@ class PhilIriThresholds {
     this.speedStrugglingMax = 75,
     this.speedSlowMax = 120,
     this.speedFastMin = 151,
-    this.gstElementaryThreeDownMax = 7,
     this.gstElementaryPassMin = 14,
-    this.gstJhsThreeDownMax = 15,
     this.gstJhsPassMin = 28,
     this.frustrationFourDownMax = 25,
     this.frustrationThreeDownMax = 28,
     this.frustrationTwoDownMax = 40,
     this.frustrationKeepLevelMin = 79,
+    this.groupLevelsDown = true,
+    this.levelsDownGroups = const [2],
   });
 
   static const defaults = PhilIriThresholds();
@@ -108,14 +117,14 @@ class PhilIriThresholds {
         'speed_struggling_max': speedStrugglingMax,
         'speed_slow_max': speedSlowMax,
         'speed_fast_min': speedFastMin,
-        'gst_elementary_three_down_max': gstElementaryThreeDownMax,
         'gst_elementary_pass_min': gstElementaryPassMin,
-        'gst_jhs_three_down_max': gstJhsThreeDownMax,
         'gst_jhs_pass_min': gstJhsPassMin,
         'frustration_four_down_max': frustrationFourDownMax,
         'frustration_three_down_max': frustrationThreeDownMax,
         'frustration_two_down_max': frustrationTwoDownMax,
         'frustration_keep_level_min': frustrationKeepLevelMin,
+        'group_levels_down': groupLevelsDown,
+        'levels_down_groups': levelsDownGroups,
       };
 
   factory PhilIriThresholds.fromMap(Map<String, Object?> m) {
@@ -130,14 +139,21 @@ class PhilIriThresholds {
       speedStrugglingMax: v('speed_struggling_max', d.speedStrugglingMax),
       speedSlowMax: v('speed_slow_max', d.speedSlowMax),
       speedFastMin: v('speed_fast_min', d.speedFastMin),
-      gstElementaryThreeDownMax: v('gst_elementary_three_down_max', d.gstElementaryThreeDownMax),
       gstElementaryPassMin: v('gst_elementary_pass_min', d.gstElementaryPassMin),
-      gstJhsThreeDownMax: v('gst_jhs_three_down_max', d.gstJhsThreeDownMax),
       gstJhsPassMin: v('gst_jhs_pass_min', d.gstJhsPassMin),
       frustrationFourDownMax: v('frustration_four_down_max', d.frustrationFourDownMax),
       frustrationThreeDownMax: v('frustration_three_down_max', d.frustrationThreeDownMax),
       frustrationTwoDownMax: v('frustration_two_down_max', d.frustrationTwoDownMax),
       frustrationKeepLevelMin: v('frustration_keep_level_min', d.frustrationKeepLevelMin),
+      groupLevelsDown: switch (m['group_levels_down']) {
+        bool b => b,
+        int i => i == 1,
+        _ => d.groupLevelsDown,
+      },
+      levelsDownGroups: switch (m['levels_down_groups']) {
+        List l => l.map((e) => (e as num).toInt()).toList(),
+        _ => d.levelsDownGroups,
+      },
     );
   }
 
@@ -159,22 +175,22 @@ class PhilIriThresholds {
     ordered('Comprehension',
         [comprehensionInstructionalMin, comprehensionIndependentMin], 0, 100);
     ordered('Speed', [speedStrugglingMax, speedSlowMax, speedFastMin], 0, 1000);
-    ordered('GST (Grades 4–6)', [gstElementaryThreeDownMax, gstElementaryPassMin], 0, 20);
-    ordered('GST (Grades 7–10)', [gstJhsThreeDownMax, gstJhsPassMin], 0, 40);
+    ordered('GST (Grades 4–6)', [gstElementaryPassMin], 0, 20);
+    ordered('GST (Grades 7–10)', [gstJhsPassMin], 0, 40);
     ordered('Frustration levels down', [
       frustrationFourDownMax,
       frustrationThreeDownMax,
       frustrationTwoDownMax,
       frustrationKeepLevelMin,
     ], 0, 100);
+    ordered('Levels-down groups', levelsDownGroups, 1, philIriMaxGrade);
   }
 }
 
-/// Graded-passage levels a passage may have, and learner grades covered.
-/// The lowest is 1: in practice learners go more than 3 levels down.
-const philIriMinPassageLevel = 1;
-const philIriMaxPassageLevel = 10;
+/// Learner grades Phil-IRI covers (the BASA paper: 4–10). Add 11 and 12 here
+/// when Senior High is brought in; adjusted levels already cap at 12.
 const philIriGrades = {4, 5, 6, 7, 8, 9, 10};
+const philIriMaxGrade = 12;
 
 /// The section's grade as a Phil-IRI grade, or null when it isn't 4–10.
 int? philIriGradeOf(String gradeLevel) {
@@ -281,44 +297,18 @@ PhilIriLevel philIriPassageProfile(PhilIriLevel wordReading, PhilIriLevel compre
   }
 }
 
-/// Starting passage level from the English GST raw score, or null when the
-/// learner passed the GST (no graded passages needed). Default ranges:
-/// Grades 4–6 (/20): 0–7 three levels down, 8–13 two down, ≥14 passed.
-/// Grades 7–10 (/40): 0–15 three down, 16–27 two down, ≥28 passed.
-int? philIriStartingLevel(int learnerGrade, int gstScore,
+/// GST size for a learner grade: 20 items (Grades 4–6), 40 items (7 and up).
+int philIriGstMaxScore(int learnerGrade) => learnerGrade >= 7 ? 40 : 20;
+
+/// True when the GST raw score reaches the pass mark (14/20 or 28/40 by default).
+bool philIriGstPassed(int learnerGrade, int gstScore,
     [PhilIriThresholds t = PhilIriThresholds.defaults]) {
   if (!philIriGrades.contains(learnerGrade)) {
-    throw ArgumentError('Phil-IRI English covers Grades 4–10, got $learnerGrade');
+    throw ArgumentError('Phil-IRI covers Grades ${philIriGrades.first}–${philIriGrades.last}, got $learnerGrade');
   }
-  final jhs = learnerGrade >= 7;
-  final maxScore = jhs ? 40 : 20;
+  final maxScore = philIriGstMaxScore(learnerGrade);
   if (gstScore < 0 || gstScore > maxScore) {
     throw ArgumentError('GST score must be 0..$maxScore');
   }
-  if (gstScore >= (jhs ? t.gstJhsPassMin : t.gstElementaryPassMin)) return null;
-  final levelsDown =
-      gstScore <= (jhs ? t.gstJhsThreeDownMax : t.gstElementaryThreeDownMax) ? 3 : 2;
-  return learnerGrade - levelsDown;
-}
-
-/// Next passage level to give, from the profiles found so far
-/// (passage level -> profile), or null when testing is done.
-///
-/// Manual Stage 2: go one level up until Frustration is found; after that,
-/// go one level below the lowest passage read until Independent is found.
-/// Non-Reader counts as Frustration here. Stops at the passage-level bounds.
-/// The tutor may override.
-int? philIriNextLevel(Map<int, PhilIriLevel> profiles) {
-  if (profiles.isEmpty) return null;
-  final levels = profiles.keys.toList()..sort();
-  final found = profiles.values.toSet();
-  final frustrationFound = found.contains(PhilIriLevel.frustration) ||
-      found.contains(PhilIriLevel.nonReader);
-  if (!frustrationFound) {
-    final next = levels.last + 1;
-    return next > philIriMaxPassageLevel ? null : next;
-  }
-  if (found.contains(PhilIriLevel.independent)) return null;
-  final next = levels.first - 1;
-  return next < philIriMinPassageLevel ? null : next;
+  return gstScore >= (learnerGrade >= 7 ? t.gstJhsPassMin : t.gstElementaryPassMin);
 }

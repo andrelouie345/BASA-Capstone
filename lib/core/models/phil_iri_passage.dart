@@ -4,6 +4,10 @@
 // Passages are data, not code: coordinators add passages to their school's
 // collections or deactivate ones they don't use. Content approval happens
 // outside BASA.
+//
+// Assessment passages are grade-level: a learner reads the passage whose level
+// is the learner's own grade (FLT, BOSY, MOSY and EOSY alike). Non-graded
+// collections (FRB) have no level.
 
 final _whitespace = RegExp(r'\s+');
 
@@ -13,14 +17,12 @@ class PhilIriPassage {
   final String language;        // 'English' (only language in scope)
   final String? testType;       // 'pre' | 'post' for Phil-IRI sets; null otherwise
   final String? setCode;        // 'A'..'D' for Phil-IRI sets; null otherwise
-  final int? level;             // passage grade level 1–10; null in non-graded collections (FRB)
+  final int? level;             // grade that reads it (4–10, up to 12 later); null in non-graded collections (FRB)
   final int? selectionNo;       // number in the collection's reading order (FRB); null otherwise
   final String title;
   final String? motivation;     // motivation / motive question read before the passage
   final String body;            // passage text; paragraphs separated by '\n'
   final int wordCount;          // the source's "No. of words"
-  final int learnerGradeMin;    // learner grades this passage is meant for
-  final int learnerGradeMax;    //   (2018 sets: 4–6, JHS 2024 sets: 7–10)
   final bool isActive;
   final String? createdBy;      // users.id
 
@@ -36,8 +38,6 @@ class PhilIriPassage {
     this.motivation,
     required this.body,
     required this.wordCount,
-    required this.learnerGradeMin,
-    required this.learnerGradeMax,
     this.isActive = true,
     this.createdBy,
   });
@@ -64,8 +64,6 @@ class PhilIriPassage {
         'motivation': motivation,
         'body': body,
         'word_count': wordCount,
-        'learner_grade_min': learnerGradeMin,
-        'learner_grade_max': learnerGradeMax,
         'is_active': isActive,
         if (createdBy != null) 'created_by': createdBy,
       };
@@ -82,8 +80,6 @@ class PhilIriPassage {
         motivation: m['motivation'] as String?,
         body: m['body'] as String,
         wordCount: m['word_count'] as int,
-        learnerGradeMin: m['learner_grade_min'] as int,
-        learnerGradeMax: m['learner_grade_max'] as int,
         isActive: m['is_active'] is bool
             ? m['is_active'] as bool
             : (m['is_active'] as int? ?? 1) == 1,

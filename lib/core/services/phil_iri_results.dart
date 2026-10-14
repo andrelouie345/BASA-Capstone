@@ -15,6 +15,11 @@
 //   own carries the previous round's word reading forward.
 // - A Foundational Literacy Test reading has no comprehension; in BOSY the GST
 //   supplies it, as in the workbook.
+// - Every assessment is ONE passage of the learner's own grade; the adjusted
+//   grade level is counted from the learner's grade.
+// - A blank comprehension counts as 0 (owner 2026-10-14) but stays
+//   distinguishable from a real 0: the score stays null and
+//   comprehensionBlank is true (the workbook used 0.1 / 0.2 markers).
 // - End result: EOSY when it was given; otherwise the best of the rounds that
 //   were given (ties go to the later round).
 // - Only the latest attempt of a round counts; picking it is the caller's job.
@@ -28,10 +33,12 @@ class PhilIriPassageResult {
   final PhilIriLevel accuracyLevel;
   final PhilIriSpeed speed;
   final PhilIriLevel wordReadingLevel;
-  final double? comprehensionScore;     // 0–1; null when not asked
-  final PhilIriLevel? comprehensionLevel;
+  final double? comprehensionScore;     // 0–1; null = blank (not asked/recorded)
+  final PhilIriLevel comprehensionLevel; // a blank counts as 0
   final PhilIriLevel profile;
   final bool isStrugglingReader;
+
+  bool get comprehensionBlank => comprehensionScore == null;
 
   const PhilIriPassageResult({
     required this.wordReadingScore,
@@ -40,7 +47,7 @@ class PhilIriPassageResult {
     required this.speed,
     required this.wordReadingLevel,
     this.comprehensionScore,
-    this.comprehensionLevel,
+    required this.comprehensionLevel,
     required this.profile,
     required this.isStrugglingReader,
   });
@@ -49,7 +56,7 @@ class PhilIriPassageResult {
 /// Scores one passage reading.
 /// Whole text: accuracy over the passage's words, wpm from the reading time.
 /// One minute: accuracy over the words read, wpm = words read.
-/// Without comprehension (e.g. FLT) the profile is the word reading level.
+/// Without comprehension (e.g. FLT) the comprehension counts as 0.
 PhilIriPassageResult philIriScorePassage({
   required int wordCount,
   required PhilIriReadingMethod method,
@@ -85,7 +92,7 @@ PhilIriPassageResult philIriScorePassage({
   final comp = comprehensionTotal == null
       ? null
       : philIriComprehensionScore(comprehensionCorrect!, comprehensionTotal);
-  final compLevel = comp == null ? null : philIriComprehensionLevel(comp, t);
+  final compLevel = philIriComprehensionLevel(comp ?? 0, t);
 
   return PhilIriPassageResult(
     wordReadingScore: score,
@@ -101,7 +108,7 @@ PhilIriPassageResult philIriScorePassage({
 }
 
 /// Profile from whatever is known: the table when both exist; Non-Reader word
-/// reading wins; otherwise whichever side is present.
+/// reading wins; with only a GST (no reading yet) the comprehension level.
 PhilIriLevel? _profile(PhilIriLevel? wordReading, PhilIriLevel? comprehension) {
   if (wordReading == PhilIriLevel.nonReader) return PhilIriLevel.nonReader;
   if (wordReading == null) return comprehension;
@@ -117,10 +124,14 @@ class PhilIriRoundResult {
   final PhilIriLevel? accuracyLevel;
   final PhilIriSpeed? speed;
   final PhilIriLevel? wordReadingLevel;
-  final double? comprehensionScore;     // after carry-up
+  final double? comprehensionScore;     // after carry-up; null = blank (counts as 0)
   final PhilIriLevel? comprehensionLevel;
   final PhilIriLevel? profile;          // null when nothing is known yet
   final bool isStrugglingReader;
+  final int? adjustedLevel;             // 1–12; 0 only for a Non-Reader
+  final int? levelsDown;                // null for a Non-Reader
+
+  bool get comprehensionBlank => comprehensionScore == null;
 
   const PhilIriRoundResult({
     required this.round,
@@ -134,6 +145,8 @@ class PhilIriRoundResult {
     this.comprehensionLevel,
     this.profile,
     this.isStrugglingReader = false,
+    this.adjustedLevel,
+    this.levelsDown,
   });
 }
 
@@ -141,6 +154,7 @@ class PhilIriRoundResult {
 /// 0–1 fraction (null if not taken); [readings] holds the scored reading that
 /// stands for each round that was given (latest attempt).
 List<PhilIriRoundResult> philIriRoundResults({
+  required int learnerGrade,
   double? gstScore,
   required Map<PhilIriRound, PhilIriPassageResult> readings,
   PhilIriThresholds t = PhilIriThresholds.defaults,
@@ -155,8 +169,17 @@ List<PhilIriRoundResult> philIriRoundResults({
     final ownComp = own?.comprehensionScore;
     if (ownComp != null && (comp == null || ownComp > comp)) comp = ownComp;
 
-    final compLevel = comp == null ? null : philIriComprehensionLevel(comp, t);
     final wr = lastReading;
+    // A blank counts as 0 once there is a reading; with nothing at all the
+    // round stays unknown.
+    final compLevel = comp != null
+        ? philIriComprehensionLevel(comp, t)
+        : (wr != null ? philIriComprehensionLevel(0, t) : null);
+    final profile = _profile(wr?.wordReadingLevel, compLevel);
+    final struggling = wr?.isStrugglingReader ?? false;
+    final adjusted = profile == null
+        ? null
+        : philIriAdjustedLevel(profile, learnerGrade, comp, t);
     results.add(PhilIriRoundResult(
       round: round,
       given: own != null,
@@ -167,8 +190,12 @@ List<PhilIriRoundResult> philIriRoundResults({
       wordReadingLevel: wr?.wordReadingLevel,
       comprehensionScore: comp,
       comprehensionLevel: compLevel,
-      profile: _profile(wr?.wordReadingLevel, compLevel),
-      isStrugglingReader: wr?.isStrugglingReader ?? false,
+      profile: profile,
+      isStrugglingReader: struggling,
+      adjustedLevel: adjusted,
+      levelsDown: adjusted == null
+          ? null
+          : philIriLevelsDown(adjusted, learnerGrade, nonReader: profile == PhilIriLevel.nonReader),
     ));
   }
   return results;
@@ -197,14 +224,17 @@ PhilIriRoundResult? philIriEndResult(List<PhilIriRoundResult> rounds) {
   return bosy.isEmpty ? null : bosy.first;
 }
 
-/// Adjusted grade level (workbook "Adj. Grade Level"), relative to [baseLevel]:
-/// Non-Reader 0; Independent base+1; Instructional base; Frustration by
-/// comprehension % — ≥ keep-level min stays at base (owner decision), else
-/// 1–4 levels down per the thresholds. Never below 1.
-/// [comprehensionScore] null on a Frustration profile counts as 1 level down.
+/// Adjusted grade level (workbook "Adj. Grade Level"), counted from the
+/// learner's current grade: Non-Reader 0; Independent grade+1; Instructional
+/// grade; Frustration by comprehension % — ≥ keep-level min stays at grade
+/// (owner decision), else 1–4 levels down per the thresholds. A blank
+/// comprehension (null) counts as 0.
+/// Bounds (owner 2026-10-14): never above Grade 12; below Grade 1 becomes
+/// Grade 1, the lowest grade. 0 is reserved for Non-Readers: a Struggling
+/// Reader is not a Non-Reader and also bottoms out at Grade 1.
 int philIriAdjustedLevel(
   PhilIriLevel profile,
-  int baseLevel,
+  int learnerGrade,
   double? comprehensionScore, [
   PhilIriThresholds t = PhilIriThresholds.defaults,
 ]) {
@@ -213,43 +243,55 @@ int philIriAdjustedLevel(
     case PhilIriLevel.nonReader:
       return 0;
     case PhilIriLevel.independent:
-      level = baseLevel + 1;
+      level = learnerGrade + 1;
     case PhilIriLevel.instructional:
-      level = baseLevel;
+      level = learnerGrade;
     case PhilIriLevel.frustration:
-      if (comprehensionScore == null) {
-        level = baseLevel - 1;
+      final pct = philIriWholePercent(comprehensionScore ?? 0);
+      if (pct >= t.frustrationKeepLevelMin) {
+        level = learnerGrade;
+      } else if (pct <= t.frustrationFourDownMax) {
+        level = learnerGrade - 4;
+      } else if (pct <= t.frustrationThreeDownMax) {
+        level = learnerGrade - 3;
+      } else if (pct <= t.frustrationTwoDownMax) {
+        level = learnerGrade - 2;
       } else {
-        final pct = philIriWholePercent(comprehensionScore);
-        if (pct >= t.frustrationKeepLevelMin) {
-          level = baseLevel;
-        } else if (pct <= t.frustrationFourDownMax) {
-          level = baseLevel - 4;
-        } else if (pct <= t.frustrationThreeDownMax) {
-          level = baseLevel - 3;
-        } else if (pct <= t.frustrationTwoDownMax) {
-          level = baseLevel - 2;
-        } else {
-          level = baseLevel - 1;
-        }
+        level = learnerGrade - 1;
       }
   }
-  return level < 1 ? 1 : level;
+  if (level > philIriMaxGrade) return philIriMaxGrade;
+  if (level < 1) return 1;
+  return level;
 }
 
 /// Levels below the learner's grade (0 = grade-level ready), or null for a
-/// Non-Reader (adjusted level 0).
-int? philIriLevelsDown(int adjustedLevel, int learnerGrade) {
-  if (adjustedLevel == 0) return null;
+/// Non-Reader.
+int? philIriLevelsDown(int adjustedLevel, int learnerGrade, {required bool nonReader}) {
+  if (nonReader) return null;
   final down = learnerGrade - adjustedLevel;
   return down < 0 ? 0 : down;
 }
 
-/// Workbook "Reading Level": GLR at or above grade, 3-LD at 3+ levels down,
-/// 2-LD otherwise (the workbook files 1 level down under 2-LD), Non-Reader at 0.
-String philIriReadingLevelLabel(int adjustedLevel, int learnerGrade) {
-  if (adjustedLevel == 0) return 'Non-Reader';
-  if (adjustedLevel >= learnerGrade) return 'GLR';
-  if (adjustedLevel <= learnerGrade - 3) return '3-LD';
-  return '2-LD';
+/// Exact label: "Non-Reader", "GLR", or "N-LD" (1-LD, 2-LD, ...).
+String philIriLevelsDownLabel(int? levelsDown) {
+  if (levelsDown == null) return 'Non-Reader';
+  if (levelsDown == 0) return 'GLR';
+  return '$levelsDown-LD';
+}
+
+/// Report label, grouped per the thresholds. Default groups [2]: 1–2 down
+/// -> "2-LD", 3+ -> "3-LD" (Phil-IRI reports only have 2-LD and 3-LD).
+/// Each group is named after its highest level; the open last group after
+/// its lowest. With grouping off this is the exact label.
+String philIriReportGroup(int? levelsDown,
+    [PhilIriThresholds t = PhilIriThresholds.defaults]) {
+  if (levelsDown == null || levelsDown == 0 || !t.groupLevelsDown) {
+    return philIriLevelsDownLabel(levelsDown);
+  }
+  for (final upper in t.levelsDownGroups) {
+    if (levelsDown <= upper) return '$upper-LD';
+  }
+  final open = t.levelsDownGroups.isEmpty ? 1 : t.levelsDownGroups.last + 1;
+  return '$open-LD';
 }
