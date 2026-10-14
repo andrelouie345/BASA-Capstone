@@ -2,6 +2,8 @@
 import 'package:sqflite_common/sqflite.dart';
 import 'package:path/path.dart' as p;
 
+import 'phil_iri_local_schema.dart';
+
 /// Opens/creates the local SQLite DB.
 /// IMPORTANT: the caller must set the global `databaseFactory`
 /// BEFORE calling this — see the two entry points below. This file
@@ -16,7 +18,7 @@ class LocalDatabase {
     _db = await databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 12, // v12: crla_assessments.origin + sync_meta (M5)
+        version: 13, // v13: Phil-IRI tables (phil_iri_local_schema.dart)
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
@@ -31,6 +33,7 @@ class LocalDatabase {
           await _createCrlaScoreTables(db);
           await _createCrlaViews(db);
           await _createSyncTables(db);
+          await createPhilIriLocalSchema(db);
         },
         onUpgrade: (db, oldVersion, newVersion) async {
           if (oldVersion < 2) {
@@ -110,6 +113,8 @@ class LocalDatabase {
                 "CHECK (origin IN ('local', 'cloud'))");
           }
           await _createSyncTables(db);
+          // v13. IF NOT EXISTS + trigger recreate, so it runs on every upgrade.
+          await createPhilIriLocalSchema(db);
         },
       ),
     );
