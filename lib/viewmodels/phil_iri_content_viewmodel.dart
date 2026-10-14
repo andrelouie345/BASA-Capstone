@@ -272,6 +272,7 @@ class PhilIriContentViewModel {
         (existing.isEmpty ? 1 : existing.map((k) => k.criterionNo).reduce((a, b) => a > b ? a : b) + 1);
     final wanted = _checkedCriterion(PhilIriRubricCriterion(
         collectionId: collectionId, criterionNo: no, name: name, scaleMin: scaleMin, scaleMax: scaleMax));
+    _checkCriterionNameFree(existing, wanted);
 
     final created = await _cloudWrite(() => cloud.collections.insertCriterion(wanted),
         duplicate: 'This collection already has criterion number $no.');
@@ -286,6 +287,7 @@ class PhilIriContentViewModel {
     final collection = await _criterionCollection(cloud, criterion.collectionId, criterion.id);
     _checkCanManageSchool(collection.schoolId, 'collections');
     final wanted = _checkedCriterion(criterion);
+    _checkCriterionNameFree(await cloud.collections.getCriteria(criterion.collectionId), wanted);
 
     final updated = await _cloudWrite(() => cloud.collections.updateCriterion(wanted),
         duplicate: 'This collection already has criterion number ${wanted.criterionNo}.');
@@ -319,6 +321,16 @@ class PhilIriContentViewModel {
       throw ViewModelException('Collection $collectionId has no rubric criterion with id $criterionId.');
     }
     return collection;
+  }
+
+  /// Names are unique within a collection (owner, 2026-10-14), ignoring case.
+  /// Checked here only; the cloud has no matching constraint.
+  void _checkCriterionNameFree(List<PhilIriRubricCriterion> existing, PhilIriRubricCriterion wanted) {
+    final name = wanted.name.toLowerCase();
+    final clash = existing.where((k) => k.id != wanted.id && k.name.trim().toLowerCase() == name).firstOrNull;
+    if (clash != null) {
+      throw ViewModelException('This collection already has a criterion named "${clash.name}" (#${clash.criterionNo}).');
+    }
   }
 
   PhilIriRubricCriterion _checkedCriterion(PhilIriRubricCriterion k) {
