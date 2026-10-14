@@ -403,6 +403,25 @@ class PhilIriViewModel {
 
   Future<List<PhilIriAnswer>> answers(int readingId) => _sessions.getAnswers(readingId);
 
+  // ---- Reads for showing a session (local data) ----
+
+  /// The session's readings (one per session today), by sequence_no.
+  Future<List<PhilIriReading>> readings(int assessmentId) => _sessions.getReadings(assessmentId);
+
+  /// A passage from the local mirror, or null when it isn't there.
+  Future<PhilIriPassage?> passage(int passageId) => _passages.findById(passageId);
+
+  /// A passage's comprehension questions, by question_no.
+  Future<List<PhilIriQuestion>> questions(int passageId) => _passages.getQuestions(passageId);
+
+  /// A collection from the local mirror, or null when it isn't there.
+  Future<PhilIriCollection?> collection(int collectionId) => _collections.findById(collectionId);
+
+  /// A collection's rubric criteria, by criterion_no.
+  Future<List<PhilIriRubricCriterion>> rubricCriteria(int collectionId) => _collections.getCriteria(collectionId);
+
+  Future<List<PhilIriRubricScore>> rubricScores(int assessmentId) => _sessions.getRubricScores(assessmentId);
+
   // ---- Rubric ----
 
   Future<PhilIriRubricScore> scoreRubric({

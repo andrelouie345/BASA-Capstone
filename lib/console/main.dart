@@ -57,6 +57,7 @@ import 'package:basa_capstone/viewmodels/crla_viewmodel.dart';
 import 'package:basa_capstone/core/console/commands/pull_commands.dart';
 import 'package:basa_capstone/core/data/local/crla_story_repository_sqlite.dart';
 import 'package:basa_capstone/core/console/commands/phil_iri_content_commands.dart';
+import 'package:basa_capstone/core/console/commands/phil_iri_commands.dart';
 import 'package:basa_capstone/core/data/local/phil_iri_assessment_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/phil_iri_collection_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/phil_iri_gst_repository_sqlite.dart';
@@ -198,6 +199,7 @@ Future<void> main() async {
     logger: session,
   );
   vmRegistry.register('PhilIriViewModel', philIriVm);
+  registerPhilIriCommands(registry, philIriVm);
   registerDebugCommands(registry, session, vmRegistry);
 
   // Headless REPL: lets the console run from a terminal or a piped script.
