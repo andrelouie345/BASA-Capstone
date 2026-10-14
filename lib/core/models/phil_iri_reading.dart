@@ -53,6 +53,12 @@ class PhilIriReading {
   final int? wordsRead;           // one-minute: words read in the minute
   final PhilIriObservation observation;
 
+  /// The result columns: written only by the repository's finalize().
+  static const resultColumns = [
+    'word_reading_score', 'words_per_minute', 'accuracy_level', 'speed',
+    'word_reading_level', 'comprehension_score', 'comprehension_level', 'profile',
+  ];
+
   // Results, written only at finalization (null while live).
   final double? wordReadingScore;     // 0–1
   final double? wordsPerMinute;
