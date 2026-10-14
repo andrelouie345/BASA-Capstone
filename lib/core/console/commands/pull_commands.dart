@@ -12,7 +12,9 @@ import '../../../viewmodels/auth_viewmodel.dart';
 
 /// Parents before children (foreign keys), mapped to the column used for
 /// stable paging. Part tables must come after crla_assessments: the local
-/// variant-check triggers look up the parent row.
+/// variant-check triggers look up the parent row. Likewise the Phil-IRI
+/// child tables come after phil_iri_assessments, whose origin tells the local
+/// triggers to leave mirrored rows alone.
 const _pullOrder = <String, String>{
   'schools': 'id',
   'users': 'id',
@@ -24,13 +26,38 @@ const _pullOrder = <String, String>{
   'crla_part1_standard': 'assessment_id',
   'crla_part1_english': 'assessment_id',
   'crla_part2_fluency': 'assessment_id',
+  'phil_iri_collections': 'id',
+  'phil_iri_rubric_criteria': 'id',
+  'phil_iri_passages': 'id',
+  'phil_iri_questions': 'id',
+  'phil_iri_thresholds': 'id',
+  'phil_iri_gst_results': 'id',
+  'phil_iri_assessments': 'id',
+  'phil_iri_readings': 'id',
+  'phil_iri_miscues': 'id',
+  'phil_iri_answers': 'id',
+  'phil_iri_rubric_scores': 'id',
 };
+
+/// Tables with the local-only origin column: mirrored rows are 'cloud'.
+const _originTables = {'crla_assessments', 'phil_iri_gst_results', 'phil_iri_assessments'};
 
 /// Local tables a pull empties before writing (children first). Everything
 /// the signed-in user can read comes back from the cloud; regions (seed data)
 /// and login_logs (this device's sign-in history) are kept. import_conflicts
 /// lives in the cloud only; its local copy is unused but may hold old rows.
 const _clearedTables = [
+  'phil_iri_rubric_scores',
+  'phil_iri_answers',
+  'phil_iri_miscues',
+  'phil_iri_readings',
+  'phil_iri_assessments',
+  'phil_iri_gst_results',
+  'phil_iri_thresholds',
+  'phil_iri_questions',
+  'phil_iri_passages',
+  'phil_iri_rubric_criteria',
+  'phil_iri_collections',
   'crla_part2_fluency',
   'crla_part1_english',
   'crla_part1_standard',
@@ -54,23 +81,23 @@ void registerPullCommands(ConsoleRegistry registry, AuthViewModel authVm, Databa
       if (guardError != null) return guardError;
 
       final previous = await _lastPull(localDb);
-      final unsynced = await _unsyncedCrla(localDb);
+      final unsynced = await _unsynced(localDb);
       final unsyncedTotal = unsynced.fold<int>(0, (n, r) => n + (r['n'] as int));
 
       if (args.isEmpty || args[0] != 'yes') {
-        return 'This CLEARS the local data (schools, users, sections, learners, enrollments, CRLA) and '
+        return 'This CLEARS the local data (schools, users, sections, learners, enrollments, CRLA, Phil-IRI) and '
             'pulls everything ${authVm.currentUser?.email} can read in the cloud. '
             'Regions and login logs are kept.\n'
             'Local data was last pulled by ${previous ?? "nobody (never pulled)"}.\n'
-            '${unsyncedTotal > 0 ? "$unsyncedTotal CRLA assessment(s) on this device are not uploaded yet; the pull will refuse.\n" : ""}'
+            '${unsyncedTotal > 0 ? "$unsyncedTotal assessment record(s) on this device are not uploaded yet; the pull will refuse.\n" : ""}'
             'Run "pull-cloud yes" to continue.';
       }
 
       final discardLocal = args.length > 1 && args[1] == 'discard-local';
       if (unsyncedTotal > 0 && !discardLocal) {
-        final lines = unsynced.map((r) => '  ${r['n']} in section ${r['section_id']} '
+        final lines = unsynced.map((r) => '  ${r['n']} ${r['kind']} in section ${r['section_id']} '
             '(grade ${r['grade_level'] ?? "?"} ${r['section_name'] ?? "unknown"}, ${r['school_year'] ?? ""})');
-        return 'Refused: $unsyncedTotal CRLA assessment(s) were entered on this device and are not in the cloud yet:\n'
+        return 'Refused: $unsyncedTotal assessment record(s) were entered on this device and are not in the cloud yet:\n'
             '${lines.join('\n')}\n'
             'A pull would delete them. Upload them first, or run "pull-cloud yes discard-local" to delete them.';
       }
@@ -109,7 +136,7 @@ void registerPullCommands(ConsoleRegistry registry, AuthViewModel authVm, Databa
 
       final out = StringBuffer();
       if (discardLocal && unsyncedTotal > 0) {
-        out.writeln('Discarded $unsyncedTotal local CRLA assessment(s).');
+        out.writeln('Discarded $unsyncedTotal local assessment record(s).');
       }
       for (final entry in fetched.entries) {
         out.writeln('${entry.key}: ${entry.value.length} rows');
@@ -128,14 +155,21 @@ Future<String?> _lastPull(Database db) async {
   return email == null ? null : '$email on ${meta['last_pull_at']}';
 }
 
-/// CRLA assessments entered on this device (origin 'local'), per section.
-Future<List<Map<String, Object?>>> _unsyncedCrla(Database db) => db.rawQuery('''
-      SELECT ca.section_id, COUNT(*) AS n, s.grade_level, s.section_name, s.school_year
-      FROM crla_assessments ca
-      LEFT JOIN sections s ON s.id = ca.section_id
-      WHERE ca.origin = 'local'
-      GROUP BY ca.section_id
-      ORDER BY ca.section_id
+/// Assessment records entered on this device (origin 'local'), per kind and
+/// section: CRLA assessments, Phil-IRI sessions and Phil-IRI GST results.
+/// (Phil-IRI readings, miscues and answers belong to their session.)
+Future<List<Map<String, Object?>>> _unsynced(Database db) => db.rawQuery('''
+      SELECT x.kind, x.section_id, COUNT(*) AS n, s.grade_level, s.section_name, s.school_year
+      FROM (
+        SELECT 'CRLA assessment(s)' AS kind, section_id FROM crla_assessments WHERE origin = 'local'
+        UNION ALL
+        SELECT 'Phil-IRI session(s)', section_id FROM phil_iri_assessments WHERE origin = 'local'
+        UNION ALL
+        SELECT 'Phil-IRI GST result(s)', section_id FROM phil_iri_gst_results WHERE origin = 'local'
+      ) x
+      LEFT JOIN sections s ON s.id = x.section_id
+      GROUP BY x.kind, x.section_id
+      ORDER BY x.section_id, x.kind
     ''');
 
 Future<void> _setMeta(Transaction txn, Map<String, String?> values) async {
@@ -171,7 +205,7 @@ Future<void> _writeTable(Transaction txn, String table, List<Map<String, dynamic
   // The tables were just emptied, so plain inserts: nothing can clash.
   for (final row in rows) {
     final local = _toLocal(row, localCols);
-    if (table == 'crla_assessments') local['origin'] = 'cloud';
+    if (_originTables.contains(table)) local['origin'] = 'cloud';
     await txn.insert(table, local);
   }
 }
