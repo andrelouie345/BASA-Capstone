@@ -414,5 +414,5 @@ $seed$;
 --   from public.phil_iri_passages p
 --   join public.phil_iri_collections c on c.id = p.collection_id
 --   left join public.phil_iri_questions q on q.passage_id = p.id
---  where c.school_id is null and c.name = 'Phil-IRI JHS 2024'
+--  where c.school_id is null and c.name = 'Phil-IRI JHS 2024' and p.test_type = 'pre'
 --  group by p.level, p.title, p.word_count order by p.level;
