@@ -181,6 +181,12 @@ class PhilIriAssessmentRepositorySupabase implements PhilIriAssessmentRepository
     return (rows as List).map(_r).toList();
   }
 
+  @override
+  Future<PhilIriReading?> findReading(int readingId) async {
+    final rows = await client.from('phil_iri_readings').select().eq('id', readingId);
+    return (rows as List).isEmpty ? null : _r(rows.first);
+  }
+
   // ---- Miscues ----
 
   @override

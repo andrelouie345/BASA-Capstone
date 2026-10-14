@@ -152,12 +152,15 @@ class PhilIriRoundResult {
 
 /// Results for every round of the year, in order. [gstScore] is the GST as a
 /// 0–1 fraction (null if not taken); [readings] holds the scored reading that
-/// stands for each round that was given (latest attempt).
+/// stands for each round that was given (latest attempt), each scored with
+/// that round's thresholds. [roundThresholds] overrides [t] per round (a
+/// finalized round's snapshot).
 List<PhilIriRoundResult> philIriRoundResults({
   required int learnerGrade,
   double? gstScore,
   required Map<PhilIriRound, PhilIriPassageResult> readings,
   PhilIriThresholds t = PhilIriThresholds.defaults,
+  Map<PhilIriRound, PhilIriThresholds> roundThresholds = const {},
 }) {
   final results = <PhilIriRoundResult>[];
   double? comp = gstScore;
@@ -166,6 +169,8 @@ List<PhilIriRoundResult> philIriRoundResults({
   for (final round in PhilIriRound.values) {
     final own = readings[round];
     if (own != null) lastReading = own;
+    // A finalized round keeps the thresholds it was finalized with.
+    final rt = roundThresholds[round] ?? t;
     final ownComp = own?.comprehensionScore;
     if (ownComp != null && (comp == null || ownComp > comp)) comp = ownComp;
 
@@ -173,13 +178,13 @@ List<PhilIriRoundResult> philIriRoundResults({
     // A blank counts as 0 once there is a reading; with nothing at all the
     // round stays unknown.
     final compLevel = comp != null
-        ? philIriComprehensionLevel(comp, t)
-        : (wr != null ? philIriComprehensionLevel(0, t) : null);
+        ? philIriComprehensionLevel(comp, rt)
+        : (wr != null ? philIriComprehensionLevel(0, rt) : null);
     final profile = _profile(wr?.wordReadingLevel, compLevel);
     final struggling = wr?.isStrugglingReader ?? false;
     final adjusted = profile == null
         ? null
-        : philIriAdjustedLevel(profile, learnerGrade, comp, t);
+        : philIriAdjustedLevel(profile, learnerGrade, comp, rt);
     results.add(PhilIriRoundResult(
       round: round,
       given: own != null,

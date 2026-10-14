@@ -190,6 +190,9 @@ class PhilIriAssessmentRepositorySqlite implements PhilIriAssessmentRepository {
     return rows.map(PhilIriReading.fromMap).toList();
   }
 
+  @override
+  Future<PhilIriReading?> findReading(int readingId) => _reading(readingId);
+
   Future<PhilIriReading?> _reading(int id) async {
     final rows = await db.query('phil_iri_readings', where: 'id = ?', whereArgs: [id], limit: 1);
     return rows.isEmpty ? null : PhilIriReading.fromMap(rows.first);

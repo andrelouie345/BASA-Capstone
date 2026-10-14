@@ -63,6 +63,8 @@ abstract class PhilIriAssessmentRepository {
   /// Ordered by sequence_no.
   Future<List<PhilIriReading>> getReadings(int assessmentId);
 
+  Future<PhilIriReading?> findReading(int readingId);
+
   // ---- Miscues ----
 
   Future<PhilIriMiscue> insertMiscue(PhilIriMiscue miscue);
