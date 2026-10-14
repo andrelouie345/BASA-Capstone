@@ -35,4 +35,11 @@ abstract class PhilIriPassageRepository {
   /// Local-mirroring only, keeps Supabase's id. Supabase impl throws UnimplementedError.
   Future<PhilIriPassage> upsertWithId(PhilIriPassage passage);
   Future<PhilIriQuestion> upsertQuestionWithId(PhilIriQuestion question);
+
+  /// Local-mirroring only: drops the local copy of a passage (and its
+  /// questions) or of one question. No-op when there is none. Throws
+  /// StateError while readings / answers on this device use it. Supabase
+  /// impl throws UnimplementedError.
+  Future<void> removeMirrored(int id);
+  Future<void> removeMirroredQuestion(int id);
 }

@@ -33,4 +33,11 @@ abstract class PhilIriCollectionRepository {
   /// Local-mirroring only, keeps Supabase's id. Supabase impl throws UnimplementedError.
   Future<PhilIriCollection> upsertWithId(PhilIriCollection collection);
   Future<PhilIriRubricCriterion> upsertCriterionWithId(PhilIriRubricCriterion criterion);
+
+  /// Local-mirroring only: drops the local copy of a collection (and its
+  /// criteria) or of one criterion. No-op when there is none. Throws
+  /// StateError while rubric scores on this device use it. Supabase impl
+  /// throws UnimplementedError.
+  Future<void> removeMirrored(int id);
+  Future<void> removeMirroredCriterion(int id);
 }

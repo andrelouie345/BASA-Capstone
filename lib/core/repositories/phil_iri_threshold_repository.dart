@@ -22,4 +22,8 @@ abstract class PhilIriThresholdRepository {
 
   /// Local-mirroring only, keeps Supabase's id. Supabase impl throws UnimplementedError.
   Future<PhilIriThresholdSetting> upsertWithId(PhilIriThresholdSetting setting);
+
+  /// Local-mirroring only: drops the local copy of a school's override
+  /// (no-op when there is none). Supabase impl throws UnimplementedError.
+  Future<void> removeMirroredForSchool(int schoolId);
 }

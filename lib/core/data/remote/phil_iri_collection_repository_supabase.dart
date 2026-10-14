@@ -99,4 +99,14 @@ class PhilIriCollectionRepositorySupabase implements PhilIriCollectionRepository
   Future<PhilIriRubricCriterion> upsertCriterionWithId(PhilIriRubricCriterion criterion) async {
     throw UnimplementedError('upsertCriterionWithId is a local-mirroring operation — not meaningful against Supabase');
   }
+
+  @override
+  Future<void> removeMirrored(int id) async {
+    throw UnimplementedError('removeMirrored is a local-mirroring operation — use delete against Supabase');
+  }
+
+  @override
+  Future<void> removeMirroredCriterion(int id) async {
+    throw UnimplementedError('removeMirroredCriterion is a local-mirroring operation — use deleteCriterion against Supabase');
+  }
 }

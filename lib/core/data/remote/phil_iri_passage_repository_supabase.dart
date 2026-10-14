@@ -117,4 +117,14 @@ class PhilIriPassageRepositorySupabase implements PhilIriPassageRepository {
   Future<PhilIriQuestion> upsertQuestionWithId(PhilIriQuestion question) async {
     throw UnimplementedError('upsertQuestionWithId is a local-mirroring operation — not meaningful against Supabase');
   }
+
+  @override
+  Future<void> removeMirrored(int id) async {
+    throw UnimplementedError('removeMirrored is a local-mirroring operation — use delete against Supabase');
+  }
+
+  @override
+  Future<void> removeMirroredQuestion(int id) async {
+    throw UnimplementedError('removeMirroredQuestion is a local-mirroring operation — use deleteQuestion against Supabase');
+  }
 }

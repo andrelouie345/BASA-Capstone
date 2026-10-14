@@ -42,4 +42,9 @@ class PhilIriThresholdRepositorySqlite implements PhilIriThresholdRepository {
     final rows = await db.query('phil_iri_thresholds', where: 'id = ?', whereArgs: [setting.id]);
     return PhilIriThresholdSetting.fromMap(rows.first);
   }
+
+  @override
+  Future<void> removeMirroredForSchool(int schoolId) async {
+    await db.delete('phil_iri_thresholds', where: 'school_id = ?', whereArgs: [schoolId]);
+  }
 }

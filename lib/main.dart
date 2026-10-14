@@ -62,6 +62,17 @@ import 'package:basa_capstone/core/data/local/crla_result_repository_sqlite.dart
 import 'package:basa_capstone/viewmodels/crla_viewmodel.dart';
 import 'package:basa_capstone/core/console/commands/pull_commands.dart';
 import 'package:basa_capstone/core/data/local/crla_story_repository_sqlite.dart';
+import 'package:basa_capstone/core/console/commands/phil_iri_content_commands.dart';
+import 'package:basa_capstone/core/data/local/phil_iri_assessment_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/local/phil_iri_collection_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/local/phil_iri_gst_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/local/phil_iri_passage_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/local/phil_iri_threshold_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/remote/phil_iri_collection_repository_supabase.dart';
+import 'package:basa_capstone/core/data/remote/phil_iri_passage_repository_supabase.dart';
+import 'package:basa_capstone/core/data/remote/phil_iri_threshold_repository_supabase.dart';
+import 'package:basa_capstone/viewmodels/phil_iri_content_viewmodel.dart';
+import 'package:basa_capstone/viewmodels/phil_iri_viewmodel.dart';
 
 Future <void> main() async{
 
@@ -132,6 +143,33 @@ vmRegistry.register('TextViewModel', textVm);
   );
   vmRegistry.register('CrlaViewModel', crlaVm);
   registerCrlaCommands(registry, authVm, crlaVm);
+
+  // Phil-IRI: content is managed online (mirrored locally); assessments are local.
+  final philIriContentVm = PhilIriContentViewModel(
+    auth: authVm,
+    cloudFactory: (client) => PhilIriContentCloudRepos(
+      collections: PhilIriCollectionRepositorySupabase(client),
+      passages: PhilIriPassageRepositorySupabase(client),
+      thresholds: PhilIriThresholdRepositorySupabase(client),
+    ),
+    localCollections: PhilIriCollectionRepositorySqlite(localDb),
+    localPassages: PhilIriPassageRepositorySqlite(localDb),
+    localThresholds: PhilIriThresholdRepositorySqlite(localDb),
+    logger: session,
+  );
+  vmRegistry.register('PhilIriContentViewModel', philIriContentVm);
+  registerPhilIriContentCommands(registry, philIriContentVm);
+  final philIriVm = PhilIriViewModel(
+    auth: authVm,
+    sessions: PhilIriAssessmentRepositorySqlite(localDb),
+    gst: PhilIriGstRepositorySqlite(localDb),
+    passages: PhilIriPassageRepositorySqlite(localDb),
+    collections: PhilIriCollectionRepositorySqlite(localDb),
+    thresholds: PhilIriThresholdRepositorySqlite(localDb),
+    sections: SectionRepositorySqlite(localDb),
+    logger: session,
+  );
+  vmRegistry.register('PhilIriViewModel', philIriVm);
   
   final loginLogVm = LoginLogViewModel(repo: LoginLogRepositorySqlite(localDb), logger: session);
   vmRegistry.register('LoginLogViewModel', loginLogVm);

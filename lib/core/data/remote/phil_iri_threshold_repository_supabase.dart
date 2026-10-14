@@ -55,4 +55,9 @@ class PhilIriThresholdRepositorySupabase implements PhilIriThresholdRepository {
   Future<PhilIriThresholdSetting> upsertWithId(PhilIriThresholdSetting setting) async {
     throw UnimplementedError('upsertWithId is a local-mirroring operation — not meaningful against Supabase');
   }
+
+  @override
+  Future<void> removeMirroredForSchool(int schoolId) async {
+    throw UnimplementedError('removeMirroredForSchool is a local-mirroring operation — use deleteForSchool against Supabase');
+  }
 }

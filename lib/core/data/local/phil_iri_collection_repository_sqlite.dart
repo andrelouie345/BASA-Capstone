@@ -63,4 +63,27 @@ class PhilIriCollectionRepositorySqlite implements PhilIriCollectionRepository {
     final rows = await db.query('phil_iri_rubric_criteria', where: 'id = ?', whereArgs: [criterion.id]);
     return PhilIriRubricCriterion.fromMap(rows.first);
   }
+
+  // Local foreign keys are off, so these look for users themselves.
+  @override
+  Future<void> removeMirrored(int id) async {
+    await db.transaction((txn) async {
+      final used = await txn.rawQuery('''
+        SELECT 1 FROM phil_iri_rubric_scores s
+        JOIN phil_iri_rubric_criteria k ON k.id = s.criterion_id
+        WHERE k.collection_id = ? LIMIT 1''', [id]);
+      if (used.isNotEmpty) throw StateError('Rubric scores on this device use this collection');
+      await txn.delete('phil_iri_rubric_criteria', where: 'collection_id = ?', whereArgs: [id]);
+      await txn.delete('phil_iri_collections', where: 'id = ?', whereArgs: [id]);
+    });
+  }
+
+  @override
+  Future<void> removeMirroredCriterion(int id) async {
+    await db.transaction((txn) async {
+      final used = await txn.query('phil_iri_rubric_scores', where: 'criterion_id = ?', whereArgs: [id], limit: 1);
+      if (used.isNotEmpty) throw StateError('Rubric scores on this device use this criterion');
+      await txn.delete('phil_iri_rubric_criteria', where: 'id = ?', whereArgs: [id]);
+    });
+  }
 }

@@ -77,4 +77,24 @@ class PhilIriPassageRepositorySqlite implements PhilIriPassageRepository {
     final rows = await db.query('phil_iri_questions', where: 'id = ?', whereArgs: [question.id]);
     return PhilIriQuestion.fromMap(rows.first);
   }
+
+  // Local foreign keys are off, so these look for users themselves.
+  @override
+  Future<void> removeMirrored(int id) async {
+    await db.transaction((txn) async {
+      final used = await txn.query('phil_iri_readings', where: 'passage_id = ?', whereArgs: [id], limit: 1);
+      if (used.isNotEmpty) throw StateError('Readings on this device use this passage');
+      await txn.delete('phil_iri_questions', where: 'passage_id = ?', whereArgs: [id]);
+      await txn.delete('phil_iri_passages', where: 'id = ?', whereArgs: [id]);
+    });
+  }
+
+  @override
+  Future<void> removeMirroredQuestion(int id) async {
+    await db.transaction((txn) async {
+      final used = await txn.query('phil_iri_answers', where: 'question_id = ?', whereArgs: [id], limit: 1);
+      if (used.isNotEmpty) throw StateError('Answers on this device use this question');
+      await txn.delete('phil_iri_questions', where: 'id = ?', whereArgs: [id]);
+    });
+  }
 }
