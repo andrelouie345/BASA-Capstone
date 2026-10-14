@@ -12,6 +12,7 @@ class PhilIriGstResult {
   final int schoolId;
   final int sectionId;
   final String schoolYear;      // YYYY-YYYY
+  final int? attemptNo;         // assigned by the DB on insert; retakes allowed
   final int maxScore;           // 20 (Grades 4–6) or 40 (Grades 7–10)
   final int totalScore;
   final int? literalCorrect;    // Form 1B breakdown by question type, optional
@@ -26,6 +27,7 @@ class PhilIriGstResult {
     required this.schoolId,
     required this.sectionId,
     required this.schoolYear,
+    this.attemptNo,
     required this.maxScore,
     required this.totalScore,
     this.literalCorrect,
@@ -43,6 +45,7 @@ class PhilIriGstResult {
         'school_id': schoolId,
         'section_id': sectionId,
         'school_year': schoolYear,
+        if (attemptNo != null) 'attempt_no': attemptNo,
         'max_score': maxScore,
         'total_score': totalScore,
         'literal_correct': literalCorrect,
@@ -58,6 +61,7 @@ class PhilIriGstResult {
         schoolId: m['school_id'] as int,
         sectionId: m['section_id'] as int,
         schoolYear: m['school_year'] as String,
+        attemptNo: m['attempt_no'] as int?,
         maxScore: m['max_score'] as int,
         totalScore: m['total_score'] as int,
         literalCorrect: m['literal_correct'] as int?,

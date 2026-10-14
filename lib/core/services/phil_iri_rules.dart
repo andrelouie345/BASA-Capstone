@@ -217,10 +217,12 @@ PhilIriLevel philIriWordReadingLevel(PhilIriLevel accuracy, PhilIriSpeed speed) 
 }
 
 /// "Struggling Reader" label (SHARP paper): Frustration-level word recognition
-/// above the non-reader cut-off (default 51–89%). Non-Readers are not
-/// Struggling Readers; they have their own level.
-bool philIriIsStrugglingReader(PhilIriLevel accuracy) =>
-    accuracy == PhilIriLevel.frustration;
+/// above the non-reader cut-off (default 51–89%) AND a Struggling reading
+/// speed (default 75 wpm and below). Non-Readers are not Struggling Readers;
+/// they have their own level. A Frustration reader faster than the speed
+/// cut-off gets no label (owner decision 2026-10-14: speed is required).
+bool philIriIsStrugglingReader(PhilIriLevel accuracy, PhilIriSpeed speed) =>
+    accuracy == PhilIriLevel.frustration && speed == PhilIriSpeed.struggling;
 
 /// Comprehension band. There is no comprehension Non-Reader: Non-Reader
 /// comes from word recognition only.

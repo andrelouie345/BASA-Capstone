@@ -58,6 +58,7 @@ class PhilIriAssessment {
   final int sectionId;          // snapshot
   final String schoolYear;      // YYYY-YYYY
   final PhilIriRound round;
+  final int? attemptNo;         // assigned by the DB on insert; retakes allowed
   final PhilIriStatus status;
   final String assessedAt;      // yyyy-MM-dd, local date
   final String? completedAt;    // ISO timestamp (UTC)
@@ -72,6 +73,7 @@ class PhilIriAssessment {
     required this.schoolId,
     required this.sectionId,
     required this.schoolYear,
+    this.attemptNo,
     required this.round,
     this.status = PhilIriStatus.inProgress,
     required this.assessedAt,
@@ -89,6 +91,7 @@ class PhilIriAssessment {
         'school_id': schoolId,
         'section_id': sectionId,
         'school_year': schoolYear,
+        if (attemptNo != null) 'attempt_no': attemptNo,
         'round': round.name,
         'status': status.value,
         'assessed_at': assessedAt,
@@ -106,6 +109,7 @@ class PhilIriAssessment {
       schoolId: m['school_id'] as int,
       sectionId: m['section_id'] as int,
       schoolYear: m['school_year'] as String,
+      attemptNo: m['attempt_no'] as int?,
       round: PhilIriRound.fromString(m['round'] as String),
       status: PhilIriStatus.fromString(m['status'] as String),
       assessedAt: m['assessed_at'] as String,
