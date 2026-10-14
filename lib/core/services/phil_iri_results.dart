@@ -295,3 +295,21 @@ String philIriReportGroup(int? levelsDown,
   final open = t.levelsDownGroups.isEmpty ? 1 : t.levelsDownGroups.last + 1;
   return '$open-LD';
 }
+
+/// K to 12 Key Stage of an adjusted grade level: KS1 = Grades 1–3,
+/// KS2 = 4–6, KS3 = 7–10, KS4 = 11–12; null for a Non-Reader (0).
+/// Reading coordinator: adjusted levels in KS1 are usually Struggling Readers,
+/// in KS2 Frustration readers.
+String? philIriKeyStage(int adjustedLevel) {
+  if (adjustedLevel <= 0) return null;
+  if (adjustedLevel <= 3) return 'KS1';
+  if (adjustedLevel <= 6) return 'KS2';
+  if (adjustedLevel <= 10) return 'KS3';
+  return 'KS4';
+}
+
+/// Display label for an adjusted level, e.g. "Grade 2 (KS1)"; "Non-Reader" for 0.
+String philIriAdjustedLevelLabel(int adjustedLevel) {
+  final ks = philIriKeyStage(adjustedLevel);
+  return ks == null ? 'Non-Reader' : 'Grade $adjustedLevel ($ks)';
+}
