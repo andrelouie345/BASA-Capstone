@@ -67,6 +67,13 @@ class PhilIriThresholds {
   final int gstElementaryPassMin;
   final int gstJhsThreeDownMax;             // Grades 7–10, GST /40
   final int gstJhsPassMin;
+  // Adjusted grade level for a Frustration profile, by comprehension %
+  // (workbook "Adj. Grade Level"): ≤ fourDown -> 4 levels down, ≤ threeDown
+  // -> 3, ≤ twoDown -> 2, otherwise 1; ≥ keepLevel -> stays at the base level.
+  final int frustrationFourDownMax;
+  final int frustrationThreeDownMax;
+  final int frustrationTwoDownMax;
+  final int frustrationKeepLevelMin;
 
   const PhilIriThresholds({
     this.nonReaderMax = 50,
@@ -81,6 +88,10 @@ class PhilIriThresholds {
     this.gstElementaryPassMin = 14,
     this.gstJhsThreeDownMax = 15,
     this.gstJhsPassMin = 28,
+    this.frustrationFourDownMax = 25,
+    this.frustrationThreeDownMax = 28,
+    this.frustrationTwoDownMax = 40,
+    this.frustrationKeepLevelMin = 79,
   });
 
   static const defaults = PhilIriThresholds();
@@ -101,6 +112,10 @@ class PhilIriThresholds {
         'gst_elementary_pass_min': gstElementaryPassMin,
         'gst_jhs_three_down_max': gstJhsThreeDownMax,
         'gst_jhs_pass_min': gstJhsPassMin,
+        'frustration_four_down_max': frustrationFourDownMax,
+        'frustration_three_down_max': frustrationThreeDownMax,
+        'frustration_two_down_max': frustrationTwoDownMax,
+        'frustration_keep_level_min': frustrationKeepLevelMin,
       };
 
   factory PhilIriThresholds.fromMap(Map<String, Object?> m) {
@@ -119,6 +134,10 @@ class PhilIriThresholds {
       gstElementaryPassMin: v('gst_elementary_pass_min', d.gstElementaryPassMin),
       gstJhsThreeDownMax: v('gst_jhs_three_down_max', d.gstJhsThreeDownMax),
       gstJhsPassMin: v('gst_jhs_pass_min', d.gstJhsPassMin),
+      frustrationFourDownMax: v('frustration_four_down_max', d.frustrationFourDownMax),
+      frustrationThreeDownMax: v('frustration_three_down_max', d.frustrationThreeDownMax),
+      frustrationTwoDownMax: v('frustration_two_down_max', d.frustrationTwoDownMax),
+      frustrationKeepLevelMin: v('frustration_keep_level_min', d.frustrationKeepLevelMin),
     );
   }
 
@@ -142,6 +161,12 @@ class PhilIriThresholds {
     ordered('Speed', [speedStrugglingMax, speedSlowMax, speedFastMin], 0, 1000);
     ordered('GST (Grades 4–6)', [gstElementaryThreeDownMax, gstElementaryPassMin], 0, 20);
     ordered('GST (Grades 7–10)', [gstJhsThreeDownMax, gstJhsPassMin], 0, 40);
+    ordered('Frustration levels down', [
+      frustrationFourDownMax,
+      frustrationThreeDownMax,
+      frustrationTwoDownMax,
+      frustrationKeepLevelMin,
+    ], 0, 100);
   }
 }
 
@@ -157,7 +182,8 @@ int? philIriGradeOf(String gradeLevel) {
   return philIriGrades.contains(grade) ? grade : null;
 }
 
-int _wholePercent(double fraction) => (fraction * 100 + 0.5).floor();
+/// A 0–1 score as a whole percent, rounded half up (bands are whole numbers).
+int philIriWholePercent(double fraction) => (fraction * 100 + 0.5).floor();
 
 /// Word recognition (accuracy) as a 0–1 fraction: (words − miscues) / words.
 /// Only counted miscues go in (self-corrections are not counted). For a
@@ -188,7 +214,7 @@ double philIriWordsPerMinute(int wordCount, int readingSeconds) {
 /// Instructional or Independent.
 PhilIriLevel philIriAccuracyLevel(double score,
     [PhilIriThresholds t = PhilIriThresholds.defaults]) {
-  final pct = _wholePercent(score);
+  final pct = philIriWholePercent(score);
   if (pct <= t.nonReaderMax) return PhilIriLevel.nonReader;
   if (pct >= t.wordReadingIndependentMin) return PhilIriLevel.independent;
   if (pct >= t.wordReadingInstructionalMin) return PhilIriLevel.instructional;
@@ -228,7 +254,7 @@ bool philIriIsStrugglingReader(PhilIriLevel accuracy, PhilIriSpeed speed) =>
 /// comes from word recognition only.
 PhilIriLevel philIriComprehensionLevel(double score,
     [PhilIriThresholds t = PhilIriThresholds.defaults]) {
-  final pct = _wholePercent(score);
+  final pct = philIriWholePercent(score);
   if (pct >= t.comprehensionIndependentMin) return PhilIriLevel.independent;
   if (pct >= t.comprehensionInstructionalMin) return PhilIriLevel.instructional;
   return PhilIriLevel.frustration;
