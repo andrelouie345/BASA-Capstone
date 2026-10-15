@@ -44,7 +44,11 @@ class AralEnrollmentRepositorySqlite implements AralEnrollmentRepository {
 
   @override
   Future<void> delete(int id) async {
-    await db.delete('aral_enrollments', where: 'id = ?', whereArgs: [id]);
+    // Local foreign keys are off: the IRIP weeks go too (the cloud cascades).
+    await db.transaction((txn) async {
+      await txn.delete('aral_irip_weeks', where: 'enrollment_id = ?', whereArgs: [id]);
+      await txn.delete('aral_enrollments', where: 'id = ?', whereArgs: [id]);
+    });
   }
 
   @override

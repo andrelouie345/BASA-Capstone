@@ -2,10 +2,11 @@
 //
 // ARAL-Reading tables in the local SQLite DB (v19 roster, v20 sessions and
 // attendance, v21 Foundational program + 15 per section, v22 per-tutor
-// settings + one session per tutor per date). Same table and column names as
+// settings + one session per tutor per date, v23 IRIP targets + weeks). Same
+// table and column names as
 // Postgres (migrations 20261015050000_aral_enrollments.sql,
 // 20261015060000_aral_sessions.sql, 20261015070000_aral_foundational_section_cap.sql,
-// 20261015080000_aral_tutor_settings.sql). Called from
+// 20261015080000_aral_tutor_settings.sql, 20261016010000_aral_irip.sql). Called from
 // LocalDatabase on create and, unconditionally, on upgrade: everything here is
 // IF NOT EXISTS, and triggers are dropped and recreated.
 //
@@ -302,6 +303,91 @@ Future<void> createAralLocalSchema(Database db) async {
     BEGIN
       SELECT RAISE(ABORT, 'An attendance mark keeps its session and learner; delete it and add a new one instead')
       WHERE NEW.session_id IS NOT OLD.session_id OR NEW.enrollment_id IS NOT OLD.enrollment_id;
+    END
+  ''');
+
+  // ---- IRIP (v23): target lists (mirror-only content) and weeks (origin). ----
+  await db.execute('''
+    CREATE TABLE IF NOT EXISTS aral_irip_targets (
+      id INTEGER PRIMARY KEY,
+      program TEXT NOT NULL CHECK (program IN ('basic_ks23', 'plus_ks2', 'plus_ks3')),
+      strand TEXT NOT NULL CHECK (strand IN ('filipino', 'english', 'main')),
+      seq INTEGER NOT NULL CHECK (seq >= 1),
+      focus TEXT,
+      letter_focus TEXT,
+      sight_words TEXT,
+      skills TEXT,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE (program, strand, seq)
+    )
+  ''');
+  await db.execute('''
+    CREATE TABLE IF NOT EXISTS aral_irip_weeks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      enrollment_id INTEGER NOT NULL REFERENCES aral_enrollments(id),
+      cycle_no INTEGER NOT NULL DEFAULT 1 CHECK (cycle_no >= 1),
+      week_no INTEGER NOT NULL CHECK (week_no BETWEEN 1 AND 8),
+      strand TEXT NOT NULL CHECK (strand IN ('filipino', 'english', 'main')),
+      target_id INTEGER NOT NULL REFERENCES aral_irip_targets(id),
+      status TEXT CHECK (status IN ('observed', 'partial', 'not_observed')),
+      rated_on TEXT,
+      notes TEXT,
+      created_by TEXT REFERENCES users(id),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      origin TEXT NOT NULL DEFAULT 'local' CHECK (origin IN ('local', 'cloud')),
+      UNIQUE (enrollment_id, cycle_no, week_no, strand),
+      CHECK ((status IS NULL) = (rated_on IS NULL))
+    )
+  ''');
+  await db.execute(
+      'CREATE INDEX IF NOT EXISTS aral_irip_weeks_enrollment ON aral_irip_weeks (enrollment_id, cycle_no, week_no)');
+
+  // The target must be active, in the IRIP of the learner's current placement
+  // (as aral_irip_program in the cloud), and of the week's strand.
+  const targetOk = '''EXISTS (
+        SELECT 1 FROM aral_irip_targets t JOIN aral_enrollments e ON e.id = NEW.enrollment_id
+        WHERE t.id = NEW.target_id AND t.is_active = 1 AND t.strand = NEW.strand
+          AND t.program = CASE
+            WHEN e.key_stage IN ('ks2', 'ks3') AND e.track = 'basic' THEN 'basic_ks23'
+            WHEN e.key_stage = 'ks2' AND e.track = 'plus' THEN 'plus_ks2'
+            WHEN e.key_stage = 'ks3' AND e.track = 'plus' THEN 'plus_ks3' END)''';
+  const learnerActive =
+      "EXISTS (SELECT 1 FROM aral_enrollments WHERE id = NEW.enrollment_id AND status = 'active')";
+  await db.execute('DROP TRIGGER IF EXISTS check_aral_irip_week_ins');
+  await db.execute('''
+    CREATE TRIGGER check_aral_irip_week_ins
+    BEFORE INSERT ON aral_irip_weeks
+    WHEN NEW.origin = 'local'
+    BEGIN
+      SELECT RAISE(ABORT, 'The learner is not active in ARAL')
+      WHERE NOT $learnerActive;
+      SELECT RAISE(ABORT, 'That reading target is not in the learner''s IRIP list')
+      WHERE NOT $targetOk;
+      SELECT RAISE(ABORT, 'An IRIP week needs the previous week of its cycle')
+      WHERE NEW.week_no > 1 AND NOT EXISTS (
+        SELECT 1 FROM aral_irip_weeks
+        WHERE enrollment_id = NEW.enrollment_id AND cycle_no = NEW.cycle_no
+          AND week_no = NEW.week_no - 1 AND strand = NEW.strand);
+    END
+  ''');
+  await db.execute('DROP TRIGGER IF EXISTS check_aral_irip_week_upd');
+  await db.execute('''
+    CREATE TRIGGER check_aral_irip_week_upd
+    BEFORE UPDATE ON aral_irip_weeks
+    WHEN OLD.origin = 'local'
+    BEGIN
+      SELECT RAISE(ABORT, 'An IRIP week keeps its learner, cycle, week and strand; only the target, status and notes change')
+      WHERE NEW.enrollment_id IS NOT OLD.enrollment_id OR NEW.cycle_no IS NOT OLD.cycle_no
+         OR NEW.week_no IS NOT OLD.week_no OR NEW.strand IS NOT OLD.strand
+         OR NEW.created_by IS NOT OLD.created_by OR NEW.created_at IS NOT OLD.created_at;
+      SELECT RAISE(ABORT, 'A rated IRIP week keeps its target')
+      WHERE NEW.target_id IS NOT OLD.target_id AND OLD.status IS NOT NULL;
+      SELECT RAISE(ABORT, 'The learner is not active in ARAL')
+      WHERE NEW.target_id IS NOT OLD.target_id AND NOT $learnerActive;
+      SELECT RAISE(ABORT, 'That reading target is not in the learner''s IRIP list')
+      WHERE NEW.target_id IS NOT OLD.target_id AND NOT $targetOk;
     END
   ''');
 }

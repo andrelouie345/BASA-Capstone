@@ -42,12 +42,15 @@ const _pullOrder = <String, String>{
   'aral_sessions': 'id',
   'aral_attendance': 'id',
   'aral_tutor_settings': 'tutor_id',
+  'aral_irip_targets': 'id',
+  'aral_irip_weeks': 'id',
 };
 
 /// Tables with the local-only origin column: mirrored rows are 'cloud'.
 const _originTables = {
   'crla_assessments', 'phil_iri_gst_results', 'phil_iri_assessments', 'aral_enrollments', 'aral_sessions',
   'aral_tutor_settings',
+  'aral_irip_weeks',
 };
 
 /// Local tables a pull empties before writing (children first). Everything
@@ -55,6 +58,8 @@ const _originTables = {
 /// and login_logs (this device's sign-in history) are kept. import_conflicts
 /// lives in the cloud only; its local copy is unused but may hold old rows.
 const _clearedTables = [
+  'aral_irip_weeks',
+  'aral_irip_targets',
   'aral_tutor_settings',
   'aral_attendance',
   'aral_sessions',
@@ -173,7 +178,7 @@ Future<String?> _lastPull(Database db) async {
 /// Records entered on this device (origin 'local'), per kind and section:
 /// CRLA assessments, Phil-IRI sessions, Phil-IRI GST results, ARAL
 /// enrollments, ARAL sessions (with their attendance; no section) and ARAL
-/// tutor settings (no section).
+/// tutor settings (no section), ARAL IRIP weeks (by the learner's section).
 /// (Phil-IRI readings, miscues and answers belong to their session.)
 Future<List<Map<String, Object?>>> _unsynced(Database db) => db.rawQuery('''
       SELECT x.kind, x.section_id, COUNT(*) AS n, s.grade_level, s.section_name, s.school_year
@@ -189,6 +194,9 @@ Future<List<Map<String, Object?>>> _unsynced(Database db) => db.rawQuery('''
         SELECT 'ARAL session(s)', NULL FROM aral_sessions WHERE origin = 'local'
         UNION ALL
         SELECT 'ARAL tutor setting(s)', NULL FROM aral_tutor_settings WHERE origin = 'local'
+        UNION ALL
+        SELECT 'ARAL IRIP week(s)', e.section_id FROM aral_irip_weeks w
+        LEFT JOIN aral_enrollments e ON e.id = w.enrollment_id WHERE w.origin = 'local'
       ) x
       LEFT JOIN sections s ON s.id = x.section_id
       GROUP BY x.kind, x.section_id

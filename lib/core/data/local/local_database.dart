@@ -33,7 +33,8 @@ class LocalDatabase {
         // roster triggers cap a section at 15 active learners.
         // v22: aral_tutor_settings; one ARAL session per tutor per date unless
         // the tutor is allowed several (same creator).
-        version: 22,
+        // v23: IRIP (aral_irip_targets mirror-only, aral_irip_weeks; same creator).
+        version: 23,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
