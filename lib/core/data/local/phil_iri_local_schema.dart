@@ -28,6 +28,61 @@ String _schoolYearCheck(String column) => '''
   CHECK ($column GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9]'
          AND CAST(substr($column, 6, 4) AS INTEGER) = CAST(substr($column, 1, 4) AS INTEGER) + 1)''';
 
+/// phil_iri_passages under [table], so the v15 rebuild can create the new copy.
+/// test_type: 'pre' = BOSY, 'mosy' = MOSY 1-3, 'post' = EOSY, null = any round.
+String _passagesTableSql(String table) => '''
+    CREATE TABLE IF NOT EXISTS $table (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      collection_id INTEGER NOT NULL REFERENCES phil_iri_collections(id),
+      language TEXT NOT NULL DEFAULT 'English' CHECK (language = 'English'),
+      test_type TEXT CHECK (test_type IN ('pre', 'mosy', 'post')),
+      set_code TEXT,
+      level INTEGER CHECK (level BETWEEN 1 AND 12),
+      selection_no INTEGER CHECK (selection_no > 0),
+      title TEXT NOT NULL,
+      motivation TEXT,
+      body TEXT NOT NULL,
+      word_count INTEGER NOT NULL CHECK (word_count > 0),
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_by TEXT REFERENCES users(id),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  ''';
+
+/// v15 upgrade (before [createPhilIriLocalSchema]): test_type also allows
+/// 'mosy'. SQLite can't alter a CHECK, so the table is copied into a new one.
+/// Triggers on other tables that read phil_iri_passages are dropped first
+/// (RENAME re-checks them and would fail while the table is missing);
+/// createPhilIriLocalSchema recreates them. Local FKs are off, so the child
+/// rows (questions, readings) keep pointing at the same ids.
+Future<void> rebuildPhilIriPassagesForV15(Database db) async {
+  final exists = (await db.rawQuery(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='phil_iri_passages'",
+  )).isNotEmpty;
+  if (!exists) return; // createPhilIriLocalSchema builds it fresh
+
+  await db.transaction((txn) async {
+    final triggers = await txn.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type='trigger' AND sql LIKE '%phil_iri_passages%'",
+    );
+    for (final t in triggers) {
+      await txn.execute('DROP TRIGGER IF EXISTS ${t['name']}');
+    }
+    await txn.execute(_passagesTableSql('phil_iri_passages_v15'));
+    await txn.execute('''
+      INSERT INTO phil_iri_passages_v15
+        (id, collection_id, language, test_type, set_code, level, selection_no, title,
+         motivation, body, word_count, is_active, created_by, created_at, updated_at)
+      SELECT id, collection_id, language, test_type, set_code, level, selection_no, title,
+             motivation, body, word_count, is_active, created_by, created_at, updated_at
+      FROM phil_iri_passages
+    ''');
+    await txn.execute('DROP TABLE phil_iri_passages');
+    await txn.execute('ALTER TABLE phil_iri_passages_v15 RENAME TO phil_iri_passages');
+  });
+}
+
 Future<void> createPhilIriLocalSchema(Database db) async {
   // ---- Content (mirror-only) ----
   await db.execute('''
@@ -65,25 +120,7 @@ Future<void> createPhilIriLocalSchema(Database db) async {
     )
   ''');
 
-  await db.execute('''
-    CREATE TABLE IF NOT EXISTS phil_iri_passages (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      collection_id INTEGER NOT NULL REFERENCES phil_iri_collections(id),
-      language TEXT NOT NULL DEFAULT 'English' CHECK (language = 'English'),
-      test_type TEXT CHECK (test_type IN ('pre', 'post')),
-      set_code TEXT,
-      level INTEGER CHECK (level BETWEEN 1 AND 12),
-      selection_no INTEGER CHECK (selection_no > 0),
-      title TEXT NOT NULL,
-      motivation TEXT,
-      body TEXT NOT NULL,
-      word_count INTEGER NOT NULL CHECK (word_count > 0),
-      is_active INTEGER NOT NULL DEFAULT 1,
-      created_by TEXT REFERENCES users(id),
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    )
-  ''');
+  await db.execute(_passagesTableSql('phil_iri_passages'));
 
   await db.execute('''
     CREATE TABLE IF NOT EXISTS phil_iri_questions (

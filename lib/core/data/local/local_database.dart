@@ -20,7 +20,7 @@ class LocalDatabase {
     _db = await databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 14, // v14: CRLA thresholds, per-assessment snapshot + stored profile
+        version: 15, // v15: Phil-IRI passage test_type allows 'mosy'
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
@@ -118,6 +118,9 @@ class LocalDatabase {
                 "CHECK (origin IN ('local', 'cloud'))");
           }
           await _createSyncTables(db);
+          // v15. Must run before createPhilIriLocalSchema, which recreates the
+          // triggers this drops.
+          if (oldVersion < 15) await rebuildPhilIriPassagesForV15(db);
           // v13. IF NOT EXISTS + trigger recreate, so it runs on every upgrade.
           await createPhilIriLocalSchema(db);
           // v14. Rows from before v14 were scored with the default thresholds.

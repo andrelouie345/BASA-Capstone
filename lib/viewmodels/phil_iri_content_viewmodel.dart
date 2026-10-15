@@ -445,8 +445,8 @@ class PhilIriContentViewModel {
     } else if (p.level != null) {
       throw ViewModelException('"${collection.name}" is not grade-leveled: its passages have no level.');
     }
-    if (p.testType != null && p.testType != 'pre' && p.testType != 'post') {
-      throw const ViewModelException('Test type is "pre", "post" or none.');
+    if (p.testType != null && !philIriTestTypes.contains(p.testType)) {
+      throw const ViewModelException('Test type is "pre" (BOSY), "mosy" (MOSY), "post" (EOSY) or none.');
     }
     if (p.selectionNo != null && p.selectionNo! < 1) {
       throw const ViewModelException('Selection number starts at 1.');
