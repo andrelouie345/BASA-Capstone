@@ -65,6 +65,10 @@ import 'package:basa_capstone/core/data/remote/crla_threshold_repository_supabas
 import 'package:basa_capstone/viewmodels/crla_threshold_viewmodel.dart';
 import 'package:basa_capstone/core/console/commands/phil_iri_content_commands.dart';
 import 'package:basa_capstone/core/console/commands/phil_iri_commands.dart';
+import 'package:basa_capstone/core/console/commands/aral_commands.dart';
+import 'package:basa_capstone/core/data/local/aral_enrollment_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/local/user_repository_sqlite.dart';
+import 'package:basa_capstone/viewmodels/aral_viewmodel.dart';
 import 'package:basa_capstone/core/data/local/phil_iri_assessment_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/phil_iri_collection_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/phil_iri_gst_repository_sqlite.dart';
@@ -226,6 +230,19 @@ Future<void> main() async {
   );
   vmRegistry.register('PhilIriViewModel', philIriVm);
   registerPhilIriCommands(registry, philIriVm);
+
+  final aralVm = AralViewModel(
+    auth: authVm,
+    roster: AralEnrollmentRepositorySqlite(localDb),
+    sections: SectionRepositorySqlite(localDb),
+    students: StudentRepositorySqlite(localDb),
+    users: UserRepositorySqlite(localDb),
+    crlaResults: CrlaResultRepositorySqlite(localDb),
+    philIri: philIriVm,
+    logger: session,
+  );
+  vmRegistry.register('AralViewModel', aralVm);
+  registerAralCommands(registry, aralVm);
   registerDebugCommands(registry, session, vmRegistry);
 
   // Headless REPL: lets the console run from a terminal or a piped script.
