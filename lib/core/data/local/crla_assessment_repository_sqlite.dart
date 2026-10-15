@@ -90,4 +90,9 @@ class CrlaAssessmentRepositorySqlite implements CrlaAssessmentRepository {
         where: 'id = ?', whereArgs: [assessmentId]);
     if (count == 0) throw StateError('No crla_assessments row $assessmentId');
   }
+
+  @override
+  Future<int> regenerateResults(List<int> assessmentIds) async {
+    throw UnsupportedError('Regenerating CRLA results runs in the cloud; use the Supabase repository');
+  }
 }

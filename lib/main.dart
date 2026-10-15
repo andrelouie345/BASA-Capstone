@@ -63,6 +63,12 @@ import 'package:basa_capstone/viewmodels/crla_viewmodel.dart';
 import 'package:basa_capstone/core/console/commands/pull_commands.dart';
 import 'package:basa_capstone/core/data/local/crla_story_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/crla_threshold_repository_sqlite.dart';
+import 'package:basa_capstone/core/console/commands/crla_threshold_commands.dart';
+import 'package:basa_capstone/core/data/remote/crla_assessment_repository_supabase.dart';
+import 'package:basa_capstone/core/data/remote/crla_part1_english_repository_supabase.dart';
+import 'package:basa_capstone/core/data/remote/crla_part1_standard_repository_supabase.dart';
+import 'package:basa_capstone/core/data/remote/crla_threshold_repository_supabase.dart';
+import 'package:basa_capstone/viewmodels/crla_threshold_viewmodel.dart';
 import 'package:basa_capstone/core/console/commands/phil_iri_content_commands.dart';
 import 'package:basa_capstone/core/console/commands/phil_iri_commands.dart';
 import 'package:basa_capstone/core/data/local/phil_iri_assessment_repository_sqlite.dart';
@@ -147,6 +153,23 @@ vmRegistry.register('TextViewModel', textVm);
   );
   vmRegistry.register('CrlaViewModel', crlaVm);
   registerCrlaCommands(registry, authVm, crlaVm);
+  // CRLA thresholds are managed online (mirrored locally); regenerate runs in the cloud.
+  final crlaThresholdVm = CrlaThresholdViewModel(
+    auth: authVm,
+    cloudFactory: (client) => CrlaThresholdCloudRepos(
+      thresholds: CrlaThresholdRepositorySupabase(client),
+      assessments: CrlaAssessmentRepositorySupabase(client),
+      part1Standard: CrlaPart1StandardRepositorySupabase(client),
+      part1English: CrlaPart1EnglishRepositorySupabase(client),
+    ),
+    localThresholds: CrlaThresholdRepositorySqlite(localDb),
+    localAssessments: CrlaAssessmentRepositorySqlite(localDb),
+    localPart1Standard: CrlaPart1StandardRepositorySqlite(localDb),
+    localPart1English: CrlaPart1EnglishRepositorySqlite(localDb),
+    logger: session,
+  );
+  vmRegistry.register('CrlaThresholdViewModel', crlaThresholdVm);
+  registerCrlaThresholdCommands(registry, crlaThresholdVm);
 
   // Phil-IRI: content is managed online (mirrored locally); assessments are local.
   final philIriContentVm = PhilIriContentViewModel(

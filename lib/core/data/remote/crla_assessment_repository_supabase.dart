@@ -73,4 +73,10 @@ class CrlaAssessmentRepositorySupabase implements CrlaAssessmentRepository {
   Future<void> setReadingProfile(int assessmentId, String? readingProfile) async {
     throw UnsupportedError('The cloud computes reading_profile itself (crla_refresh_profile)');
   }
+
+  @override
+  Future<int> regenerateResults(List<int> assessmentIds) async {
+    final n = await client.rpc('crla_regenerate_results', params: {'p_assessment_ids': assessmentIds});
+    return (n as num).toInt();
+  }
 }

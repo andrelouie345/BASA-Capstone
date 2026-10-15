@@ -25,4 +25,10 @@ abstract class CrlaAssessmentRepository {
   /// Local only: stores the reading profile CrlaViewModel computed. The cloud
   /// computes and stores its own (Supabase impl throws UnsupportedError).
   Future<void> setReadingProfile(int assessmentId, String? readingProfile);
+
+  /// Cloud only: re-scores [assessmentIds] with today's thresholds
+  /// (crla_regenerate_results; all-or-nothing, superadmin or the school's
+  /// admin/coordinator). Returns how many were re-scored. SQLite impl throws
+  /// UnsupportedError.
+  Future<int> regenerateResults(List<int> assessmentIds);
 }
