@@ -1,7 +1,8 @@
 // lib/core/data/local/aral_local_schema.dart
 //
-// ARAL-Reading tables in the local SQLite DB (v19). Same table and column names
-// as Postgres (migration 20261015050000_aral_enrollments.sql). Called from
+// ARAL-Reading tables in the local SQLite DB (v19 roster, v20 sessions and
+// attendance). Same table and column names as Postgres (migrations
+// 20261015050000_aral_enrollments.sql, 20261015060000_aral_sessions.sql). Called from
 // LocalDatabase on create and, unconditionally, on upgrade: everything here is
 // IF NOT EXISTS, and triggers are dropped and recreated.
 //
@@ -103,6 +104,113 @@ Future<void> createAralLocalSchema(Database db) async {
         WHERE student_id = NEW.student_id AND section_id = NEW.section_id AND school_year = NEW.school_year);
       SELECT RAISE(ABORT, 'The ARAL tutor must be an active tutor of the learner''s school')
       WHERE NEW.tutor_id IS NOT NULL AND NEW.tutor_id IS NOT OLD.tutor_id AND NOT EXISTS $tutorOk;
+    END
+  ''');
+
+  // ---- Sessions (v20): the lesson log. origin like aral_enrollments. ----
+  await db.execute('''
+    CREATE TABLE IF NOT EXISTS aral_sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tutor_id TEXT NOT NULL REFERENCES users(id),
+      school_id INTEGER NOT NULL REFERENCES schools(id),
+      school_year TEXT NOT NULL
+        CHECK (school_year GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9]'
+               AND CAST(substr(school_year, 6, 4) AS INTEGER) = CAST(substr(school_year, 1, 4) AS INTEGER) + 1),
+      session_no INTEGER NOT NULL DEFAULT 0 CHECK (session_no >= 0),
+      held_on TEXT NOT NULL,
+      minutes INTEGER NOT NULL CHECK (minutes BETWEEN 1 AND 120),
+      setup TEXT NOT NULL CHECK (setup IN ('pull_out', 'during_class', 'after_class', 'weekend', 'other')),
+      lesson TEXT,
+      remarks TEXT,
+      created_by TEXT REFERENCES users(id),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      origin TEXT NOT NULL DEFAULT 'local' CHECK (origin IN ('local', 'cloud'))
+    )
+  ''');
+  await db.execute('CREATE INDEX IF NOT EXISTS aral_sessions_tutor ON aral_sessions (tutor_id, school_year, held_on)');
+  await db.execute('CREATE INDEX IF NOT EXISTS aral_sessions_school ON aral_sessions (school_id, school_year, held_on)');
+
+  // session_no = 0 means "assign the next number"; mirrored rows arrive with the real one.
+  await db.execute('DROP TRIGGER IF EXISTS set_aral_session_no');
+  await db.execute('''
+    CREATE TRIGGER set_aral_session_no
+    AFTER INSERT ON aral_sessions
+    WHEN NEW.session_no = 0
+    BEGIN
+      UPDATE aral_sessions
+      SET session_no = COALESCE((
+        SELECT MAX(session_no) FROM aral_sessions
+        WHERE tutor_id = NEW.tutor_id AND school_year = NEW.school_year AND id <> NEW.id), 0) + 1
+      WHERE id = NEW.id;
+    END
+  ''');
+
+  const sessionTutorOk = '''(SELECT 1 FROM users u WHERE u.id = NEW.tutor_id AND u.role = 'tutor'
+                        AND u.is_active = 1 AND u.school_id = NEW.school_id)''';
+  await db.execute('DROP TRIGGER IF EXISTS check_aral_session_ins');
+  await db.execute('''
+    CREATE TRIGGER check_aral_session_ins
+    BEFORE INSERT ON aral_sessions
+    WHEN NEW.origin = 'local'
+    BEGIN
+      SELECT RAISE(ABORT, 'The session tutor must be an active tutor of the school')
+      WHERE NOT EXISTS $sessionTutorOk;
+    END
+  ''');
+  await db.execute('DROP TRIGGER IF EXISTS check_aral_session_upd');
+  await db.execute('''
+    CREATE TRIGGER check_aral_session_upd
+    BEFORE UPDATE ON aral_sessions
+    WHEN OLD.origin = 'local'
+    BEGIN
+      SELECT RAISE(ABORT, 'An ARAL session keeps its tutor, school, year and number; only the date, minutes, set-up, lesson and remarks change')
+      WHERE NEW.tutor_id IS NOT OLD.tutor_id OR NEW.school_id IS NOT OLD.school_id
+         OR NEW.school_year IS NOT OLD.school_year
+         OR (NEW.session_no IS NOT OLD.session_no AND OLD.session_no <> 0)
+         OR NEW.created_by IS NOT OLD.created_by OR NEW.created_at IS NOT OLD.created_at;
+    END
+  ''');
+
+  // ---- Attendance (v20): one mark per learner per session. Its session's
+  // origin tells whether the local checks apply. ----
+  await db.execute('''
+    CREATE TABLE IF NOT EXISTS aral_attendance (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id INTEGER NOT NULL REFERENCES aral_sessions(id),
+      enrollment_id INTEGER NOT NULL REFERENCES aral_enrollments(id),
+      mark TEXT NOT NULL CHECK (mark IN ('present', 'absent', 'excused')),
+      note TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE (session_id, enrollment_id)
+    )
+  ''');
+  await db.execute('CREATE INDEX IF NOT EXISTS aral_attendance_enrollment ON aral_attendance (enrollment_id)');
+
+  await db.execute('DROP TRIGGER IF EXISTS check_aral_attendance_ins');
+  await db.execute('''
+    CREATE TRIGGER check_aral_attendance_ins
+    BEFORE INSERT ON aral_attendance
+    WHEN (SELECT origin FROM aral_sessions WHERE id = NEW.session_id) = 'local'
+    BEGIN
+      SELECT RAISE(ABORT, 'That learner was not in ARAL in this school on the session date')
+      WHERE NOT EXISTS (
+        SELECT 1 FROM aral_sessions s
+        JOIN aral_enrollments e ON e.school_id = s.school_id AND e.school_year = s.school_year
+        WHERE s.id = NEW.session_id AND e.id = NEW.enrollment_id
+          AND e.entered_on <= s.held_on
+          AND (e.exited_on IS NULL OR e.exited_on >= s.held_on));
+    END
+  ''');
+  await db.execute('DROP TRIGGER IF EXISTS check_aral_attendance_upd');
+  await db.execute('''
+    CREATE TRIGGER check_aral_attendance_upd
+    BEFORE UPDATE ON aral_attendance
+    WHEN (SELECT origin FROM aral_sessions WHERE id = OLD.session_id) = 'local'
+    BEGIN
+      SELECT RAISE(ABORT, 'An attendance mark keeps its session and learner; delete it and add a new one instead')
+      WHERE NEW.session_id IS NOT OLD.session_id OR NEW.enrollment_id IS NOT OLD.enrollment_id;
     END
   ''');
 }

@@ -28,7 +28,8 @@ class LocalDatabase {
         // v18: crla_assessments.round (bosy/mosy/eosy), added with the v14
         // columns before the CRLA creators; crla_results gains round.
         // v19: ARAL roster (aral_enrollments), built by createAralLocalSchema.
-        version: 19,
+        // v20: ARAL session log + attendance (same creator).
+        version: 20,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
