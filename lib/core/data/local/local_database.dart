@@ -31,7 +31,9 @@ class LocalDatabase {
         // v20: ARAL session log + attendance (same creator).
         // v21: aral_enrollments rebuilt for the 'foundational' key stage; the
         // roster triggers cap a section at 15 active learners.
-        version: 21,
+        // v22: aral_tutor_settings; one ARAL session per tutor per date unless
+        // the tutor is allowed several (same creator).
+        version: 22,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (

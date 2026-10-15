@@ -207,6 +207,27 @@ void registerAralSessionCommands(ConsoleRegistry registry, AralSessionViewModel 
         : 'next check-in after session ${t.nextCheckInAfter} (${t.nextCheckInAfter! - (t.lastSessionNo ?? 0)} to go)';
     return '${t.tutor.fullName} (${t.tutor.id}): ${t.sessions} session(s), ${t.totalMinutes} minutes, '
         'last session ${t.lastSessionNo ?? '-'}; $next\n'
-        '${t.activeLearners} active ARAL learner(s); marks: ${t.attendance.label}';
+        '${t.activeLearners} active ARAL learner(s); marks: ${t.attendance.label}\n'
+        'Sessions per day: ${t.multipleSessionsPerDay ? 'several allowed' : 'one'}';
+  });
+
+  add('aral-tutor-multi',
+      'aral-tutor-multi <tutorId> [on|off] — allow (on) or stop allowing (off) a tutor several ARAL sessions on '
+          'one date; without on/off shows the current setting (default: one per day)', (args) async {
+    const usage = 'Usage: aral-tutor-multi <tutorId> [on|off]';
+    if (args.isEmpty) throw const _Usage(usage);
+    vm.lastWarning = null;
+    if (args.length == 1) {
+      final allowed = await vm.allowsMultipleSessionsPerDay(args[0]);
+      return 'Tutor ${args[0]}: ${allowed ? 'several sessions per day allowed' : 'one session per day'}.';
+    }
+    final allowed = switch (args[1]) {
+      'on' => true,
+      'off' => false,
+      _ => throw const _Usage(usage),
+    };
+    final s = await vm.setMultipleSessionsPerDay(args[0], allowed);
+    return 'Tutor ${s.tutorId}: ${s.multipleSessionsPerDay ? 'several sessions per day allowed' : 'one session per day'}'
+        '${allowed ? '' : ' (sessions already on the same date stay)'}.';
   });
 }

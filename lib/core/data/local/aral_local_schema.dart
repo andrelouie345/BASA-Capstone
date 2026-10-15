@@ -1,9 +1,11 @@
 // lib/core/data/local/aral_local_schema.dart
 //
 // ARAL-Reading tables in the local SQLite DB (v19 roster, v20 sessions and
-// attendance, v21 Foundational program + 15 per section). Same table and
-// column names as Postgres (migrations 20261015050000_aral_enrollments.sql,
-// 20261015060000_aral_sessions.sql, 20261015070000_aral_foundational_section_cap.sql). Called from
+// attendance, v21 Foundational program + 15 per section, v22 per-tutor
+// settings + one session per tutor per date). Same table and column names as
+// Postgres (migrations 20261015050000_aral_enrollments.sql,
+// 20261015060000_aral_sessions.sql, 20261015070000_aral_foundational_section_cap.sql,
+// 20261015080000_aral_tutor_settings.sql). Called from
 // LocalDatabase on create and, unconditionally, on upgrade: everything here is
 // IF NOT EXISTS, and triggers are dropped and recreated.
 //
@@ -193,8 +195,43 @@ Future<void> createAralLocalSchema(Database db) async {
     END
   ''');
 
+  // ---- Per-tutor settings (v22): one session per date unless allowed. ----
+  await db.execute('''
+    CREATE TABLE IF NOT EXISTS aral_tutor_settings (
+      tutor_id TEXT PRIMARY KEY REFERENCES users(id),
+      school_id INTEGER NOT NULL REFERENCES schools(id),
+      multiple_sessions_per_day INTEGER NOT NULL DEFAULT 0 CHECK (multiple_sessions_per_day IN (0, 1)),
+      updated_by TEXT REFERENCES users(id),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      origin TEXT NOT NULL DEFAULT 'local' CHECK (origin IN ('local', 'cloud'))
+    )
+  ''');
+  await db.execute('DROP TRIGGER IF EXISTS check_aral_tutor_setting_ins');
+  await db.execute('''
+    CREATE TRIGGER check_aral_tutor_setting_ins
+    BEFORE INSERT ON aral_tutor_settings
+    WHEN NEW.origin = 'local'
+    BEGIN
+      SELECT RAISE(ABORT, 'The session tutor must be an active tutor of the school')
+      WHERE NOT EXISTS $tutorOk;
+    END
+  ''');
+  await db.execute('DROP TRIGGER IF EXISTS check_aral_tutor_setting_upd');
+  await db.execute('''
+    CREATE TRIGGER check_aral_tutor_setting_upd
+    BEFORE UPDATE ON aral_tutor_settings
+    WHEN NEW.origin = 'local'
+    BEGIN
+      SELECT RAISE(ABORT, 'An ARAL tutor setting keeps its tutor and school')
+      WHERE NEW.tutor_id IS NOT OLD.tutor_id OR NEW.school_id IS NOT OLD.school_id;
+    END
+  ''');
+
   const sessionTutorOk = '''(SELECT 1 FROM users u WHERE u.id = NEW.tutor_id AND u.role = 'tutor'
                         AND u.is_active = 1 AND u.school_id = NEW.school_id)''';
+  const oneDayOnly = '''NOT COALESCE((SELECT multiple_sessions_per_day FROM aral_tutor_settings
+                                      WHERE tutor_id = NEW.tutor_id), 0)''';
+  const dayTaken = 'This tutor already has an ARAL session on that date (a coordinator can allow several per day)';
   await db.execute('DROP TRIGGER IF EXISTS check_aral_session_ins');
   await db.execute('''
     CREATE TRIGGER check_aral_session_ins
@@ -203,6 +240,9 @@ Future<void> createAralLocalSchema(Database db) async {
     BEGIN
       SELECT RAISE(ABORT, 'The session tutor must be an active tutor of the school')
       WHERE NOT EXISTS $sessionTutorOk;
+      SELECT RAISE(ABORT, '$dayTaken')
+      WHERE $oneDayOnly
+        AND EXISTS (SELECT 1 FROM aral_sessions WHERE tutor_id = NEW.tutor_id AND held_on = NEW.held_on);
     END
   ''');
   await db.execute('DROP TRIGGER IF EXISTS check_aral_session_upd');
@@ -216,6 +256,10 @@ Future<void> createAralLocalSchema(Database db) async {
          OR NEW.school_year IS NOT OLD.school_year
          OR (NEW.session_no IS NOT OLD.session_no AND OLD.session_no <> 0)
          OR NEW.created_by IS NOT OLD.created_by OR NEW.created_at IS NOT OLD.created_at;
+      SELECT RAISE(ABORT, '$dayTaken')
+      WHERE NEW.held_on IS NOT OLD.held_on AND $oneDayOnly
+        AND EXISTS (SELECT 1 FROM aral_sessions
+                    WHERE tutor_id = NEW.tutor_id AND held_on = NEW.held_on AND id <> NEW.id);
     END
   ''');
 

@@ -74,6 +74,7 @@ import 'package:basa_capstone/core/console/commands/phil_iri_commands.dart';
 import 'package:basa_capstone/core/console/commands/aral_commands.dart';
 import 'package:basa_capstone/core/console/commands/aral_session_commands.dart';
 import 'package:basa_capstone/core/data/local/aral_session_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/local/aral_tutor_setting_repository_sqlite.dart';
 import 'package:basa_capstone/viewmodels/aral_session_viewmodel.dart';
 import 'package:basa_capstone/core/data/local/aral_enrollment_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/user_repository_sqlite.dart';
@@ -225,6 +226,7 @@ vmRegistry.register('TextViewModel', textVm);
     roster: AralEnrollmentRepositorySqlite(localDb),
     users: UserRepositorySqlite(localDb),
     students: StudentRepositorySqlite(localDb),
+    settings: AralTutorSettingRepositorySqlite(localDb),
     logger: session,
   );
   vmRegistry.register('AralSessionViewModel', aralSessionVm);
