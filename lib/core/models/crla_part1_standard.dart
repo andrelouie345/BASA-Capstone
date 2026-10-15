@@ -6,7 +6,7 @@ class CrlaPart1Standard {
   final int? task2LowScore;    // 0-10, only when task1 < 7 (Rhymes/Words)
   final int? task2HighScore;   // 0-10, only when task1 >= 7 (Sentences)
   final int? totalScore;       // computed by the DB
-  final String? readingLevel;  // computed by the DB
+  final String? readingLevel;  // cloud: computed by its trigger; local: by CrlaViewModel
 
   CrlaPart1Standard({
     required this.assessmentId,
@@ -22,6 +22,7 @@ class CrlaPart1Standard {
         'task1_score': task1Score,
         'task2_low_score': task2LowScore,
         'task2_high_score': task2HighScore,
+        if (readingLevel != null) 'reading_level': readingLevel,
       };
 
   factory CrlaPart1Standard.fromMap(Map<String, Object?> m) => CrlaPart1Standard(

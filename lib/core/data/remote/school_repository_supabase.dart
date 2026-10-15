@@ -17,6 +17,12 @@ class SchoolRepositorySupabase implements SchoolRepository {
   }
 
   @override
+  Future<School?> getById(int id) async {
+    final rows = await client.from('schools').select().eq('id', id);
+    return (rows as List).isEmpty ? null : School.fromMap(rows.first as Map<String, Object?>);
+  }
+
+  @override
   Future<School?> getByCode(String schoolCode) async {
     final rows = await client.from('schools').select().eq('school_id', schoolCode);
     return (rows as List).isEmpty ? null : School.fromMap(rows.first as Map<String, Object?>);

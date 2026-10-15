@@ -1,6 +1,7 @@
 // lib/core/data/local/crla_assessment_repository_sqlite.dart
 import 'package:sqflite_common/sqflite.dart';
 import 'mirror_write.dart';
+import 'sqlite_values.dart';
 import '../../models/crla_assessment.dart';
 import '../../repositories/crla_assessment_repository.dart';
 
@@ -10,7 +11,7 @@ class CrlaAssessmentRepositorySqlite implements CrlaAssessmentRepository {
 
   @override
   Future<CrlaAssessment> insert(CrlaAssessment assessment) async {
-    final id = await db.insert('crla_assessments', assessment.toMap());
+    final id = await db.insert('crla_assessments', toSqliteRow(assessment.toMap()));
     // The AFTER INSERT trigger rewrites attempt_no, so re-read the row.
     final stored = await findById(id);
     if (stored == null) {
@@ -79,7 +80,14 @@ class CrlaAssessmentRepositorySqlite implements CrlaAssessmentRepository {
       // the local trigger would renumber it and the two sides would drift.
       throw ArgumentError('upsertWithId requires the real attemptNo (got ${assessment.attemptNo})');
     }
-    await upsertById(db, 'crla_assessments', {...assessment.toMap(), 'origin': 'cloud'});
+    await upsertById(db, 'crla_assessments', toSqliteRow({...assessment.toMap(), 'origin': 'cloud'}));
     return (await findById(assessment.id!))!;
+  }
+
+  @override
+  Future<void> setReadingProfile(int assessmentId, String? readingProfile) async {
+    final count = await db.update('crla_assessments', {'reading_profile': readingProfile},
+        where: 'id = ?', whereArgs: [assessmentId]);
+    if (count == 0) throw StateError('No crla_assessments row $assessmentId');
   }
 }

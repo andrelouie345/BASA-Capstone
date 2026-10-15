@@ -18,6 +18,12 @@ class SchoolRepositorySqlite implements SchoolRepository {
   }
 
   @override
+  Future<School?> getById(int id) async {
+    final rows = await db.query('schools', where: 'id = ?', whereArgs: [id], limit: 1);
+    return rows.isEmpty ? null : School.fromMap(rows.first);
+  }
+
+  @override
   Future<School?> getByCode(String schoolCode) async {
     final rows = await db.query('schools', where: 'school_id = ?', whereArgs: [schoolCode]);
     return rows.isEmpty ? null : School.fromMap(rows.first);

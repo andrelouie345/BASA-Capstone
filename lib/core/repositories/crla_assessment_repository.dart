@@ -21,4 +21,8 @@ abstract class CrlaAssessmentRepository {
 
   /// Local-mirroring only, keeps Supabase's id. Supabase impl throws UnimplementedError.
   Future<CrlaAssessment> upsertWithId(CrlaAssessment assessment);
+
+  /// Local only: stores the reading profile CrlaViewModel computed. The cloud
+  /// computes and stores its own (Supabase impl throws UnsupportedError).
+  Future<void> setReadingProfile(int assessmentId, String? readingProfile);
 }

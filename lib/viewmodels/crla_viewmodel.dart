@@ -12,11 +12,20 @@ import '../core/repositories/crla_part2_fluency_repository.dart';
 import '../core/repositories/crla_result_repository.dart';
 import '../core/models/crla_story.dart';
 import '../core/repositories/crla_story_repository.dart';
+import '../core/repositories/crla_threshold_repository.dart';
+import '../core/repositories/school_repository.dart';
 import '../core/repositories/section_repository.dart';
 import '../core/services/crla_rules.dart';
 import '../core/services/normalizers.dart';
 import 'viewmodel_exception.dart';
 
+/// CRLA assessments, offline-first (local database).
+///
+/// Scoring (v14): an assessment snapshots the school's effective thresholds
+/// (defaults <- region <- school, from the local crla_thresholds mirror) when
+/// it is started. Its Part 1 level and reading profile are computed here with
+/// crla_rules.dart from that snapshot and stored, so a later threshold change
+/// never rewrites old results. The cloud does the same with its own triggers.
 class CrlaViewModel {
   static const _variants = {'mt', 'fil', 'eng'};
 
@@ -42,6 +51,8 @@ class CrlaViewModel {
   final CrlaResultRepository _results;
   final CrlaStoryRepository _stories;
   final SectionRepository _sections;
+  final SchoolRepository _schools;
+  final CrlaThresholdRepository _thresholds;
 
   List<CrlaAssessment> assessments = [];
   List<CrlaResult> results = [];
@@ -58,6 +69,8 @@ class CrlaViewModel {
     required CrlaResultRepository results,
     required CrlaStoryRepository stories,
     required SectionRepository sections,
+    required SchoolRepository schools,
+    required CrlaThresholdRepository thresholds,
     Logger? logger,
   })  : _assessments = assessments,
         _part1Standard = part1Standard,
@@ -66,6 +79,8 @@ class CrlaViewModel {
         _results = results,
         _stories = stories,
         _sections = sections,
+        _schools = schools,
+        _thresholds = thresholds,
         _log = ScopedLogger(logger, 'CrlaViewModel');
 
   Future<void> loadForSection(int sectionId, {String? schoolYear}) async {
@@ -81,6 +96,14 @@ class CrlaViewModel {
       await loadForSection(_lastSectionId!, schoolYear: _lastSchoolYear);
     }
     // No-op if nothing has been loaded yet.
+  }
+
+  /// The thresholds a new assessment in [schoolId] is scored with: the
+  /// built-in defaults, then the region row, then the school's override.
+  Future<CrlaThresholds> effectiveThresholds(int schoolId) async {
+    final region = await _thresholds.getRegion();
+    final school = await _thresholds.getForSchool(schoolId);
+    return CrlaThresholds.fromMap({...?region?.settings, ...?school?.settings});
   }
 
   /// Starts a new attempt. A retake is just another call with the same
@@ -112,6 +135,7 @@ class CrlaViewModel {
           'CRLA is for Grade 1-3 sections only (section $sectionId is Grade ${section.gradeLevel}).');
     }
 
+    final snapshot = (await effectiveThresholds(section.schoolId)).toMap();
     final stored = await _write(() => _assessments.insert(
       CrlaAssessment(
         studentId: studentId,
@@ -122,6 +146,7 @@ class CrlaViewModel {
         language: language,
         assessedAt: _localDate(assessedAt ?? DateTime.now()),
         administeredBy: administeredBy,
+        thresholdsSnapshot: snapshot,
       ),
     ));
     _log('started assessment ${stored.id} (attempt ${stored.attemptNo})');
@@ -140,7 +165,7 @@ class CrlaViewModel {
     _log('savePart1Standard(assessmentId: $assessmentId, task1: $task1Score, '
         'low: $task2LowScore, high: $task2HighScore)');
 
-    await _requireVariant(assessmentId, {'mt', 'fil'}, 'Standard Part 1');
+    final assessment = await _requireVariant(assessmentId, {'mt', 'fil'}, 'Standard Part 1');
     _checkScore('task1Score', task1Score, 10);
     if (task2LowScore != null) _checkScore('task2LowScore', task2LowScore, 10);
     if (task2HighScore != null) _checkScore('task2HighScore', task2HighScore, 10);
@@ -157,18 +182,22 @@ class CrlaViewModel {
       throw const ViewModelException('task2HighScore only applies when task1Score is 7 or above.');
     }
 
+    final total = task1Score < 7 ? task1Score + (task2LowScore ?? 0) : task1Score + 10 + (task2HighScore ?? 0);
     final part1 = CrlaPart1Standard(
       assessmentId: assessmentId,
       task1Score: task1Score,
       task2LowScore: task2LowScore,
       task2HighScore: task2HighScore,
+      readingLevel: crlaPart1StandardLevel(task1Score, total, _thresholdsOf(assessment)),
     );
 
     final existing = await _part1Standard.findByAssessmentId(assessmentId);
     if (existing == null) {
-      return _write(() => _part1Standard.insert(part1));
+      await _write(() => _part1Standard.insert(part1));
+    } else {
+      await _write(() => _part1Standard.update(part1));
     }
-    await _write(() => _part1Standard.update(part1));
+    await _refreshProfile(assessment);
     return (await _part1Standard.findByAssessmentId(assessmentId))!;
   }
 
@@ -180,7 +209,7 @@ class CrlaViewModel {
   }) async {
     _log('savePart1English(assessmentId: $assessmentId, task1: $task1Score, task2: $task2Score)');
 
-    await _requireVariant(assessmentId, {'eng'}, 'English Part 1');
+    final assessment = await _requireVariant(assessmentId, {'eng'}, 'English Part 1');
     _checkScore('task1Score', task1Score, 10);
     if (task2Score != null) {
       _checkScore('task2Score', task2Score, 10);
@@ -193,13 +222,16 @@ class CrlaViewModel {
       assessmentId: assessmentId,
       task1Score: task1Score,
       task2Score: task2Score,
+      readingLevel: crlaPart1EnglishLevel(task1Score + (task2Score ?? 0), _thresholdsOf(assessment)),
     );
 
     final existing = await _part1English.findByAssessmentId(assessmentId);
     if (existing == null) {
-      return _write(() => _part1English.insert(part1));
+      await _write(() => _part1English.insert(part1));
+    } else {
+      await _write(() => _part1English.update(part1));
     }
-    await _write(() => _part1English.update(part1));
+    await _refreshProfile(assessment);
     return (await _part1English.findByAssessmentId(assessmentId))!;
   }
 
@@ -263,9 +295,11 @@ class CrlaViewModel {
 
     final existing = await _part2Fluency.findByAssessmentId(assessmentId);
     if (existing == null) {
-      return _write(() => _part2Fluency.insert(fluency));
+      await _write(() => _part2Fluency.insert(fluency));
+    } else {
+      await _write(() => _part2Fluency.update(fluency));
     }
-    await _write(() => _part2Fluency.update(fluency));
+    await _refreshProfile(assessment);
     return (await _part2Fluency.findByAssessmentId(assessmentId))!;
   }
 
@@ -306,6 +340,44 @@ class CrlaViewModel {
   }
 
   // ---- helpers ----
+
+  /// The assessment's snapshot; rows from before v14 have none (defaults).
+  CrlaThresholds _thresholdsOf(CrlaAssessment a) =>
+      CrlaThresholds.fromMap(a.thresholdsSnapshot ?? const {});
+
+  /// Re-scores the stored reading profile from Part 1 + Part 2 and the
+  /// story's exact word count (same match as crla_results: the school's
+  /// region, the assessment's language, the section's grade, the story no).
+  Future<void> _refreshProfile(CrlaAssessment a) async {
+    final section = await _sections.getById(a.sectionId);
+    final grade = section == null ? null : crlaGradeOf(section.gradeLevel);
+    if (grade == null) return; // not a CRLA section; nothing to score
+    final level = a.subjectVariant == 'eng'
+        ? (await _part1English.findByAssessmentId(a.id!))?.readingLevel
+        : (await _part1Standard.findByAssessmentId(a.id!))?.readingLevel;
+    final part2 = await _part2Fluency.findByAssessmentId(a.id!);
+
+    double? pct;
+    if (part2 != null) {
+      final regionId = (await _schools.getById(a.schoolId))?.regionId;
+      if (regionId != null) {
+        final story = (await _stories.getByRegion(regionId, language: a.language, grade: grade))
+            .where((s) => s.storyNo == part2.storyNo)
+            .firstOrNull;
+        if (story != null && story.wordCount > 0) pct = part2.wordsRead / story.wordCount;
+      }
+    }
+
+    final profile = crlaReadingProfile(
+      part1Level: level,
+      pct: pct,
+      comprehension: part2?.comprehensionCorrect,
+      grade: grade,
+      variant: a.subjectVariant,
+      t: _thresholdsOf(a),
+    );
+    await _assessments.setReadingProfile(a.id!, profile);
+  }
 
   Future<CrlaAssessment> _requireVariant(
     int assessmentId,

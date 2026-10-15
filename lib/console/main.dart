@@ -56,6 +56,7 @@ import 'package:basa_capstone/core/data/local/crla_result_repository_sqlite.dart
 import 'package:basa_capstone/viewmodels/crla_viewmodel.dart';
 import 'package:basa_capstone/core/console/commands/pull_commands.dart';
 import 'package:basa_capstone/core/data/local/crla_story_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/local/crla_threshold_repository_sqlite.dart';
 import 'package:basa_capstone/core/console/commands/phil_iri_content_commands.dart';
 import 'package:basa_capstone/core/console/commands/phil_iri_commands.dart';
 import 'package:basa_capstone/core/data/local/phil_iri_assessment_repository_sqlite.dart';
@@ -168,6 +169,8 @@ Future<void> main() async {
     part2Fluency: CrlaPart2FluencyRepositorySqlite(localDb),
     results: CrlaResultRepositorySqlite(localDb),
     sections: SectionRepositorySqlite(localDb),
+    schools: SchoolRepositorySqlite(localDb),
+    thresholds: CrlaThresholdRepositorySqlite(localDb),
     logger: session,
   );
   vmRegistry.register('CrlaViewModel', crlaVm);

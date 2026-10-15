@@ -1,8 +1,10 @@
 // lib/core/data/local/local_database.dart
+import 'dart:convert';
 import 'package:sqflite_common/sqflite.dart';
 import 'package:path/path.dart' as p;
 
 import 'phil_iri_local_schema.dart';
+import '../../services/crla_rules.dart';
 
 /// Opens/creates the local SQLite DB.
 /// IMPORTANT: the caller must set the global `databaseFactory`
@@ -18,7 +20,7 @@ class LocalDatabase {
     _db = await databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 13, // v13: Phil-IRI tables (phil_iri_local_schema.dart)
+        version: 14, // v14: CRLA thresholds, per-assessment snapshot + stored profile
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
@@ -99,6 +101,9 @@ class LocalDatabase {
             await _rebuildCrlaPart2ForV11(db);
           }
 
+          // v14 columns must exist before _createCrlaViews (crla_results reads
+          // reading_profile). A missing table is created by _createCrlaTables.
+          await _addCrlaV14Columns(db);
             await _createCrlaTables(db);
             await _createCrlaScoreTables(db);
             await _createCrlaViews(db);
@@ -115,6 +120,8 @@ class LocalDatabase {
           await _createSyncTables(db);
           // v13. IF NOT EXISTS + trigger recreate, so it runs on every upgrade.
           await createPhilIriLocalSchema(db);
+          // v14. Rows from before v14 were scored with the default thresholds.
+          if (oldVersion < 14) await backfillCrlaScoring(db);
         },
       ),
     );
@@ -290,8 +297,29 @@ class LocalDatabase {
         -- Local only (no cloud column): 'local' = entered on this device and
         -- not yet uploaded; 'cloud' = mirrored from Supabase.
         origin TEXT NOT NULL DEFAULT 'local' CHECK (origin IN ('local', 'cloud')),
+        -- v14: CrlaThresholds.toMap() as JSON (taken when the assessment was
+        -- started), and the profile scored with it. Local rows: written by
+        -- CrlaViewModel. Mirrored rows: the cloud's values.
+        thresholds_snapshot TEXT,
+        reading_profile TEXT,
         UNIQUE(student_id, school_id, section_id, subject_variant, school_year, attempt_no)
       )
+    ''');
+
+    // v14: mirror of the cloud's crla_thresholds (region row + school
+    // overrides). Read-only locally; pull-cloud fills it.
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS crla_thresholds (
+        id INTEGER PRIMARY KEY,
+        school_id INTEGER REFERENCES schools(id),
+        settings TEXT NOT NULL,
+        updated_by TEXT,
+        updated_at TEXT
+      )
+    ''');
+    await db.execute('''
+      CREATE UNIQUE INDEX IF NOT EXISTS crla_thresholds_school_key
+      ON crla_thresholds (IFNULL(school_id, 0))
     ''');
 
     // attempt_no = 0 means "assign the next number"; mirrored rows arrive with the real one.
@@ -412,30 +440,28 @@ class LocalDatabase {
       END
     ''');
 
+    // v14: the trigger computes total_score only. reading_level depends on the
+    // assessment's thresholds: CrlaViewModel writes it for local entries
+    // (crla_rules.dart), mirrored rows keep the cloud's. DROP + CREATE so
+    // installs upgrading from v13 lose the old level-computing body.
     const standardCompute = '''
       UPDATE crla_part1_standard
       SET total_score = CASE
             WHEN task1_score < 7 THEN task1_score + IFNULL(task2_low_score, 0)
             ELSE task1_score + 10 + IFNULL(task2_high_score, 0)
-          END,
-          reading_level = CASE
-            WHEN task1_score < 7 THEN
-              CASE WHEN task1_score + IFNULL(task2_low_score, 0) <= 10
-                   THEN 'Full Refresher' ELSE 'Moderate Refresher' END
-            ELSE
-              CASE WHEN task1_score + 10 + IFNULL(task2_high_score, 0) < 27
-                   THEN 'Light Refresher' ELSE 'Grade Ready' END
           END
       WHERE assessment_id = NEW.assessment_id;
     ''';
 
+    await db.execute('DROP TRIGGER IF EXISTS compute_crla_part1_standard_ins');
     await db.execute('''
-      CREATE TRIGGER IF NOT EXISTS compute_crla_part1_standard_ins
+      CREATE TRIGGER compute_crla_part1_standard_ins
       AFTER INSERT ON crla_part1_standard
       BEGIN $standardCompute END
     ''');
+    await db.execute('DROP TRIGGER IF EXISTS compute_crla_part1_standard_upd');
     await db.execute('''
-      CREATE TRIGGER IF NOT EXISTS compute_crla_part1_standard_upd
+      CREATE TRIGGER compute_crla_part1_standard_upd
       AFTER UPDATE OF task1_score, task2_low_score, task2_high_score ON crla_part1_standard
       BEGIN $standardCompute END
     ''');
@@ -473,25 +499,22 @@ class LocalDatabase {
       END
     ''');
 
+    // v14: total_score only, as for the standard table.
     const englishCompute = '''
       UPDATE crla_part1_english
-      SET total_score = task1_score + IFNULL(task2_score, 0),
-          reading_level = CASE
-            WHEN task1_score + IFNULL(task2_score, 0) = 0 THEN 'Full Refresher'
-            WHEN task1_score + IFNULL(task2_score, 0) <= 10 THEN 'Moderate Refresher'
-            WHEN task1_score + IFNULL(task2_score, 0) <= 16 THEN 'Light Refresher'
-            ELSE 'Grade Ready'
-          END
+      SET total_score = task1_score + IFNULL(task2_score, 0)
       WHERE assessment_id = NEW.assessment_id;
     ''';
 
+    await db.execute('DROP TRIGGER IF EXISTS compute_crla_part1_english_ins');
     await db.execute('''
-      CREATE TRIGGER IF NOT EXISTS compute_crla_part1_english_ins
+      CREATE TRIGGER compute_crla_part1_english_ins
       AFTER INSERT ON crla_part1_english
       BEGIN $englishCompute END
     ''');
+    await db.execute('DROP TRIGGER IF EXISTS compute_crla_part1_english_upd');
     await db.execute('''
-      CREATE TRIGGER IF NOT EXISTS compute_crla_part1_english_upd
+      CREATE TRIGGER compute_crla_part1_english_upd
       AFTER UPDATE OF task1_score, task2_score ON crla_part1_english
       BEGIN $englishCompute END
     ''');
@@ -583,86 +606,104 @@ class LocalDatabase {
   static Future<void> _createCrlaViews(Database db) async {
     // DROP + CREATE (not IF NOT EXISTS) so a changed definition always replaces the old one.
     await db.execute('DROP VIEW IF EXISTS crla_results');
-    // Per-grade rules as in Postgres crla_reading_profile() (see
-    // crla_rules.dart): m = comprehension max, h / d2 / g = cut-offs.
+    // v14: the reading profile is stored on the assessment (scored with its
+    // thresholds snapshot), as in the cloud's crla_results. Same columns.
     await db.execute('''
       CREATE VIEW crla_results AS
       SELECT
-        assessment_id, student_id, school_id, section_id, school_year,
-        subject_variant, language, attempt_no, assessed_at,
-        part1_total_score, part1_reading_level,
-        story_no, words_read, miscues, wpm, comprehension_correct,
-        learner_experience_rating, observation_level, remarks,
-        ROUND(pct, 4) AS pct_correct_words_read,
-        CASE
-          WHEN part1_reading_level IS NULL THEN NULL
-          WHEN part1_reading_level = 'Full Refresher'
-               OR (grade = 1 AND part1_reading_level = 'Moderate Refresher')
-            THEN 'Low Emerging Reader'
-          WHEN pct IS NULL OR comprehension_correct IS NULL THEN NULL
-          WHEN pct <= 0.25
-               OR (pct > 0.25 AND pct <= 0.50 AND comprehension_correct <= h)
-            THEN 'High Emerging Reader'
-          WHEN (pct > 0.25 AND pct < 0.51 AND comprehension_correct >= h + 1)
-               OR (pct > 0.50 AND pct < 0.76 AND comprehension_correct <= d2)
-            THEN 'Developing Reader'
-          WHEN (pct >= 0.51 AND pct < 0.76 AND comprehension_correct >= d2 + 1)
-               OR (pct > 0.75 AND comprehension_correct <= g - 1)
-            THEN 'Transitioning Reader'
-          WHEN pct > 0.75 AND comprehension_correct >= g
-            THEN 'Reading At Grade Level'
-          ELSE NULL
-        END AS reading_profile
-      FROM (
-        SELECT b.*,
-               CASE WHEN m = 7 THEN 1 ELSE 0 END AS h,
-               m - 4 AS d2,
-               m - 1 AS g
-        FROM (
-          SELECT
-            ca.id AS assessment_id,
-            ca.student_id,
-            ca.school_id,
-            ca.section_id,
-            ca.school_year,
-            ca.subject_variant,
-            ca.language,
-            ca.attempt_no,
-            ca.assessed_at,
-            COALESCE(p1s.total_score, p1e.total_score) AS part1_total_score,
-            COALESCE(p1s.reading_level, p1e.reading_level) AS part1_reading_level,
-            p2.story_no,
-            p2.words_read,
-            p2.miscues,
-            p2.wpm,
-            p2.comprehension_correct,
-            p2.learner_experience_rating,
-            p2.observation_level,
-            p2.remarks,
-            p2.words_read * 1.0 / NULLIF(cs.word_count, 0) AS pct,
-            gr.grade,
-            CASE
-              WHEN gr.grade = 1 THEN 5
-              WHEN gr.grade = 3 AND ca.subject_variant IN ('mt', 'fil') THEN 7
-              ELSE 6
-            END AS m
-          FROM crla_assessments ca
-          LEFT JOIN crla_part1_standard p1s ON p1s.assessment_id = ca.id
-          LEFT JOIN crla_part1_english  p1e ON p1e.assessment_id = ca.id
-          LEFT JOIN crla_part2_fluency  p2  ON p2.assessment_id  = ca.id
-          JOIN schools  sch ON sch.id = ca.school_id
-          JOIN (SELECT id,
-                       CASE WHEN grade_level <> '' AND grade_level NOT GLOB '*[^0-9]*'
-                            THEN CAST(grade_level AS INTEGER) END AS grade
-                FROM sections) gr ON gr.id = ca.section_id
-          LEFT JOIN crla_stories cs
-            ON cs.region_id = sch.region_id
-           AND cs.language  = ca.language
-           AND cs.grade     = gr.grade
-           AND cs.story_no  = p2.story_no
-        ) b
-      ) t
+        ca.id AS assessment_id,
+        ca.student_id,
+        ca.school_id,
+        ca.section_id,
+        ca.school_year,
+        ca.subject_variant,
+        ca.language,
+        ca.attempt_no,
+        ca.assessed_at,
+        COALESCE(p1s.total_score, p1e.total_score) AS part1_total_score,
+        COALESCE(p1s.reading_level, p1e.reading_level) AS part1_reading_level,
+        p2.story_no,
+        p2.words_read,
+        p2.miscues,
+        p2.wpm,
+        p2.comprehension_correct,
+        p2.learner_experience_rating,
+        p2.observation_level,
+        p2.remarks,
+        ROUND(p2.words_read * 1.0 / NULLIF(cs.word_count, 0), 4) AS pct_correct_words_read,
+        ca.reading_profile
+      FROM crla_assessments ca
+      LEFT JOIN crla_part1_standard p1s ON p1s.assessment_id = ca.id
+      LEFT JOIN crla_part1_english  p1e ON p1e.assessment_id = ca.id
+      LEFT JOIN crla_part2_fluency  p2  ON p2.assessment_id  = ca.id
+      JOIN schools  sch ON sch.id = ca.school_id
+      JOIN (SELECT id,
+                   CASE WHEN grade_level <> '' AND grade_level NOT GLOB '*[^0-9]*'
+                        THEN CAST(grade_level AS INTEGER) END AS grade
+            FROM sections) gr ON gr.id = ca.section_id
+      LEFT JOIN crla_stories cs
+        ON cs.region_id = sch.region_id
+       AND cs.language  = ca.language
+       AND cs.grade     = gr.grade
+       AND cs.story_no  = p2.story_no
     ''');
+  }
+
+  /// v14 upgrade, before the CRLA creators: the snapshot and stored-profile
+  /// columns. No-op when crla_assessments doesn't exist yet (the creator
+  /// builds it with them) or already has them.
+  static Future<void> _addCrlaV14Columns(Database db) async {
+    final cols = (await db.rawQuery('PRAGMA table_info(crla_assessments)')).map((c) => c['name']).toSet();
+    if (cols.isEmpty) return;
+    if (!cols.contains('thresholds_snapshot')) {
+      await db.execute('ALTER TABLE crla_assessments ADD COLUMN thresholds_snapshot TEXT');
+    }
+    if (!cols.contains('reading_profile')) {
+      await db.execute('ALTER TABLE crla_assessments ADD COLUMN reading_profile TEXT');
+    }
+  }
+
+  /// v14 upgrade: assessments from before v14 were scored with the built-in
+  /// defaults (their Part 1 levels already are). Give them that snapshot and
+  /// store their profile, computed by crla_rules.dart exactly as the old view
+  /// did. Public so tests can call it.
+  static Future<void> backfillCrlaScoring(DatabaseExecutor db) async {
+    const t = CrlaThresholds.defaults;
+    await db.update('crla_assessments', {'thresholds_snapshot': jsonEncode(t.toMap())},
+        where: 'thresholds_snapshot IS NULL');
+    final rows = await db.rawQuery('''
+      SELECT ca.id, ca.subject_variant,
+             COALESCE(p1s.reading_level, p1e.reading_level) AS level,
+             p2.words_read, p2.comprehension_correct, cs.word_count,
+             CASE WHEN sec.grade_level <> '' AND sec.grade_level NOT GLOB '*[^0-9]*'
+                  THEN CAST(sec.grade_level AS INTEGER) END AS grade
+      FROM crla_assessments ca
+      LEFT JOIN crla_part1_standard p1s ON p1s.assessment_id = ca.id
+      LEFT JOIN crla_part1_english  p1e ON p1e.assessment_id = ca.id
+      LEFT JOIN crla_part2_fluency  p2  ON p2.assessment_id  = ca.id
+      JOIN sections sec ON sec.id = ca.section_id
+      JOIN schools  sch ON sch.id = ca.school_id
+      LEFT JOIN crla_stories cs
+        ON cs.region_id = sch.region_id AND cs.language = ca.language
+       AND cs.grade = CAST(sec.grade_level AS INTEGER) AND cs.story_no = p2.story_no
+      WHERE ca.reading_profile IS NULL
+    ''');
+    for (final r in rows) {
+      final words = r['words_read'] as int?;
+      final count = r['word_count'] as int?;
+      final profile = crlaReadingProfile(
+        part1Level: r['level'] as String?,
+        pct: (words == null || count == null || count == 0) ? null : words * 1.0 / count,
+        comprehension: r['comprehension_correct'] as int?,
+        // Non-numeric grade (not possible for CRLA): the old SQL used the 6-question sheet.
+        grade: (r['grade'] as int?) ?? 2,
+        variant: r['subject_variant'] as String,
+        t: t,
+      );
+      if (profile != null) {
+        await db.update('crla_assessments', {'reading_profile': profile}, where: 'id = ?', whereArgs: [r['id']]);
+      }
+    }
   }
 
   /// Local-only bookkeeping for pull-cloud (who pulled last, and when).

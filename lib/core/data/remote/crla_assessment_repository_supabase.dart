@@ -68,4 +68,9 @@ class CrlaAssessmentRepositorySupabase implements CrlaAssessmentRepository {
   Future<CrlaAssessment> upsertWithId(CrlaAssessment assessment) async {
     throw UnimplementedError('upsertWithId is a local-mirroring operation — not meaningful against Supabase');
   }
+
+  @override
+  Future<void> setReadingProfile(int assessmentId, String? readingProfile) async {
+    throw UnsupportedError('The cloud computes reading_profile itself (crla_refresh_profile)');
+  }
 }

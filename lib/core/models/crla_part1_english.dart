@@ -5,7 +5,7 @@ class CrlaPart1English {
   final int task1Score;        // 0-10
   final int? task2Score;       // 0-10, only when task1 is 1-10
   final int? totalScore;       // computed by the DB
-  final String? readingLevel;  // computed by the DB
+  final String? readingLevel;  // cloud: computed by its trigger; local: by CrlaViewModel
 
   CrlaPart1English({
     required this.assessmentId,
@@ -19,6 +19,7 @@ class CrlaPart1English {
         'assessment_id': assessmentId,
         'task1_score': task1Score,
         'task2_score': task2Score,
+        if (readingLevel != null) 'reading_level': readingLevel,
       };
 
   factory CrlaPart1English.fromMap(Map<String, Object?> m) => CrlaPart1English(
