@@ -38,16 +38,18 @@ const _pullOrder = <String, String>{
   'phil_iri_miscues': 'id',
   'phil_iri_answers': 'id',
   'phil_iri_rubric_scores': 'id',
+  'aral_enrollments': 'id',
 };
 
 /// Tables with the local-only origin column: mirrored rows are 'cloud'.
-const _originTables = {'crla_assessments', 'phil_iri_gst_results', 'phil_iri_assessments'};
+const _originTables = {'crla_assessments', 'phil_iri_gst_results', 'phil_iri_assessments', 'aral_enrollments'};
 
 /// Local tables a pull empties before writing (children first). Everything
 /// the signed-in user can read comes back from the cloud; regions (seed data)
 /// and login_logs (this device's sign-in history) are kept. import_conflicts
 /// lives in the cloud only; its local copy is unused but may hold old rows.
 const _clearedTables = [
+  'aral_enrollments',
   'phil_iri_rubric_scores',
   'phil_iri_answers',
   'phil_iri_miscues',
@@ -91,7 +93,7 @@ void registerPullCommands(ConsoleRegistry registry, AuthViewModel authVm, Databa
             'pulls everything ${authVm.currentUser?.email} can read in the cloud. '
             'Regions and login logs are kept.\n'
             'Local data was last pulled by ${previous ?? "nobody (never pulled)"}.\n'
-            '${unsyncedTotal > 0 ? "$unsyncedTotal assessment record(s) on this device are not uploaded yet; the pull will refuse.\n" : ""}'
+            '${unsyncedTotal > 0 ? "$unsyncedTotal record(s) entered on this device are not uploaded yet; the pull will refuse.\n" : ""}'
             'Run "pull-cloud yes" to continue.';
       }
 
@@ -99,7 +101,7 @@ void registerPullCommands(ConsoleRegistry registry, AuthViewModel authVm, Databa
       if (unsyncedTotal > 0 && !discardLocal) {
         final lines = unsynced.map((r) => '  ${r['n']} ${r['kind']} in section ${r['section_id']} '
             '(grade ${r['grade_level'] ?? "?"} ${r['section_name'] ?? "unknown"}, ${r['school_year'] ?? ""})');
-        return 'Refused: $unsyncedTotal assessment record(s) were entered on this device and are not in the cloud yet:\n'
+        return 'Refused: $unsyncedTotal record(s) were entered on this device and are not in the cloud yet:\n'
             '${lines.join('\n')}\n'
             'A pull would delete them. Upload them first, or run "pull-cloud yes discard-local" to delete them.';
       }
@@ -138,7 +140,7 @@ void registerPullCommands(ConsoleRegistry registry, AuthViewModel authVm, Databa
 
       final out = StringBuffer();
       if (discardLocal && unsyncedTotal > 0) {
-        out.writeln('Discarded $unsyncedTotal local assessment record(s).');
+        out.writeln('Discarded $unsyncedTotal local record(s).');
       }
       for (final entry in fetched.entries) {
         out.writeln('${entry.key}: ${entry.value.length} rows');
@@ -157,8 +159,9 @@ Future<String?> _lastPull(Database db) async {
   return email == null ? null : '$email on ${meta['last_pull_at']}';
 }
 
-/// Assessment records entered on this device (origin 'local'), per kind and
-/// section: CRLA assessments, Phil-IRI sessions and Phil-IRI GST results.
+/// Records entered on this device (origin 'local'), per kind and section:
+/// CRLA assessments, Phil-IRI sessions, Phil-IRI GST results and ARAL
+/// enrollments.
 /// (Phil-IRI readings, miscues and answers belong to their session.)
 Future<List<Map<String, Object?>>> _unsynced(Database db) => db.rawQuery('''
       SELECT x.kind, x.section_id, COUNT(*) AS n, s.grade_level, s.section_name, s.school_year
@@ -168,6 +171,8 @@ Future<List<Map<String, Object?>>> _unsynced(Database db) => db.rawQuery('''
         SELECT 'Phil-IRI session(s)', section_id FROM phil_iri_assessments WHERE origin = 'local'
         UNION ALL
         SELECT 'Phil-IRI GST result(s)', section_id FROM phil_iri_gst_results WHERE origin = 'local'
+        UNION ALL
+        SELECT 'ARAL enrollment(s)', section_id FROM aral_enrollments WHERE origin = 'local'
       ) x
       LEFT JOIN sections s ON s.id = x.section_id
       GROUP BY x.kind, x.section_id

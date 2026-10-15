@@ -4,6 +4,7 @@ import 'package:sqflite_common/sqflite.dart';
 import 'package:path/path.dart' as p;
 
 import 'phil_iri_local_schema.dart';
+import 'aral_local_schema.dart';
 import '../../services/crla_rules.dart';
 
 /// Opens/creates the local SQLite DB.
@@ -26,7 +27,8 @@ class LocalDatabase {
         // v17: same, for the no-repeat check (a learner never reads a text twice).
         // v18: crla_assessments.round (bosy/mosy/eosy), added with the v14
         // columns before the CRLA creators; crla_results gains round.
-        version: 18,
+        // v19: ARAL roster (aral_enrollments), built by createAralLocalSchema.
+        version: 19,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
@@ -42,6 +44,7 @@ class LocalDatabase {
           await _createCrlaViews(db);
           await _createSyncTables(db);
           await createPhilIriLocalSchema(db);
+          await createAralLocalSchema(db);
         },
         onUpgrade: (db, oldVersion, newVersion) async {
           if (oldVersion < 2) {
@@ -130,6 +133,8 @@ class LocalDatabase {
           if (oldVersion < 15) await rebuildPhilIriPassagesForV15(db);
           // v13. IF NOT EXISTS + trigger recreate, so it runs on every upgrade.
           await createPhilIriLocalSchema(db);
+          // v19. Same pattern: runs on every upgrade.
+          await createAralLocalSchema(db);
           // v14. Rows from before v14 were scored with the default thresholds.
           if (oldVersion < 14) await backfillCrlaScoring(db);
         },
