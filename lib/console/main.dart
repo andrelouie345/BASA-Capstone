@@ -67,6 +67,9 @@ import 'package:basa_capstone/core/console/commands/phil_iri_content_commands.da
 import 'package:basa_capstone/core/console/commands/phil_iri_commands.dart';
 import 'package:basa_capstone/core/console/commands/aral_commands.dart';
 import 'package:basa_capstone/core/console/commands/aral_session_commands.dart';
+import 'package:basa_capstone/core/console/commands/aral_irip_commands.dart';
+import 'package:basa_capstone/core/data/local/aral_irip_repository_sqlite.dart';
+import 'package:basa_capstone/viewmodels/aral_irip_viewmodel.dart';
 import 'package:basa_capstone/core/data/local/aral_session_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/aral_tutor_setting_repository_sqlite.dart';
 import 'package:basa_capstone/viewmodels/aral_session_viewmodel.dart';
@@ -259,6 +262,15 @@ Future<void> main() async {
   );
   vmRegistry.register('AralSessionViewModel', aralSessionVm);
   registerAralSessionCommands(registry, aralSessionVm);
+
+  final aralIripVm = AralIripViewModel(
+    auth: authVm,
+    irip: AralIripRepositorySqlite(localDb),
+    roster: AralEnrollmentRepositorySqlite(localDb),
+    logger: session,
+  );
+  vmRegistry.register('AralIripViewModel', aralIripVm);
+  registerAralIripCommands(registry, aralIripVm);
   registerDebugCommands(registry, session, vmRegistry);
 
   // Headless REPL: lets the console run from a terminal or a piped script.
