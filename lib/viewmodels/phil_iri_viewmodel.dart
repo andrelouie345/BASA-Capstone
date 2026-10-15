@@ -237,7 +237,11 @@ class PhilIriViewModel {
 
   /// Passages this session may use: active passages of the learner's grade in
   /// active grade-leveled collections, plus active passages of active
-  /// non-graded collections (e.g. FRB).
+  /// non-graded collections (e.g. FRB). Either way only passages whose test
+  /// type fits the session's round (BOSY 'pre', MOSY 'mosy', EOSY 'post';
+  /// untyped passages fit any round), that the learner has never read (same
+  /// text = same passage, any collection, any year), each text listed once.
+  /// An empty list means the coordinator has to add passages.
   Future<List<PhilIriPassage>> availablePassages(int assessmentId) async {
     _log('availablePassages($assessmentId)');
     final session = await _requireSession(assessmentId);
@@ -247,7 +251,11 @@ class PhilIriViewModel {
     for (final c in await _collections.getAll(activeOnly: true)) {
       if (!c.isGradeLeveled) others.addAll(await _passages.getByCollection(c.id!, activeOnly: true));
     }
-    return [...graded, ...others];
+    final seen = (await _readPassages(session.studentId)).keys.toSet();
+    return [...graded, ...others]
+        .where((p) => session.round.allowsPassageTestType(p.testType))
+        .where((p) => seen.add(p.textKey)) // false for read texts and for repeats in this list
+        .toList();
   }
 
   /// The session's one passage reading. Each session (FLT/BOSY, MOSY, EOSY)
@@ -277,6 +285,15 @@ class PhilIriViewModel {
         throw ViewModelException('A Grade $grade learner reads a Grade $grade passage '
             '("${passage.title}" is Grade ${passage.level}).');
       }
+    }
+    if (!session.round.allowsPassageTestType(passage.testType)) {
+      throw ViewModelException('${session.round.label} reads ${session.round.passageTestType} passages '
+          '("${passage.title}" is a ${passage.testType} passage).');
+    }
+    final before = (await _readPassages(session.studentId))[passage.textKey];
+    if (before != null) {
+      throw ViewModelException('This learner has already read "${before.title}"; a learner never reads the same '
+          'passage twice. Choose another passage (the coordinator can add passages if none are left).');
     }
     _checkTiming(method, readingSeconds, wordsRead);
     return _write(() => _sessions.insertReading(PhilIriReading(
@@ -679,6 +696,20 @@ class PhilIriViewModel {
     final s = await _requireSession(id);
     if (s.isFinalized) throw const ViewModelException('This Phil-IRI session is finalized and cannot be changed.');
     return s;
+  }
+
+  /// Text keys of every passage the learner has read in any session, any
+  /// school year (no-repeat rule, owner 2026-10-15). Discarded sessions have
+  /// no readings left, so they don't count.
+  Future<Map<String, PhilIriPassage>> _readPassages(int studentId) async {
+    final read = <String, PhilIriPassage>{};
+    for (final s in await _sessions.getByStudent(studentId)) {
+      for (final r in await _sessions.getReadings(s.id!)) {
+        final p = await _passages.findById(r.passageId);
+        if (p != null) read[p.textKey] = p;
+      }
+    }
+    return read;
   }
 
   Future<PhilIriPassage> _requirePassage(int id) async {

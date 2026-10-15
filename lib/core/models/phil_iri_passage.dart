@@ -16,6 +16,25 @@ final _whitespace = RegExp(r'\s+');
 /// MOSY never uses the BOSY or EOSY passages (reading coordinator, 2026-10-15).
 const philIriTestTypes = ['pre', 'mosy', 'post'];
 
+/// Characters ignored when deciding whether two passages are the same text:
+/// whitespace and punctuation. The local trigger (philIriTextKeySql) and the
+/// cloud's phil_iri_text_key() strip exactly these, so keep the three in step.
+const philIriTextKeyStrip = [
+  ' ', '\n', '\r', '\t', '.', ',', '!', '?', ';', ':', "'", '"', '`', '-',
+  '—', '–', '(', ')', '[', ']', '‘', '’', '“', '”', '…', '/',
+];
+
+/// The passage text with case, whitespace and punctuation ignored. A learner
+/// never reads the same text twice, even from another collection (owner,
+/// 2026-10-15: copies like the 2018 and 2024 "Anansi's Web" count as one).
+String philIriTextKey(String body) {
+  var key = body.toLowerCase();
+  for (final c in philIriTextKeyStrip) {
+    key = key.replaceAll(c, '');
+  }
+  return key;
+}
+
 class PhilIriPassage {
   final int? id;
   final int collectionId;
@@ -56,6 +75,9 @@ class PhilIriPassage {
   /// True when the tokenized words agree with the declared word count.
   /// A mismatch means the text or the count was entered wrong.
   bool get wordCountMatches => words.length == wordCount;
+
+  /// See [philIriTextKey]: equal keys = the same passage for the no-repeat rule.
+  String get textKey => philIriTextKey(body);
 
   Map<String, Object?> toMap() => {
         if (id != null) 'id': id,

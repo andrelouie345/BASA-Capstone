@@ -27,6 +27,19 @@ enum PhilIriRound {
   final String label;
   const PhilIriRound(this.label);
 
+  /// The passage test type this round reads (see philIriTestTypes):
+  /// BOSY 'pre', MOSY #1-#3 'mosy', EOSY 'post'.
+  String get passageTestType => switch (this) {
+        PhilIriRound.bosy => 'pre',
+        PhilIriRound.eosy => 'post',
+        _ => 'mosy',
+      };
+
+  /// Can this round use a passage of [testType]? A passage without a test type
+  /// fits any round (reading coordinator, 2026-10-15: MOSY never reuses the
+  /// BOSY/EOSY passages; untyped passages, e.g. levels 2-6, are any-round).
+  bool allowsPassageTestType(String? testType) => testType == null || testType == passageTestType;
+
   static PhilIriRound fromString(String value) {
     return PhilIriRound.values.firstWhere(
       (r) => r.name == value || r.label == value,

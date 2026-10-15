@@ -21,6 +21,25 @@
 //   deleting a session must delete its children too.
 import 'package:sqflite_common/sqflite.dart';
 
+import '../../models/phil_iri_passage.dart';
+
+/// SQLite form of [philIriTextKey] for [column]: lower() then replace() of each
+/// character in [philIriTextKeyStrip]. (SQLite's lower() only folds ASCII; the
+/// texts are English, so the keys agree with Dart's.)
+String philIriTextKeySql(String column) {
+  var expr = 'lower($column)';
+  for (final c in philIriTextKeyStrip) {
+    final lit = switch (c) {
+      '\n' => 'char(10)',
+      '\r' => 'char(13)',
+      '\t' => 'char(9)',
+      _ => "'${c.replaceAll("'", "''")}'",
+    };
+    expr = "replace($expr, $lit, '')";
+  }
+  return expr;
+}
+
 const _gradeLevels = "('4', '5', '6', '7', '8', '9', '10')";
 
 /// Valid YYYY-YYYY with consecutive years, as the cloud CHECK.
@@ -358,6 +377,24 @@ Future<void> createPhilIriLocalSchema(Database db) async {
         AND (SELECT level FROM phil_iri_passages WHERE id = NEW.passage_id) IS NOT
             (SELECT CAST(s.grade_level AS INTEGER) FROM phil_iri_assessments a
              JOIN sections s ON s.id = a.section_id WHERE a.id = NEW.assessment_id);
+      -- v16: the round reads its own passages (PhilIriRound.passageTestType);
+      -- an untyped passage fits any round.
+      SELECT RAISE(ABORT, 'This round does not use this passage (BOSY reads pre, MOSY mosy, EOSY post passages)')
+      WHERE (SELECT test_type FROM phil_iri_passages WHERE id = NEW.passage_id) IS NOT
+            (SELECT CASE round WHEN 'bosy' THEN 'pre' WHEN 'eosy' THEN 'post' ELSE 'mosy' END
+             FROM phil_iri_assessments WHERE id = NEW.assessment_id)
+        AND (SELECT test_type FROM phil_iri_passages WHERE id = NEW.passage_id) IS NOT NULL;
+      -- v17: a learner never reads the same passage twice (same text, any
+      -- collection, any school year).
+      SELECT RAISE(ABORT, 'This learner has already read this passage')
+      WHERE EXISTS (
+        SELECT 1 FROM phil_iri_readings r
+        JOIN phil_iri_assessments a ON a.id = r.assessment_id
+        JOIN phil_iri_passages p ON p.id = r.passage_id
+        WHERE a.student_id = (SELECT student_id FROM phil_iri_assessments WHERE id = NEW.assessment_id)
+          AND (r.passage_id = NEW.passage_id
+               OR ${philIriTextKeySql('p.body')} =
+                  (SELECT ${philIriTextKeySql('body')} FROM phil_iri_passages WHERE id = NEW.passage_id)));
     END
   ''');
   await db.execute('DROP TRIGGER IF EXISTS check_phil_iri_reading_upd');

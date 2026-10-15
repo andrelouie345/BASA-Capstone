@@ -20,7 +20,11 @@ class LocalDatabase {
     _db = await databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 15, // v15: Phil-IRI passage test_type allows 'mosy'
+        // v15: Phil-IRI passage test_type allows 'mosy'.
+        // v16: Phil-IRI reading trigger checks the round's test type (no table
+        // change; the bump makes onUpgrade recreate the triggers).
+        // v17: same, for the no-repeat check (a learner never reads a text twice).
+        version: 17,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
