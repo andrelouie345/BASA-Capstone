@@ -78,6 +78,11 @@ import 'package:basa_capstone/core/console/commands/aral_report_commands.dart';
 import 'package:basa_capstone/viewmodels/aral_report_viewmodel.dart';
 import 'package:basa_capstone/core/data/local/aral_irip_repository_sqlite.dart';
 import 'package:basa_capstone/viewmodels/aral_irip_viewmodel.dart';
+import 'package:basa_capstone/core/console/commands/aral_checkin_commands.dart';
+import 'package:basa_capstone/core/data/local/aral_checkin_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/local/aral_setting_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/remote/aral_setting_repository_supabase.dart';
+import 'package:basa_capstone/viewmodels/aral_checkin_viewmodel.dart';
 import 'package:basa_capstone/core/data/local/aral_session_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/aral_tutor_setting_repository_sqlite.dart';
 import 'package:basa_capstone/viewmodels/aral_session_viewmodel.dart';
@@ -245,6 +250,18 @@ vmRegistry.register('TextViewModel', textVm);
   );
   vmRegistry.register('AralIripViewModel', aralIripVm);
   registerAralIripCommands(registry, aralIripVm);
+
+  // Check-ins are local; the cut-off is set online and mirrored locally.
+  final aralCheckinVm = AralCheckinViewModel(
+    auth: authVm,
+    checkins: AralCheckinRepositorySqlite(localDb),
+    roster: AralEnrollmentRepositorySqlite(localDb),
+    localSettings: AralSettingRepositorySqlite(localDb),
+    cloudSettings: (client) => AralSettingRepositorySupabase(client),
+    logger: session,
+  );
+  vmRegistry.register('AralCheckinViewModel', aralCheckinVm);
+  registerAralCheckinCommands(registry, aralCheckinVm);
 
   final aralReportVm = AralReportViewModel(
     auth: authVm,
