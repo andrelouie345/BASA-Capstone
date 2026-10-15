@@ -165,6 +165,33 @@ void registerAralCommands(ConsoleRegistry registry, AralViewModel vm) {
     return '${list.map((e) => _line(e, names)).join('\n')}\n${list.length} on the roster, $active active.';
   });
 
+  add('aral-update',
+      'aral-update <sectionId> <schoolYear> | aral-update school <schoolId> <schoolYear> — apply the latest '
+          'results: program changes and grade-level-ready exits (the UI runs this when the roster opens)', (args) async {
+    const usage = 'Usage: aral-update <sectionId> <schoolYear> | aral-update school <schoolId> <schoolYear>';
+    final List<AralUpdate> list;
+    if (args.isNotEmpty && args[0] == 'school') {
+      if (args.length < 3) throw const _Usage(usage);
+      list = await vm.applySchoolResults(schoolId: _int(args[1], 'schoolId'), schoolYear: args[2]);
+    } else {
+      if (args.length < 2) throw const _Usage(usage);
+      list = await vm.applyResults(sectionId: _int(args[0], 'sectionId'), schoolYear: args[1]);
+    }
+    if (list.isEmpty) return 'No active ARAL learners there.';
+    final names = <int, String>{};
+    for (final section in list.map((u) => u.before.sectionId).toSet()) {
+      names.addAll(await vm.learnerNames(section));
+    }
+    final lines = [
+      for (final u in list)
+        '#${u.before.id} | ${names[u.before.studentId] ?? 'student ${u.before.studentId}'} | ${u.kind.name} | ${u.reason}',
+    ];
+    int n(AralUpdateKind k) => list.where((u) => u.kind == k).length;
+    return '${lines.join('\n')}\n${n(AralUpdateKind.programChanged)} program change(s), '
+        '${n(AralUpdateKind.exited)} exit(s), ${n(AralUpdateKind.refreshed)} newer result(s) with the same program, '
+        '${n(AralUpdateKind.unchanged)} unchanged, ${n(AralUpdateKind.noResult)} without a finished result.';
+  });
+
   add('aral-tutors', 'aral-tutors <schoolId> <schoolYear> — tutors who can be assigned, with their ARAL load',
       (args) async {
     if (args.length < 2) throw const _Usage('Usage: aral-tutors <schoolId> <schoolYear>');

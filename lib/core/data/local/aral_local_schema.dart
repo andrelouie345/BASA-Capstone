@@ -2,11 +2,13 @@
 //
 // ARAL-Reading tables in the local SQLite DB (v19 roster, v20 sessions and
 // attendance, v21 Foundational program + 15 per section, v22 per-tutor
-// settings + one session per tutor per date, v23 IRIP targets + weeks). Same
+// settings + one session per tutor per date, v23 IRIP targets + weeks, v24
+// suggestion source columns; the suggestion may change). Same
 // table and column names as
 // Postgres (migrations 20261015050000_aral_enrollments.sql,
 // 20261015060000_aral_sessions.sql, 20261015070000_aral_foundational_section_cap.sql,
-// 20261015080000_aral_tutor_settings.sql, 20261016010000_aral_irip.sql). Called from
+// 20261015080000_aral_tutor_settings.sql, 20261016010000_aral_irip.sql,
+// 20261016020000_aral_auto_updates.sql). Called from
 // LocalDatabase on create and, unconditionally, on upgrade: everything here is
 // IF NOT EXISTS, and triggers are dropped and recreated.
 //
@@ -45,6 +47,10 @@ String _enrollmentsTableSql(String name) => '''
       basis_assessment_id INTEGER,   -- crla_assessments or phil_iri_assessments (by basis_source)
       suggested_key_stage TEXT CHECK (suggested_key_stage IN ('foundational', 'ks1', 'ks2', 'ks3')),
       suggested_track TEXT CHECK (suggested_track IN ('basic', 'plus')),
+      suggestion_round TEXT CHECK (suggestion_round IN ('bosy', 'mosy', 'mosy1', 'mosy2', 'mosy3', 'eosy')),
+      suggestion_level TEXT,
+      suggestion_assessment_id INTEGER,
+      suggested_on TEXT,
       notes TEXT,
       created_by TEXT REFERENCES users(id),
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -88,8 +94,21 @@ Future<void> rebuildAralEnrollmentsForV21(Database db) async {
   });
 }
 
+/// v24: where BASA's current suggestion came from (A4). Checked by column,
+/// so it runs on every upgrade like the other column adds.
+const _suggestionColumns = {
+  'suggestion_round': "TEXT CHECK (suggestion_round IN ('bosy', 'mosy', 'mosy1', 'mosy2', 'mosy3', 'eosy'))",
+  'suggestion_level': 'TEXT',
+  'suggestion_assessment_id': 'INTEGER',
+  'suggested_on': 'TEXT',
+};
+
 Future<void> createAralLocalSchema(Database db) async {
   await db.execute(_enrollmentsTableSql('aral_enrollments'));
+  final have = (await db.rawQuery('PRAGMA table_info(aral_enrollments)')).map((c) => c['name']).toSet();
+  for (final c in _suggestionColumns.entries) {
+    if (!have.contains(c.key)) await db.execute('ALTER TABLE aral_enrollments ADD COLUMN ${c.key} ${c.value}');
+  }
   await db.execute('CREATE INDEX IF NOT EXISTS aral_enrollments_section ON aral_enrollments (section_id, school_year)');
   await db.execute('CREATE INDEX IF NOT EXISTS aral_enrollments_school ON aral_enrollments (school_id, school_year)');
   await db.execute('CREATE INDEX IF NOT EXISTS aral_enrollments_tutor ON aral_enrollments (tutor_id, school_year)');
@@ -135,7 +154,6 @@ Future<void> createAralLocalSchema(Database db) async {
          OR NEW.school_year IS NOT OLD.school_year OR NEW.basis_source IS NOT OLD.basis_source
          OR NEW.basis_round IS NOT OLD.basis_round OR NEW.basis_level IS NOT OLD.basis_level
          OR NEW.basis_assessment_id IS NOT OLD.basis_assessment_id
-         OR NEW.suggested_key_stage IS NOT OLD.suggested_key_stage OR NEW.suggested_track IS NOT OLD.suggested_track
          OR NEW.created_by IS NOT OLD.created_by OR NEW.created_at IS NOT OLD.created_at;
       SELECT RAISE(ABORT, 'Section does not belong to that school')
       WHERE (SELECT school_id FROM sections WHERE id = NEW.section_id) IS NOT NEW.school_id;

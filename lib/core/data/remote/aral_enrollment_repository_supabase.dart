@@ -16,6 +16,8 @@ class AralEnrollmentRepositorySupabase implements AralEnrollmentRepository {
 
   static const _changeable = [
     'section_id', 'key_stage', 'track', 'tutor_id', 'status', 'entered_on', 'exited_on', 'exit_reason', 'notes',
+    'suggested_key_stage', 'suggested_track', 'suggestion_round', 'suggestion_level', 'suggestion_assessment_id',
+    'suggested_on',
   ];
 
   @override

@@ -12,14 +12,18 @@
 //    Learners with no result yet can be added by hand; learners at or above
 //    grade level, or outranked by weaker readers, cannot.
 //  * Admins and coordinators manage the roster; tutors only read it.
-//  * Grade-level-ready exits come from results (a later piece), never from
+//  * Grade-level-ready exits come from results (applyResults), never from
 //    the coordinator; transfers and drop-outs are recorded by hand.
+//  * applyResults (A4): a learner's latest finished result updates the
+//    program when it suggests a different one than the stored suggestion,
+//    and exits a learner who reads at grade level. The UI runs it when an
+//    admin/coordinator opens the roster (owner, 2026-10-16).
 //  * A tutor's "special 15": more than 15 active ARAL learners is allowed but
 //    warned about (lastWarning). A section's 15 is a hard limit.
 import '../core/console/logger.dart';
 import '../core/models/aral_enrollment.dart';
 import '../core/models/crla_result.dart';
-import '../core/models/phil_iri_assessment.dart' show PhilIriRound;
+import '../core/models/phil_iri_assessment.dart' show PhilIriAssessment, PhilIriRound, PhilIriStatus;
 import '../core/models/section.dart';
 import '../core/models/student.dart';
 import '../core/models/user.dart';
@@ -30,6 +34,8 @@ import '../core/repositories/section_repository.dart';
 import '../core/repositories/student_repository.dart';
 import '../core/repositories/user_repository.dart';
 import '../core/services/aral_rules.dart';
+import '../core/services/crla_rules.dart' show crlaAtGradeLevel;
+import '../core/services/phil_iri_results.dart' show PhilIriRoundResult;
 import '../core/services/normalizers.dart';
 import 'auth_viewmodel.dart';
 import 'phil_iri_viewmodel.dart';
@@ -101,6 +107,39 @@ class AralCandidate {
         basisLevel: basisLevel,
         basisAssessmentId: basisAssessmentId,
       );
+}
+
+enum AralUpdateKind {
+  /// The result suggests another program: the placement follows it.
+  programChanged,
+  /// The learner reads at grade level: exited grade-level ready.
+  exited,
+  /// A newer result with the same suggestion: only its source is recorded.
+  refreshed,
+  /// Nothing new.
+  unchanged,
+  /// No finished result yet.
+  noResult,
+}
+
+/// What applyResults did for one active ARAL learner.
+class AralUpdate {
+  final AralEnrollment before;
+  final AralEnrollment after;
+  final AralUpdateKind kind;
+  final String reason;
+  const AralUpdate(this.before, this.after, this.kind, this.reason);
+}
+
+/// A learner's latest finished result, as the roster sees it.
+class _LatestResult {
+  final String round;
+  final String level;             // e.g. 'frustration', 'Low Emerging Reader'
+  final int? assessmentId;
+  final String date;              // YYYY-MM-DD
+  final AralPlacement? placement; // null = at or above grade level
+  final String label;
+  const _LatestResult(this.round, this.level, this.assessmentId, this.date, this.placement, this.label);
 }
 
 class AralViewModel {
@@ -483,6 +522,123 @@ class AralViewModel {
     _requireManager();
     await _require(enrollmentId);
     await _write(() => _roster.delete(enrollmentId));
+  }
+
+  // ---- Automatic updates from results (A4) ----
+
+  /// Applies every active learner's latest finished result in the section:
+  /// program changes and grade-level-ready exits. Safe to run any time
+  /// (nothing changes when nothing new came in).
+  Future<List<AralUpdate>> applyResults({required int sectionId, required String schoolYear}) async {
+    _log('applyResults(section: $sectionId, year: $schoolYear)');
+    _requireManager();
+    schoolYear = normalizeSchoolYear(schoolYear);
+    final (section, grade) = await _aralSection(sectionId, schoolYear);
+    final active = (await _roster.getBySection(section.id!, schoolYear: schoolYear)).where((e) => e.isActive).toList();
+    final crla = grade <= 3 ? await _crlaResults.getBySection(section.id!, schoolYear: schoolYear) : const <CrlaResult>[];
+    final out = <AralUpdate>[];
+    for (final e in active) {
+      final latest = grade <= 3
+          ? _latestCrla(crla.where((r) => r.studentId == e.studentId).toList())
+          : await _latestPhilIri(e, grade);
+      out.add(await _apply(e, latest));
+    }
+    final changed = out.where((u) => u.kind == AralUpdateKind.programChanged || u.kind == AralUpdateKind.exited);
+    _log('applyResults: ${changed.length} change(s) in section $sectionId');
+    return out;
+  }
+
+  /// [applyResults] for every section of the school with active ARAL learners.
+  Future<List<AralUpdate>> applySchoolResults({required int schoolId, required String schoolYear}) async {
+    _log('applySchoolResults(school: $schoolId, year: $schoolYear)');
+    _requireManager();
+    final school = _auth.currentUser?.schoolId;
+    if (school != null && school != schoolId) throw const ViewModelException('Forbidden: that school is not yours.');
+    schoolYear = normalizeSchoolYear(schoolYear);
+    final sections = (await _roster.getBySchool(schoolId, schoolYear: schoolYear))
+        .where((e) => e.isActive)
+        .map((e) => e.sectionId)
+        .toSet();
+    final out = <AralUpdate>[];
+    for (final s in sections) {
+      out.addAll(await applyResults(sectionId: s, schoolYear: schoolYear));
+    }
+    return out;
+  }
+
+  Future<AralUpdate> _apply(AralEnrollment e, _LatestResult? latest) async {
+    if (latest == null) return AralUpdate(e, e, AralUpdateKind.noResult, 'no finished result yet');
+    final sourceId = e.suggestionAssessmentId ?? e.basisAssessmentId;
+    final sourceRound = e.suggestionRound ?? e.basisRound;
+    final isNew = latest.assessmentId != sourceId || latest.round != sourceRound;
+    AralEnrollment withSource(AralEnrollment x) => x.copyWith(
+          suggestionRound: () => latest.round,
+          suggestionLevel: () => latest.level,
+          suggestionAssessmentId: () => latest.assessmentId,
+          suggestedOn: () => latest.date,
+        );
+
+    final p = latest.placement;
+    if (p == null) {
+      // Exit on the result's date (not before the learner entered).
+      final date = latest.date.compareTo(e.enteredOn) < 0 ? e.enteredOn : latest.date;
+      final after = await _write(() => _roster.update(withSource(e).copyWith(
+          status: AralStatus.exited, exitedOn: () => date, exitReason: () => AralExitReason.gradeLevelReady)));
+      return AralUpdate(e, after, AralUpdateKind.exited, '${latest.label}: grade-level ready, exited on $date');
+    }
+    if (p.keyStage != e.suggestedKeyStage || p.track != e.suggestedTrack) {
+      final after = await _write(() => _roster.update(withSource(e).copyWith(
+            keyStage: p.keyStage,
+            track: () => p.track,
+            suggestedKeyStage: () => p.keyStage,
+            suggestedTrack: () => p.track,
+          )));
+      return AralUpdate(e, after, AralUpdateKind.programChanged, '${latest.label}: ${e.programLabel} -> ${p.label}');
+    }
+    if (isNew) {
+      final after = await _write(() => _roster.update(withSource(e)));
+      return AralUpdate(e, after, AralUpdateKind.refreshed, '${latest.label}: still suggests ${p.label}');
+    }
+    return AralUpdate(e, e, AralUpdateKind.unchanged, '${latest.label}: nothing new');
+  }
+
+  /// The latest finished Phil-IRI round (a session still in progress doesn't count).
+  Future<_LatestResult?> _latestPhilIri(AralEnrollment e, int grade) async {
+    final res = await _philIri.learnerResults(studentId: e.studentId, sectionId: e.sectionId, schoolYear: e.schoolYear);
+    PhilIriRoundResult? r;
+    PhilIriAssessment? session;
+    for (final x in res.rounds) {
+      final s = res.sessions[x.round];
+      if (x.given && x.profile != null && x.adjustedLevel != null && s != null && s.status != PhilIriStatus.inProgress) {
+        r = x;
+        session = s;
+      }
+    }
+    if (r == null) return null;
+    final adjusted = r.adjustedLevel!;
+    final level = adjusted == 0 ? 'non-reader' : 'reads at Grade $adjusted';
+    return _LatestResult(r.round.name, r.profile!.name, session!.id, session.assessedAt.substring(0, 10),
+        aralPhilIriPlacement(adjustedLevel: adjusted, grade: grade), 'Phil-IRI ${r.round.label} ($level)');
+  }
+
+  /// The latest CRLA round with a profile; within it the latest attempt per
+  /// variant, then the weakest profile.
+  _LatestResult? _latestCrla(List<CrlaResult> results) {
+    final scored = results.where((r) => r.readingProfile != null).toList();
+    if (scored.isEmpty) return null;
+    final round = scored.map((r) => r.round).reduce((a, b) => a.index >= b.index ? a : b);
+    final latest = <String, CrlaResult>{};
+    for (final r in scored.where((r) => r.round == round)) {
+      final prev = latest[r.subjectVariant];
+      if (prev == null || r.attemptNo > prev.attemptNo) latest[r.subjectVariant] = r;
+    }
+    CrlaResult? basis;
+    for (final r in latest.values) {
+      if (basis == null || aralWeakerCrlaProfile(r.readingProfile, basis.readingProfile) == r.readingProfile) basis = r;
+    }
+    final profile = basis!.readingProfile!;
+    return _LatestResult(round.name, profile, basis.assessmentId, basis.assessedAt.substring(0, 10),
+        profile == crlaAtGradeLevel ? null : aralCrlaPlacement, 'CRLA ${round.label} ($profile)');
   }
 
   // ---- Reading the roster ----

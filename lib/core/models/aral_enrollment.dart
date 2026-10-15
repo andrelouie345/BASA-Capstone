@@ -16,6 +16,8 @@
 //  * One ARAL enrollment per learner per school year; leaving ARAL is a status
 //    change (exited, with a date and a reason). Grade-level-ready exits come
 //    from results, not from the coordinator.
+//  * New results update the program and exit grade-level-ready learners
+//    automatically (A4, AralViewModel.applyResults).
 
 /// The ARAL program level. [foundational] is for non-readers (below KS1
 /// material); like KS1 it has no track.
@@ -113,8 +115,16 @@ class AralEnrollment {
   /// The CRLA or Phil-IRI assessment the placement came from (no foreign key:
   /// it points at either table, and may be a local-only row until sync).
   final int? basisAssessmentId;
+  /// BASA's current suggestion: from the entry basis, then from the latest
+  /// result applied (A4). The program follows it automatically only when it
+  /// changes, so a coordinator's own placement stays until the data differs.
   final AralKeyStage? suggestedKeyStage;
   final AralTrack? suggestedTrack;
+  /// Where the current suggestion came from (null = the entry basis).
+  final String? suggestionRound;
+  final String? suggestionLevel;
+  final int? suggestionAssessmentId;
+  final String? suggestedOn;       // YYYY-MM-DD
   final String? notes;
   final String? createdBy;         // users.id; stamped by the cloud
   final String? createdAt;
@@ -139,6 +149,10 @@ class AralEnrollment {
     this.basisAssessmentId,
     this.suggestedKeyStage,
     this.suggestedTrack,
+    this.suggestionRound,
+    this.suggestionLevel,
+    this.suggestionAssessmentId,
+    this.suggestedOn,
     this.notes,
     this.createdBy,
     this.createdAt,
@@ -169,6 +183,10 @@ class AralEnrollment {
         'basis_assessment_id': basisAssessmentId,
         'suggested_key_stage': suggestedKeyStage?.name,
         'suggested_track': suggestedTrack?.name,
+        'suggestion_round': suggestionRound,
+        'suggestion_level': suggestionLevel,
+        'suggestion_assessment_id': suggestionAssessmentId,
+        'suggested_on': suggestedOn,
         'notes': notes,
         if (createdBy != null) 'created_by': createdBy,
         if (createdAt != null) 'created_at': createdAt,
@@ -197,6 +215,10 @@ class AralEnrollment {
       suggestedKeyStage:
           m['suggested_key_stage'] == null ? null : AralKeyStage.fromString(m['suggested_key_stage'] as String),
       suggestedTrack: m['suggested_track'] == null ? null : AralTrack.fromString(m['suggested_track'] as String),
+      suggestionRound: m['suggestion_round'] as String?,
+      suggestionLevel: m['suggestion_level'] as String?,
+      suggestionAssessmentId: m['suggestion_assessment_id'] as int?,
+      suggestedOn: s('suggested_on')?.substring(0, 10),
       notes: m['notes'] as String?,
       createdBy: m['created_by'] as String?,
       createdAt: s('created_at'),
@@ -213,6 +235,12 @@ class AralEnrollment {
     String? Function()? exitedOn,
     AralExitReason? Function()? exitReason,
     String? Function()? notes,
+    AralKeyStage? Function()? suggestedKeyStage,
+    AralTrack? Function()? suggestedTrack,
+    String? Function()? suggestionRound,
+    String? Function()? suggestionLevel,
+    int? Function()? suggestionAssessmentId,
+    String? Function()? suggestedOn,
   }) =>
       AralEnrollment(
         id: id,
@@ -231,8 +259,12 @@ class AralEnrollment {
         basisRound: basisRound,
         basisLevel: basisLevel,
         basisAssessmentId: basisAssessmentId,
-        suggestedKeyStage: suggestedKeyStage,
-        suggestedTrack: suggestedTrack,
+        suggestedKeyStage: suggestedKeyStage == null ? this.suggestedKeyStage : suggestedKeyStage(),
+        suggestedTrack: suggestedTrack == null ? this.suggestedTrack : suggestedTrack(),
+        suggestionRound: suggestionRound == null ? this.suggestionRound : suggestionRound(),
+        suggestionLevel: suggestionLevel == null ? this.suggestionLevel : suggestionLevel(),
+        suggestionAssessmentId: suggestionAssessmentId == null ? this.suggestionAssessmentId : suggestionAssessmentId(),
+        suggestedOn: suggestedOn == null ? this.suggestedOn : suggestedOn(),
         notes: notes == null ? this.notes : notes(),
         createdBy: createdBy,
         createdAt: createdAt,

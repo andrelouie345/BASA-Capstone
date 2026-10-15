@@ -34,7 +34,9 @@ class LocalDatabase {
         // v22: aral_tutor_settings; one ARAL session per tutor per date unless
         // the tutor is allowed several (same creator).
         // v23: IRIP (aral_irip_targets mirror-only, aral_irip_weeks; same creator).
-        version: 23,
+        // v24: aral_enrollments suggestion source columns; the suggestion may
+        // change (automatic updates from results; same creator).
+        version: 24,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
