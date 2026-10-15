@@ -89,14 +89,15 @@ void registerAralCommands(ConsoleRegistry registry, AralViewModel vm) {
 
   add('aral-enroll',
       'aral-enroll <sectionId> <schoolYear> <studentId> [foundational|ks1|ks2|ks3] [basic|plus] [tutor=<userId>] '
-          '— put a proposed or tied learner on the ARAL roster (no program = BASA\'s proposal; give one to change '
-          'it, or to add a learner with no result yet)', (args) async {
-    const usage =
-        'Usage: aral-enroll <sectionId> <schoolYear> <studentId> [foundational|ks1|ks2|ks3] [basic|plus] [tutor=<userId>]';
+          '[entered=YYYY-MM-DD] — put a proposed or tied learner on the ARAL roster (no program = BASA\'s proposal; '
+          'give one to change it, or to add a learner with no result yet; entry date defaults to today)', (args) async {
+    const usage = 'Usage: aral-enroll <sectionId> <schoolYear> <studentId> [foundational|ks1|ks2|ks3] [basic|plus] '
+        '[tutor=<userId>] [entered=YYYY-MM-DD]';
     if (args.length < 3) throw const _Usage(usage);
     AralKeyStage? ks;
     AralTrack? track;
     String? tutor;
+    DateTime? entered;
     for (final a in args.skip(3)) {
       if (_ks(a) != null) {
         ks = _ks(a);
@@ -104,6 +105,8 @@ void registerAralCommands(ConsoleRegistry registry, AralViewModel vm) {
         track = _track(a);
       } else if (a.startsWith('tutor=')) {
         tutor = a.substring(6);
+      } else if (a.startsWith('entered=')) {
+        entered = DateTime.tryParse(a.substring(8)) ?? (throw _Usage('Invalid date in "$a".\n$usage'));
       } else {
         throw _Usage('Unknown option "$a".\n$usage');
       }
@@ -115,6 +118,7 @@ void registerAralCommands(ConsoleRegistry registry, AralViewModel vm) {
       keyStage: ks,
       track: track,
       tutorId: tutor,
+      enteredOn: entered,
     );
     return 'On the ARAL roster: ${_line(e, await vm.learnerNames(e.sectionId))}';
   });
