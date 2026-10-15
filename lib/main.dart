@@ -258,6 +258,8 @@ vmRegistry.register('TextViewModel', textVm);
     roster: AralEnrollmentRepositorySqlite(localDb),
     localSettings: AralSettingRepositorySqlite(localDb),
     cloudSettings: (client) => AralSettingRepositorySupabase(client),
+    sections: SectionRepositorySqlite(localDb),
+    students: StudentRepositorySqlite(localDb),
     logger: session,
   );
   vmRegistry.register('AralCheckinViewModel', aralCheckinVm);

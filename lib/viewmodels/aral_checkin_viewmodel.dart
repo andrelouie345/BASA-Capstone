@@ -22,12 +22,16 @@ import '../core/console/logger.dart';
 import '../core/models/aral_checkin.dart';
 import '../core/models/aral_enrollment.dart';
 import '../core/models/aral_setting.dart';
+import '../core/models/section.dart';
 import '../core/models/user.dart';
 import '../core/models/user_role.dart';
 import '../core/repositories/aral_checkin_repository.dart';
 import '../core/repositories/aral_enrollment_repository.dart';
 import '../core/repositories/aral_setting_repository.dart';
+import '../core/repositories/section_repository.dart';
+import '../core/repositories/student_repository.dart';
 import '../core/services/aral_checkin_rules.dart';
+import '../core/services/normalizers.dart';
 import 'auth_viewmodel.dart';
 import 'viewmodel_exception.dart';
 
@@ -68,6 +72,45 @@ class AralLearnerCheckins {
           null, (best, r) => best == null || r.checkin.attemptNo > best.checkin.attemptNo ? r : best);
 }
 
+/// One learner of the check-in report: the latest attempt after session 16
+/// and after session 32 (any tool of that checkpoint, in case the program
+/// changed), null when not taken.
+class AralCheckinReportLearner {
+  final AralEnrollment enrollment;
+  final String name;
+  final AralCheckinResult? after16;
+  final AralCheckinResult? after32;
+  const AralCheckinReportLearner(this.enrollment, this.name, this.after16, this.after32);
+
+  AralCheckinResult? at(int checkpoint) => checkpoint == 16 ? after16 : after32;
+
+  /// KS1 and Foundational have no check-in tools.
+  bool get hasTools => enrollment.track != null;
+}
+
+/// One section of the check-in report, with its totals.
+class AralCheckinReportSection {
+  final Section section;
+  final List<AralCheckinReportLearner> learners;
+  const AralCheckinReportSection(this.section, this.learners);
+
+  int took(int checkpoint) => learners.where((l) => l.at(checkpoint) != null).length;
+  int met(int checkpoint) => learners.where((l) => l.at(checkpoint)?.passed ?? false).length;
+  /// Learners who have check-in tools (KS2-3).
+  int get withTools => learners.where((l) => l.hasTools).length;
+}
+
+class AralCheckinReport {
+  final int schoolId;
+  final String schoolYear;
+  final int passPct;
+  final List<AralCheckinReportSection> sections;
+  const AralCheckinReport(this.schoolId, this.schoolYear, this.passPct, this.sections);
+
+  int took(int checkpoint) => sections.fold(0, (n, s) => n + s.took(checkpoint));
+  int met(int checkpoint) => sections.fold(0, (n, s) => n + s.met(checkpoint));
+}
+
 /// The stored cut-off rows that apply to one school and their merge.
 class AralCheckinSettingLayers {
   final AralSetting? region;
@@ -92,6 +135,8 @@ class AralCheckinViewModel {
   final AralEnrollmentRepository _roster;
   final AralSettingRepository _localSettings;
   final AralSettingRepository Function(SupabaseClient client) _cloudSettingsFor;
+  final SectionRepository _sections;
+  final StudentRepository _students;
 
   /// Set when the last cut-off change reached the cloud but its local copy failed.
   String? lastMirrorWarning;
@@ -102,12 +147,16 @@ class AralCheckinViewModel {
     required AralEnrollmentRepository roster,
     required AralSettingRepository localSettings,
     required AralSettingRepository Function(SupabaseClient client) cloudSettings,
+    required SectionRepository sections,
+    required StudentRepository students,
     Logger? logger,
   })  : _auth = auth,
         _checkins = checkins,
         _roster = roster,
         _localSettings = localSettings,
         _cloudSettingsFor = cloudSettings,
+        _sections = sections,
+        _students = students,
         _log = ScopedLogger(logger, 'AralCheckinViewModel');
 
   // ---- Reading ----
@@ -156,6 +205,69 @@ class AralCheckinViewModel {
       scoring: aralCheckinScore(items, answers),
       passPct: passPct,
     );
+  }
+
+  // ---- Report ----
+
+  /// Every section of the school with ARAL learners in [schoolYear] ([sectionId]
+  /// narrows it to one section): each learner's latest check-in after session
+  /// 16 and 32, judged with today's cut-off, and per-section totals.
+  /// Admins/coordinators only (their own school; superadmin any).
+  Future<AralCheckinReport> checkinReport({required int schoolId, required String schoolYear, int? sectionId}) async {
+    _log('checkinReport(school: $schoolId, year: $schoolYear, section: $sectionId)');
+    final me = _me();
+    if (me.role != UserRole.admin && me.role != UserRole.coordinator) {
+      throw const ViewModelException('Forbidden: only an admin or coordinator can generate ARAL reports.');
+    }
+    if (me.schoolId != null && me.schoolId != schoolId) {
+      throw const ViewModelException('Forbidden: that school is not yours.');
+    }
+    schoolYear = normalizeSchoolYear(schoolYear);
+    final passPct = (await localSettings(schoolId)).passPct;
+
+    final roster = (await _roster.getBySchool(schoolId, schoolYear: schoolYear))
+        .where((e) => sectionId == null || e.sectionId == sectionId)
+        .toList();
+    final bySection = <int, List<AralEnrollment>>{};
+    for (final e in roster) {
+      bySection.putIfAbsent(e.sectionId, () => []).add(e);
+    }
+    final sections = <Section>[];
+    for (final id in {...bySection.keys, ?sectionId}) {
+      final s = await _sections.getById(id);
+      if (s == null || s.schoolId != schoolId) {
+        if (id == sectionId) throw ViewModelException('Section $sectionId is not a section of school $schoolId.');
+        continue;
+      }
+      sections.add(s);
+    }
+    sections.sort((a, b) {
+      final g = (int.tryParse(a.gradeLevel) ?? 0).compareTo(int.tryParse(b.gradeLevel) ?? 0);
+      return g != 0 ? g : a.sectionName.compareTo(b.sectionName);
+    });
+
+    final out = <AralCheckinReportSection>[];
+    for (final s in sections) {
+      final names = {
+        for (final st in await _students.getBySection(s.id!)) st.id: '${st.lastName}, ${st.firstName}',
+      };
+      final learners = <AralCheckinReportLearner>[];
+      for (final e in bySection[s.id] ?? const <AralEnrollment>[]) {
+        final latest = <int, AralCheckinResult>{};
+        for (final c in await _checkins.checkins(e.id!)) {
+          final r = await _result(c, passPct);
+          final prev = latest[r.tool.checkpoint];
+          final newer = prev == null ||
+              c.takenOn.compareTo(prev.checkin.takenOn) > 0 ||
+              (c.takenOn == prev.checkin.takenOn && c.attemptNo > prev.checkin.attemptNo);
+          if (newer) latest[r.tool.checkpoint] = r;
+        }
+        learners.add(AralCheckinReportLearner(e, names[e.studentId] ?? 'student ${e.studentId}', latest[16], latest[32]));
+      }
+      learners.sort((a, b) => a.name.compareTo(b.name));
+      out.add(AralCheckinReportSection(s, learners));
+    }
+    return AralCheckinReport(schoolId, schoolYear, passPct, out);
   }
 
   // ---- Writing ----

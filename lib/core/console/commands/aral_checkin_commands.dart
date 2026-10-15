@@ -189,7 +189,43 @@ void registerAralCheckinCommands(ConsoleRegistry registry, AralCheckinViewModel 
     return 'Deleted check-in ${args[0]}.';
   });
 
-  add('aral-checkin-cutoff', 'aral-checkin-cutoff [schoolId] — the check-in cut-off in the cloud (online)',
+  add('aral-checkin-report',
+      'aral-checkin-report <schoolId> <schoolYear> [sectionId] — each ARAL learner\'s latest check-in after '
+          'sessions 16 and 32, with per-section totals (admin/coordinator)', (args) async {
+    const usage = 'Usage: aral-checkin-report <schoolId> <schoolYear> [sectionId]';
+    if (args.length < 2) throw const _Usage(usage);
+    final r = await vm.checkinReport(
+        schoolId: _int(args[0], 'schoolId'),
+        schoolYear: args[1],
+        sectionId: args.length > 2 ? _int(args[2], 'sectionId') : null);
+    if (r.sections.isEmpty) return 'No ARAL learners in school ${r.schoolId} for ${r.schoolYear}.';
+    String cell(AralCheckinResult? x) {
+      if (x == null) return 'not taken';
+      final s = x.score;
+      return '${s.correct}/${s.total} ${_pct(s)} ${_verdict(s, r.passPct)}'
+          '${x.complete ? '' : ' (incomplete)'}${x.checkin.attemptNo > 1 ? ' [attempt ${x.checkin.attemptNo}]' : ''}';
+    }
+
+    final lines = ['ARAL check-ins, school ${r.schoolId}, ${r.schoolYear} (cut-off ${r.passPct}%)'];
+    for (final s in r.sections) {
+      lines.add('Grade ${s.section.gradeLevel} ${s.section.sectionName} (section ${s.section.id}):');
+      for (final l in s.learners) {
+        final e = l.enrollment;
+        final head = '  #${e.id} ${l.name} | ${e.programLabel}${e.isActive ? '' : ' (exited)'}';
+        lines.add(l.hasTools
+            ? '$head | after 16: ${cell(l.after16)} | after 32: ${cell(l.after32)}'
+            : '$head | no check-in tools');
+      }
+      lines.add('  Totals (${s.withTools} with check-in tools): after 16 took ${s.took(16)}, met ${s.met(16)} | '
+          'after 32 took ${s.took(32)}, met ${s.met(32)}');
+    }
+    if (r.sections.length > 1) {
+      lines.add('School: after 16 took ${r.took(16)}, met ${r.met(16)} | after 32 took ${r.took(32)}, met ${r.met(32)}');
+    }
+    return lines.join('\n');
+  });
+
+  add('aral-checkin-cutoff','aral-checkin-cutoff [schoolId] — the check-in cut-off in the cloud (online)',
       (args) async {
     final schoolId = args.isEmpty ? null : _int(args[0], 'schoolId');
     final l = await vm.settingLayers(schoolId);
