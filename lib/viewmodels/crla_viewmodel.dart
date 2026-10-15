@@ -106,8 +106,10 @@ class CrlaViewModel {
     return CrlaThresholds.fromMap({...?region?.settings, ...?school?.settings});
   }
 
-  /// Starts a new attempt. A retake is just another call with the same
-  /// student/section/variant/year: the DB assigns the next attempt_no.
+  /// Starts a new attempt in [round] (BOSY/MOSY/EOSY). A retake is just
+  /// another call with the same student/section/variant/year/round: the DB
+  /// assigns the next attempt_no (counted across rounds; the highest in a
+  /// round is that round's latest).
   /// The school is taken from the section, which must be Grade 1-3 (CRLA
   /// covers only those). The learner needs an active enrollment in the
   /// section for that year (the DB checks it).
@@ -118,11 +120,12 @@ class CrlaViewModel {
     required String schoolYear,
     required String subjectVariant,
     required String language,
+    required CrlaRound round,
     String? administeredBy,
     DateTime? assessedAt,
   }) async {
     _log('startAssessment(studentId: $studentId, sectionId: $sectionId, '
-        'variant: $subjectVariant, year: $schoolYear)');
+        'variant: $subjectVariant, year: $schoolYear, round: ${round.name})');
     schoolYear = normalizeSchoolYear(schoolYear);
 
     if (!_variants.contains(subjectVariant)) {
@@ -144,12 +147,13 @@ class CrlaViewModel {
         schoolYear: schoolYear,
         subjectVariant: subjectVariant,
         language: language,
+        round: round,
         assessedAt: _localDate(assessedAt ?? DateTime.now()),
         administeredBy: administeredBy,
         thresholdsSnapshot: snapshot,
       ),
     ));
-    _log('started assessment ${stored.id} (attempt ${stored.attemptNo})');
+    _log('started assessment ${stored.id} (${round.label}, attempt ${stored.attemptNo})');
     await refresh();
     return stored;
   }

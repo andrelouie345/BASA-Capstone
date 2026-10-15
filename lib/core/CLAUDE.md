@@ -16,6 +16,7 @@ Nothing in `core/` imports Flutter. Keep it that way.
 - Supabase `update()` pattern: remove the key from the payload, filter on it, call `.select()`, and throw if the result is empty (that is how an RLS rejection looks from the client).
 - Supabase `insert()` returns the stored row via `.select()` so DB-assigned and DB-computed values (`attempt_no`, totals, wpm) come back.
 - Repos don't catch `PostgrestException`; ViewModels and console commands decide how to report it.
+- **Rounds (2026-10-15).** `crla_assessments.round` is `bosy`/`mosy`/`eosy` (`CrlaRound`; rows from before it exist are `bosy`; cloud migration `20261015040000_crla_round.sql`, local v18). `attempt_no` still counts across rounds (unique key and attempt triggers unchanged); a round's latest attempt is its highest `attempt_no`. `crla_latest_attempts` is latest **per round** and the three summary views are per round; every CRLA view has `round` as its last column. ARAL-Reading uses it (G1 enters on MOSY, G2-3 on BOSY).
 - `crla_assessments` has **no update** on purpose: a retake is a new row. The cloud has no UPDATE policy for it (dropped in M4). Only the scoring is rewritten in place: by SECURITY DEFINER triggers / `crla_regenerate_results` in the cloud, and by the local-only `setReadingProfile` on the device.
 
 ## CRLA semantics

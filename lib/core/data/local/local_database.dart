@@ -24,7 +24,9 @@ class LocalDatabase {
         // v16: Phil-IRI reading trigger checks the round's test type (no table
         // change; the bump makes onUpgrade recreate the triggers).
         // v17: same, for the no-repeat check (a learner never reads a text twice).
-        version: 17,
+        // v18: crla_assessments.round (bosy/mosy/eosy), added with the v14
+        // columns before the CRLA creators; crla_results gains round.
+        version: 18,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
@@ -105,8 +107,9 @@ class LocalDatabase {
             await _rebuildCrlaPart2ForV11(db);
           }
 
-          // v14 columns must exist before _createCrlaViews (crla_results reads
-          // reading_profile). A missing table is created by _createCrlaTables.
+          // v14 columns (and v18 round) must exist before _createCrlaViews
+          // (crla_results reads reading_profile and round). A missing table is
+          // created by _createCrlaTables.
           await _addCrlaV14Columns(db);
             await _createCrlaTables(db);
             await _createCrlaScoreTables(db);
@@ -297,6 +300,8 @@ class LocalDatabase {
         school_year TEXT NOT NULL,
         subject_variant TEXT NOT NULL CHECK (subject_variant IN ('mt', 'fil', 'eng')),
         language TEXT NOT NULL,
+        -- v18: BOSY/MOSY/EOSY administration (rows from before v18 are bosy)
+        round TEXT NOT NULL DEFAULT 'bosy' CHECK (round IN ('bosy', 'mosy', 'eosy')),
         attempt_no INTEGER NOT NULL DEFAULT 0 CHECK (attempt_no >= 0),
         assessed_at TEXT NOT NULL,
         administered_by TEXT REFERENCES users(id),
@@ -638,7 +643,8 @@ class LocalDatabase {
         p2.observation_level,
         p2.remarks,
         ROUND(p2.words_read * 1.0 / NULLIF(cs.word_count, 0), 4) AS pct_correct_words_read,
-        ca.reading_profile
+        ca.reading_profile,
+        ca.round
       FROM crla_assessments ca
       LEFT JOIN crla_part1_standard p1s ON p1s.assessment_id = ca.id
       LEFT JOIN crla_part1_english  p1e ON p1e.assessment_id = ca.id
@@ -667,6 +673,11 @@ class LocalDatabase {
     }
     if (!cols.contains('reading_profile')) {
       await db.execute('ALTER TABLE crla_assessments ADD COLUMN reading_profile TEXT');
+    }
+    // v18: the round. Existing rows become BOSY, as in the cloud migration.
+    if (!cols.contains('round')) {
+      await db.execute("ALTER TABLE crla_assessments ADD COLUMN round TEXT NOT NULL DEFAULT 'bosy' "
+          "CHECK (round IN ('bosy', 'mosy', 'eosy'))");
     }
   }
 

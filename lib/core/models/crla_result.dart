@@ -1,4 +1,5 @@
 // lib/core/models/crla_result.dart
+import 'crla_assessment.dart' show CrlaRound;
 
 /// Read-only row from the crla_results view. No toMap(): never inserted or updated.
 class CrlaResult {
@@ -10,6 +11,7 @@ class CrlaResult {
   final String schoolYear;
   final String subjectVariant;
   final String language;
+  final CrlaRound round;
   final int attemptNo;
   final String assessedAt;
 
@@ -39,6 +41,7 @@ class CrlaResult {
     required this.schoolYear,
     required this.subjectVariant,
     required this.language,
+    this.round = CrlaRound.bosy,
     required this.attemptNo,
     required this.assessedAt,
     this.part1TotalScore,
@@ -63,6 +66,7 @@ class CrlaResult {
         schoolYear: m['school_year'] as String,
         subjectVariant: m['subject_variant'] as String,
         language: m['language'] as String,
+        round: m['round'] == null ? CrlaRound.bosy : CrlaRound.fromString(m['round'] as String),
         attemptNo: m['attempt_no'] as int,
         assessedAt: m['assessed_at'] as String,
         part1TotalScore: m['part1_total_score'] as int?,

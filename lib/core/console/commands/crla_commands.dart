@@ -7,18 +7,19 @@ import '../console_command.dart';
 import '../console_registry.dart';
 import '../../../viewmodels/auth_viewmodel.dart';
 import '../../../viewmodels/crla_viewmodel.dart';
+import '../../models/crla_assessment.dart' show CrlaRound;
 import '../../models/crla_result.dart';
 
 void registerCrlaCommands(ConsoleRegistry registry, AuthViewModel authVm, CrlaViewModel vm) {
   registry.register(ConsoleCommand(
     name: 'crla-start',
-    description: 'crla-start <studentId> <sectionId> <schoolYear> <mt|fil|eng> [language] '
-        '— start a CRLA attempt in a Grade 1-3 section (retakes just run it again)',
+    description: 'crla-start <studentId> <sectionId> <schoolYear> <mt|fil|eng> [bosy|mosy|eosy] [language] '
+        '— start a CRLA attempt in a Grade 1-3 section (round defaults to bosy; retakes just run it again)',
     handler: (args) async {
       final guardError = authVm.requireActiveSession();
       if (guardError != null) return guardError;
 
-      const usage = 'Usage: crla-start <studentId> <sectionId> <schoolYear> <mt|fil|eng> [language]';
+      const usage = 'Usage: crla-start <studentId> <sectionId> <schoolYear> <mt|fil|eng> [bosy|mosy|eosy] [language]';
       if (args.length < 4) return usage;
 
       final studentId = int.tryParse(args[0]);
@@ -28,10 +29,17 @@ void registerCrlaCommands(ConsoleRegistry registry, AuthViewModel authVm, CrlaVi
 
       final schoolYear = args[2];
       final variant = args[3];
+      // Optional round right after the variant; BOSY when left out.
+      var rest = args.sublist(4);
+      var round = CrlaRound.bosy;
+      if (rest.isNotEmpty && const ['bosy', 'mosy', 'eosy'].contains(rest.first.toLowerCase())) {
+        round = CrlaRound.fromString(rest.first.toLowerCase());
+        rest = rest.sublist(1);
+      }
 
       // fil and eng imply their language; mt needs one spelled out.
-      final language = args.length > 4
-          ? args.sublist(4).join(' ')
+      final language = rest.isNotEmpty
+          ? rest.join(' ')
           : switch (variant) {
               'fil' => 'Tagalog',
               'eng' => 'English',
@@ -46,9 +54,10 @@ void registerCrlaCommands(ConsoleRegistry registry, AuthViewModel authVm, CrlaVi
           schoolYear: schoolYear,
           subjectVariant: variant,
           language: language,
+          round: round,
           administeredBy: authVm.currentUser?.id,
         );
-        return 'Started assessment ${stored.id} (attempt ${stored.attemptNo}, '
+        return 'Started assessment ${stored.id} (${round.label}, attempt ${stored.attemptNo}, '
             '$variant, ${stored.language}) for student $studentId.';
       } catch (e) {
         return 'Start failed: $e';
@@ -241,7 +250,7 @@ String _formatResult(CrlaResult r) {
       ? '-'
       : '${(r.pctCorrectWordsRead! * 100).toStringAsFixed(1)}%';
   return '#${r.assessmentId} | student ${r.studentId} | ${r.subjectVariant} ${r.language} '
-      'attempt ${r.attemptNo} | P1 $p1 | '
+      '${r.round.label} attempt ${r.attemptNo} | P1 $p1 | '
       'P2 story ${r.storyNo ?? "-"} wpm ${r.wpm?.toStringAsFixed(1) ?? "-"} '
       'comp ${r.comprehensionCorrect ?? "-"} words $pct | ${r.readingProfile ?? "-"}';
 }

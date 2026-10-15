@@ -3,6 +3,23 @@ import 'dart:convert';
 
 import 'crla_language.dart';
 
+/// The CRLA administration within the school year (DepEd: BOSY, MOSY, EOSY).
+/// ARAL-Reading enrolls Grade 1 learners on their MOSY result and Grades 2-3
+/// on BOSY (owner, 2026-10-15). Rows from before the round existed are BOSY.
+enum CrlaRound {
+  bosy('BOSY'),
+  mosy('MOSY'),
+  eosy('EOSY');
+
+  final String label;
+  const CrlaRound(this.label);
+
+  static CrlaRound fromString(String value) => CrlaRound.values.firstWhere(
+        (r) => r.name == value || r.label == value,
+        orElse: () => throw ArgumentError('Invalid CrlaRound value: $value'),
+      );
+}
+
 class CrlaAssessment {
   final int? id;
   final int studentId;
@@ -11,7 +28,11 @@ class CrlaAssessment {
   final String schoolYear;
   final String subjectVariant; // 'mt' | 'fil' | 'eng'
   final String language;
-  final int? attemptNo;        // assigned by the DB trigger on insert
+  final CrlaRound round;
+  /// Assigned by the DB trigger on insert: the nth CRLA attempt of the learner
+  /// in that section/variant/year, counted across rounds. The latest attempt
+  /// of a round is the one with the highest attempt_no in it.
+  final int? attemptNo;
   final String assessedAt;
   final String? administeredBy;
   /// The CRLA thresholds this assessment is scored with (CrlaThresholds.toMap),
@@ -29,6 +50,7 @@ class CrlaAssessment {
     required this.schoolYear,
     required this.subjectVariant,
     required this.language,
+    this.round = CrlaRound.bosy,
     this.attemptNo,
     required this.assessedAt,
     this.administeredBy,
@@ -46,6 +68,7 @@ class CrlaAssessment {
         'school_year': schoolYear,
         'subject_variant': subjectVariant,
         'language': normalizedLanguage,
+        'round': round.name,
         if (attemptNo != null) 'attempt_no': attemptNo,
         'assessed_at': assessedAt,
         if (administeredBy != null) 'administered_by': administeredBy,
@@ -61,6 +84,7 @@ class CrlaAssessment {
         schoolYear: m['school_year'] as String,
         subjectVariant: m['subject_variant'] as String,
         language: m['language'] as String,
+        round: m['round'] == null ? CrlaRound.bosy : CrlaRound.fromString(m['round'] as String),
         attemptNo: m['attempt_no'] as int?,
         assessedAt: m['assessed_at'] as String,
         administeredBy: m['administered_by'] as String?,
