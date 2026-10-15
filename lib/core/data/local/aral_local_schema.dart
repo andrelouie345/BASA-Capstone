@@ -3,12 +3,12 @@
 // ARAL-Reading tables in the local SQLite DB (v19 roster, v20 sessions and
 // attendance, v21 Foundational program + 15 per section, v22 per-tutor
 // settings + one session per tutor per date, v23 IRIP targets + weeks, v24
-// suggestion source columns; the suggestion may change). Same
-// table and column names as
+// suggestion source columns; the suggestion may change, v25 check-in
+// assessments + aral_settings). Same table and column names as
 // Postgres (migrations 20261015050000_aral_enrollments.sql,
 // 20261015060000_aral_sessions.sql, 20261015070000_aral_foundational_section_cap.sql,
 // 20261015080000_aral_tutor_settings.sql, 20261016010000_aral_irip.sql,
-// 20261016020000_aral_auto_updates.sql). Called from
+// 20261016020000_aral_auto_updates.sql, 20261016030000_aral_checkins.sql). Called from
 // LocalDatabase on create and, unconditionally, on upgrade: everything here is
 // IF NOT EXISTS, and triggers are dropped and recreated.
 //
@@ -406,6 +406,183 @@ Future<void> createAralLocalSchema(Database db) async {
       WHERE NEW.target_id IS NOT OLD.target_id AND NOT $learnerActive;
       SELECT RAISE(ABORT, 'That reading target is not in the learner''s IRIP list')
       WHERE NEW.target_id IS NOT OLD.target_id AND NOT $targetOk;
+    END
+  ''');
+
+  await _createCheckinTables(db);
+}
+
+/// v25: check-in tools and items (mirror-only content), check-ins (origin)
+/// and their answers, and the aral_settings mirror (read-only locally).
+Future<void> _createCheckinTables(Database db) async {
+  await db.execute('''
+    CREATE TABLE IF NOT EXISTS aral_checkin_tools (
+      id INTEGER PRIMARY KEY,
+      key_stage TEXT NOT NULL CHECK (key_stage IN ('ks2', 'ks3')),
+      track TEXT NOT NULL CHECK (track IN ('basic', 'plus')),
+      checkpoint INTEGER NOT NULL CHECK (checkpoint IN (16, 32)),
+      language TEXT NOT NULL CHECK (language IN ('filipino', 'english')),
+      title TEXT NOT NULL,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE (key_stage, track, checkpoint)
+    )
+  ''');
+  await db.execute('''
+    CREATE TABLE IF NOT EXISTS aral_checkin_items (
+      id INTEGER PRIMARY KEY,
+      tool_id INTEGER NOT NULL REFERENCES aral_checkin_tools(id),
+      item_no INTEGER NOT NULL CHECK (item_no >= 1),
+      label TEXT,
+      section TEXT,
+      kind TEXT NOT NULL CHECK (kind IN ('choice', 'open')),
+      answer_key TEXT,
+      prompt TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE (tool_id, item_no),
+      CHECK (kind = 'open' OR COALESCE(answer_key GLOB '[A-E]', 0))
+    )
+  ''');
+  await db.execute('''
+    CREATE TABLE IF NOT EXISTS aral_checkins (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      enrollment_id INTEGER NOT NULL REFERENCES aral_enrollments(id),
+      tool_id INTEGER NOT NULL REFERENCES aral_checkin_tools(id),
+      attempt_no INTEGER NOT NULL DEFAULT 0 CHECK (attempt_no >= 0),
+      taken_on TEXT NOT NULL,
+      notes TEXT,
+      created_by TEXT REFERENCES users(id),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      origin TEXT NOT NULL DEFAULT 'local' CHECK (origin IN ('local', 'cloud')),
+      UNIQUE (enrollment_id, tool_id, attempt_no)
+    )
+  ''');
+  await db.execute('CREATE INDEX IF NOT EXISTS aral_checkins_enrollment ON aral_checkins (enrollment_id, tool_id)');
+  await db.execute('''
+    CREATE TABLE IF NOT EXISTS aral_checkin_answers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      checkin_id INTEGER NOT NULL REFERENCES aral_checkins(id),
+      item_id INTEGER NOT NULL REFERENCES aral_checkin_items(id),
+      response TEXT,
+      is_correct INTEGER NOT NULL CHECK (is_correct IN (0, 1)),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE (checkin_id, item_id)
+    )
+  ''');
+  await db.execute('''
+    CREATE TABLE IF NOT EXISTS aral_settings (
+      id INTEGER PRIMARY KEY,
+      school_id INTEGER REFERENCES schools(id),
+      settings TEXT NOT NULL,
+      updated_by TEXT,
+      updated_at TEXT
+    )
+  ''');
+  await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS aral_settings_school_key ON aral_settings (IFNULL(school_id, 0))');
+
+  // attempt_no = 0 means "assign the next number"; mirrored rows arrive with the real one.
+  await db.execute('DROP TRIGGER IF EXISTS set_aral_checkin_attempt_no');
+  await db.execute('''
+    CREATE TRIGGER set_aral_checkin_attempt_no
+    AFTER INSERT ON aral_checkins
+    WHEN NEW.attempt_no = 0
+    BEGIN
+      UPDATE aral_checkins
+      SET attempt_no = COALESCE((
+        SELECT MAX(attempt_no) FROM aral_checkins
+        WHERE enrollment_id = NEW.enrollment_id AND tool_id = NEW.tool_id AND id <> NEW.id), 0) + 1
+      WHERE id = NEW.id;
+    END
+  ''');
+
+  const notBeforeEntry = '''NEW.taken_on < (SELECT entered_on FROM aral_enrollments WHERE id = NEW.enrollment_id)''';
+  await db.execute('DROP TRIGGER IF EXISTS check_aral_checkin_ins');
+  await db.execute('''
+    CREATE TRIGGER check_aral_checkin_ins
+    BEFORE INSERT ON aral_checkins
+    WHEN NEW.origin = 'local'
+    BEGIN
+      SELECT RAISE(ABORT, 'The learner is not active in ARAL')
+      WHERE NOT EXISTS (SELECT 1 FROM aral_enrollments WHERE id = NEW.enrollment_id AND status = 'active');
+      SELECT RAISE(ABORT, 'That check-in tool is not for the learner''s ARAL program')
+      WHERE NOT EXISTS (
+        SELECT 1 FROM aral_checkin_tools t JOIN aral_enrollments e ON e.id = NEW.enrollment_id
+        WHERE t.id = NEW.tool_id AND t.is_active = 1 AND t.key_stage = e.key_stage AND t.track = e.track);
+      SELECT RAISE(ABORT, 'A check-in cannot be dated before the learner entered ARAL')
+      WHERE $notBeforeEntry;
+    END
+  ''');
+  await db.execute('DROP TRIGGER IF EXISTS check_aral_checkin_upd');
+  await db.execute('''
+    CREATE TRIGGER check_aral_checkin_upd
+    BEFORE UPDATE ON aral_checkins
+    WHEN OLD.origin = 'local'
+    BEGIN
+      SELECT RAISE(ABORT, 'A check-in keeps its learner, tool and attempt; only the date and notes change')
+      WHERE NEW.enrollment_id IS NOT OLD.enrollment_id OR NEW.tool_id IS NOT OLD.tool_id
+         OR (NEW.attempt_no IS NOT OLD.attempt_no AND OLD.attempt_no <> 0)
+         OR NEW.created_by IS NOT OLD.created_by OR NEW.created_at IS NOT OLD.created_at;
+      SELECT RAISE(ABORT, 'A check-in cannot be dated before the learner entered ARAL')
+      WHERE NEW.taken_on IS NOT OLD.taken_on AND $notBeforeEntry;
+    END
+  ''');
+
+  // Answers have no origin: these checks and the scoring run for every row
+  // (mirrored rows already satisfy them), so an answer added on this device to
+  // a mirrored check-in is checked and scored too.
+  const itemOnTool = '''EXISTS (
+        SELECT 1 FROM aral_checkin_items i JOIN aral_checkins c ON c.tool_id = i.tool_id
+        WHERE i.id = NEW.item_id AND c.id = NEW.checkin_id)''';
+  const itemKind = '(SELECT kind FROM aral_checkin_items WHERE id = NEW.item_id)';
+  const badLetter = "$itemKind = 'choice' AND NEW.response IS NOT NULL AND NEW.response NOT GLOB '[A-E]'";
+  await db.execute('DROP TRIGGER IF EXISTS check_aral_checkin_answer_ins');
+  await db.execute('''
+    CREATE TRIGGER check_aral_checkin_answer_ins
+    BEFORE INSERT ON aral_checkin_answers
+    BEGIN
+      SELECT RAISE(ABORT, 'That item is not on the check-in''s tool')
+      WHERE NOT $itemOnTool;
+      SELECT RAISE(ABORT, 'A multiple-choice answer is a letter A-E (or empty)')
+      WHERE $badLetter;
+    END
+  ''');
+  await db.execute('DROP TRIGGER IF EXISTS check_aral_checkin_answer_upd');
+  await db.execute('''
+    CREATE TRIGGER check_aral_checkin_answer_upd
+    BEFORE UPDATE ON aral_checkin_answers
+    BEGIN
+      SELECT RAISE(ABORT, 'An answer keeps its check-in and item; only the response and mark change')
+      WHERE NEW.checkin_id IS NOT OLD.checkin_id OR NEW.item_id IS NOT OLD.item_id
+         OR NEW.created_at IS NOT OLD.created_at;
+      SELECT RAISE(ABORT, 'A multiple-choice answer is a letter A-E (or empty)')
+      WHERE $badLetter;
+    END
+  ''');
+
+  // Choice items: is_correct = (response = key), as the cloud's trigger. The
+  // UPDATE trigger fires on response/is_correct and writes is_correct only
+  // when it is wrong, so it cannot loop.
+  const score = '''
+      UPDATE aral_checkin_answers
+      SET is_correct = COALESCE((SELECT NEW.response = answer_key FROM aral_checkin_items WHERE id = NEW.item_id), 0)
+      WHERE id = NEW.id AND $itemKind = 'choice'
+        AND is_correct IS NOT COALESCE((SELECT NEW.response = answer_key FROM aral_checkin_items WHERE id = NEW.item_id), 0);''';
+  await db.execute('DROP TRIGGER IF EXISTS score_aral_checkin_answer_ins');
+  await db.execute('''
+    CREATE TRIGGER score_aral_checkin_answer_ins
+    AFTER INSERT ON aral_checkin_answers
+    BEGIN
+      $score
+    END
+  ''');
+  await db.execute('DROP TRIGGER IF EXISTS score_aral_checkin_answer_upd');
+  await db.execute('''
+    CREATE TRIGGER score_aral_checkin_answer_upd
+    AFTER UPDATE OF response, is_correct ON aral_checkin_answers
+    BEGIN
+      $score
     END
   ''');
 }

@@ -36,7 +36,9 @@ class LocalDatabase {
         // v23: IRIP (aral_irip_targets mirror-only, aral_irip_weeks; same creator).
         // v24: aral_enrollments suggestion source columns; the suggestion may
         // change (automatic updates from results; same creator).
-        version: 24,
+        // v25: check-in assessments (tools/items mirror-only, check-ins with
+        // origin, answers) and the aral_settings mirror (same creator).
+        version: 25,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
