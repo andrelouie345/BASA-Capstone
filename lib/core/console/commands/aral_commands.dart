@@ -9,6 +9,7 @@ import '../console_command.dart';
 import '../console_registry.dart';
 import '../../../viewmodels/aral_viewmodel.dart';
 import '../../models/aral_enrollment.dart';
+import '../../services/aral_rules.dart' show aralSectionCap;
 
 class _Usage implements Exception {
   final String message;
@@ -19,6 +20,7 @@ int _int(String raw, String what) =>
     int.tryParse(raw) ?? (throw _Usage('Invalid $what: "$raw" (expected a number)'));
 
 AralKeyStage? _ks(String raw) => switch (raw.toLowerCase()) {
+      'foundational' => AralKeyStage.foundational,
       'ks1' => AralKeyStage.ks1,
       'ks2' => AralKeyStage.ks2,
       'ks3' => AralKeyStage.ks3,
@@ -62,29 +64,35 @@ void registerAralCommands(ConsoleRegistry registry, AralViewModel vm) {
   }
 
   add('aral-propose',
-      'aral-propose <sectionId> <schoolYear> [optional] — who BASA proposes for ARAL-Reading and in which program '
-          '("optional" adds KS1 Developing/Transitioning and KS2-3 Instructional readers)', (args) async {
-    const usage = 'Usage: aral-propose <sectionId> <schoolYear> [optional]';
+      'aral-propose <sectionId> <schoolYear> — who BASA proposes for ARAL-Reading (the weakest readers below grade '
+          'level, at most $aralSectionCap per section) and in which program', (args) async {
+    const usage = 'Usage: aral-propose <sectionId> <schoolYear>';
     if (args.length < 2) throw const _Usage(usage);
-    final list = await vm.propose(
-        sectionId: _int(args[0], 'sectionId'), schoolYear: args[1], includeOptional: args.contains('optional'));
+    final sectionId = _int(args[0], 'sectionId');
+    final list = await vm.propose(sectionId: sectionId, schoolYear: args[1]);
     if (list.isEmpty) return 'No actively enrolled learners in that section.';
     final count = {for (final s in AralCandidateStatus.values) s: list.where((c) => c.status == s).length};
+    // Ranked learners first (weakest first), then the rest in roster order.
+    final ranked = list.where((c) => c.rank != null).toList()..sort((a, b) => a.rank!.compareTo(b.rank!));
     final lines = [
-      for (final c in list)
-        '${c.student.id} | ${c.name} | ${c.status.name}'
+      for (final c in [...ranked, ...list.where((c) => c.rank == null)])
+        '${c.rank == null ? '  ' : '#${c.rank}'} | ${c.student.id} | ${c.name} | ${c.status.name}'
             '${c.suggestion == null ? '' : ' -> ${c.suggestion!.label}'} | ${c.reason}',
     ];
+    final free = await vm.freePlaces(sectionId: sectionId, schoolYear: args[1]);
     return '${lines.join('\n')}\n'
-        '${count[AralCandidateStatus.proposed]} proposed, ${count[AralCandidateStatus.notQualified]} not qualifying, '
-        '${count[AralCandidateStatus.noResult]} without a result, ${count[AralCandidateStatus.enrolled]} already in ARAL.';
+        '$free free place(s): ${count[AralCandidateStatus.proposed]} proposed, ${count[AralCandidateStatus.tied]} tied '
+        '(coordinator picks), ${count[AralCandidateStatus.overCap]} over the cap, '
+        '${count[AralCandidateStatus.notQualified]} at/above grade level, ${count[AralCandidateStatus.noResult]} '
+        'without a result, ${count[AralCandidateStatus.enrolled]} already in ARAL.';
   });
 
   add('aral-enroll',
-      'aral-enroll <sectionId> <schoolYear> <studentId> [ks1|ks2|ks3] [basic|plus] [tutor=<userId>] [optional] '
-          '— put a learner on the ARAL roster (no program = BASA\'s proposal; give one to change it or to add '
-          'a learner by hand)', (args) async {
-    const usage = 'Usage: aral-enroll <sectionId> <schoolYear> <studentId> [ks1|ks2|ks3] [basic|plus] [tutor=<userId>] [optional]';
+      'aral-enroll <sectionId> <schoolYear> <studentId> [foundational|ks1|ks2|ks3] [basic|plus] [tutor=<userId>] '
+          '— put a proposed or tied learner on the ARAL roster (no program = BASA\'s proposal; give one to change '
+          'it, or to add a learner with no result yet)', (args) async {
+    const usage =
+        'Usage: aral-enroll <sectionId> <schoolYear> <studentId> [foundational|ks1|ks2|ks3] [basic|plus] [tutor=<userId>]';
     if (args.length < 3) throw const _Usage(usage);
     AralKeyStage? ks;
     AralTrack? track;
@@ -96,7 +104,7 @@ void registerAralCommands(ConsoleRegistry registry, AralViewModel vm) {
         track = _track(a);
       } else if (a.startsWith('tutor=')) {
         tutor = a.substring(6);
-      } else if (a != 'optional') {
+      } else {
         throw _Usage('Unknown option "$a".\n$usage');
       }
     }
@@ -107,21 +115,19 @@ void registerAralCommands(ConsoleRegistry registry, AralViewModel vm) {
       keyStage: ks,
       track: track,
       tutorId: tutor,
-      includeOptional: args.contains('optional'),
     );
     return 'On the ARAL roster: ${_line(e, await vm.learnerNames(e.sectionId))}';
   });
 
   add('aral-enroll-proposed',
-      'aral-enroll-proposed <sectionId> <schoolYear> [optional] [tutor=<userId>] — confirm every proposal of the '
-          'section as suggested', (args) async {
-    const usage = 'Usage: aral-enroll-proposed <sectionId> <schoolYear> [optional] [tutor=<userId>]';
+      'aral-enroll-proposed <sectionId> <schoolYear> [tutor=<userId>] — confirm every proposal of the section as '
+          'suggested (learners tied at the cut-off are listed for the coordinator to pick)', (args) async {
+    const usage = 'Usage: aral-enroll-proposed <sectionId> <schoolYear> [tutor=<userId>]';
     if (args.length < 2) throw const _Usage(usage);
     final tutor = args.where((a) => a.startsWith('tutor=')).map((a) => a.substring(6)).firstOrNull;
     final created = await vm.enrollProposed(
       sectionId: _int(args[0], 'sectionId'),
       schoolYear: args[1],
-      includeOptional: args.contains('optional'),
       tutorId: tutor,
     );
     if (created.isEmpty) return 'Nobody new to add (no proposals, or all are already in ARAL).';
@@ -166,9 +172,10 @@ void registerAralCommands(ConsoleRegistry registry, AralViewModel vm) {
         .join('\n');
   });
 
-  add('aral-placement', 'aral-placement <enrollmentId> <ks1|ks2|ks3> [basic|plus] — change the learner\'s program',
+  add('aral-placement',
+      'aral-placement <enrollmentId> <foundational|ks1|ks2|ks3> [basic|plus] — change the learner\'s program',
       (args) async {
-    const usage = 'Usage: aral-placement <enrollmentId> <ks1|ks2|ks3> [basic|plus]';
+    const usage = 'Usage: aral-placement <enrollmentId> <foundational|ks1|ks2|ks3> [basic|plus]';
     if (args.length < 2) throw const _Usage(usage);
     final ks = _ks(args[1]) ?? (throw const _Usage(usage));
     final track = args.length > 2 ? (_track(args[2]) ?? (throw const _Usage(usage))) : null;
@@ -184,9 +191,9 @@ void registerAralCommands(ConsoleRegistry registry, AralViewModel vm) {
   });
 
   add('aral-exit',
-      'aral-exit <enrollmentId> <grade_level_ready|transferred_out|dropped_out|other> [YYYY-MM-DD] — record that '
-          'the learner left ARAL (date defaults to today)', (args) async {
-    const usage = 'Usage: aral-exit <enrollmentId> <grade_level_ready|transferred_out|dropped_out|other> [YYYY-MM-DD]';
+      'aral-exit <enrollmentId> <transferred_out|dropped_out|other> [YYYY-MM-DD] — record that the learner left '
+          'ARAL (date defaults to today; grade-level-ready exits come from results)', (args) async {
+    const usage = 'Usage: aral-exit <enrollmentId> <transferred_out|dropped_out|other> [YYYY-MM-DD]';
     if (args.length < 2) throw const _Usage(usage);
     final reason = AralExitReason.values.where((r) => r.value == args[1]).firstOrNull ?? (throw const _Usage(usage));
     final date = args.length > 2 ? (DateTime.tryParse(args[2]) ?? (throw const _Usage(usage))) : null;
@@ -194,7 +201,7 @@ void registerAralCommands(ConsoleRegistry registry, AralViewModel vm) {
     return 'Updated: ${_line(e, await vm.learnerNames(e.sectionId))}';
   });
 
-  add('aral-reactivate', 'aral-reactivate <enrollmentId> — undo an exit', (args) async {
+  add('aral-reactivate', 'aral-reactivate <enrollmentId> — undo a transfer/drop-out/other exit', (args) async {
     if (args.isEmpty) throw const _Usage('Usage: aral-reactivate <enrollmentId>');
     final e = await vm.reactivate(_int(args[0], 'enrollmentId'));
     return 'Updated: ${_line(e, await vm.learnerNames(e.sectionId))}';

@@ -29,7 +29,9 @@ class LocalDatabase {
         // columns before the CRLA creators; crla_results gains round.
         // v19: ARAL roster (aral_enrollments), built by createAralLocalSchema.
         // v20: ARAL session log + attendance (same creator).
-        version: 20,
+        // v21: aral_enrollments rebuilt for the 'foundational' key stage; the
+        // roster triggers cap a section at 15 active learners.
+        version: 21,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
@@ -134,6 +136,9 @@ class LocalDatabase {
           if (oldVersion < 15) await rebuildPhilIriPassagesForV15(db);
           // v13. IF NOT EXISTS + trigger recreate, so it runs on every upgrade.
           await createPhilIriLocalSchema(db);
+          // v21. Must run before createAralLocalSchema, which recreates the
+          // triggers and indexes this drops.
+          if (oldVersion < 21) await rebuildAralEnrollmentsForV21(db);
           // v19. Same pattern: runs on every upgrade.
           await createAralLocalSchema(db);
           // v14. Rows from before v14 were scored with the default thresholds.

@@ -4,17 +4,23 @@
 // like the assessment sessions: written locally, the cloud table has the same
 // columns and rules for the future sync.
 //
-// Owner decisions (2026-10-15):
-//  * Grades 1-10: KS1 (Grades 1-3 on CRLA, and non-readers of any grade),
-//    KS2 (reading level Grades 4-6) and KS3 (reading level Grades 7-10); KS2/KS3
-//    have a Basic track (decoding) and a Plus track (fluency/comprehension).
-//  * BASA proposes the roster and the track from CRLA / Phil-IRI results; the
-//    coordinator confirms or changes it. What BASA suggested is kept next to
-//    what was chosen (suggested_key_stage / suggested_track).
+// Owner decisions (2026-10-15, revised with the reading coordinator):
+//  * Grades 1-10. Programs: Foundational (non-readers, reading level 0: SHARP
+//    or the school's foundational literacy program; still on the ARAL roster),
+//    KS1, KS2 and KS3; KS2/KS3 have a Basic and a Plus track. Placement rules
+//    are in aral_rules.dart.
+//  * BASA proposes the roster (at most 15 per section) and the program from
+//    CRLA / Phil-IRI results; the coordinator may change the program. What BASA
+//    suggested is kept next to what was chosen (suggested_key_stage /
+//    suggested_track).
 //  * One ARAL enrollment per learner per school year; leaving ARAL is a status
-//    change (exited, with a date and a reason), and exits are only suggested.
+//    change (exited, with a date and a reason). Grade-level-ready exits come
+//    from results, not from the coordinator.
 
+/// The ARAL program level. [foundational] is for non-readers (below KS1
+/// material); like KS1 it has no track.
 enum AralKeyStage {
+  foundational('Foundational'),
   ks1('KS1'),
   ks2('KS2'),
   ks3('KS3');
@@ -22,13 +28,16 @@ enum AralKeyStage {
   final String label;
   const AralKeyStage(this.label);
 
+  /// KS2 and KS3 have a Basic/Plus track; Foundational and KS1 don't.
+  bool get hasTrack => this == ks2 || this == ks3;
+
   static AralKeyStage fromString(String v) => AralKeyStage.values.firstWhere(
         (k) => k.name == v || k.label == v,
         orElse: () => throw ArgumentError('Invalid AralKeyStage value: $v'),
       );
 }
 
-/// KS2/KS3 only; KS1 has no track.
+/// KS2/KS3 only; Foundational and KS1 have no track.
 enum AralTrack {
   basic('Basic'),
   plus('Plus');
@@ -92,7 +101,7 @@ class AralEnrollment {
   final int sectionId;
   final String schoolYear;
   final AralKeyStage keyStage;
-  final AralTrack? track;          // null for KS1
+  final AralTrack? track;          // null for Foundational and KS1
   final String? tutorId;           // users.id (a tutor of the school); assigned later is fine
   final AralStatus status;
   final String enteredOn;          // YYYY-MM-DD
@@ -138,7 +147,7 @@ class AralEnrollment {
 
   bool get isActive => status == AralStatus.active;
 
-  /// The program label, e.g. "KS3 Plus" or "KS1".
+  /// The program label, e.g. "KS3 Plus", "KS1" or "Foundational".
   String get programLabel => track == null ? keyStage.label : '${keyStage.label} ${track!.label}';
 
   Map<String, Object?> toMap() => {

@@ -1,8 +1,9 @@
 // lib/core/data/local/aral_local_schema.dart
 //
 // ARAL-Reading tables in the local SQLite DB (v19 roster, v20 sessions and
-// attendance). Same table and column names as Postgres (migrations
-// 20261015050000_aral_enrollments.sql, 20261015060000_aral_sessions.sql). Called from
+// attendance, v21 Foundational program + 15 per section). Same table and
+// column names as Postgres (migrations 20261015050000_aral_enrollments.sql,
+// 20261015060000_aral_sessions.sql, 20261015070000_aral_foundational_section_cap.sql). Called from
 // LocalDatabase on create and, unconditionally, on upgrade: everything here is
 // IF NOT EXISTS, and triggers are dropped and recreated.
 //
@@ -15,9 +16,12 @@ import 'package:sqflite_common/sqflite.dart';
 
 const _gradeLevels = "('1', '2', '3', '4', '5', '6', '7', '8', '9', '10')";
 
-Future<void> createAralLocalSchema(Database db) async {
-  await db.execute('''
-    CREATE TABLE IF NOT EXISTS aral_enrollments (
+/// Same as the cloud's aral_section_cap (20261015070000).
+const _sectionCap = 15;
+
+/// v21: key_stage allows 'foundational' (no track, like KS1).
+String _enrollmentsTableSql(String name) => '''
+    CREATE TABLE IF NOT EXISTS $name (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       student_id INTEGER NOT NULL REFERENCES students(id),
       school_id INTEGER NOT NULL REFERENCES schools(id),
@@ -25,7 +29,7 @@ Future<void> createAralLocalSchema(Database db) async {
       school_year TEXT NOT NULL
         CHECK (school_year GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9]'
                AND CAST(substr(school_year, 6, 4) AS INTEGER) = CAST(substr(school_year, 1, 4) AS INTEGER) + 1),
-      key_stage TEXT NOT NULL CHECK (key_stage IN ('ks1', 'ks2', 'ks3')),
+      key_stage TEXT NOT NULL CHECK (key_stage IN ('foundational', 'ks1', 'ks2', 'ks3')),
       track TEXT CHECK (track IN ('basic', 'plus')),
       tutor_id TEXT REFERENCES users(id),
       status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'exited')),
@@ -36,7 +40,7 @@ Future<void> createAralLocalSchema(Database db) async {
       basis_round TEXT CHECK (basis_round IN ('bosy', 'mosy', 'mosy1', 'mosy2', 'mosy3', 'eosy')),
       basis_level TEXT,
       basis_assessment_id INTEGER,   -- crla_assessments or phil_iri_assessments (by basis_source)
-      suggested_key_stage TEXT CHECK (suggested_key_stage IN ('ks1', 'ks2', 'ks3')),
+      suggested_key_stage TEXT CHECK (suggested_key_stage IN ('foundational', 'ks1', 'ks2', 'ks3')),
       suggested_track TEXT CHECK (suggested_track IN ('basic', 'plus')),
       notes TEXT,
       created_by TEXT REFERENCES users(id),
@@ -44,12 +48,45 @@ Future<void> createAralLocalSchema(Database db) async {
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
       origin TEXT NOT NULL DEFAULT 'local' CHECK (origin IN ('local', 'cloud')),
       UNIQUE (student_id, school_year),
-      CHECK ((key_stage = 'ks1') = (track IS NULL)),
+      CHECK ((key_stage IN ('foundational', 'ks1')) = (track IS NULL)),
       CHECK ((status = 'exited') = (exited_on IS NOT NULL AND exit_reason IS NOT NULL)),
       CHECK (exited_on IS NULL OR exited_on >= entered_on),
       CHECK (basis_source = 'manual' OR basis_level IS NOT NULL)
     )
-  ''');
+  ''';
+
+const _enrollmentColumns = 'id, student_id, school_id, section_id, school_year, key_stage, track, tutor_id, status, '
+    'entered_on, exited_on, exit_reason, basis_source, basis_round, basis_level, basis_assessment_id, '
+    'suggested_key_stage, suggested_track, notes, created_by, created_at, updated_at, origin';
+
+/// v21: SQLite can't alter a CHECK, so aral_enrollments (v19/v20) is rebuilt
+/// with the 'foundational' key stage, keeping ids. Must run before
+/// createAralLocalSchema, which recreates the triggers and indexes this drops.
+/// Built new -> drop old -> rename, so aral_attendance's REFERENCES text still
+/// names aral_enrollments (renaming the old table away would rewrite it).
+Future<void> rebuildAralEnrollmentsForV21(Database db) async {
+  final exists = (await db.rawQuery(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='aral_enrollments'",
+  )).isNotEmpty;
+  if (!exists) return; // createAralLocalSchema builds it fresh
+
+  await db.transaction((txn) async {
+    final triggers = await txn.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type='trigger' AND sql LIKE '%aral_enrollments%'",
+    );
+    for (final t in triggers) {
+      await txn.execute('DROP TRIGGER IF EXISTS ${t['name']}');
+    }
+    await txn.execute(_enrollmentsTableSql('aral_enrollments_v21'));
+    await txn.execute('INSERT INTO aral_enrollments_v21 ($_enrollmentColumns) '
+        'SELECT $_enrollmentColumns FROM aral_enrollments');
+    await txn.execute('DROP TABLE aral_enrollments');
+    await txn.execute('ALTER TABLE aral_enrollments_v21 RENAME TO aral_enrollments');
+  });
+}
+
+Future<void> createAralLocalSchema(Database db) async {
+  await db.execute(_enrollmentsTableSql('aral_enrollments'));
   await db.execute('CREATE INDEX IF NOT EXISTS aral_enrollments_section ON aral_enrollments (section_id, school_year)');
   await db.execute('CREATE INDEX IF NOT EXISTS aral_enrollments_school ON aral_enrollments (school_id, school_year)');
   await db.execute('CREATE INDEX IF NOT EXISTS aral_enrollments_tutor ON aral_enrollments (tutor_id, school_year)');
@@ -78,6 +115,9 @@ Future<void> createAralLocalSchema(Database db) async {
       WHERE NEW.status <> 'active';
       SELECT RAISE(ABORT, 'The ARAL tutor must be an active tutor of the learner''s school')
       WHERE NEW.tutor_id IS NOT NULL AND NOT EXISTS $tutorOk;
+      SELECT RAISE(ABORT, 'An ARAL section has at most $_sectionCap active learners')
+      WHERE (SELECT count(*) FROM aral_enrollments
+             WHERE section_id = NEW.section_id AND school_year = NEW.school_year AND status = 'active') >= $_sectionCap;
     END
   ''');
 
@@ -104,6 +144,13 @@ Future<void> createAralLocalSchema(Database db) async {
         WHERE student_id = NEW.student_id AND section_id = NEW.section_id AND school_year = NEW.school_year);
       SELECT RAISE(ABORT, 'The ARAL tutor must be an active tutor of the learner''s school')
       WHERE NEW.tutor_id IS NOT NULL AND NEW.tutor_id IS NOT OLD.tutor_id AND NOT EXISTS $tutorOk;
+      -- Becoming active in a section (reactivation or a move) takes a place.
+      SELECT RAISE(ABORT, 'An ARAL section has at most $_sectionCap active learners')
+      WHERE NEW.status = 'active'
+        AND (OLD.status <> 'active' OR NEW.section_id IS NOT OLD.section_id)
+        AND (SELECT count(*) FROM aral_enrollments
+             WHERE section_id = NEW.section_id AND school_year = NEW.school_year AND status = 'active'
+               AND id <> NEW.id) >= $_sectionCap;
     END
   ''');
 

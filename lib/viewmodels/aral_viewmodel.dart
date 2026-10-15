@@ -1,16 +1,21 @@
 // lib/viewmodels/aral_viewmodel.dart
 //
-// ARAL-Reading roster (piece A1b). Offline-first: reads and writes the local
-// copy (CRLA and Phil-IRI results, the roster), like the assessment ViewModels.
+// ARAL-Reading roster (pieces A1b, A1c). Offline-first: reads and writes the
+// local copy (CRLA and Phil-IRI results, the roster), like the assessment
+// ViewModels.
 //
-// Owner decisions (2026-10-15):
-//  * BASA proposes who enters ARAL and in which program (aral_rules.dart); the
-//    coordinator confirms or changes it. The suggestion is stored beside the
-//    choice. Learners without a qualifying result can still be added by hand.
+// Owner decisions (2026-10-15, revised with the reading coordinator):
+//  * BASA proposes who enters ARAL and in which program (aral_rules.dart): the
+//    lowest performers below grade level, at most 15 per section. The
+//    coordinator confirms, picks among learners tied at the cut-off, and may
+//    change a learner's program; the suggestion is stored beside the choice.
+//    Learners with no result yet can be added by hand; learners at or above
+//    grade level, or outranked by weaker readers, cannot.
 //  * Admins and coordinators manage the roster; tutors only read it.
-//  * Exits are recorded by the coordinator (suggestions come in a later piece).
+//  * Grade-level-ready exits come from results (a later piece), never from
+//    the coordinator; transfers and drop-outs are recorded by hand.
 //  * A tutor's "special 15": more than 15 active ARAL learners is allowed but
-//    warned about (lastWarning).
+//    warned about (lastWarning). A section's 15 is a hard limit.
 import '../core/console/logger.dart';
 import '../core/models/aral_enrollment.dart';
 import '../core/models/crla_result.dart';
@@ -34,11 +39,16 @@ import 'viewmodel_exception.dart';
 const aralTutorLoad = 15;
 
 enum AralCandidateStatus {
-  /// Qualifies on its result: BASA proposes it with [AralCandidate.suggestion].
+  /// Below grade level and within the section's free places: BASA proposes
+  /// it with [AralCandidate.suggestion].
   proposed,
-  /// Has a result, but it doesn't qualify (can still be added by hand).
+  /// Tied with others for the last free place(s): the coordinator picks.
+  tied,
+  /// Below grade level, but the free places go to weaker readers.
+  overCap,
+  /// Reads at or above grade level: not ARAL.
   notQualified,
-  /// No usable result in the basis round yet.
+  /// No usable result in the basis round yet (can be added by hand).
   noResult,
   /// Already on the roster for that school year.
   enrolled,
@@ -51,6 +61,10 @@ class AralCandidate {
   final AralCandidateStatus status;
   final String reason;
   final AralPlacement? suggestion;
+  /// Position among the section's qualifying learners (1 = weakest reader);
+  /// equal results share a rank. Null when not qualifying or already enrolled.
+  final int? rank;
+  final AralRankKey? rankKey;
   final AralBasisSource? basisSource;
   final String? basisRound;
   final String? basisLevel;
@@ -63,6 +77,8 @@ class AralCandidate {
     required this.status,
     required this.reason,
     this.suggestion,
+    this.rank,
+    this.rankKey,
     this.basisSource,
     this.basisRound,
     this.basisLevel,
@@ -71,6 +87,20 @@ class AralCandidate {
   });
 
   String get name => '${student.lastName}, ${student.firstName}';
+
+  AralCandidate _seated(AralCandidateStatus status, int rank) => AralCandidate(
+        student: student,
+        grade: grade,
+        status: status,
+        reason: reason,
+        suggestion: suggestion,
+        rank: rank,
+        rankKey: rankKey,
+        basisSource: basisSource,
+        basisRound: basisRound,
+        basisLevel: basisLevel,
+        basisAssessmentId: basisAssessmentId,
+      );
 }
 
 class AralViewModel {
@@ -83,6 +113,7 @@ class AralViewModel {
     'A new ARAL enrollment starts active',
     "The ARAL tutor must be an active tutor of the learner's school",
     'An ARAL enrollment keeps its learner, school, year and basis; only the placement, tutor, status and notes change',
+    'An ARAL section has at most 15 active learners',
   ];
 
   final ScopedLogger _log;
@@ -94,7 +125,8 @@ class AralViewModel {
   final CrlaResultRepository _crlaResults;
   final PhilIriViewModel _philIri;
 
-  /// A non-blocking notice from the last write (e.g. a tutor over 15 learners).
+  /// A non-blocking notice from the last write (e.g. a tutor over 15 learners,
+  /// or learners tied at the cut-off).
   String? lastWarning;
 
   AralViewModel({
@@ -117,19 +149,16 @@ class AralViewModel {
 
   // ---- Proposal ----
 
-  /// Every actively enrolled learner of the section with BASA's proposal.
-  /// [includeOptional] extends the program to KS1 Developing/Transitioning and
-  /// KS2-3 Instructional readers (schools with enough tutors).
-  Future<List<AralCandidate>> propose({
-    required int sectionId,
-    required String schoolYear,
-    bool includeOptional = false,
-  }) async {
-    _log('propose(sectionId: $sectionId, year: $schoolYear, optional: $includeOptional)');
+  /// Every actively enrolled learner of the section with BASA's proposal:
+  /// learners below grade level are ranked weakest first, and the section's
+  /// free places (15 minus its active ARAL learners) go down the ranking.
+  Future<List<AralCandidate>> propose({required int sectionId, required String schoolYear}) async {
+    _log('propose(sectionId: $sectionId, year: $schoolYear)');
     schoolYear = normalizeSchoolYear(schoolYear);
     final (section, grade) = await _aralSection(sectionId, schoolYear);
     final learners = await _students.getBySection(section.id!);
-    final enrolled = {for (final e in await _roster.getBySection(section.id!, schoolYear: schoolYear)) e.studentId: e};
+    final sectionRoster = await _roster.getBySection(section.id!, schoolYear: schoolYear);
+    final enrolled = {for (final e in sectionRoster) e.studentId: e};
     final crla = grade <= 3 ? await _crlaResults.getBySection(section.id!, schoolYear: schoolYear) : const <CrlaResult>[];
 
     final out = <AralCandidate>[];
@@ -146,13 +175,41 @@ class AralViewModel {
         continue;
       }
       out.add(grade <= 3
-          ? _crlaCandidate(s, grade, crla.where((r) => r.studentId == s.id).toList(), includeOptional)
-          : await _philIriCandidate(s, grade, section.id!, schoolYear, includeOptional));
+          ? _crlaCandidate(s, grade, crla.where((r) => r.studentId == s.id).toList())
+          : await _philIriCandidate(s, grade, section.id!, schoolYear));
+    }
+
+    // The qualifying learners (drafted as `proposed`) are ranked into the
+    // free places.
+    final seats = aralSectionCap - sectionRoster.where((e) => e.isActive).length;
+    final qualifying = [
+      for (var i = 0; i < out.length; i++)
+        if (out[i].status == AralCandidateStatus.proposed) i,
+    ];
+    final picks = aralPickSeats([for (final i in qualifying) out[i].rankKey!], seats);
+    for (var q = 0; q < qualifying.length; q++) {
+      final pick = picks[q];
+      out[qualifying[q]] = out[qualifying[q]]._seated(
+        switch (pick.seat) {
+          AralSeat.inside => AralCandidateStatus.proposed,
+          AralSeat.tie => AralCandidateStatus.tied,
+          AralSeat.out => AralCandidateStatus.overCap,
+        },
+        pick.rank,
+      );
     }
     return out;
   }
 
-  AralCandidate _crlaCandidate(Student s, int grade, List<CrlaResult> results, bool includeOptional) {
+  /// The section's free ARAL places in [schoolYear].
+  Future<int> freePlaces({required int sectionId, required String schoolYear}) async {
+    final active = (await _roster.getBySection(sectionId, schoolYear: normalizeSchoolYear(schoolYear)))
+        .where((e) => e.isActive)
+        .length;
+    return active >= aralSectionCap ? 0 : aralSectionCap - active;
+  }
+
+  AralCandidate _crlaCandidate(Student s, int grade, List<CrlaResult> results) {
     final round = aralCrlaBasisRound(grade);
     // Latest attempt per variant in the basis round, then the weakest profile.
     final latest = <String, CrlaResult>{};
@@ -174,13 +231,21 @@ class AralViewModel {
       if (basis == null || aralWeakerCrlaProfile(r.readingProfile, basis.readingProfile) == r.readingProfile) basis = r;
     }
     final profile = basis!.readingProfile!;
-    final qualifies = aralCrlaQualifies(profile, includeOptional: includeOptional);
+    final qualifies = aralCrlaQualifies(profile);
+    final key = AralRankKey.crla(
+      pctCorrectWordsRead: basis.pctCorrectWordsRead,
+      comprehensionCorrect: basis.comprehensionCorrect,
+      wpm: basis.wpm,
+    );
     return AralCandidate(
       student: s,
       grade: grade,
       status: qualifies ? AralCandidateStatus.proposed : AralCandidateStatus.notQualified,
-      reason: 'CRLA ${round.label}: $profile',
+      reason: 'CRLA ${round.label}: $profile${qualifies ? '' : ' (not ARAL)'} '
+          '(${_pct(key.wordRecognition)} words correct, comprehension ${basis.comprehensionCorrect ?? '-'}, '
+          '${_wpm(basis.wpm)})',
       suggestion: qualifies ? aralCrlaPlacement : null,
+      rankKey: qualifies ? key : null,
       basisSource: AralBasisSource.crla,
       basisRound: round.name,
       basisLevel: profile,
@@ -188,11 +253,10 @@ class AralViewModel {
     );
   }
 
-  Future<AralCandidate> _philIriCandidate(
-      Student s, int grade, int sectionId, String schoolYear, bool includeOptional) async {
+  Future<AralCandidate> _philIriCandidate(Student s, int grade, int sectionId, String schoolYear) async {
     final results = await _philIri.learnerResults(studentId: s.id!, sectionId: sectionId, schoolYear: schoolYear);
     final bosy = results.rounds.where((r) => r.round == PhilIriRound.bosy).firstOrNull;
-    if (bosy == null || !bosy.given || bosy.profile == null) {
+    if (bosy == null || !bosy.given || bosy.profile == null || bosy.adjustedLevel == null) {
       return AralCandidate(
         student: s,
         grade: grade,
@@ -200,34 +264,37 @@ class AralViewModel {
         reason: 'No Phil-IRI BOSY reading yet${results.gst != null ? ' (GST only)' : ''}',
       );
     }
-    final profile = bosy.profile!;
-    final qualifies = aralPhilIriQualifies(profile, includeOptional: includeOptional);
-    final placement = aralPhilIriPlacement(
-      profile: profile,
-      wordReadingLevel: bosy.wordReadingLevel,
-      adjustedLevel: bosy.adjustedLevel,
-      grade: grade,
-    );
-    final level = bosy.adjustedLevel == null || bosy.adjustedLevel == 0 ? '' : ', reads at Grade ${bosy.adjustedLevel}';
+    final adjusted = bosy.adjustedLevel!;
+    final placement = aralPhilIriPlacement(adjustedLevel: adjusted, grade: grade);
+    final key = AralRankKey.philIri(bosy);
+    final level = adjusted == 0 ? 'non-reader' : 'reads at Grade $adjusted';
+    final scores = 'word reading ${_pct(key.wordRecognition)}, comprehension '
+        '${bosy.comprehensionBlank ? '-' : _pct(key.comprehension)}, ${_wpm(bosy.wordsPerMinute)}';
     return AralCandidate(
       student: s,
       grade: grade,
-      status: qualifies ? AralCandidateStatus.proposed : AralCandidateStatus.notQualified,
-      reason: 'Phil-IRI BOSY: ${profile.label} (word reading ${bosy.wordReadingLevel?.label ?? '-'}$level)',
-      suggestion: qualifies ? placement : null,
+      status: placement != null ? AralCandidateStatus.proposed : AralCandidateStatus.notQualified,
+      reason: 'Phil-IRI BOSY: ${bosy.profile!.label}, $level'
+          '${placement == null ? ' - ${aralNotAralLabel(adjusted, grade)}' : ''} ($scores)',
+      suggestion: placement,
+      rankKey: placement != null ? key : null,
       basisSource: AralBasisSource.philIri,
       basisRound: PhilIriRound.bosy.name,
-      basisLevel: profile.name,
+      basisLevel: bosy.profile!.name,
       basisAssessmentId: results.sessions[PhilIriRound.bosy]?.id,
     );
   }
 
+  static String _pct(double fraction) => '${(fraction * 100).round()}%';
+  static String _wpm(double? wpm) => wpm == null ? '- wpm' : '${wpm.round()} wpm';
+
   // ---- Roster changes (admin / coordinator) ----
 
-  /// Puts one learner on the roster. Without [keyStage]/[track] the proposal
-  /// is used; giving them overrides it (the suggestion is still stored). A
-  /// learner without a qualifying result needs an explicit [keyStage] (and
-  /// [track] for KS2/KS3).
+  /// Puts one learner on the roster: a proposed learner, one tied at the
+  /// cut-off (the coordinator's pick), or one with no result yet (by hand,
+  /// with [keyStage] and, for KS2/KS3, [track]). Without [keyStage]/[track]
+  /// the proposal is used; giving them overrides it (the suggestion is still
+  /// stored).
   Future<AralEnrollment> enroll({
     required int sectionId,
     required String schoolYear,
@@ -236,7 +303,6 @@ class AralViewModel {
     AralTrack? track,
     String? tutorId,
     String? notes,
-    bool includeOptional = false,
     DateTime? enteredOn,
   }) async {
     _log('enroll(student: $studentId, section: $sectionId, year: $schoolYear, ks: ${keyStage?.name}, '
@@ -245,9 +311,8 @@ class AralViewModel {
     lastWarning = null;
     schoolYear = normalizeSchoolYear(schoolYear);
     final (section, _) = await _aralSection(sectionId, schoolYear);
-    final candidate = (await propose(sectionId: sectionId, schoolYear: schoolYear, includeOptional: includeOptional))
-        .where((c) => c.student.id == studentId)
-        .firstOrNull;
+    final candidate =
+        (await propose(sectionId: sectionId, schoolYear: schoolYear)).where((c) => c.student.id == studentId).firstOrNull;
     if (candidate == null) {
       throw ViewModelException('Learner $studentId has no active enrollment in section $sectionId.');
     }
@@ -267,19 +332,29 @@ class AralViewModel {
     String? notes,
     DateTime? enteredOn,
   }) async {
-    if (candidate.status == AralCandidateStatus.enrolled) {
-      throw ViewModelException('${candidate.name} is already on the ARAL roster for $schoolYear '
-          '(${candidate.enrollment!.programLabel}).');
+    switch (candidate.status) {
+      case AralCandidateStatus.enrolled:
+        throw ViewModelException('${candidate.name} is already on the ARAL roster for $schoolYear '
+            '(${candidate.enrollment!.programLabel}).');
+      case AralCandidateStatus.notQualified:
+        throw ViewModelException('${candidate.name} is not for ARAL-Reading: ${candidate.reason}.');
+      case AralCandidateStatus.overCap:
+        throw ViewModelException("${candidate.name} is ranked #${candidate.rank}; the section's free ARAL places "
+            'go to weaker readers first (at most $aralSectionCap per section).');
+      case AralCandidateStatus.proposed || AralCandidateStatus.tied || AralCandidateStatus.noResult:
     }
     final suggestion = candidate.suggestion;
     final ks = keyStage ?? suggestion?.keyStage;
     if (ks == null) {
-      throw ViewModelException('${candidate.name} has no qualifying result (${candidate.reason}); '
-          'give the key stage (and the track for KS2/KS3) to add them by hand.');
+      throw ViewModelException('${candidate.name} has no result yet (${candidate.reason}); '
+          'give the program (and the track for KS2/KS3) to add them by hand.');
     }
     final tr = keyStage == null && track == null ? suggestion?.track : track;
     _checkTrack(ks, tr);
     if (tutorId != null) await _checkTutor(tutorId, section.schoolId);
+    if (await freePlaces(sectionId: section.id!, schoolYear: schoolYear) == 0) {
+      throw ViewModelException('Section ${section.id} already has $aralSectionCap active ARAL learners.');
+    }
 
     final stored = await _write(() => _roster.insert(AralEnrollment(
           studentId: candidate.student.id!,
@@ -304,29 +379,39 @@ class AralViewModel {
   }
 
   /// Confirms every proposal of the section as suggested (optionally with one
-  /// tutor for all of them). Learners already on the roster are skipped.
+  /// tutor for all of them). Learners tied for the last place(s) are left for
+  /// the coordinator to pick with [enroll] (named in lastWarning).
   Future<List<AralEnrollment>> enrollProposed({
     required int sectionId,
     required String schoolYear,
-    bool includeOptional = false,
     String? tutorId,
   }) async {
-    _log('enrollProposed(section: $sectionId, year: $schoolYear, optional: $includeOptional, tutor: $tutorId)');
+    _log('enrollProposed(section: $sectionId, year: $schoolYear, tutor: $tutorId)');
     _requireManager();
     lastWarning = null;
     schoolYear = normalizeSchoolYear(schoolYear);
     final (section, _) = await _aralSection(sectionId, schoolYear);
     if (tutorId != null) await _checkTutor(tutorId, section.schoolId);
-    final candidates = await propose(sectionId: sectionId, schoolYear: schoolYear, includeOptional: includeOptional);
+    final candidates = await propose(sectionId: sectionId, schoolYear: schoolYear);
     final created = <AralEnrollment>[];
     for (final c in candidates.where((c) => c.status == AralCandidateStatus.proposed)) {
       created.add(await _enrollCandidate(c, section, schoolYear, tutorId: tutorId));
     }
     if (tutorId != null && created.isNotEmpty) await _warnTutorLoad(tutorId, schoolYear);
+    final tied = candidates.where((c) => c.status == AralCandidateStatus.tied).toList();
+    if (tied.isNotEmpty) {
+      final free = await freePlaces(sectionId: sectionId, schoolYear: schoolYear);
+      final note = '${tied.length} learners are tied for the last $free place(s): '
+          '${tied.map((c) => '${c.name} (${c.student.id})').join(', ')}. The coordinator picks (enroll).';
+      lastWarning = lastWarning == null ? note : '$lastWarning\n$note';
+      _log(note);
+    }
     return created;
   }
 
-  /// Changes the program (KS1 has no track; KS2/KS3 need one).
+  /// Changes the program (Foundational and KS1 have no track; KS2/KS3 need
+  /// one). E.g. a school without a foundational literacy program puts its
+  /// non-readers on KS1.
   Future<AralEnrollment> setPlacement(int enrollmentId, AralKeyStage keyStage, AralTrack? track) async {
     _log('setPlacement($enrollmentId, ${keyStage.name}, ${track?.name})');
     _requireManager();
@@ -347,10 +432,16 @@ class AralViewModel {
     return stored;
   }
 
-  /// Records that the learner left ARAL (the reason is required).
+  /// Records that the learner left ARAL for an administrative reason
+  /// (transferred out, dropped out, other). Grade-level-ready exits come from
+  /// the learner's results, not from here.
   Future<AralEnrollment> exit(int enrollmentId, AralExitReason reason, {DateTime? on}) async {
     _log('exit($enrollmentId, ${reason.value})');
     _requireManager();
+    if (reason == AralExitReason.gradeLevelReady) {
+      throw const ViewModelException(
+          "A grade-level-ready exit is set by BASA from the learner's assessment results, not by hand.");
+    }
     final e = await _require(enrollmentId);
     if (!e.isActive) throw ViewModelException('This learner already left ARAL on ${e.exitedOn}.');
     final date = _localDate(on ?? DateTime.now());
@@ -361,12 +452,20 @@ class AralViewModel {
         e.copyWith(status: AralStatus.exited, exitedOn: () => date, exitReason: () => reason)));
   }
 
-  /// Undoes an exit (e.g. recorded by mistake).
+  /// Undoes an administrative exit (e.g. recorded by mistake). A
+  /// grade-level-ready exit stands: it follows the results.
   Future<AralEnrollment> reactivate(int enrollmentId) async {
     _log('reactivate($enrollmentId)');
     _requireManager();
     final e = await _require(enrollmentId);
     if (e.isActive) throw const ViewModelException('This learner is already active in ARAL.');
+    if (e.exitReason == AralExitReason.gradeLevelReady) {
+      throw const ViewModelException(
+          'This learner left ARAL grade-level ready, per their results; that exit is not undone by hand.');
+    }
+    if (await freePlaces(sectionId: e.sectionId, schoolYear: e.schoolYear) == 0) {
+      throw ViewModelException('Section ${e.sectionId} already has $aralSectionCap active ARAL learners.');
+    }
     return _write(
         () => _roster.update(e.copyWith(status: AralStatus.active, exitedOn: () => null, exitReason: () => null)));
   }
@@ -467,10 +566,10 @@ class AralViewModel {
   }
 
   static void _checkTrack(AralKeyStage ks, AralTrack? track) {
-    if (ks == AralKeyStage.ks1 && track != null) {
-      throw const ViewModelException('KS1 has no Basic/Plus track.');
+    if (!ks.hasTrack && track != null) {
+      throw ViewModelException('${ks.label} has no Basic/Plus track.');
     }
-    if (ks != AralKeyStage.ks1 && track == null) {
+    if (ks.hasTrack && track == null) {
       throw ViewModelException('${ks.label} needs a track: basic (decoding) or plus (fluency and comprehension).');
     }
   }
@@ -500,7 +599,9 @@ class AralViewModel {
         throw const ViewModelException('This learner is already on the ARAL roster for that school year.');
       }
       for (final refusal in _dbRefusals) {
-        if (text.contains(refusal)) throw ViewModelException(refusal.endsWith('.') ? refusal : '$refusal.');
+        if (text.toLowerCase().contains(refusal.toLowerCase())) {
+          throw ViewModelException(refusal.endsWith('.') ? refusal : '$refusal.');
+        }
       }
       rethrow;
     }
