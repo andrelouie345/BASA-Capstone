@@ -48,6 +48,8 @@ import '../viewmodels/text_viewmodel.dart';
 import '../viewmodels/test_data_viewmodel.dart';
 import '../viewmodels/login_log_viewmodel.dart';
 import 'package:basa_capstone/core/console/commands/crla_commands.dart';
+import 'package:basa_capstone/core/console/commands/crla_import_commands.dart';
+import 'package:basa_capstone/viewmodels/crla_import_viewmodel.dart';
 import 'package:basa_capstone/core/data/local/crla_assessment_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/crla_part1_english_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/crla_part1_standard_repository_sqlite.dart';
@@ -199,6 +201,16 @@ Future<void> main() async {
   );
   vmRegistry.register('CrlaViewModel', crlaVm);
   registerCrlaCommands(registry, authVm, crlaVm);
+  final crlaImportVm = CrlaImportViewModel(
+    auth: authVm,
+    crla: crlaVm,
+    assessments: CrlaAssessmentRepositorySqlite(localDb),
+    sections: SectionRepositorySqlite(localDb),
+    students: StudentRepositorySqlite(localDb),
+    logger: session,
+  );
+  vmRegistry.register('CrlaImportViewModel', crlaImportVm);
+  registerCrlaImportCommands(registry, authVm, crlaImportVm);
   // CRLA thresholds are managed online (mirrored locally); regenerate runs in the cloud.
   final crlaThresholdVm = CrlaThresholdViewModel(
     auth: authVm,
