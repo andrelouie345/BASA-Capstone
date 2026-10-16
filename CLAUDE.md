@@ -6,7 +6,7 @@ Flutter/Dart reading-assessment app for tutors (DepEd ARAL-Reading program, Phil
 
 ## Stack
 - Flutter/Dart, MVVM. Offline-first: **SQLite** (sqflite on mobile, sqflite_common_ffi on desktop/console) mirrored from **Supabase** (cloud, plus an optional self-hosted LAN Supabase/Postgres using the same client with a different URL).
-- Supabase URL/anon key (cloud + LAN) are runtime-editable via console `config-*` commands and persisted to disk. The hardcoded dev URL/key in `supabase_config.dart` is a temporary convenience and must be removed before distribution.
+- Supabase URL/anon key (cloud + LAN) are runtime-editable via console `config-*` commands and persisted to disk (`<data dir>/supabase_config.json`). Nothing is hardcoded: when no config file exists, defaults come from build-time defines `BASA_CLOUD_URL`, `BASA_CLOUD_KEY`, `BASA_LAN_URL`, `BASA_LAN_KEY` (`flutter run/build --dart-define=...`, `dart run -D...`), else empty.
 - The app only ever uses the anon key. Never put a `service_role` key in the app or console. Admin account creation goes through a server-side Edge Function.
 - Tests are done through the developer console (`lib/console/main.dart`, plain `dart run`, no Flutter engine), plus `dart analyze`.
 

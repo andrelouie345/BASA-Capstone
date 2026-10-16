@@ -37,17 +37,22 @@ class SupabaseConfigStore {
       );
     }
 
-    // Sensible empty defaults — commands below fill these in.
-
-    // I added these in to not get the hassle of putting them again and again.
+    // No file yet: start from build-time defaults (empty unless the build
+    // passes --define / --dart-define BASA_CLOUD_URL=... etc.). Nothing is
+    // hardcoded in source; config-set-* commands fill in the rest.
     final store = SupabaseConfigStore._(
-      SupabaseProfile(url: 'https://ssgewslamdlbllqcgkrr.supabase.co', anonKey: 'sb_publishable_7f9og99jvpbMyroXyUCDsQ_zEGPtlL3'),
-      SupabaseProfile(url: 'http://192.168.1.100:8000', anonKey: ''),
+      SupabaseProfile(url: _cloudUrl, anonKey: _cloudKey),
+      SupabaseProfile(url: _lanUrl, anonKey: _lanKey),
       path,
     );
     await store._save();
     return store;
   }
+
+  static const _cloudUrl = String.fromEnvironment('BASA_CLOUD_URL');
+  static const _cloudKey = String.fromEnvironment('BASA_CLOUD_KEY');
+  static const _lanUrl = String.fromEnvironment('BASA_LAN_URL');
+  static const _lanKey = String.fromEnvironment('BASA_LAN_KEY');
 
   Future<void> _save() async {
     final file = File(_configPath);
