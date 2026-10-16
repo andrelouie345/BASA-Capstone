@@ -50,6 +50,7 @@ import '../viewmodels/login_log_viewmodel.dart';
 import 'package:basa_capstone/core/console/commands/crla_commands.dart';
 import 'package:basa_capstone/core/console/commands/crla_import_commands.dart';
 import 'package:basa_capstone/viewmodels/crla_import_viewmodel.dart';
+import 'package:basa_capstone/viewmodels/crla_export_viewmodel.dart';
 import 'package:basa_capstone/core/data/local/crla_assessment_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/crla_part1_english_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/crla_part1_standard_repository_sqlite.dart';
@@ -211,6 +212,21 @@ Future<void> main() async {
   );
   vmRegistry.register('CrlaImportViewModel', crlaImportVm);
   registerCrlaImportCommands(registry, authVm, crlaImportVm);
+  final crlaExportVm = CrlaExportViewModel(
+    auth: authVm,
+    sections: SectionRepositorySqlite(localDb),
+    schools: SchoolRepositorySqlite(localDb),
+    students: StudentRepositorySqlite(localDb),
+    assessments: CrlaAssessmentRepositorySqlite(localDb),
+    part1Standard: CrlaPart1StandardRepositorySqlite(localDb),
+    part1English: CrlaPart1EnglishRepositorySqlite(localDb),
+    part2Fluency: CrlaPart2FluencyRepositorySqlite(localDb),
+    stories: CrlaStoryRepositorySqlite(localDb),
+    thresholds: CrlaThresholdRepositorySqlite(localDb),
+    logger: session,
+  );
+  vmRegistry.register('CrlaExportViewModel', crlaExportVm);
+  registerCrlaExportCommands(registry, authVm, crlaExportVm);
   // CRLA thresholds are managed online (mirrored locally); regenerate runs in the cloud.
   final crlaThresholdVm = CrlaThresholdViewModel(
     auth: authVm,

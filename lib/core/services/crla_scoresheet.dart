@@ -10,7 +10,7 @@
 //    "G<n> FIL Reading Scoresheet" (fil; Grades 2-3), "G3 ENG Reading
 //    Scoresheet" (eng). Header: C3 assessment type (BoSY/MoSY/EoSY), C4 school
 //    ID, C5 school name, C6 teacher, C8 section, C9 language; M7/P7 the words
-//    of story 1/2.
+//    of story 1/2 (formulas: the template's story list, else D9/E9 typed).
 //  * Learners in rows 11-110. MT/FIL: B LRN, C name, D sex, E date, F task 1,
 //    G task 2 low (rhymes/words), H task 2 high (sentences), K story, L
 //    miscues, M words read (formula: story words - miscues), N/O minutes and
@@ -146,8 +146,9 @@ CrlaScoresheetFile readCrlaScoresheet(List<int> bytes) {
     final c = eng
         ? (story: 'J', miscues: 'K', words: 'L', min: 'M', sec: 'N', comp: 'Q', exp: 'R', obs: 'S', remarks: 'U')
         : (story: 'K', miscues: 'L', words: 'M', min: 'N', sec: 'O', comp: 'R', exp: 'S', obs: 'T', remarks: 'V');
-    final story1Words = _int(cells['M7']);
-    final story2Words = _int(cells['P7']);
+    // The header's story totals (formulas), else the typed counts they fall back on.
+    final story1Words = _int(cells['M7']) ?? _int(cells['D9']);
+    final story2Words = _int(cells['P7']) ?? _int(cells['E9']);
 
     for (var r = _firstRow; r <= _lastRow; r++) {
       final task1Raw = cells['F$r'];
@@ -292,4 +293,153 @@ String? _date(Object? v) {
   }
   if (d == null) return null;
   return '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+}
+
+// ---- Writing (IE3) ----
+
+/// One variant's latest attempt, as the scoresheet's input columns.
+class CrlaScoresheetEntry {
+  final String assessedOn;      // YYYY-MM-DD
+  final int? task1;
+  final int? task2Low;
+  final int? task2High;
+  final int? task2;             // eng
+  final int? storyNo;
+  final int? miscues;
+  final int? minutes;
+  final int? seconds;
+  final int? comprehension;
+  final int? experienceRating;
+  final int? observationLevel;
+  final String? remarks;
+
+  const CrlaScoresheetEntry({
+    required this.assessedOn,
+    this.task1,
+    this.task2Low,
+    this.task2High,
+    this.task2,
+    this.storyNo,
+    this.miscues,
+    this.minutes,
+    this.seconds,
+    this.comprehension,
+    this.experienceRating,
+    this.observationLevel,
+    this.remarks,
+  });
+}
+
+class CrlaScoresheetLearner {
+  final String lrn;
+  final String name;
+  final String? sex;                                // 'Male' / 'Female'
+  final Map<String, CrlaScoresheetEntry> entries;   // variant -> latest attempt
+  const CrlaScoresheetLearner(this.lrn, this.name, this.sex, this.entries);
+}
+
+/// Fills a blank CRLA2 scoresheet template of grade [grade]: the MT sheet's
+/// header and one row per learner (rows 11-110, the same row on every
+/// variant sheet, as the template's FIL/ENG sheets copy the learner columns
+/// from the MT row). Only input cells are written; Excel recalculates the
+/// totals, levels, profiles, Class Record and Class Summary on open (with
+/// DepEd's own bands). Returns the workbook and notes about what was left out.
+(List<int>, List<String>) fillCrlaScoresheet(
+  List<int> template, {
+  required int grade,
+  required String assessmentType,  // BoSY / MoSY / EoSY
+  String? schoolCode,
+  String? schoolName,
+  String? teacher,
+  String? sectionName,
+  String? mtLanguage,
+  int? male,
+  int? female,
+  int? story1Words,
+  int? story2Words,
+  int? filStory1Words,
+  int? filStory2Words,
+  required List<CrlaScoresheetLearner> learners,
+}) {
+  final XlsxWorkbook wb;
+  try {
+    wb = XlsxWorkbook.decode(template);
+  } on XlsxException catch (e) {
+    throw CrlaScoresheetException('$e');
+  }
+  final sheets = {
+    for (final v in const ['mt', 'fil', 'eng'])
+      if (wb.hasSheet('G$grade ${v.toUpperCase()} Reading Scoresheet')) v: 'G$grade ${v.toUpperCase()} Reading Scoresheet',
+  };
+  if (!sheets.containsKey('mt')) {
+    throw CrlaScoresheetException('Not a blank Grade $grade CRLA2 scoresheet template: no "G$grade MT Reading Scoresheet" '
+        'sheet (sheets: ${wb.sheetNames.join(', ')}).');
+  }
+  final notes = <String>[];
+  final max = _lastRow - _firstRow + 1;
+  if (learners.length > max) {
+    notes.add('The scoresheet holds $max learners; ${learners.length - max} were left out.');
+  }
+
+  // Writes only cells that aren't formulas (a template may differ slightly).
+  void put(String sheet, Map<String, Object?> cells) {
+    final ok = <String, Object?>{};
+    for (final e in cells.entries) {
+      if (e.value == null) continue;
+      if (wb.isFormula(sheet, e.key)) {
+        notes.add('$sheet!${e.key} is a formula in this template; not written.');
+      } else {
+        ok[e.key] = e.value;
+      }
+    }
+    if (ok.isNotEmpty) wb.write(sheet, ok);
+  }
+
+  final mt = sheets['mt']!;
+  put(mt, {
+    'C3': assessmentType, 'C4': schoolCode, 'C5': schoolName, 'C6': teacher, 'C8': sectionName, 'C9': mtLanguage,
+    'D6': male, 'E6': female, 'D9': story1Words, 'E9': story2Words,
+  });
+  final fil = sheets['fil'];
+  if (fil != null) put(fil, {'D9': filStory1Words, 'E9': filStory2Words});
+
+  var r = _firstRow;
+  for (final l in learners.take(max)) {
+    final first = l.entries.values.isEmpty ? null : l.entries.values.first.assessedOn;
+    put(mt, {
+      'B$r': l.lrn,
+      'C$r': l.name,
+      'D$r': l.sex,
+      'E$r': (l.entries['mt']?.assessedOn ?? first) == null ? null : _serial(l.entries['mt']?.assessedOn ?? first!),
+    });
+    for (final e in l.entries.entries) {
+      final sheet = sheets[e.key];
+      if (sheet == null) {
+        notes.add('${l.name}: the template has no ${e.key.toUpperCase()} sheet; that result was left out.');
+        continue;
+      }
+      final x = e.value;
+      final obs = x.observationLevel == null ? null : 'Level ${x.observationLevel}';
+      if (e.key == 'eng') {
+        put(sheet, {
+          'F$r': x.task1, 'G$r': x.task2, 'J$r': x.storyNo, 'K$r': x.miscues, 'M$r': x.minutes, 'N$r': x.seconds,
+          'Q$r': x.comprehension, 'R$r': x.experienceRating, 'S$r': obs, 'U$r': x.remarks,
+        });
+      } else {
+        put(sheet, {
+          'F$r': x.task1, 'G$r': x.task2Low, 'H$r': x.task2High, 'K$r': x.storyNo, 'L$r': x.miscues,
+          'N$r': x.minutes, 'O$r': x.seconds, 'R$r': x.comprehension, 'S$r': x.experienceRating, 'T$r': obs,
+          'V$r': x.remarks,
+        });
+      }
+    }
+    r++;
+  }
+  return (wb.encode(), notes);
+}
+
+/// YYYY-MM-DD -> Excel date serial (1900 date system).
+int _serial(String isoDate) {
+  final d = DateTime.parse(isoDate.substring(0, 10));
+  return DateTime.utc(d.year, d.month, d.day).difference(DateTime.utc(1899, 12, 30)).inDays;
 }
