@@ -9,7 +9,15 @@ import '../services/phil_iri_rules.dart';
 
 enum PhilIriReadingMethod {
   wholeText('whole_text'),   // timed reading of the whole passage
-  oneMinute('one_minute');   // words read in one minute (wpm = words read)
+  oneMinute('one_minute'),   // words read in one minute (wpm = words read)
+  // Silent reading of the whole text, timed; no miscues are recorded, so word
+  // reading counts as 100% (reading coordinator, 2026-10-16). Any graded
+  // passage can be read silently or aloud: silent/oral are only strategies,
+  // typically silent first and an oral follow-up for Frustration.
+  silent('silent');
+
+  /// Read aloud (whole text or one minute): miscues are recorded.
+  bool get isOral => this != silent;
 
   final String value;
   const PhilIriReadingMethod(this.value);
@@ -49,7 +57,7 @@ class PhilIriReading {
   final int sequenceNo;           // order read within the session, 1-based
   final int passageId;
   final PhilIriReadingMethod method;
-  final int? readingSeconds;      // whole-text: time taken; null until timed
+  final int? readingSeconds;      // whole-text / silent: time taken; null until timed
   final int? wordsRead;           // one-minute: words read in the minute
   final PhilIriObservation observation;
 

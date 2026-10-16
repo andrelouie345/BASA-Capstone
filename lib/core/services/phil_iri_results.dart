@@ -11,8 +11,18 @@
 //   score and the previous round's, starting from the GST. This also applies
 //   BOSY -> MOSY #1 (missing in the workbook: a bug). So a learner is never
 //   demoted through comprehension.
-// - Word reading (accuracy, speed) may go down; a round with no reading of its
-//   own carries the previous round's word reading forward.
+// - Word reading carries up too (reading coordinator, 2026-10-16; replaces
+//   "word reading may go down" of 2026-10-14): the round's accuracy and speed
+//   are each the highest so far, so a reader never reverts to Non-Reader.
+//   Only ORAL readings count for word reading: a silent reading's 100% is not
+//   a measured accuracy, so it is used only while no oral reading exists.
+// - Two values per round: the carried result (above) is for reports and ARAL;
+//   the round's own reading ("actual", the true current score, higher or
+//   lower) is for the tutor and IRIP planning.
+// - Not assessed at all in the year (no GST, no reading): reports and ARAL
+//   count the learner as Frustration, exactly 3 levels down, flagged
+//   notAssessed (philIriNotAssessedResult). It never carries; any later
+//   assessment replaces it, even a worse one. Phil-IRI only (not CRLA).
 // - A Foundational Literacy Test reading has no comprehension; in BOSY the GST
 //   supplies it, as in the workbook.
 // - Every assessment is ONE passage of the learner's own grade; the adjusted
@@ -37,10 +47,12 @@ class PhilIriPassageResult {
   final PhilIriLevel comprehensionLevel; // a blank counts as 0
   final PhilIriLevel profile;
   final bool isStrugglingReader;
+  final bool silent;                    // read silently: word reading not measured
 
   bool get comprehensionBlank => comprehensionScore == null;
 
   const PhilIriPassageResult({
+    this.silent = false,
     required this.wordReadingScore,
     required this.wordsPerMinute,
     required this.accuracyLevel,
@@ -56,6 +68,8 @@ class PhilIriPassageResult {
 /// Scores one passage reading.
 /// Whole text: accuracy over the passage's words, wpm from the reading time.
 /// One minute: accuracy over the words read, wpm = words read.
+/// Silent: wpm from the reading time, no miscues allowed, word reading 100%
+/// (so accuracy is Independent and the profile follows the comprehension).
 /// Without comprehension (e.g. FLT) the comprehension counts as 0.
 PhilIriPassageResult philIriScorePassage({
   required int wordCount,
@@ -70,8 +84,11 @@ PhilIriPassageResult philIriScorePassage({
   final int words;
   final double wpm;
   switch (method) {
-    case PhilIriReadingMethod.wholeText:
-      if (readingSeconds == null) throw ArgumentError('readingSeconds is required for whole-text reading');
+    case PhilIriReadingMethod.wholeText || PhilIriReadingMethod.silent:
+      if (readingSeconds == null) throw ArgumentError('readingSeconds is required for ${method.value} reading');
+      if (method == PhilIriReadingMethod.silent && countedMiscues != 0) {
+        throw ArgumentError('a silent reading has no miscues');
+      }
       words = wordCount;
       wpm = philIriWordsPerMinute(wordCount, readingSeconds);
     case PhilIriReadingMethod.oneMinute:
@@ -104,6 +121,7 @@ PhilIriPassageResult philIriScorePassage({
     comprehensionLevel: compLevel,
     profile: _profile(wordReading, compLevel)!,
     isStrugglingReader: philIriIsStrugglingReader(accuracy, speed),
+    silent: method == PhilIriReadingMethod.silent,
   );
 }
 
@@ -116,11 +134,14 @@ PhilIriLevel? _profile(PhilIriLevel? wordReading, PhilIriLevel? comprehension) {
   return philIriPassageProfile(wordReading, comprehension);
 }
 
+/// One round. The top-level fields are the CARRIED result (for reports and
+/// ARAL); [actual] / [actualAdjustedLevel] are the round's own reading, the
+/// true current score for the tutor (null when the round wasn't given).
 class PhilIriRoundResult {
   final PhilIriRound round;
   final bool given;                     // the round had a reading of its own
-  final double? wordReadingScore;       // own, or carried forward
-  final double? wordsPerMinute;
+  final double? wordReadingScore;       // highest oral so far (silent-only: 1.0)
+  final double? wordsPerMinute;         // highest so far, same readings as above
   final PhilIriLevel? accuracyLevel;
   final PhilIriSpeed? speed;
   final PhilIriLevel? wordReadingLevel;
@@ -130,12 +151,22 @@ class PhilIriRoundResult {
   final bool isStrugglingReader;
   final int? adjustedLevel;             // 1–12; 0 only for a Non-Reader
   final int? levelsDown;                // null for a Non-Reader
+  final PhilIriPassageResult? actual;   // the round's own reading as scored
+  final int? actualAdjustedLevel;       // from [actual] alone (BOSY: GST fills a missing comprehension)
+  final int? actualLevelsDown;
+  /// Not assessed at all this year: assumed Frustration, 3 levels down
+  /// (philIriNotAssessedResult). Never set on a real result.
+  final bool notAssessed;
 
   bool get comprehensionBlank => comprehensionScore == null;
 
   const PhilIriRoundResult({
     required this.round,
     required this.given,
+    this.actual,
+    this.actualAdjustedLevel,
+    this.actualLevelsDown,
+    this.notAssessed = false,
     this.wordReadingScore,
     this.wordsPerMinute,
     this.accuracyLevel,
@@ -164,47 +195,106 @@ List<PhilIriRoundResult> philIriRoundResults({
 }) {
   final results = <PhilIriRoundResult>[];
   double? comp = gstScore;
-  PhilIriPassageResult? lastReading;
+  // Word reading so far: highest oral accuracy and speed; silent readings only
+  // supply speed while there is no oral reading.
+  double? oralScore, oralWpm, silentWpm;
+
+  double? maxOf(double? a, double b) => a == null || b > a ? b : a;
 
   for (final round in PhilIriRound.values) {
     final own = readings[round];
-    if (own != null) lastReading = own;
+    if (own != null) {
+      if (own.silent) {
+        silentWpm = maxOf(silentWpm, own.wordsPerMinute);
+      } else {
+        oralScore = maxOf(oralScore, own.wordReadingScore);
+        oralWpm = maxOf(oralWpm, own.wordsPerMinute);
+      }
+    }
     // A finalized round keeps the thresholds it was finalized with.
     final rt = roundThresholds[round] ?? t;
     final ownComp = own?.comprehensionScore;
     if (ownComp != null && (comp == null || ownComp > comp)) comp = ownComp;
 
-    final wr = lastReading;
+    final wrScore = oralScore ?? (silentWpm != null ? 1.0 : null);
+    final wpm = oralScore != null ? oralWpm : silentWpm;
+    final accuracy = wrScore == null ? null : philIriAccuracyLevel(wrScore, rt);
+    final speed = wpm == null ? null : philIriSpeed(wpm, rt);
+    final wrLevel = accuracy == null ? null : philIriWordReadingLevel(accuracy, speed!);
+
     // A blank counts as 0 once there is a reading; with nothing at all the
     // round stays unknown.
     final compLevel = comp != null
         ? philIriComprehensionLevel(comp, rt)
-        : (wr != null ? philIriComprehensionLevel(0, rt) : null);
-    final profile = _profile(wr?.wordReadingLevel, compLevel);
-    final struggling = wr?.isStrugglingReader ?? false;
+        : (wrLevel != null ? philIriComprehensionLevel(0, rt) : null);
+    final profile = _profile(wrLevel, compLevel);
     final adjusted = profile == null
         ? null
         : philIriAdjustedLevel(profile, learnerGrade, comp, rt);
+
+    // The true score: this round's reading alone. In BOSY a reading without
+    // comprehension (FLT) takes the GST's, as in the carried result.
+    int? actualAdjusted;
+    if (own != null) {
+      final c = own.comprehensionScore ?? (round == PhilIriRound.bosy ? gstScore : null);
+      final p = _profile(own.wordReadingLevel, philIriComprehensionLevel(c ?? 0, rt))!;
+      actualAdjusted = philIriAdjustedLevel(p, learnerGrade, c, rt);
+    }
+
     results.add(PhilIriRoundResult(
       round: round,
       given: own != null,
-      wordReadingScore: wr?.wordReadingScore,
-      wordsPerMinute: wr?.wordsPerMinute,
-      accuracyLevel: wr?.accuracyLevel,
-      speed: wr?.speed,
-      wordReadingLevel: wr?.wordReadingLevel,
+      wordReadingScore: wrScore,
+      wordsPerMinute: wpm,
+      accuracyLevel: accuracy,
+      speed: speed,
+      wordReadingLevel: wrLevel,
       comprehensionScore: comp,
       comprehensionLevel: compLevel,
       profile: profile,
-      isStrugglingReader: struggling,
+      isStrugglingReader: accuracy != null && philIriIsStrugglingReader(accuracy, speed!),
       adjustedLevel: adjusted,
       levelsDown: adjusted == null
           ? null
           : philIriLevelsDown(adjusted, learnerGrade, nonReader: profile == PhilIriLevel.nonReader),
+      actual: own,
+      actualAdjustedLevel: actualAdjusted,
+      actualLevelsDown: actualAdjusted == null
+          ? null
+          : philIriLevelsDown(actualAdjusted, learnerGrade, nonReader: actualAdjusted == 0),
     ));
   }
   return results;
 }
+
+/// Levels down assumed for a learner not assessed at all (reading coordinator).
+const philIriNotAssessedLevelsDown = 3;
+
+/// True when nothing at all is known for the year (no GST, no reading).
+bool philIriNothingAssessed(List<PhilIriRoundResult> rounds) =>
+    rounds.every((r) => r.profile == null);
+
+/// The assumed result for a learner not assessed at all: Frustration, exactly
+/// 3 levels down (never below Grade 1), flagged notAssessed. Scores stay
+/// blank. For reports and ARAL only; the tutor's true score stays empty.
+PhilIriRoundResult philIriNotAssessedResult(PhilIriRound round, int learnerGrade) {
+  var adjusted = learnerGrade - philIriNotAssessedLevelsDown;
+  if (adjusted < 1) adjusted = 1;
+  return PhilIriRoundResult(
+    round: round,
+    given: false,
+    profile: PhilIriLevel.frustration,
+    adjustedLevel: adjusted,
+    levelsDown: learnerGrade - adjusted,
+    notAssessed: true,
+  );
+}
+
+/// End result for reports and ARAL: [philIriEndResult], or the assumed
+/// not-assessed result when nothing at all is known (philIriEndResult is
+/// null only then: with a GST alone it returns BOSY).
+PhilIriRoundResult philIriReportEndResult(List<PhilIriRoundResult> rounds, int learnerGrade) =>
+    philIriEndResult(rounds) ?? philIriNotAssessedResult(PhilIriRound.bosy, learnerGrade);
 
 int _rank(PhilIriLevel? level) => switch (level) {
       PhilIriLevel.independent => 3,
