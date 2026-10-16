@@ -12,6 +12,7 @@ import '../console_command.dart';
 import '../console_registry.dart';
 import '../../../viewmodels/aral_checkin_viewmodel.dart';
 import '../../../viewmodels/aral_report_viewmodel.dart';
+import '../../../viewmodels/aral_roster_import_viewmodel.dart';
 import '../../../viewmodels/aral_viewmodel.dart';
 
 class _Usage implements Exception {
@@ -114,3 +115,70 @@ void registerAralExportCommands(
 }
 
 List<int> _utf8(String s) => utf8.encode(s);
+
+String _rosterPreview(AralRosterImportPreview p) {
+  final lines = <String>[
+    'ARAL roster import -> school ${p.schoolId}, ${p.schoolYear}',
+    ...p.notes.map((n) => 'Note: $n'),
+  ];
+  for (final r in p.rows) {
+    final who = 'row ${r.rowNo} | LRN ${r.lrn ?? '-'} | ${r.name}'
+        '${r.section == null ? '' : ' | G${r.section!.gradeLevel} ${r.section!.sectionName}'}';
+    final what = '${r.program} | entered ${r.enteredOn}${r.tutor == null ? '' : ' | tutor ${r.tutor!.email}'}';
+    lines.add(switch (r.outcome) {
+      AralRosterImportOutcome.add => '  add     $who | $what',
+      AralRosterImportOutcome.addAndExit =>
+        '  add+exit $who | $what | exited ${r.exitedOn} (${r.exitReason!.value})',
+      AralRosterImportOutcome.alreadyOnRoster => '  skip    $who | already on the ARAL roster',
+      AralRosterImportOutcome.skipGradeLevelReady =>
+        '  skip    $who | grade-level-ready exit (BASA sets these from results)',
+      AralRosterImportOutcome.error => '  ERROR   $who | ${r.problems.join('; ')}',
+    });
+  }
+  lines.add('${p.count(AralRosterImportOutcome.add) + p.count(AralRosterImportOutcome.addAndExit)} to add, '
+      '${p.count(AralRosterImportOutcome.alreadyOnRoster) + p.count(AralRosterImportOutcome.skipGradeLevelReady)} skipped, '
+      '${p.count(AralRosterImportOutcome.error)} with errors.');
+  return lines.join('\n');
+}
+
+void registerAralRosterImportCommands(ConsoleRegistry registry, AralRosterImportViewModel vm) {
+  Future<(int, String, List<int>, String)> args3(List<String> args, String usage) async {
+    if (args.length < 3) throw _Usage(usage);
+    final file = File(args[2]);
+    if (!await file.exists()) throw _Usage('No file "${args[2]}".');
+    return (_int(args[0], 'schoolId'), args[1], await file.readAsBytes(), args[2]);
+  }
+
+  for (final (name, doIt) in const [('aral-import-roster-preview', false), ('aral-import-roster', true)]) {
+    final usage = 'Usage: $name <schoolId> <schoolYear> <file.csv|file.xlsx>';
+    registry.register(ConsoleCommand(
+      name: name,
+      description: doIt
+          ? '$name <schoolId> <schoolYear> <file.csv|.xlsx> — add an ARAL roster from a spreadsheet (LRN, Program, '
+              'Tutor email, Entered, Notes; Exited + Exit reason optional)'
+          : '$name <schoolId> <schoolYear> <file.csv|.xlsx> — check an ARAL roster file (nothing is written)',
+      handler: (args) async {
+        try {
+          final (schoolId, year, bytes, fileName) = await args3(args, usage);
+          if (!doIt) return _rosterPreview(await vm.preview(schoolId, year, bytes, fileName));
+          final r = await vm.importRoster(schoolId, year, bytes, fileName);
+          return [
+            'Added ${r.added.length} learner(s) to the ARAL roster'
+                '${r.added.isEmpty ? '' : ': #${r.added.map((e) => e.id).join(', #')}'}.',
+            if (r.preview.count(AralRosterImportOutcome.alreadyOnRoster) > 0)
+              'Skipped ${r.preview.count(AralRosterImportOutcome.alreadyOnRoster)} already on the roster.',
+            if (r.preview.count(AralRosterImportOutcome.skipGradeLevelReady) > 0)
+              'Skipped ${r.preview.count(AralRosterImportOutcome.skipGradeLevelReady)} grade-level-ready exit(s).',
+            if (r.preview.count(AralRosterImportOutcome.error) > 0)
+              'Skipped ${r.preview.count(AralRosterImportOutcome.error)} row(s) with errors (see aral-import-roster-preview).',
+            ...r.failed.entries.map((e) => 'FAILED row ${e.key.rowNo} (${e.key.name}): ${e.value}'),
+          ].join('\n');
+        } on _Usage catch (e) {
+          return e.message;
+        } catch (e) {
+          return '$name failed: $e';
+        }
+      },
+    ));
+  }
+}
