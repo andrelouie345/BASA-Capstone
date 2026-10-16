@@ -29,7 +29,10 @@ import '../core/repositories/aral_enrollment_repository.dart';
 import '../core/repositories/crla_result_repository.dart';
 import '../core/repositories/section_repository.dart';
 import '../core/repositories/student_repository.dart';
+import '../core/services/aral_report_xlsx.dart';
 import '../core/services/aral_rules.dart';
+import '../core/services/csv.dart';
+import '../core/services/xlsx_cells.dart' show XlsxException;
 import '../core/services/normalizers.dart';
 import '../core/services/phil_iri_results.dart';
 import '../core/services/phil_iri_rules.dart';
@@ -144,6 +147,104 @@ class AralReportViewModel {
       rows.add(await _row(s, schoolYear, date, thresholds));
     }
     return AralImplementationReport(schoolId, schoolYear, date, rows);
+  }
+
+  /// The report in the layout of the ARAL Reading Implementation Report
+  /// template (IE4): Grades 4-10 (Phil-IRI) only, as the template's two
+  /// columns are Phil-IRI levels down. Returns the workbook and notes about
+  /// what didn't fit (Grades 1-3, learners without a result, ...).
+  Future<(List<int>, List<String>)> implementationReportXlsx({
+    required List<int> template,
+    required int schoolId,
+    required String schoolYear,
+    int? sectionId,
+    DateTime? asOf,
+  }) async {
+    final report =
+        await implementationReport(schoolId: schoolId, schoolYear: schoolYear, sectionId: sectionId, asOf: asOf);
+    final notes = <String>[];
+    final crla = report.rows.where((r) => r.usesCrla).toList();
+    if (crla.isNotEmpty) {
+      notes.add('${crla.length} Grade 1-3 section(s) use CRLA profiles, which the template has no columns for; '
+          'they are in the CSV export (aral-export-report-csv).');
+    }
+    var unplaced = 0;
+    (int, int) split(Map<String, int> counts) {
+      var frustration = 0, instructional = 0;
+      for (final e in counts.entries) {
+        final down = int.tryParse(RegExp(r'^(\d+)-LD$').firstMatch(e.key)?.group(1) ?? '');
+        if (e.key == 'Non-Reader' || (down != null && down >= 3)) {
+          frustration += e.value;
+        } else if (down != null) {
+          instructional += e.value;
+        } else {
+          unplaced += e.value; // no result, GLR
+        }
+      }
+      return (frustration, instructional);
+    }
+
+    final rows = <AralReportXlsxRow>[];
+    for (final r in report.rows.where((r) => !r.usesCrla)) {
+      final (bf, bi) = split(r.bosy);
+      final (mf, mi) = split(r.mosy);
+      rows.add(AralReportXlsxRow(
+        grade: r.grade,
+        section: r.section.sectionName,
+        enrolment: r.enrolment,
+        bosyFrustration: bf,
+        bosyInstructional: bi,
+        mosyFrustration: mf,
+        mosyInstructional: mi,
+        bosyTotal: r.bosyTotal,
+        mosyTotal: r.mosyTotal,
+        exitedGradeLevelReady: r.exitedGradeLevelReady,
+        exitedOther: r.exitedOther,
+      ));
+    }
+    if (unplaced > 0) {
+      notes.add('$unplaced BOSY/MOSY count(s) had no Phil-IRI result yet (or were at grade level): they are in the '
+          'TOTAL ARAL LEARNERS columns but not in Frustration/Instructional; see the CSV for them.');
+    }
+    if (rows.isEmpty) throw const ViewModelException('No Grade 4-10 sections with ARAL learners to put in the template.');
+    try {
+      return (fillAralImplementationReport(template, asOf: report.asOf, rows: rows), notes);
+    } on XlsxException catch (e) {
+      throw ViewModelException(e.message);
+    }
+  }
+
+  /// The whole report (Grades 1-10) as CSV: one line per section, a column
+  /// per result group seen anywhere (BOSY and MOSY), exits.
+  Future<String> implementationReportCsv({
+    required int schoolId,
+    required String schoolYear,
+    int? sectionId,
+    DateTime? asOf,
+  }) async {
+    final report =
+        await implementationReport(schoolId: schoolId, schoolYear: schoolYear, sectionId: sectionId, asOf: asOf);
+    final groups = <String>[];
+    for (final r in report.rows) {
+      for (final c in r.columns) {
+        if (!groups.contains(c)) groups.add(c);
+      }
+    }
+    return csvTable([
+      [
+        'Grade', 'Section', 'Uses', 'Enrolment',
+        ...groups.map((g) => 'BOSY $g'), 'BOSY total',
+        ...groups.map((g) => 'MOSY $g'), 'MOSY total',
+        'Exited BOSY-MOSY', 'Exited grade-level ready', 'Exited other', 'As of',
+      ],
+      for (final r in report.rows)
+        [
+          r.grade, r.section.sectionName, r.usesCrla ? 'CRLA' : 'Phil-IRI', r.enrolment,
+          ...groups.map((g) => r.bosy[g] ?? 0), r.bosyTotal,
+          ...groups.map((g) => r.mosy[g] ?? 0), r.mosyTotal,
+          r.bosyMinusMosy, r.exitedGradeLevelReady, r.exitedOther, report.asOf,
+        ],
+    ]);
   }
 
   Future<AralSectionReportRow> _row(Section s, String year, String asOf, PhilIriThresholds t) async {

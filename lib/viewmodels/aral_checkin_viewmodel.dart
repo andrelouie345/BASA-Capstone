@@ -31,6 +31,7 @@ import '../core/repositories/aral_setting_repository.dart';
 import '../core/repositories/section_repository.dart';
 import '../core/repositories/student_repository.dart';
 import '../core/services/aral_checkin_rules.dart';
+import '../core/services/csv.dart';
 import '../core/services/normalizers.dart';
 import 'auth_viewmodel.dart';
 import 'viewmodel_exception.dart';
@@ -268,6 +269,32 @@ class AralCheckinViewModel {
       out.add(AralCheckinReportSection(s, learners));
     }
     return AralCheckinReport(schoolId, schoolYear, passPct, out);
+  }
+
+  /// [checkinReport] as CSV: one line per learner.
+  Future<String> checkinReportCsv({required int schoolId, required String schoolYear, int? sectionId}) async {
+    final r = await checkinReport(schoolId: schoolId, schoolYear: schoolYear, sectionId: sectionId);
+    List<Object?> cells(AralCheckinResult? x) => x == null
+        ? ['', '', '', '', '']
+        : [x.checkin.takenOn, x.checkin.attemptNo, '${x.score.correct}/${x.score.total}',
+           x.score.percent.toStringAsFixed(0), '${x.passed ? 'Met' : 'Not met'}${x.complete ? '' : ' (incomplete)'}'];
+    return csvTable([
+      [
+        'Grade', 'Section', 'Learner', 'Program', 'Status',
+        'After 16: date', 'After 16: attempt', 'After 16: score', 'After 16: %', 'After 16: result',
+        'After 32: date', 'After 32: attempt', 'After 32: score', 'After 32: %', 'After 32: result',
+        'Cut-off %', 'ARAL id',
+      ],
+      for (final s in r.sections)
+        for (final l in s.learners)
+          [
+            s.section.gradeLevel, s.section.sectionName, l.name, l.enrollment.programLabel,
+            l.enrollment.isActive ? 'active' : 'exited',
+            ...(l.hasTools ? cells(l.after16) : ['no check-in tools', '', '', '', '']),
+            ...(l.hasTools ? cells(l.after32) : ['', '', '', '', '']),
+            r.passPct, l.enrollment.id,
+          ],
+    ]);
   }
 
   // ---- Writing ----

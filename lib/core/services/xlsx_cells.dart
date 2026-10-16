@@ -33,6 +33,7 @@ class XlsxWorkbook {
   final Map<String, String> _sheetPaths; // sheet name -> zip path, in workbook order
   final Map<String, XmlDocument> _parsed = {};
   final Set<String> _dirty = {};
+  bool _structural = false; // rows or sheets removed: calcChain must go
 
   XlsxWorkbook._(this._archive, this._shared, this._sheetPaths);
 
@@ -220,10 +221,214 @@ class XlsxWorkbook {
     return cell;
   }
 
+  // ---- Styles and structure ----
+
+  /// The cell's style index (its "s"), or null when it has none.
+  int? styleOf(String sheet, String ref) =>
+      int.tryParse(_cell(_sheet(sheet), ref.toUpperCase())?.getAttribute('s') ?? '');
+
+  /// Sets cells' style indexes (creating the cells when needed); null removes it.
+  void setStyles(String sheet, Map<String, int?> styles) {
+    final doc = _sheet(sheet);
+    final data = doc.findAllElements('sheetData').first;
+    for (final e in styles.entries) {
+      final ref = e.key.toUpperCase();
+      final (col, row) = splitRef(ref);
+      final cell = _cell(doc, ref) ?? _insertCell(data, row, col, ref);
+      if (e.value == null) {
+        cell.removeAttribute('s');
+      } else {
+        cell.setAttribute('s', '${e.value}');
+      }
+    }
+    _dirty.add(_sheetPaths[sheet]!);
+  }
+
+  /// Removes every row from [firstRow] down, and every merge that reaches it.
+  void clearRowsFrom(String sheet, int firstRow) {
+    final doc = _sheet(sheet);
+    for (final r in doc.findAllElements('row').toList()) {
+      if (int.parse(r.getAttribute('r')!) >= firstRow) r.remove();
+    }
+    final merges = doc.findAllElements('mergeCells').firstOrNull;
+    if (merges != null) {
+      for (final m in merges.findElements('mergeCell').toList()) {
+        final last = m.getAttribute('ref')!.split(':').last;
+        if (splitRef(last).$2 >= firstRow) m.remove();
+      }
+      final left = merges.findElements('mergeCell').length;
+      if (left == 0) {
+        merges.remove();
+      } else {
+        merges.setAttribute('count', '$left');
+      }
+    }
+    doc.findAllElements('dimension').firstOrNull?.remove(); // optional; Excel recomputes it
+    _structural = true;
+    _dirty.add(_sheetPaths[sheet]!);
+  }
+
+  /// Merges a range such as "B4:B9".
+  void merge(String sheet, String range) {
+    final doc = _sheet(sheet);
+    var merges = doc.findAllElements('mergeCells').firstOrNull;
+    if (merges == null) {
+      merges = XmlElement(XmlName('mergeCells'));
+      // CT_Worksheet order: sheetData, sheetCalcPr, sheetProtection, protectedRanges,
+      // scenarios, autoFilter, sortState, dataConsolidate, customSheetViews, mergeCells, ...
+      var anchor = doc.rootElement.getElement('sheetData')!;
+      for (final name in const ['sheetCalcPr', 'sheetProtection', 'protectedRanges', 'scenarios', 'autoFilter',
+          'sortState', 'dataConsolidate', 'customSheetViews']) {
+        anchor = doc.rootElement.getElement(name) ?? anchor;
+      }
+      doc.rootElement.children.insert(doc.rootElement.children.indexOf(anchor) + 1, merges);
+    }
+    merges.children.add(XmlElement(XmlName('mergeCell'), [XmlAttribute(XmlName('ref'), range.toUpperCase())]));
+    merges.setAttribute('count', '${merges.findElements('mergeCell').length}');
+    _dirty.add(_sheetPaths[sheet]!);
+  }
+
+  /// Removes a sheet: its part, relationship, content type and defined names.
+  void removeSheet(String name) {
+    final path = _sheetPaths[name];
+    if (path == null) throw XlsxException('The workbook has no sheet "$name"');
+    if (_sheetPaths.length == 1) throw const XlsxException('A workbook needs at least one sheet');
+    final wb = _xml('xl/workbook.xml');
+    final sheets = wb.findAllElements('sheet').toList();
+    final index = sheets.indexWhere((s) => s.getAttribute('name') == name);
+    final rid = sheets[index].attributes.firstWhere((a) => a.name.local == 'id').value;
+    sheets[index].remove();
+    final quoted = "'$name'!";
+    for (final d in wb.findAllElements('definedName').toList()) {
+      final local = int.tryParse(d.getAttribute('localSheetId') ?? '');
+      if (local == index || d.innerText.contains(quoted) || d.innerText.contains('$name!')) {
+        d.remove();
+      } else if (local != null && local > index) {
+        d.setAttribute('localSheetId', '${local - 1}');
+      }
+    }
+    final names = wb.findAllElements('definedNames').firstOrNull;
+    if (names != null && names.findElements('definedName').isEmpty) names.remove();
+    for (final v in wb.findAllElements('workbookView')) {
+      v.setAttribute('activeTab', '0');
+      v.setAttribute('firstSheet', '0');
+    }
+    _putXml('xl/workbook.xml', wb);
+
+    final rels = _xml('xl/_rels/workbook.xml.rels');
+    for (final r in rels.findAllElements('Relationship').where((r) => r.getAttribute('Id') == rid).toList()) {
+      r.remove();
+    }
+    _putXml('xl/_rels/workbook.xml.rels', rels);
+    _removePart(path);
+    _parsed.remove(path);
+    _dirty.remove(path);
+    _sheetPaths.remove(name);
+    // The first remaining sheet becomes the selected one.
+    final first = _sheetPaths.keys.first;
+    for (final v in _sheet(first).findAllElements('sheetView')) {
+      v.setAttribute('tabSelected', '1');
+    }
+    _dirty.add(_sheetPaths[first]!);
+    _structural = true;
+  }
+
+  /// Removes who made and last saved the file and where it was stored
+  /// (docProps/core.xml creator and lastModifiedBy, the workbook's absPath).
+  void stripAuthorship() {
+    if (_archive.find('docProps/core.xml') != null) {
+      final doc = _xml('docProps/core.xml');
+      for (final e in doc.descendantElements.toList()) {
+        if (e.name.local == 'creator' || e.name.local == 'lastModifiedBy') e.children.clear();
+      }
+      _putXml('docProps/core.xml', doc);
+    }
+    final wb = _xml('xl/workbook.xml');
+    for (final e in wb.descendantElements.toList()) {
+      if (e.name.local == 'absPath') {
+        // It sits in an mc:AlternateContent/mc:Choice wrapper; drop the wrapper.
+        final wrapper = e.ancestorElements.where((a) => a.name.local == 'AlternateContent').firstOrNull;
+        (wrapper ?? e).remove();
+      }
+    }
+    _putXml('xl/workbook.xml', wb);
+  }
+
+  XmlDocument _xml(String path) {
+    final f = _archive.find(path);
+    if (f == null) throw XlsxException('Not an .xlsx workbook: $path is missing');
+    return XmlDocument.parse(utf8.decode(f.content));
+  }
+
+  void _putXml(String path, XmlDocument doc) => _archive.add(ArchiveFile.string(path, doc.toXmlString()));
+
+  /// Removes a part and its [Content_Types] override.
+  void _removePart(String path) {
+    final f = _archive.find(path);
+    if (f != null) _archive.removeFile(f);
+    final types = _xml('[Content_Types].xml');
+    for (final o in types.findAllElements('Override').where((o) => o.getAttribute('PartName') == '/$path').toList()) {
+      o.remove();
+    }
+    _putXml('[Content_Types].xml', types);
+  }
+
+  /// After rows or sheets were removed: keeps only the shared strings still
+  /// used (removed content must not linger in the file) and drops the
+  /// optional sheet list in docProps/app.xml (it would name removed sheets).
+  void _compact() {
+    final sst = _archive.find('xl/sharedStrings.xml');
+    if (sst != null) {
+      final cells = <XmlElement>[];
+      for (final name in _sheetPaths.keys) {
+        cells.addAll(_sheet(name).findAllElements('c').where((c) => c.getAttribute('t') == 's'));
+        _dirty.add(_sheetPaths[name]!);
+      }
+      final doc = XmlDocument.parse(utf8.decode(sst.content));
+      final items = doc.rootElement.findElements('si').toList();
+      final map = <int, int>{};
+      for (final c in cells) {
+        final v = c.getElement('v');
+        final old = int.tryParse(v?.innerText ?? '');
+        if (v == null || old == null || old >= items.length) continue;
+        final now = map.putIfAbsent(old, () => map.length);
+        v.innerText = '$now';
+      }
+      final kept = (map.entries.toList()..sort((a, b) => a.value.compareTo(b.value))).map((e) => items[e.key].copy());
+      doc.rootElement.children
+        ..clear()
+        ..addAll(kept);
+      doc.rootElement.setAttribute('count', '${cells.length}');
+      doc.rootElement.setAttribute('uniqueCount', '${map.length}');
+      _putXml('xl/sharedStrings.xml', doc);
+    }
+    final app = _archive.find('docProps/app.xml');
+    if (app != null) {
+      final doc = XmlDocument.parse(utf8.decode(app.content));
+      for (final e in doc.rootElement.childElements.toList()) {
+        if (e.name.local == 'HeadingPairs' || e.name.local == 'TitlesOfParts') e.remove();
+      }
+      _putXml('docProps/app.xml', doc);
+    }
+  }
+
   /// The workbook with every change, marked for a full recalculation on open.
+  /// After rows or sheets were removed, calcChain.xml (Excel's list of
+  /// formula cells) is dropped: a stale one makes Excel repair the file.
   List<int> encode() {
+    if (_structural) _compact();
     for (final path in _dirty) {
       _archive.add(ArchiveFile.string(path, _parsed[path]!.toXmlString()));
+    }
+    if (_structural && _archive.find('xl/calcChain.xml') != null) {
+      _removePart('xl/calcChain.xml');
+      final rels = _xml('xl/_rels/workbook.xml.rels');
+      for (final r in rels.findAllElements('Relationship')
+          .where((r) => (r.getAttribute('Type') ?? '').endsWith('/calcChain'))
+          .toList()) {
+        r.remove();
+      }
+      _putXml('xl/_rels/workbook.xml.rels', rels);
     }
     final wb = XmlDocument.parse(utf8.decode(_archive.find('xl/workbook.xml')!.content));
     final root = wb.rootElement;

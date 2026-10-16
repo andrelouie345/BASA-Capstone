@@ -34,6 +34,7 @@ import '../core/repositories/section_repository.dart';
 import '../core/repositories/student_repository.dart';
 import '../core/repositories/user_repository.dart';
 import '../core/services/aral_rules.dart';
+import '../core/services/csv.dart';
 import '../core/services/crla_rules.dart' show crlaAtGradeLevel;
 import '../core/services/phil_iri_results.dart' show PhilIriRoundResult;
 import '../core/services/normalizers.dart';
@@ -662,6 +663,59 @@ class AralViewModel {
   }
 
   Future<AralEnrollment?> getEnrollment(int id) => _roster.findById(id);
+
+  /// The school's ARAL roster for [schoolYear] as CSV ([sectionId] narrows it
+  /// to one section): one line per learner. Admins/coordinators only.
+  Future<String> rosterCsv({required int schoolId, required String schoolYear, int? sectionId}) async {
+    _log('rosterCsv(school: $schoolId, year: $schoolYear, section: $sectionId)');
+    _requireManager();
+    final mine = _auth.currentUser?.schoolId;
+    if (mine != null && mine != schoolId) throw const ViewModelException('Forbidden: that school is not yours.');
+    schoolYear = normalizeSchoolYear(schoolYear);
+    final roster = (await _roster.getBySchool(schoolId, schoolYear: schoolYear))
+        .where((e) => sectionId == null || e.sectionId == sectionId)
+        .toList();
+    final sections = <int, Section?>{};
+    final students = <int, Student>{};
+    final tutors = <String, User?>{};
+    for (final e in roster) {
+      if (!sections.containsKey(e.sectionId)) {
+        sections[e.sectionId] = await _sections.getById(e.sectionId);
+        for (final s in await _students.getBySection(e.sectionId)) {
+          students[s.id!] = s;
+        }
+      }
+      if (e.tutorId != null && !tutors.containsKey(e.tutorId)) tutors[e.tutorId!] = await _users.getById(e.tutorId!);
+    }
+    int grade(AralEnrollment e) => int.tryParse(sections[e.sectionId]?.gradeLevel ?? '') ?? 0;
+    String name(AralEnrollment e) {
+      final s = students[e.studentId];
+      return s == null ? 'student ${e.studentId}' : '${s.lastName}, ${s.firstName}';
+    }
+
+    roster.sort((a, b) {
+      final g = grade(a).compareTo(grade(b));
+      if (g != 0) return g;
+      final s = (sections[a.sectionId]?.sectionName ?? '').compareTo(sections[b.sectionId]?.sectionName ?? '');
+      return s != 0 ? s : name(a).compareTo(name(b));
+    });
+    return csvTable([
+      [
+        'Grade', 'Section', 'LRN', 'Learner', 'Program', 'Status', 'Entered', 'Exited', 'Exit reason',
+        'Tutor', 'Tutor email', 'Basis', 'Basis round', 'Basis level', 'BASA suggestion', 'Notes', 'ARAL id',
+      ],
+      for (final e in roster)
+        [
+          grade(e), sections[e.sectionId]?.sectionName, students[e.studentId]?.lrn, name(e), e.programLabel,
+          e.status.name, e.enteredOn, e.exitedOn, e.exitReason?.value,
+          tutors[e.tutorId]?.fullName, tutors[e.tutorId]?.email, e.basisSource.value, e.basisRound, e.basisLevel,
+          e.suggestedKeyStage == null
+              ? null
+              : '${e.suggestedKeyStage!.label}${e.suggestedTrack == null ? '' : ' ${e.suggestedTrack!.label}'}',
+          e.notes, e.id,
+        ],
+    ]);
+  }
 
   /// The school's active tutors (who can be assigned) with how many active
   /// ARAL learners each has in [schoolYear].

@@ -72,6 +72,7 @@ import 'package:basa_capstone/core/console/commands/aral_commands.dart';
 import 'package:basa_capstone/core/console/commands/aral_session_commands.dart';
 import 'package:basa_capstone/core/console/commands/aral_irip_commands.dart';
 import 'package:basa_capstone/core/console/commands/aral_report_commands.dart';
+import 'package:basa_capstone/core/console/commands/aral_export_commands.dart';
 import 'package:basa_capstone/viewmodels/aral_report_viewmodel.dart';
 import 'package:basa_capstone/core/data/local/aral_irip_repository_sqlite.dart';
 import 'package:basa_capstone/viewmodels/aral_irip_viewmodel.dart';
@@ -332,6 +333,7 @@ Future<void> main() async {
   );
   vmRegistry.register('AralReportViewModel', aralReportVm);
   registerAralReportCommands(registry, aralReportVm);
+  registerAralExportCommands(registry, aralVm, aralReportVm, aralCheckinVm);
   registerDebugCommands(registry, session, vmRegistry);
 
   // Headless REPL: lets the console run from a terminal or a piped script.

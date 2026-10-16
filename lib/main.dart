@@ -78,6 +78,7 @@ import 'package:basa_capstone/core/console/commands/aral_commands.dart';
 import 'package:basa_capstone/core/console/commands/aral_session_commands.dart';
 import 'package:basa_capstone/core/console/commands/aral_irip_commands.dart';
 import 'package:basa_capstone/core/console/commands/aral_report_commands.dart';
+import 'package:basa_capstone/core/console/commands/aral_export_commands.dart';
 import 'package:basa_capstone/viewmodels/aral_report_viewmodel.dart';
 import 'package:basa_capstone/core/data/local/aral_irip_repository_sqlite.dart';
 import 'package:basa_capstone/viewmodels/aral_irip_viewmodel.dart';
@@ -304,6 +305,7 @@ vmRegistry.register('TextViewModel', textVm);
   );
   vmRegistry.register('AralReportViewModel', aralReportVm);
   registerAralReportCommands(registry, aralReportVm);
+  registerAralExportCommands(registry, aralVm, aralReportVm, aralCheckinVm);
   
   final loginLogVm = LoginLogViewModel(repo: LoginLogRepositorySqlite(localDb), logger: session);
   vmRegistry.register('LoginLogViewModel', loginLogVm);
