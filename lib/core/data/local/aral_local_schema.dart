@@ -412,6 +412,70 @@ Future<void> createAralLocalSchema(Database db) async {
 
   await _createCheckinTables(db);
   await _createMaterialTables(db);
+  await _createReadabilityTables(db);
+}
+
+/// v29: the readability log (aral_readability_logs), offline-first with the
+/// origin column like the check-ins; the triggers re-check the cloud's rules
+/// for local rows. Only while the school's foundational literacy program
+/// (SHARP) is on: aral_settings.foundational_program, school row over region
+/// row, default off (JSON in the mirror; json_extract gives 1/0).
+Future<void> _createReadabilityTables(Database db) async {
+  await db.execute('''
+    CREATE TABLE IF NOT EXISTS aral_readability_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      enrollment_id INTEGER NOT NULL REFERENCES aral_enrollments(id),
+      read_on TEXT NOT NULL,
+      title TEXT NOT NULL CHECK (length(trim(title)) > 0),
+      words INTEGER NOT NULL CHECK (words > 0),
+      sentences INTEGER NOT NULL CHECK (sentences > 0),
+      syllables INTEGER NOT NULL CHECK (syllables > 0),
+      source TEXT,
+      material_id INTEGER REFERENCES aral_materials(id),
+      created_by TEXT REFERENCES users(id),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      origin TEXT NOT NULL DEFAULT 'local' CHECK (origin IN ('local', 'cloud')),
+      CHECK (syllables >= words)
+    )
+  ''');
+  await db.execute(
+      'CREATE INDEX IF NOT EXISTS aral_readability_logs_enrollment ON aral_readability_logs (enrollment_id, read_on)');
+
+  const school = '(SELECT school_id FROM aral_enrollments WHERE id = NEW.enrollment_id)';
+  const sharpOn = '''COALESCE(
+        (SELECT json_extract(settings, '\$.foundational_program') FROM aral_settings WHERE school_id = $school),
+        (SELECT json_extract(settings, '\$.foundational_program') FROM aral_settings WHERE school_id IS NULL),
+        0) = 1''';
+  const beforeEntry =
+      'NEW.read_on < (SELECT entered_on FROM aral_enrollments WHERE id = NEW.enrollment_id)';
+  await db.execute('DROP TRIGGER IF EXISTS check_aral_readability_ins');
+  await db.execute('''
+    CREATE TRIGGER check_aral_readability_ins
+    BEFORE INSERT ON aral_readability_logs
+    WHEN NEW.origin = 'local'
+    BEGIN
+      SELECT RAISE(ABORT, 'The learner is not active in ARAL')
+      WHERE NOT EXISTS (SELECT 1 FROM aral_enrollments WHERE id = NEW.enrollment_id AND status = 'active');
+      SELECT RAISE(ABORT, 'The readability log is only kept while the school''s foundational literacy program (SHARP) is switched on')
+      WHERE NOT ($sharpOn);
+      SELECT RAISE(ABORT, 'A reading cannot be dated before the learner entered ARAL')
+      WHERE $beforeEntry;
+    END
+  ''');
+  await db.execute('DROP TRIGGER IF EXISTS check_aral_readability_upd');
+  await db.execute('''
+    CREATE TRIGGER check_aral_readability_upd
+    BEFORE UPDATE ON aral_readability_logs
+    WHEN OLD.origin = 'local'
+    BEGIN
+      SELECT RAISE(ABORT, 'A readability log entry keeps its learner; only the selection, counts, date and source change')
+      WHERE NEW.enrollment_id IS NOT OLD.enrollment_id OR NEW.created_by IS NOT OLD.created_by
+         OR NEW.created_at IS NOT OLD.created_at;
+      SELECT RAISE(ABORT, 'A reading cannot be dated before the learner entered ARAL')
+      WHERE $beforeEntry;
+    END
+  ''');
 }
 
 /// v27: the material catalog (aral_materials), mirror-only like the check-in

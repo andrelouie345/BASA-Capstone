@@ -43,7 +43,8 @@ class LocalDatabase {
         // follow-up re-read a silently read text (same round, once).
         // v27: ARAL material catalog (aral_materials, mirror-only; createAralLocalSchema).
         // v28: aral_materials.link + aral_material_links (no stored files).
-        version: 28,
+        // v29: ARAL readability log (aral_readability_logs, offline-first; createAralLocalSchema).
+        version: 29,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (

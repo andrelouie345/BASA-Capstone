@@ -86,6 +86,9 @@ import 'package:basa_capstone/core/console/commands/aral_material_commands.dart'
 import 'package:basa_capstone/core/data/local/aral_material_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/remote/aral_material_repository_supabase.dart';
 import 'package:basa_capstone/viewmodels/aral_material_viewmodel.dart';
+import 'package:basa_capstone/core/console/commands/aral_readability_commands.dart';
+import 'package:basa_capstone/core/data/local/aral_readability_repository_sqlite.dart';
+import 'package:basa_capstone/viewmodels/aral_readability_viewmodel.dart';
 import 'package:basa_capstone/core/data/local/aral_session_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/aral_tutor_setting_repository_sqlite.dart';
 import 'package:basa_capstone/viewmodels/aral_session_viewmodel.dart';
@@ -339,6 +342,17 @@ Future<void> main() async {
   );
   vmRegistry.register('AralMaterialViewModel', aralMaterialVm);
   registerAralMaterialCommands(registry, aralMaterialVm);
+
+  final aralReadabilityVm = AralReadabilityViewModel(
+    auth: authVm,
+    logs: AralReadabilityRepositorySqlite(localDb),
+    roster: AralEnrollmentRepositorySqlite(localDb),
+    localSettings: AralSettingRepositorySqlite(localDb),
+    materials: AralMaterialRepositorySqlite(localDb),
+    logger: session,
+  );
+  vmRegistry.register('AralReadabilityViewModel', aralReadabilityVm);
+  registerAralReadabilityCommands(registry, aralReadabilityVm);
 
   final aralReportVm = AralReportViewModel(
     auth: authVm,

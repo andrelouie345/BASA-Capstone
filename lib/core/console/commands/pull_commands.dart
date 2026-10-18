@@ -51,6 +51,7 @@ const _pullOrder = <String, String>{
   'aral_checkin_answers': 'id',
   'aral_materials': 'id',
   'aral_material_links': 'id',
+  'aral_readability_logs': 'id',
 };
 
 /// Tables with the local-only origin column: mirrored rows are 'cloud'.
@@ -59,6 +60,7 @@ const _originTables = {
   'aral_tutor_settings',
   'aral_irip_weeks',
   'aral_checkins',
+  'aral_readability_logs',
 };
 
 /// Local tables a pull empties before writing (children first). Everything
@@ -66,6 +68,7 @@ const _originTables = {
 /// and login_logs (this device's sign-in history) are kept. import_conflicts
 /// lives in the cloud only; its local copy is unused but may hold old rows.
 const _clearedTables = [
+  'aral_readability_logs',
   'aral_material_links',
   'aral_materials',
   'aral_checkin_answers',
@@ -216,6 +219,9 @@ Future<List<Map<String, Object?>>> _unsynced(Database db) => db.rawQuery('''
         UNION ALL
         SELECT 'ARAL check-in(s)', e.section_id FROM aral_checkins c
         LEFT JOIN aral_enrollments e ON e.id = c.enrollment_id WHERE c.origin = 'local'
+        UNION ALL
+        SELECT 'ARAL readability log entr(ies)', e.section_id FROM aral_readability_logs r
+        LEFT JOIN aral_enrollments e ON e.id = r.enrollment_id WHERE r.origin = 'local'
       ) x
       LEFT JOIN sections s ON s.id = x.section_id
       GROUP BY x.kind, x.section_id
