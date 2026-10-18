@@ -17,9 +17,10 @@
 //  * Grades 1-3: Grade 1 on the CRLA MOSY result, Grades 2-3 on BOSY; every
 //    profile below "Reading At Grade Level" qualifies; the program is KS1.
 //  * Grades 4-10: the Phil-IRI BOSY result; the program follows the ADJUSTED
-//    (reading) level only: 0 (non-reader) Foundational, 1-2 KS1, 3-4 KS2
-//    Basic, 5-6 KS2 Plus; at reading level 7+ the levels below grade decide:
-//    aralKs3BasicLevelsDown or more -> KS3 Basic, fewer -> KS3 Plus.
+//    (reading) level only (bands of 2026-10-18, aralPhilIriPlacement): 0-1
+//    Foundational if the school runs a foundational literacy program
+//    (AralProgramSettings), else KS1; 2-3 KS1; 4-5 KS2 Basic; 6-7 KS2 Plus;
+//    8 KS3 Basic; 9 KS3 Plus.
 library;
 
 import '../models/aral_enrollment.dart';
@@ -29,11 +30,6 @@ import 'phil_iri_results.dart' show PhilIriRoundResult;
 
 /// At most this many learners of one section are in ARAL at a time.
 const aralSectionCap = 15;
-
-/// Reading level 7+: this many levels below grade (or more) -> KS3 Basic,
-/// fewer -> KS3 Plus. The reading coordinator's rule is 3; she allows 2
-/// (Basic = 2-3 levels down, Plus = 1) if KS3 Basic turns out too narrow.
-const aralKs3BasicLevelsDown = 3;
 
 /// basis_level of a Phil-IRI learner entered while not assessed at all
 /// (assumed Frustration, 3 levels down); a real result later replaces the
@@ -85,16 +81,49 @@ const aralCrlaPlacement = AralPlacement(AralKeyStage.ks1);
 
 /// The program for a Phil-IRI reading level ([adjustedLevel], 0 = non-reader)
 /// of a [grade] learner; null when the learner reads at or above grade level
-/// (not ARAL).
-AralPlacement? aralPhilIriPlacement({required int adjustedLevel, required int grade}) {
-  if (adjustedLevel <= 0) return const AralPlacement(AralKeyStage.foundational);
-  if (adjustedLevel >= grade) return null;
-  if (adjustedLevel <= 2) return const AralPlacement(AralKeyStage.ks1);
-  if (adjustedLevel <= 4) return const AralPlacement(AralKeyStage.ks2, AralTrack.basic);
-  if (adjustedLevel <= 6) return const AralPlacement(AralKeyStage.ks2, AralTrack.plus);
-  return grade - adjustedLevel >= aralKs3BasicLevelsDown
-      ? const AralPlacement(AralKeyStage.ks3, AralTrack.basic)
-      : const AralPlacement(AralKeyStage.ks3, AralTrack.plus);
+/// (grade-level ready: enrichment, not ARAL). Reading coordinator's bands
+/// (2026-10-18), the same for the program and its materials:
+/// 0-1 Foundational (SHARP or another foundational literacy program) when the
+/// school runs one ([foundationalProgram]), else KS1; 2-3 KS1; 4-5 KS2 Basic;
+/// 6-7 KS2 Plus (7 is one step below KS3 Basic on purpose: moved up if too
+/// easy); 8 KS3 Basic; 9 and up KS3 Plus.
+AralPlacement? aralPhilIriPlacement({
+  required int adjustedLevel,
+  required int grade,
+  bool foundationalProgram = false,
+}) {
+  if (adjustedLevel >= grade && adjustedLevel > 0) return null;
+  if (adjustedLevel <= 1) {
+    return foundationalProgram
+        ? const AralPlacement(AralKeyStage.foundational)
+        : const AralPlacement(AralKeyStage.ks1);
+  }
+  if (adjustedLevel <= 3) return const AralPlacement(AralKeyStage.ks1);
+  if (adjustedLevel <= 5) return const AralPlacement(AralKeyStage.ks2, AralTrack.basic);
+  if (adjustedLevel <= 7) return const AralPlacement(AralKeyStage.ks2, AralTrack.plus);
+  if (adjustedLevel == 8) return const AralPlacement(AralKeyStage.ks3, AralTrack.basic);
+  return const AralPlacement(AralKeyStage.ks3, AralTrack.plus);
+}
+
+/// ARAL program settings (keys of aral_settings.settings; defaults <- region
+/// <- school, like the check-in cut-off). foundational_program: the school
+/// runs SHARP or another foundational literacy program for learners reading
+/// at levels 0-1 (and keeps a readability log of the materials used). Off by
+/// default, which follows the current ARAL program guidelines (those learners
+/// go to KS1). The coordinator switches it (reading coordinator 2026-10-18).
+class AralProgramSettings {
+  static const foundationalProgramKey = 'foundational_program';
+  static const defaults = AralProgramSettings(foundationalProgram: false);
+
+  final bool foundationalProgram;
+
+  const AralProgramSettings({required this.foundationalProgram});
+
+  /// Defaults, then [m]'s keys (unknown keys and bad values are ignored).
+  factory AralProgramSettings.fromMap(Map<String, Object?> m) {
+    final v = m[foundationalProgramKey];
+    return AralProgramSettings(foundationalProgram: v is bool ? v : defaults.foundationalProgram);
+  }
 }
 
 /// Why a Phil-IRI result is outside ARAL (reads at or above grade level).

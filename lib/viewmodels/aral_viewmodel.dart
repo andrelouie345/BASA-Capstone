@@ -29,6 +29,7 @@ import '../core/models/student.dart';
 import '../core/models/user.dart';
 import '../core/models/user_role.dart';
 import '../core/repositories/aral_enrollment_repository.dart';
+import '../core/repositories/aral_setting_repository.dart';
 import '../core/repositories/crla_result_repository.dart';
 import '../core/repositories/section_repository.dart';
 import '../core/repositories/student_repository.dart';
@@ -164,6 +165,7 @@ class AralViewModel {
   final UserRepository _users;
   final CrlaResultRepository _crlaResults;
   final PhilIriViewModel _philIri;
+  final AralSettingRepository _localSettings;
 
   /// A non-blocking notice from the last write (e.g. a tutor over 15 learners,
   /// or learners tied at the cut-off).
@@ -177,6 +179,7 @@ class AralViewModel {
     required UserRepository users,
     required CrlaResultRepository crlaResults,
     required PhilIriViewModel philIri,
+    required AralSettingRepository localSettings,
     Logger? logger,
   })  : _auth = auth,
         _roster = roster,
@@ -185,6 +188,7 @@ class AralViewModel {
         _users = users,
         _crlaResults = crlaResults,
         _philIri = philIri,
+        _localSettings = localSettings,
         _log = ScopedLogger(logger, 'AralViewModel');
 
   // ---- Proposal ----
@@ -200,6 +204,7 @@ class AralViewModel {
     final sectionRoster = await _roster.getBySection(section.id!, schoolYear: schoolYear);
     final enrolled = {for (final e in sectionRoster) e.studentId: e};
     final crla = grade <= 3 ? await _crlaResults.getBySection(section.id!, schoolYear: schoolYear) : const <CrlaResult>[];
+    final program = await programSettings(section.schoolId);
 
     final out = <AralCandidate>[];
     for (final s in learners) {
@@ -216,7 +221,7 @@ class AralViewModel {
       }
       out.add(grade <= 3
           ? _crlaCandidate(s, grade, crla.where((r) => r.studentId == s.id).toList())
-          : await _philIriCandidate(s, grade, section.id!, schoolYear));
+          : await _philIriCandidate(s, grade, section.id!, schoolYear, program.foundationalProgram));
     }
 
     // The qualifying learners (drafted as `proposed`) are ranked into the
@@ -293,7 +298,8 @@ class AralViewModel {
     );
   }
 
-  Future<AralCandidate> _philIriCandidate(Student s, int grade, int sectionId, String schoolYear) async {
+  Future<AralCandidate> _philIriCandidate(
+      Student s, int grade, int sectionId, String schoolYear, bool foundationalProgram) async {
     // As reports count it: finished sessions only; the GST carries into BOSY.
     final results = await _philIri.reportResults(studentId: s.id!, sectionId: sectionId, schoolYear: schoolYear);
     if (results.notAssessed) {
@@ -301,7 +307,8 @@ class AralViewModel {
       // Frustration, exactly 3 levels down, ranked weakest (reading
       // coordinator 2026-10-16), so assessing them is what moves them out.
       final assumed = philIriNotAssessedResult(PhilIriRound.bosy, grade);
-      final placement = aralPhilIriPlacement(adjustedLevel: assumed.adjustedLevel!, grade: grade);
+      final placement = aralPhilIriPlacement(
+          adjustedLevel: assumed.adjustedLevel!, grade: grade, foundationalProgram: foundationalProgram);
       return AralCandidate(
         student: s,
         grade: grade,
@@ -326,7 +333,8 @@ class AralViewModel {
     }
     final gstOnly = results.sessions[PhilIriRound.bosy] == null;
     final adjusted = bosy.adjustedLevel!;
-    final placement = aralPhilIriPlacement(adjustedLevel: adjusted, grade: grade);
+    final placement =
+        aralPhilIriPlacement(adjustedLevel: adjusted, grade: grade, foundationalProgram: foundationalProgram);
     final key = AralRankKey.philIri(bosy);
     final level = adjusted == 0 ? 'non-reader' : 'reads at Grade $adjusted';
     final scores = '${gstOnly ? 'no reading' : 'word reading ${_pct(key.wordRecognition)}'}, comprehension '
@@ -344,6 +352,21 @@ class AralViewModel {
       basisLevel: bosy.profile!.name,
       basisAssessmentId: results.sessions[PhilIriRound.bosy]?.id,
     );
+  }
+
+  /// The school's ARAL program settings on this device: defaults <- region <-
+  /// school (the local mirror; pull-cloud refreshes it).
+  Future<AralProgramSettings> programSettings(int schoolId) async {
+    final region = await _localSettings.getRegion();
+    final school = await _localSettings.getForSchool(schoolId);
+    return AralProgramSettings.fromMap({...?region?.settings, ...?school?.settings});
+  }
+
+  Future<void> _checkFoundational(AralKeyStage keyStage, int schoolId) async {
+    if (keyStage == AralKeyStage.foundational && !(await programSettings(schoolId)).foundationalProgram) {
+      throw const ViewModelException('This school has no foundational literacy program (SHARP) switched on: '
+          'learners reading at levels 0-1 go to KS1. The coordinator can switch the program on.');
+    }
   }
 
   static String _pct(double fraction) => '${(fraction * 100).round()}%';
@@ -412,6 +435,7 @@ class AralViewModel {
     }
     final tr = keyStage == null && track == null ? suggestion?.track : track;
     _checkTrack(ks, tr);
+    await _checkFoundational(ks, section.schoolId);
     if (tutorId != null) await _checkTutor(tutorId, section.schoolId);
     if (await freePlaces(sectionId: section.id!, schoolYear: schoolYear) == 0) {
       throw ViewModelException('Section ${section.id} already has $aralSectionCap active ARAL learners.');
@@ -471,13 +495,14 @@ class AralViewModel {
   }
 
   /// Changes the program (Foundational and KS1 have no track; KS2/KS3 need
-  /// one). E.g. a school without a foundational literacy program puts its
-  /// non-readers on KS1.
+  /// one). Foundational only when the school runs a foundational literacy
+  /// program (AralProgramSettings).
   Future<AralEnrollment> setPlacement(int enrollmentId, AralKeyStage keyStage, AralTrack? track) async {
     _log('setPlacement($enrollmentId, ${keyStage.name}, ${track?.name})');
     _requireManager();
     final e = await _require(enrollmentId);
     _checkTrack(keyStage, track);
+    await _checkFoundational(keyStage, e.schoolId);
     return _write(() => _roster.update(e.copyWith(keyStage: keyStage, track: () => track)));
   }
 
@@ -558,12 +583,13 @@ class AralViewModel {
     final (section, grade) = await _aralSection(sectionId, schoolYear);
     final active = (await _roster.getBySection(section.id!, schoolYear: schoolYear)).where((e) => e.isActive).toList();
     final crla = grade <= 3 ? await _crlaResults.getBySection(section.id!, schoolYear: schoolYear) : const <CrlaResult>[];
+    final foundationalOn = (await programSettings(section.schoolId)).foundationalProgram;
     final out = <AralUpdate>[];
     for (final e in active) {
       final latest = grade <= 3
           ? _latestCrla(crla.where((r) => r.studentId == e.studentId).toList())
           : await _latestPhilIri(e, grade);
-      out.add(await _apply(e, latest));
+      out.add(await _apply(e, latest, foundationalOn));
     }
     final changed = out.where((u) => u.kind == AralUpdateKind.programChanged || u.kind == AralUpdateKind.exited);
     _log('applyResults: ${changed.length} change(s) in section $sectionId');
@@ -588,8 +614,17 @@ class AralViewModel {
     return out;
   }
 
-  Future<AralUpdate> _apply(AralEnrollment e, _LatestResult? latest) async {
-    if (latest == null) return AralUpdate(e, e, AralUpdateKind.noResult, 'no finished result yet');
+  Future<AralUpdate> _apply(AralEnrollment e, _LatestResult? latest, bool foundationalOn) async {
+    if (latest == null) {
+      // Without a foundational literacy program there is no Foundational
+      // program: such learners go to KS1 (reading coordinator 2026-10-18).
+      if (!foundationalOn && e.keyStage == AralKeyStage.foundational) {
+        final after = await _write(() => _roster.update(e.copyWith(keyStage: AralKeyStage.ks1, track: () => null)));
+        return AralUpdate(e, after, AralUpdateKind.programChanged,
+            'no finished result yet; the foundational literacy program is off: Foundational -> KS1');
+      }
+      return AralUpdate(e, e, AralUpdateKind.noResult, 'no finished result yet');
+    }
     final sourceId = e.suggestionAssessmentId ?? e.basisAssessmentId;
     final sourceRound = e.suggestionRound ?? e.basisRound;
     final isNew = latest.assessmentId != sourceId || latest.round != sourceRound ||
@@ -609,7 +644,8 @@ class AralViewModel {
           status: AralStatus.exited, exitedOn: () => date, exitReason: () => AralExitReason.gradeLevelReady)));
       return AralUpdate(e, after, AralUpdateKind.exited, '${latest.label}: grade-level ready, exited on $date');
     }
-    if (p.keyStage != e.suggestedKeyStage || p.track != e.suggestedTrack) {
+    final sameAsNow = p.keyStage == e.keyStage && p.track == e.track;
+    if (!sameAsNow && (p.keyStage != e.suggestedKeyStage || p.track != e.suggestedTrack)) {
       final after = await _write(() => _roster.update(withSource(e).copyWith(
             keyStage: p.keyStage,
             track: () => p.track,
@@ -617,6 +653,14 @@ class AralViewModel {
             suggestedTrack: () => p.track,
           )));
       return AralUpdate(e, after, AralUpdateKind.programChanged, '${latest.label}: ${e.programLabel} -> ${p.label}');
+    }
+    if (sameAsNow && (p.keyStage != e.suggestedKeyStage || p.track != e.suggestedTrack)) {
+      // Already in that program (e.g. placed by hand): only the suggestion is recorded.
+      final after = await _write(() => _roster.update(withSource(e).copyWith(
+            suggestedKeyStage: () => p.keyStage,
+            suggestedTrack: () => p.track,
+          )));
+      return AralUpdate(e, after, AralUpdateKind.refreshed, '${latest.label}: suggests ${p.label}, already there');
     }
     if (isNew) {
       final after = await _write(() => _roster.update(withSource(e)));
@@ -638,7 +682,10 @@ class AralViewModel {
     final adjusted = r.adjustedLevel!;
     final level = adjusted == 0 ? 'non-reader' : 'reads at Grade $adjusted';
     return _LatestResult(r.round.name, r.profile!.name, session?.id, date,
-        aralPhilIriPlacement(adjustedLevel: adjusted, grade: grade),
+        aralPhilIriPlacement(
+            adjustedLevel: adjusted,
+            grade: grade,
+            foundationalProgram: (await programSettings(e.schoolId)).foundationalProgram),
         'Phil-IRI ${r.round.label}${session == null ? ' (GST)' : ''} ($level)');
   }
 

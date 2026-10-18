@@ -247,6 +247,30 @@ void registerAralCheckinCommands(ConsoleRegistry registry, AralCheckinViewModel 
         '${warn == null ? '' : '\n$warn'}';
   });
 
+  add('aral-sharp', 'aral-sharp [schoolId] — is the foundational literacy program (SHARP) on? (online)',
+      (args) async {
+    final schoolId = args.isEmpty ? null : _int(args[0], 'schoolId');
+    final l = await vm.foundationalProgramLayers(schoolId);
+    String row(bool? v) => v == null ? '(not set)' : (v ? 'on' : 'off');
+    return 'Default: off (levels 0-1 go to KS1)\n'
+        'Region: ${row(l.region)}\n'
+        '${schoolId == null ? '' : 'School $schoolId: ${row(l.school)}\n'}'
+        'Applies: ${l.effective ? 'on (levels 0-1 go to Foundational / SHARP)' : 'off (levels 0-1 go to KS1)'}';
+  });
+
+  add('aral-sharp-set',
+      'aral-sharp-set <region|schoolId> <on|off> — switch the foundational literacy program (SHARP) (online)',
+      (args) async {
+    const usage = 'Usage: aral-sharp-set <region|schoolId> <on|off>';
+    if (args.length != 2 || (args[1] != 'on' && args[1] != 'off')) throw const _Usage(usage);
+    final schoolId = args[0] == 'region' ? null : _int(args[0], 'schoolId');
+    await vm.setFoundationalProgram(schoolId, args[1] == 'on');
+    final warn = vm.lastMirrorWarning;
+    return 'Foundational literacy program (SHARP) ${args[1]} for '
+        '${schoolId == null ? 'the region' : 'school $schoolId'}. Learners already in ARAL move at the next '
+        'aral-update.${warn == null ? '' : '\n$warn'}';
+  });
+
   add('aral-checkin-cutoff-reset', 'aral-checkin-cutoff-reset <schoolId> — remove a school\'s cut-off (online)',
       (args) async {
     if (args.isEmpty) throw const _Usage('Usage: aral-checkin-cutoff-reset <schoolId>');

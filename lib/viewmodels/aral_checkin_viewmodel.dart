@@ -31,6 +31,7 @@ import '../core/repositories/aral_setting_repository.dart';
 import '../core/repositories/section_repository.dart';
 import '../core/repositories/student_repository.dart';
 import '../core/services/aral_checkin_rules.dart';
+import '../core/services/aral_rules.dart' show AralProgramSettings;
 import '../core/services/csv.dart';
 import '../core/services/normalizers.dart';
 import 'auth_viewmodel.dart';
@@ -423,7 +424,38 @@ class AralCheckinViewModel {
     return saved;
   }
 
-  /// Removes a school's override so the region value applies again.
+  /// The foundational literacy program switch (SHARP) in the cloud: the stored
+  /// region/school values (null = not set) and the one that applies.
+  Future<({bool? region, bool? school, bool effective})> foundationalProgramLayers(int? schoolId) async {
+    _log('foundationalProgramLayers($schoolId)');
+    final cloud = _cloud();
+    final region = await cloud.getRegion();
+    final school = schoolId == null ? null : await cloud.getForSchool(schoolId);
+    bool? read(AralSetting? s) => s?.settings[AralProgramSettings.foundationalProgramKey] as bool?;
+    return (
+      region: read(region),
+      school: read(school),
+      effective: AralProgramSettings.fromMap({...?region?.settings, ...?school?.settings}).foundationalProgram,
+    );
+  }
+
+  /// Switches the foundational literacy program (SHARP) on or off for the
+  /// region ([schoolId] null, superadmin) or a school (its admin/coordinator).
+  /// Off = the current ARAL guidelines: learners at levels 0-1 go to KS1.
+  /// Online; mirrored to this device. Learners already on the roster move at
+  /// the next automatic update (applyResults).
+  Future<AralSetting> setFoundationalProgram(int? schoolId, bool on) async {
+    _log('setFoundationalProgram($schoolId, $on)');
+    final cloud = _settingsWriter(schoolId);
+    final current = schoolId == null ? await cloud.getRegion() : await cloud.getForSchool(schoolId);
+    final saved = await _cloudWrite(() => cloud.save(
+        schoolId, {...?current?.settings, AralProgramSettings.foundationalProgramKey: on}));
+    await _mirror(() => _localSettings.upsertWithId(saved));
+    return saved;
+  }
+
+  /// Removes a school's override (all its ARAL settings: the check-in cut-off
+  /// and the foundational program switch) so the region values apply again.
   Future<void> resetSchoolSettings(int schoolId) async {
     _log('resetSchoolSettings($schoolId)');
     final cloud = _settingsWriter(schoolId);

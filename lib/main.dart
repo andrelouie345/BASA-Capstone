@@ -255,6 +255,7 @@ vmRegistry.register('TextViewModel', textVm);
     users: UserRepositorySqlite(localDb),
     crlaResults: CrlaResultRepositorySqlite(localDb),
     philIri: philIriVm,
+    localSettings: AralSettingRepositorySqlite(localDb),
     logger: session,
   );
   vmRegistry.register('AralViewModel', aralVm);
