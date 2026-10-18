@@ -38,7 +38,10 @@ class LocalDatabase {
         // change (automatic updates from results; same creator).
         // v25: check-in assessments (tools/items mirror-only, check-ins with
         // origin, answers) and the aral_settings mirror (same creator).
-        version: 25,
+        // v26: phil_iri_readings rebuilt for method 'silent'; triggers refuse
+        // miscues on silent readings, keep the method fixed, and let an oral
+        // follow-up re-read a silently read text (same round, once).
+        version: 26,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
@@ -141,6 +144,7 @@ class LocalDatabase {
           // v15. Must run before createPhilIriLocalSchema, which recreates the
           // triggers this drops.
           if (oldVersion < 15) await rebuildPhilIriPassagesForV15(db);
+          if (oldVersion < 26) await rebuildPhilIriReadingsForV26(db);
           // v13. IF NOT EXISTS + trigger recreate, so it runs on every upgrade.
           await createPhilIriLocalSchema(db);
           // v21. Must run before createAralLocalSchema, which recreates the

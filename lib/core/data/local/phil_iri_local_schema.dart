@@ -102,6 +102,68 @@ Future<void> rebuildPhilIriPassagesForV15(Database db) async {
   });
 }
 
+/// phil_iri_readings under [table], so the v26 rebuild can create the new copy.
+/// method 'silent' (v26): timed like whole_text, no miscues.
+String _readingsTableSql(String table) => '''
+    CREATE TABLE IF NOT EXISTS $table (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      assessment_id INTEGER NOT NULL REFERENCES phil_iri_assessments(id),
+      sequence_no INTEGER NOT NULL CHECK (sequence_no > 0),
+      passage_id INTEGER NOT NULL REFERENCES phil_iri_passages(id),
+      method TEXT NOT NULL DEFAULT 'whole_text' CHECK (method IN ('whole_text', 'one_minute', 'silent')),
+      reading_seconds INTEGER CHECK (reading_seconds > 0),
+      words_read INTEGER CHECK (words_read > 0),
+      obs_word_by_word INTEGER NOT NULL DEFAULT 0,
+      obs_lacks_expression INTEGER NOT NULL DEFAULT 0,
+      obs_voice_inaudible INTEGER NOT NULL DEFAULT 0,
+      obs_disregards_punctuation INTEGER NOT NULL DEFAULT 0,
+      obs_points_to_words INTEGER NOT NULL DEFAULT 0,
+      obs_little_analysis INTEGER NOT NULL DEFAULT 0,
+      obs_other TEXT,
+      word_reading_score REAL CHECK (word_reading_score BETWEEN 0 AND 1),
+      words_per_minute REAL CHECK (words_per_minute >= 0),
+      accuracy_level TEXT CHECK (accuracy_level IN ('independent', 'instructional', 'frustration', 'nonReader')),
+      speed TEXT CHECK (speed IN ('struggling', 'slow', 'average', 'fast')),
+      word_reading_level TEXT CHECK (word_reading_level IN ('independent', 'instructional', 'frustration', 'nonReader')),
+      comprehension_score REAL CHECK (comprehension_score BETWEEN 0 AND 1),
+      comprehension_level TEXT CHECK (comprehension_level IN ('independent', 'instructional', 'frustration')),
+      profile TEXT CHECK (profile IN ('independent', 'instructional', 'frustration', 'nonReader')),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE (assessment_id, sequence_no),
+      CHECK ((method IN ('whole_text', 'silent') AND words_read IS NULL)
+             OR (method = 'one_minute' AND reading_seconds IS NULL))
+    )
+  ''';
+
+/// v26 upgrade (before [createPhilIriLocalSchema]): method also allows
+/// 'silent'. Same copy-and-rename as v15; triggers that read phil_iri_readings
+/// are dropped first and recreated by createPhilIriLocalSchema. Local FKs are
+/// off, so miscues/answers/rubric scores keep pointing at the same ids.
+Future<void> rebuildPhilIriReadingsForV26(Database db) async {
+  final exists = (await db.rawQuery(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='phil_iri_readings'",
+  )).isNotEmpty;
+  if (!exists) return; // createPhilIriLocalSchema builds it fresh
+
+  await db.transaction((txn) async {
+    final triggers = await txn.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type='trigger' AND sql LIKE '%phil_iri_readings%'",
+    );
+    for (final t in triggers) {
+      await txn.execute('DROP TRIGGER IF EXISTS ${t['name']}');
+    }
+    const columns = 'id, assessment_id, sequence_no, passage_id, method, reading_seconds, words_read, '
+        'obs_word_by_word, obs_lacks_expression, obs_voice_inaudible, obs_disregards_punctuation, '
+        'obs_points_to_words, obs_little_analysis, obs_other, word_reading_score, words_per_minute, '
+        'accuracy_level, speed, word_reading_level, comprehension_score, comprehension_level, profile, '
+        'created_at';
+    await txn.execute(_readingsTableSql('phil_iri_readings_v26'));
+    await txn.execute('INSERT INTO phil_iri_readings_v26 ($columns) SELECT $columns FROM phil_iri_readings');
+    await txn.execute('DROP TABLE phil_iri_readings');
+    await txn.execute('ALTER TABLE phil_iri_readings_v26 RENAME TO phil_iri_readings');
+  });
+}
+
 Future<void> createPhilIriLocalSchema(Database db) async {
   // ---- Content (mirror-only) ----
   await db.execute('''
@@ -319,36 +381,7 @@ Future<void> createPhilIriLocalSchema(Database db) async {
   ''');
 
   // ---- Readings ----
-  await db.execute('''
-    CREATE TABLE IF NOT EXISTS phil_iri_readings (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      assessment_id INTEGER NOT NULL REFERENCES phil_iri_assessments(id),
-      sequence_no INTEGER NOT NULL CHECK (sequence_no > 0),
-      passage_id INTEGER NOT NULL REFERENCES phil_iri_passages(id),
-      method TEXT NOT NULL DEFAULT 'whole_text' CHECK (method IN ('whole_text', 'one_minute')),
-      reading_seconds INTEGER CHECK (reading_seconds > 0),
-      words_read INTEGER CHECK (words_read > 0),
-      obs_word_by_word INTEGER NOT NULL DEFAULT 0,
-      obs_lacks_expression INTEGER NOT NULL DEFAULT 0,
-      obs_voice_inaudible INTEGER NOT NULL DEFAULT 0,
-      obs_disregards_punctuation INTEGER NOT NULL DEFAULT 0,
-      obs_points_to_words INTEGER NOT NULL DEFAULT 0,
-      obs_little_analysis INTEGER NOT NULL DEFAULT 0,
-      obs_other TEXT,
-      word_reading_score REAL CHECK (word_reading_score BETWEEN 0 AND 1),
-      words_per_minute REAL CHECK (words_per_minute >= 0),
-      accuracy_level TEXT CHECK (accuracy_level IN ('independent', 'instructional', 'frustration', 'nonReader')),
-      speed TEXT CHECK (speed IN ('struggling', 'slow', 'average', 'fast')),
-      word_reading_level TEXT CHECK (word_reading_level IN ('independent', 'instructional', 'frustration', 'nonReader')),
-      comprehension_score REAL CHECK (comprehension_score BETWEEN 0 AND 1),
-      comprehension_level TEXT CHECK (comprehension_level IN ('independent', 'instructional', 'frustration')),
-      profile TEXT CHECK (profile IN ('independent', 'instructional', 'frustration', 'nonReader')),
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      UNIQUE (assessment_id, sequence_no),
-      CHECK ((method = 'whole_text' AND words_read IS NULL)
-             OR (method = 'one_minute' AND reading_seconds IS NULL))
-    )
-  ''');
+  await db.execute(_readingsTableSql('phil_iri_readings'));
 
   // "Is the parent session a local one that is not finalized?" helpers.
   const sessionOrigin = "(SELECT origin FROM phil_iri_assessments WHERE id = NEW.assessment_id)";
@@ -386,6 +419,8 @@ Future<void> createPhilIriLocalSchema(Database db) async {
         AND (SELECT test_type FROM phil_iri_passages WHERE id = NEW.passage_id) IS NOT NULL;
       -- v17: a learner never reads the same passage twice (same text, any
       -- collection, any school year).
+      -- v26 exception: the oral follow-up of a SILENT reading may re-read
+      -- that text once, as another attempt of the same round and school year.
       SELECT RAISE(ABORT, 'This learner has already read this passage')
       WHERE EXISTS (
         SELECT 1 FROM phil_iri_readings r
@@ -394,7 +429,11 @@ Future<void> createPhilIriLocalSchema(Database db) async {
         WHERE a.student_id = (SELECT student_id FROM phil_iri_assessments WHERE id = NEW.assessment_id)
           AND (r.passage_id = NEW.passage_id
                OR ${philIriTextKeySql('p.body')} =
-                  (SELECT ${philIriTextKeySql('body')} FROM phil_iri_passages WHERE id = NEW.passage_id)));
+                  (SELECT ${philIriTextKeySql('body')} FROM phil_iri_passages WHERE id = NEW.passage_id))
+          AND NOT (NEW.method <> 'silent' AND r.method = 'silent'
+                   AND r.assessment_id <> NEW.assessment_id
+                   AND a.round = (SELECT round FROM phil_iri_assessments WHERE id = NEW.assessment_id)
+                   AND a.school_year = (SELECT school_year FROM phil_iri_assessments WHERE id = NEW.assessment_id)));
     END
   ''');
   await db.execute('DROP TRIGGER IF EXISTS check_phil_iri_reading_upd');
@@ -405,8 +444,9 @@ Future<void> createPhilIriLocalSchema(Database db) async {
     BEGIN
       SELECT RAISE(ABORT, $finalizedMsg)
       WHERE (SELECT status FROM phil_iri_assessments WHERE id = OLD.assessment_id) = 'finalized';
-      SELECT RAISE(ABORT, 'A reading keeps its session and passage; delete it and add a new one instead')
-      WHERE NEW.assessment_id IS NOT OLD.assessment_id OR NEW.passage_id IS NOT OLD.passage_id;
+      SELECT RAISE(ABORT, 'A reading keeps its session, passage and method; delete it and add a new one instead')
+      WHERE NEW.assessment_id IS NOT OLD.assessment_id OR NEW.passage_id IS NOT OLD.passage_id
+         OR NEW.method IS NOT OLD.method;
     END
   ''');
 
@@ -427,6 +467,8 @@ Future<void> createPhilIriLocalSchema(Database db) async {
 
   const miscueCheck = '''
       SELECT RAISE(ABORT, $finalizedMsg) WHERE $readingStatus = 'finalized';
+      SELECT RAISE(ABORT, 'A silent reading has no miscues')
+      WHERE (SELECT method FROM phil_iri_readings WHERE id = NEW.reading_id) = 'silent';
       SELECT RAISE(ABORT, 'Word position is outside the passage')
       WHERE NEW.word_index > (SELECT p.word_count FROM phil_iri_readings r
                               JOIN phil_iri_passages p ON p.id = r.passage_id WHERE r.id = NEW.reading_id)
