@@ -35,6 +35,11 @@ const aralSectionCap = 15;
 /// (Basic = 2-3 levels down, Plus = 1) if KS3 Basic turns out too narrow.
 const aralKs3BasicLevelsDown = 3;
 
+/// basis_level of a Phil-IRI learner entered while not assessed at all
+/// (assumed Frustration, 3 levels down); a real result later replaces the
+/// suggestion through applyResults, the basis itself never changes.
+const aralNotAssessedLevel = 'not_assessed';
+
 /// The CRLA round a Grade 1-3 learner's ARAL placement comes from.
 CrlaRound aralCrlaBasisRound(int grade) => grade == 1 ? CrlaRound.mosy : CrlaRound.bosy;
 

@@ -23,7 +23,7 @@
 import '../core/console/logger.dart';
 import '../core/models/aral_enrollment.dart';
 import '../core/models/crla_result.dart';
-import '../core/models/phil_iri_assessment.dart' show PhilIriAssessment, PhilIriRound, PhilIriStatus;
+import '../core/models/phil_iri_assessment.dart' show PhilIriRound;
 import '../core/models/section.dart';
 import '../core/models/student.dart';
 import '../core/models/user.dart';
@@ -36,7 +36,7 @@ import '../core/repositories/user_repository.dart';
 import '../core/services/aral_rules.dart';
 import '../core/services/csv.dart';
 import '../core/services/crla_rules.dart' show crlaAtGradeLevel;
-import '../core/services/phil_iri_results.dart' show PhilIriRoundResult;
+import '../core/services/phil_iri_results.dart' show philIriNotAssessedResult, philIriNothingAssessed;
 import '../core/services/normalizers.dart';
 import 'auth_viewmodel.dart';
 import 'phil_iri_viewmodel.dart';
@@ -295,6 +295,25 @@ class AralViewModel {
 
   Future<AralCandidate> _philIriCandidate(Student s, int grade, int sectionId, String schoolYear) async {
     final results = await _philIri.learnerResults(studentId: s.id!, sectionId: sectionId, schoolYear: schoolYear);
+    if (philIriNothingAssessed(results.rounds)) {
+      // Not assessed at all (no GST, no reading): ARAL counts the learner as
+      // Frustration, exactly 3 levels down, ranked weakest (reading
+      // coordinator 2026-10-16), so assessing them is what moves them out.
+      final assumed = philIriNotAssessedResult(PhilIriRound.bosy, grade);
+      final placement = aralPhilIriPlacement(adjustedLevel: assumed.adjustedLevel!, grade: grade);
+      return AralCandidate(
+        student: s,
+        grade: grade,
+        status: AralCandidateStatus.proposed,
+        reason: 'Not assessed: counted as Frustration, 3 levels down (Grade ${assumed.adjustedLevel}); '
+            'give the Phil-IRI to place them on a real result',
+        suggestion: placement,
+        rankKey: const AralRankKey(0, 0, 0),
+        basisSource: AralBasisSource.philIri,
+        basisRound: PhilIriRound.bosy.name,
+        basisLevel: aralNotAssessedLevel,
+      );
+    }
     final bosy = results.rounds.where((r) => r.round == PhilIriRound.bosy).firstOrNull;
     if (bosy == null || !bosy.given || bosy.profile == null || bosy.adjustedLevel == null) {
       return AralCandidate(
@@ -605,17 +624,12 @@ class AralViewModel {
 
   /// The latest finished Phil-IRI round (a session still in progress doesn't count).
   Future<_LatestResult?> _latestPhilIri(AralEnrollment e, int grade) async {
-    final res = await _philIri.learnerResults(studentId: e.studentId, sectionId: e.sectionId, schoolYear: e.schoolYear);
-    PhilIriRoundResult? r;
-    PhilIriAssessment? session;
-    for (final x in res.rounds) {
-      final s = res.sessions[x.round];
-      if (x.given && x.profile != null && x.adjustedLevel != null && s != null && s.status != PhilIriStatus.inProgress) {
-        r = x;
-        session = s;
-      }
-    }
-    if (r == null) return null;
+    // Carried result of the latest finished round (reports count the same);
+    // a learner with nothing yet stays as placed.
+    final res = await _philIri.reportResults(studentId: e.studentId, sectionId: e.sectionId, schoolYear: e.schoolYear);
+    final r = res.latest(PhilIriRound.values);
+    final session = r == null ? null : res.sessions[r.round];
+    if (r == null || r.profile == null || r.adjustedLevel == null) return null;
     final adjusted = r.adjustedLevel!;
     final level = adjusted == 0 ? 'non-reader' : 'reads at Grade $adjusted';
     return _LatestResult(r.round.name, r.profile!.name, session!.id, session.assessedAt.substring(0, 10),

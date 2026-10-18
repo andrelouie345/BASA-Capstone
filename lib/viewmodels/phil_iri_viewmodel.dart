@@ -64,6 +64,39 @@ class PhilIriLearnerResults {
   });
 }
 
+/// A learner's year as reports and ARAL count it ([PhilIriViewModel.reportResults]).
+class PhilIriReportResults {
+  final int learnerGrade;
+  /// Carried round results built from the counted readings only.
+  final List<PhilIriRoundResult> rounds;
+  /// Rounds whose own (finished, dated by asOf) reading counts.
+  final Set<PhilIriRound> counted;
+  /// The session that stands for each counted round.
+  final Map<PhilIriRound, PhilIriAssessment> sessions;
+  /// Nothing counts at all (no reading, no GST): reports and ARAL assume
+  /// Frustration, 3 levels down ([philIriNotAssessedResult]).
+  final bool notAssessed;
+
+  const PhilIriReportResults({
+    required this.learnerGrade,
+    required this.rounds,
+    required this.counted,
+    required this.sessions,
+    required this.notAssessed,
+  });
+
+  PhilIriRoundResult round(PhilIriRound r) => rounds.firstWhere((x) => x.round == r);
+
+  /// The carried result of the latest counted round among [among], or null.
+  PhilIriRoundResult? latest(Iterable<PhilIriRound> among) {
+    PhilIriRoundResult? last;
+    for (final r in rounds) {
+      if (among.contains(r.round) && counted.contains(r.round)) last = r;
+    }
+    return last;
+  }
+}
+
 /// What finalizeRound did.
 class PhilIriRoundClosure {
   final List<PhilIriAssessment> finalized;
@@ -647,6 +680,45 @@ class PhilIriViewModel {
       rounds: rounds,
       end: philIriEndResult(rounds),
       regenerated: useCurrentThresholds,
+    );
+  }
+
+  /// The year as reports and ARAL count it: only finished sessions (completed
+  /// or finalized) assessed by [asOf] (YYYY-MM-DD, default: all) and a GST
+  /// taken by then; carried round to round with the school's current
+  /// thresholds (each reading keeps the score its round gave it).
+  /// notAssessed when nothing counts at all (reading coordinator 2026-10-16).
+  Future<PhilIriReportResults> reportResults({
+    required int studentId,
+    required int sectionId,
+    required String schoolYear,
+    String? asOf,
+  }) async {
+    final res = await learnerResults(studentId: studentId, sectionId: sectionId, schoolYear: schoolYear);
+    bool byDate(String date) => asOf == null || date.substring(0, 10).compareTo(asOf) <= 0;
+    final readings = <PhilIriRound, PhilIriPassageResult>{};
+    final sessions = <PhilIriRound, PhilIriAssessment>{};
+    for (final r in res.rounds) {
+      final s = res.sessions[r.round];
+      if (r.actual != null && s != null && s.status != PhilIriStatus.inProgress && byDate(s.assessedAt)) {
+        readings[r.round] = r.actual!;
+        sessions[r.round] = s;
+      }
+    }
+    final gst = res.gst != null && byDate(res.gst!.takenAt) ? res.gst : null;
+    final section = (await _philIriSection(sectionId)).$1;
+    final rounds = philIriRoundResults(
+      learnerGrade: res.learnerGrade,
+      gstScore: gst?.percent,
+      readings: readings,
+      t: await effectiveThresholds(section.schoolId),
+    );
+    return PhilIriReportResults(
+      learnerGrade: res.learnerGrade,
+      rounds: rounds,
+      counted: readings.keys.toSet(),
+      sessions: sessions,
+      notAssessed: philIriNothingAssessed(rounds),
     );
   }
 

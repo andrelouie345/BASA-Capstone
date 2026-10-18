@@ -18,11 +18,16 @@
 //    by their BOSY result; MOSY counts those still in ARAL on that date, by
 //    their latest MOSY round. Only results assessed by the report date count;
 //    unfinished Phil-IRI sessions don't.
+//  * Reading coordinator (2026-10-16): Phil-IRI results are the CARRIED ones
+//    (never lower than an earlier round); without a MOSY round the BOSY result
+//    carries forward. A Grade 4-10 learner with nothing at all by the report
+//    date (no reading, no GST) counts as 3-LD Frustration, flagged
+//    "3-LD (not assessed)". A GST alone still shows as "no result".
 import '../core/console/logger.dart';
 import '../core/models/aral_enrollment.dart';
 import '../core/models/crla_assessment.dart' show CrlaRound;
 import '../core/models/crla_result.dart';
-import '../core/models/phil_iri_assessment.dart' show PhilIriRound, PhilIriStatus;
+import '../core/models/phil_iri_assessment.dart' show PhilIriRound;
 import '../core/models/section.dart';
 import '../core/models/user_role.dart';
 import '../core/repositories/aral_enrollment_repository.dart';
@@ -42,6 +47,11 @@ import 'viewmodel_exception.dart';
 
 /// Column for an ARAL learner without a result in that round.
 const aralReportNoResult = 'no result';
+
+/// Column for a Grade 4-10 ARAL learner not assessed at all by the report
+/// date: counted as Frustration, exactly 3 levels down, and flagged (reading
+/// coordinator 2026-10-16). The template puts them under Frustration.
+const aralReportNotAssessed = '3-LD (not assessed)';
 
 /// One section's row.
 class AralSectionReportRow {
@@ -168,12 +178,15 @@ class AralReportViewModel {
       notes.add('${crla.length} Grade 1-3 section(s) use CRLA profiles, which the template has no columns for; '
           'they are in the CSV export (aral-export-report-csv).');
     }
-    var unplaced = 0;
+    var unplaced = 0, notAssessed = 0;
     (int, int) split(Map<String, int> counts) {
       var frustration = 0, instructional = 0;
       for (final e in counts.entries) {
         final down = int.tryParse(RegExp(r'^(\d+)-LD$').firstMatch(e.key)?.group(1) ?? '');
-        if (e.key == 'Non-Reader' || (down != null && down >= 3)) {
+        if (e.key == aralReportNotAssessed) {
+          frustration += e.value;
+          notAssessed += e.value;
+        } else if (e.key == 'Non-Reader' || (down != null && down >= 3)) {
           frustration += e.value;
         } else if (down != null) {
           instructional += e.value;
@@ -201,6 +214,10 @@ class AralReportViewModel {
         exitedGradeLevelReady: r.exitedGradeLevelReady,
         exitedOther: r.exitedOther,
       ));
+    }
+    if (notAssessed > 0) {
+      notes.add('$notAssessed BOSY/MOSY count(s) are learners not assessed at all by ${report.asOf}: counted under '
+          'Frustration (3 levels down) as the reading coordinator asked; the CSV shows them as "$aralReportNotAssessed".');
     }
     if (unplaced > 0) {
       notes.add('$unplaced BOSY/MOSY count(s) had no Phil-IRI result yet (or were at grade level): they are in the '
@@ -270,25 +287,22 @@ class AralReportViewModel {
       }
     } else {
       for (final e in roster) {
-        final res = await _philIri.learnerResults(studentId: e.studentId, sectionId: e.sectionId, schoolYear: year);
-        String? group(Iterable<PhilIriRound> rounds) {
-          PhilIriRoundResult? last;
-          for (final r in res.rounds.where((r) => rounds.contains(r.round))) {
-            final session = res.sessions[r.round];
-            if (r.given && r.profile != null && session != null && session.status != PhilIriStatus.inProgress &&
-                session.assessedAt.substring(0, 10).compareTo(asOf) <= 0) {
-              last = r;
-            }
-          }
-          if (last == null) return null;
+        final res = await _philIri.reportResults(
+            studentId: e.studentId, sectionId: e.sectionId, schoolYear: year, asOf: asOf);
+        String group(Iterable<PhilIriRound> rounds) {
+          // Not assessed at all by the report date: assumed 3-LD, flagged.
+          if (res.notAssessed) return aralReportNotAssessed;
+          final last = res.latest(rounds);
+          if (last == null) return aralReportNoResult;
           // Non-readers go with the furthest group (the open last one).
           return last.profile == PhilIriLevel.nonReader
               ? philIriReportGroup(99, t)
               : philIriReportGroup(last.levelsDown, t);
         }
-        add(bosy, group(const [PhilIriRound.bosy]) ?? aralReportNoResult);
+        add(bosy, group(const [PhilIriRound.bosy]));
+        // MOSY: the latest MOSY round; without one, BOSY carries forward.
         if (inAralOn(e)) {
-          add(mosy, group(const [PhilIriRound.mosy1, PhilIriRound.mosy2, PhilIriRound.mosy3]) ?? aralReportNoResult);
+          add(mosy, group(const [PhilIriRound.bosy, PhilIriRound.mosy1, PhilIriRound.mosy2, PhilIriRound.mosy3]));
         }
       }
     }
