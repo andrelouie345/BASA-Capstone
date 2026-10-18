@@ -41,7 +41,8 @@ class LocalDatabase {
         // v26: phil_iri_readings rebuilt for method 'silent'; triggers refuse
         // miscues on silent readings, keep the method fixed, and let an oral
         // follow-up re-read a silently read text (same round, once).
-        version: 26,
+        // v27: ARAL material catalog (aral_materials, mirror-only; createAralLocalSchema).
+        version: 27,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (

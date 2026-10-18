@@ -82,6 +82,10 @@ import 'package:basa_capstone/core/data/local/aral_checkin_repository_sqlite.dar
 import 'package:basa_capstone/core/data/local/aral_setting_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/remote/aral_setting_repository_supabase.dart';
 import 'package:basa_capstone/viewmodels/aral_checkin_viewmodel.dart';
+import 'package:basa_capstone/core/console/commands/aral_material_commands.dart';
+import 'package:basa_capstone/core/data/local/aral_material_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/remote/aral_material_repository_supabase.dart';
+import 'package:basa_capstone/viewmodels/aral_material_viewmodel.dart';
 import 'package:basa_capstone/core/data/local/aral_session_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/aral_tutor_setting_repository_sqlite.dart';
 import 'package:basa_capstone/viewmodels/aral_session_viewmodel.dart';
@@ -323,6 +327,18 @@ Future<void> main() async {
   );
   vmRegistry.register('AralCheckinViewModel', aralCheckinVm);
   registerAralCheckinCommands(registry, aralCheckinVm);
+
+  final aralMaterialVm = AralMaterialViewModel(
+    auth: authVm,
+    local: AralMaterialRepositorySqlite(localDb),
+    cloud: (client) => AralMaterialRepositorySupabase(client),
+    roster: AralEnrollmentRepositorySqlite(localDb),
+    sections: SectionRepositorySqlite(localDb),
+    localSettings: AralSettingRepositorySqlite(localDb),
+    logger: session,
+  );
+  vmRegistry.register('AralMaterialViewModel', aralMaterialVm);
+  registerAralMaterialCommands(registry, aralMaterialVm);
 
   final aralReportVm = AralReportViewModel(
     auth: authVm,

@@ -410,6 +410,39 @@ Future<void> createAralLocalSchema(Database db) async {
   ''');
 
   await _createCheckinTables(db);
+  await _createMaterialTables(db);
+}
+
+/// v27: the material catalog (aral_materials), mirror-only like the check-in
+/// tools: written online, same CHECKs as the cloud, no triggers.
+Future<void> _createMaterialTables(Database db) async {
+  await db.execute('''
+    CREATE TABLE IF NOT EXISTS aral_materials (
+      id INTEGER PRIMARY KEY,
+      school_id INTEGER REFERENCES schools(id),
+      title TEXT NOT NULL CHECK (length(trim(title)) > 0),
+      description TEXT,
+      key_stage TEXT NOT NULL CHECK (key_stage IN ('foundational', 'ks1', 'ks2', 'ks3')),
+      track TEXT CHECK (track IN ('basic', 'plus')),
+      kind TEXT NOT NULL DEFAULT 'learner' CHECK (kind IN ('learner', 'tutor', 'supplementary')),
+      language TEXT NOT NULL DEFAULT 'English' CHECK (language IN ('English', 'Filipino')),
+      min_grade INTEGER NOT NULL DEFAULT 7,
+      max_grade INTEGER NOT NULL DEFAULT 10,
+      file_name TEXT,
+      file_size INTEGER CHECK (file_size >= 0),
+      file_sha256 TEXT,
+      storage_path TEXT,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_by TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      CHECK (key_stage IN ('ks2', 'ks3') OR track IS NULL),
+      CHECK (min_grade BETWEEN 1 AND 12 AND max_grade BETWEEN min_grade AND 12),
+      CHECK (key_stage <> 'ks3' OR min_grade >= 7)
+    )
+  ''');
+  await db.execute(
+      'CREATE UNIQUE INDEX IF NOT EXISTS aral_materials_title_key ON aral_materials (IFNULL(school_id, 0), lower(title))');
 }
 
 /// v25: check-in tools and items (mirror-only content), check-ins (origin)
