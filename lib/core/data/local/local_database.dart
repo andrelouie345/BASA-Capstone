@@ -42,7 +42,8 @@ class LocalDatabase {
         // miscues on silent readings, keep the method fixed, and let an oral
         // follow-up re-read a silently read text (same round, once).
         // v27: ARAL material catalog (aral_materials, mirror-only; createAralLocalSchema).
-        version: 27,
+        // v28: aral_materials.link + aral_material_links (no stored files).
+        version: 28,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (

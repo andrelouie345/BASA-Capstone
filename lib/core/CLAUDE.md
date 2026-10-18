@@ -44,3 +44,5 @@ Nothing in `core/` imports Flutter. Keep it that way.
 - Cloud INSERT into `crla_assessments` requires `sections.school_id = school_id` and an **active** enrollment of the learner in that section for that `school_year` (any role), on top of the role scope.
 - Postgres `date` columns come back as ISO strings; `birth_date` and `assessed_at` are `String` in models. `CrlaViewModel` writes `assessed_at` as the local calendar date (yyyy-MM-dd), never a UTC timestamp.
 - Soft rule: ask for the real schema/policy text (or a read-only query the owner can run) before assuming anything about columns, constraints, triggers, or RLS you haven't seen. The schema dump omits table-level CHECKs, view options and policies.
+
+> Migration file names mentioned here (2026-10-12..18) are now in `supabase/migrations_archive/` (history); the live schema is `supabase/migrations/20261018040000_baseline.sql`.

@@ -6,7 +6,10 @@
 // learner grades it may go to. KS1-KS3 materials are for Grades 7-10 only
 // (reading coordinator 2026-10-18); the cloud refuses KS3 below Grade 7.
 // schoolId null = region-wide (superadmin); otherwise a school's own.
-// The file fields are filled by the storage piece (R3b).
+// No files are stored in BASA (owner 2026-10-18: any school must be able to run
+// its own Supabase at little or no cost): fileName names the document the
+// coordinator distributes (Google Drive or the installation package) and link
+// points at it. A school can keep its own link (AralMaterialLink).
 import 'aral_enrollment.dart' show AralKeyStage, AralTrack;
 
 enum AralMaterialKind {
@@ -41,10 +44,8 @@ class AralMaterial {
   final String language;
   final int minGrade;
   final int maxGrade;
-  final String? fileName;
-  final int? fileSize;              // bytes
-  final String? fileSha256;
-  final String? storagePath;        // object path in the materials bucket (R3b)
+  final String? fileName;           // the document's file name, e.g. "RTP_AR_KS1_... .pdf"
+  final String? link;               // http(s) URL, e.g. the Google Drive file
   final bool isActive;
   final String? createdBy;
   final String? createdAt;
@@ -62,9 +63,7 @@ class AralMaterial {
     this.minGrade = aralMaterialDefaultMinGrade,
     this.maxGrade = aralMaterialDefaultMaxGrade,
     this.fileName,
-    this.fileSize,
-    this.fileSha256,
-    this.storagePath,
+    this.link,
     this.isActive = true,
     this.createdBy,
     this.createdAt,
@@ -74,8 +73,6 @@ class AralMaterial {
   String get programLabel => track == null
       ? (keyStage.hasTrack ? '${keyStage.label} (any track)' : keyStage.label)
       : '${keyStage.label} ${track!.label}';
-
-  bool get hasFile => storagePath != null;
 
   /// Is this material for a learner in [keyStage]/[track] and [grade]?
   bool fits(AralKeyStage keyStage, AralTrack? track, int grade) =>
@@ -98,9 +95,7 @@ class AralMaterial {
         'min_grade': minGrade,
         'max_grade': maxGrade,
         'file_name': fileName,
-        'file_size': fileSize,
-        'file_sha256': fileSha256,
-        'storage_path': storagePath,
+        'link': link,
         'is_active': isActive,
       };
 
@@ -116,9 +111,7 @@ class AralMaterial {
         minGrade: m['min_grade'] as int,
         maxGrade: m['max_grade'] as int,
         fileName: m['file_name'] as String?,
-        fileSize: (m['file_size'] as num?)?.toInt(),
-        fileSha256: m['file_sha256'] as String?,
-        storagePath: m['storage_path'] as String?,
+        link: m['link'] as String?,
         isActive: m['is_active'] is bool ? m['is_active'] as bool : (m['is_active'] as int? ?? 1) == 1,
         createdBy: m['created_by'] as String?,
         createdAt: m['created_at'] as String?,
@@ -134,6 +127,8 @@ class AralMaterial {
     String? language,
     int? minGrade,
     int? maxGrade,
+    String? Function()? fileName,
+    String? Function()? link,
     bool? isActive,
   }) =>
       AralMaterial(
@@ -147,13 +142,50 @@ class AralMaterial {
         language: language ?? this.language,
         minGrade: minGrade ?? this.minGrade,
         maxGrade: maxGrade ?? this.maxGrade,
-        fileName: fileName,
-        fileSize: fileSize,
-        fileSha256: fileSha256,
-        storagePath: storagePath,
+        fileName: fileName != null ? fileName() : this.fileName,
+        link: link != null ? link() : this.link,
         isActive: isActive ?? this.isActive,
         createdBy: createdBy,
         createdAt: createdAt,
         updatedAt: updatedAt,
       );
 }
+
+/// A school's own link for a material (aral_material_links): coordinators
+/// keep links working themselves, also for region-wide materials they can't edit.
+class AralMaterialLink {
+  final int? id;
+  final int materialId;
+  final int schoolId;
+  final String link;
+  final String? updatedBy;
+  final String? updatedAt;
+
+  AralMaterialLink({
+    this.id,
+    required this.materialId,
+    required this.schoolId,
+    required this.link,
+    this.updatedBy,
+    this.updatedAt,
+  });
+
+  Map<String, Object?> toMap() => {
+        if (id != null) 'id': id,
+        'material_id': materialId,
+        'school_id': schoolId,
+        'link': link,
+      };
+
+  factory AralMaterialLink.fromMap(Map<String, Object?> m) => AralMaterialLink(
+        id: m['id'] as int?,
+        materialId: m['material_id'] as int,
+        schoolId: m['school_id'] as int,
+        link: m['link'] as String,
+        updatedBy: m['updated_by'] as String?,
+        updatedAt: m['updated_at'] as String?,
+      );
+}
+
+/// An http(s) URL without spaces (the cloud CHECK).
+bool aralMaterialLinkOk(String link) => RegExp(r'^https?://\S+$', caseSensitive: false).hasMatch(link);

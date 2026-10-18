@@ -8,7 +8,8 @@
 // Postgres (migrations 20261015050000_aral_enrollments.sql,
 // 20261015060000_aral_sessions.sql, 20261015070000_aral_foundational_section_cap.sql,
 // 20261015080000_aral_tutor_settings.sql, 20261016010000_aral_irip.sql,
-// 20261016020000_aral_auto_updates.sql, 20261016030000_aral_checkins.sql). Called from
+// 20261016020000_aral_auto_updates.sql, 20261016030000_aral_checkins.sql; now in
+// supabase/migrations_archive/, squashed into the 20261018040000 baseline). Called from
 // LocalDatabase on create and, unconditionally, on upgrade: everything here is
 // IF NOT EXISTS, and triggers are dropped and recreated.
 //
@@ -415,6 +416,10 @@ Future<void> createAralLocalSchema(Database db) async {
 
 /// v27: the material catalog (aral_materials), mirror-only like the check-in
 /// tools: written online, same CHECKs as the cloud, no triggers.
+/// v28: no stored files (link instead of storage); aral_material_links (a
+/// school's own links). v27 devices keep three unused, always-null columns
+/// (file_size, file_sha256, storage_path): SQLite on older Android can't
+/// DROP COLUMN, and they do no harm.
 Future<void> _createMaterialTables(Database db) async {
   await db.execute('''
     CREATE TABLE IF NOT EXISTS aral_materials (
@@ -429,9 +434,7 @@ Future<void> _createMaterialTables(Database db) async {
       min_grade INTEGER NOT NULL DEFAULT 7,
       max_grade INTEGER NOT NULL DEFAULT 10,
       file_name TEXT,
-      file_size INTEGER CHECK (file_size >= 0),
-      file_sha256 TEXT,
-      storage_path TEXT,
+      link TEXT,
       is_active INTEGER NOT NULL DEFAULT 1,
       created_by TEXT,
       created_at TEXT,
@@ -443,6 +446,20 @@ Future<void> _createMaterialTables(Database db) async {
   ''');
   await db.execute(
       'CREATE UNIQUE INDEX IF NOT EXISTS aral_materials_title_key ON aral_materials (IFNULL(school_id, 0), lower(title))');
+  final columns = (await db.rawQuery('PRAGMA table_info(aral_materials)')).map((c) => c['name']).toSet();
+  if (!columns.contains('link')) await db.execute('ALTER TABLE aral_materials ADD COLUMN link TEXT');
+
+  await db.execute('''
+    CREATE TABLE IF NOT EXISTS aral_material_links (
+      id INTEGER PRIMARY KEY,
+      material_id INTEGER NOT NULL REFERENCES aral_materials(id),
+      school_id INTEGER NOT NULL REFERENCES schools(id),
+      link TEXT NOT NULL,
+      updated_by TEXT,
+      updated_at TEXT,
+      UNIQUE (material_id, school_id)
+    )
+  ''');
 }
 
 /// v25: check-in tools and items (mirror-only content), check-ins (origin)

@@ -23,4 +23,21 @@ abstract class AralMaterialRepository {
 
   /// Local-mirroring only: drops the local copy. Supabase impl throws UnimplementedError.
   Future<void> removeMirrored(int id);
+
+  // ---- A school's own links (aral_material_links) ----
+
+  /// [schoolId]'s own links.
+  Future<List<AralMaterialLink>> linksForSchool(int schoolId);
+
+  /// Creates or replaces [schoolId]'s link for the material (cloud).
+  Future<AralMaterialLink> saveLink(int materialId, int schoolId, String link);
+
+  /// Removes [schoolId]'s link (cloud). Throws when nothing was deleted.
+  Future<void> deleteLink(int materialId, int schoolId);
+
+  /// Local-mirroring only. Supabase impl throws UnimplementedError.
+  Future<AralMaterialLink> upsertLinkWithId(AralMaterialLink link);
+
+  /// Local-mirroring only. Supabase impl throws UnimplementedError.
+  Future<void> removeMirroredLink(int materialId, int schoolId);
 }

@@ -12,7 +12,11 @@
 //    for now (she may get files for them later).
 //  * Foundational (SHARP) materials only while the school's foundational
 //    literacy program is switched on.
-//  * Materials work offline: the files come with piece R3b.
+//  * No files in BASA (owner 2026-10-18: any school must be able to run its own
+//    Supabase at little or no cost). The coordinator distributes the files
+//    (Google Drive or the installation package); a recommendation shows the
+//    document (title, file name) and its link. Links can expire, so each
+//    school's coordinator can keep their own link for any material they see.
 // The catalog is managed online (superadmin: region-wide; admin/coordinator:
 // their own school's) and mirrored to this device; recommendations are read
 // from the local copy, so they work offline.
@@ -31,11 +35,21 @@ import '../core/services/aral_rules.dart' show AralProgramSettings;
 import 'auth_viewmodel.dart';
 import 'viewmodel_exception.dart';
 
+/// One recommended material with the link that applies to the learner's school.
+class AralRecommendedMaterial {
+  final AralMaterial material;
+  /// The school's own link, else the material's link; null = none yet.
+  final String? link;
+  final bool schoolLink;
+
+  const AralRecommendedMaterial(this.material, this.link, this.schoolLink);
+}
+
 /// The materials one ARAL learner gets.
 class AralRecommendation {
   final AralEnrollment enrollment;
   final int grade;
-  final List<AralMaterial> materials;
+  final List<AralRecommendedMaterial> materials;
   /// Why the list is empty or shorter than expected (null when nothing to say).
   final String? note;
 
@@ -96,6 +110,8 @@ class AralMaterialViewModel {
     int minGrade = aralMaterialDefaultMinGrade,
     int maxGrade = aralMaterialDefaultMaxGrade,
     String? description,
+    String? fileName,
+    String? link,
   }) async {
     _log('addMaterial(school: $schoolId, "$title", ${keyStage.name} ${track?.name}, ${kind.name}, $language, '
         'grades $minGrade-$maxGrade)');
@@ -110,6 +126,8 @@ class AralMaterialViewModel {
       language: language,
       minGrade: minGrade,
       maxGrade: maxGrade,
+      fileName: _blankToNull(fileName),
+      link: _blankToNull(link),
     ));
     final saved = await _cloudWrite(() => cloud.insert(m));
     await _mirror(() => _local.upsertWithId(saved));
@@ -127,6 +145,8 @@ class AralMaterialViewModel {
     String? language,
     int? minGrade,
     int? maxGrade,
+    String? Function()? fileName,
+    String? Function()? link,
   }) async {
     _log('updateMaterial($id)');
     final (cloud, current) = await _writable(id);
@@ -139,6 +159,8 @@ class AralMaterialViewModel {
       language: language,
       minGrade: minGrade,
       maxGrade: maxGrade,
+      fileName: fileName == null ? null : () => _blankToNull(fileName()),
+      link: link == null ? null : () => _blankToNull(link()),
     ));
     final saved = await _cloudWrite(() => cloud.update(m));
     await _mirror(() => _local.upsertWithId(saved));
@@ -160,6 +182,29 @@ class AralMaterialViewModel {
     final (cloud, _) = await _writable(id);
     await _cloudWrite(() => cloud.delete(id));
     await _mirror(() => _local.removeMirrored(id));
+  }
+
+  /// Sets (or with null removes) [schoolId]'s own link for a material that
+  /// school can see (region-wide or its own): the superadmin, or the school's
+  /// admin/coordinator. Online; mirrored. Recommendations for that school's
+  /// learners use it instead of the material's link.
+  Future<AralMaterialLink?> setSchoolLink(int materialId, int schoolId, String? link) async {
+    _log('setSchoolLink($materialId, school: $schoolId, ${link == null ? 'remove' : 'set'})');
+    final m = await material(materialId);
+    if (m.schoolId != null && m.schoolId != schoolId) {
+      throw const ViewModelException("That material belongs to another school.");
+    }
+    final cloud = _writer(schoolId, what: 'links');
+    final value = _blankToNull(link);
+    if (value == null) {
+      await _cloudWrite(() => cloud.deleteLink(materialId, schoolId));
+      await _mirror(() => _local.removeMirroredLink(materialId, schoolId));
+      return null;
+    }
+    if (!aralMaterialLinkOk(value)) throw ViewModelException('A link is an http(s) address without spaces (got "$value").');
+    final saved = await _cloudWrite(() => cloud.saveLink(materialId, schoolId, value));
+    await _mirror(() => _local.upsertLinkWithId(saved));
+    return saved;
   }
 
   // ---- Recommendations (offline) ----
@@ -203,12 +248,14 @@ class AralMaterialViewModel {
           'The foundational literacy program (SHARP) is switched off for this school: run aral-update to move '
           'the learner to KS1.');
     }
-    final list = catalog
-        .where((m) => (m.schoolId == null || m.schoolId == e.schoolId) && m.fits(e.keyStage, e.track, grade))
-        .toList()
-      ..sort((a, b) {
-        final k = a.kind.index.compareTo(b.kind.index);
-        return k != 0 ? k : a.title.toLowerCase().compareTo(b.title.toLowerCase());
+    final schoolLinks = {for (final l in await _local.linksForSchool(e.schoolId)) l.materialId: l.link};
+    final list = [
+      for (final m in catalog)
+        if ((m.schoolId == null || m.schoolId == e.schoolId) && m.fits(e.keyStage, e.track, grade))
+          AralRecommendedMaterial(m, schoolLinks[m.id] ?? m.link, schoolLinks.containsKey(m.id)),
+    ]..sort((a, b) {
+        final k = a.material.kind.index.compareTo(b.material.kind.index);
+        return k != 0 ? k : a.material.title.toLowerCase().compareTo(b.material.title.toLowerCase());
       });
     String? note;
     if (list.isEmpty) {
@@ -253,7 +300,7 @@ class AralMaterialViewModel {
   }
 
   /// The cloud repository for writing [schoolId]'s materials (null = region-wide).
-  AralMaterialRepository _writer(int? schoolId) {
+  AralMaterialRepository _writer(int? schoolId, {String what = 'materials'}) {
     final sessionError = _auth.requireActiveSession();
     if (sessionError != null) throw ViewModelException(sessionError);
     final me = _me();
@@ -266,7 +313,7 @@ class AralMaterialViewModel {
         throw const ViewModelException('Forbidden: only the superadmin manages region-wide materials.');
       }
       if (me.schoolId != schoolId) {
-        throw const ViewModelException("Forbidden: you can only manage your own school's materials.");
+        throw ViewModelException("Forbidden: you can only manage your own school's $what.");
       }
     }
     lastMirrorWarning = null;
@@ -292,6 +339,9 @@ class AralMaterialViewModel {
     }
     if (m.keyStage == AralKeyStage.ks3 && m.minGrade < 7) {
       throw const ViewModelException('KS3 materials are for Grades 7-10 only.');
+    }
+    if (m.link != null && !aralMaterialLinkOk(m.link!)) {
+      throw ViewModelException('A link is an http(s) address without spaces (got "${m.link}").');
     }
     return m;
   }

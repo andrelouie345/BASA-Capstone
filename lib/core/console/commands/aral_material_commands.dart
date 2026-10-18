@@ -55,13 +55,19 @@ String _language(String raw) => aralMaterialLanguages.firstWhere((l) => l.toLowe
 
 String _line(AralMaterial m) => '#${m.id} | ${m.title} | ${m.programLabel} | ${m.kind.label} | ${m.language} | '
     'Grades ${m.minGrade}-${m.maxGrade} | ${m.schoolId == null ? 'region-wide' : 'school ${m.schoolId}'}'
-    '${m.isActive ? '' : ' | RETIRED'} | ${m.hasFile ? 'file ${m.fileName}' : 'no file yet'}';
+    '${m.isActive ? '' : ' | RETIRED'} | file: ${m.fileName ?? '-'} | link: ${m.link ?? '-'}';
 
 String _recommendation(AralRecommendation r) {
   final e = r.enrollment;
   final head = '#${e.id} | student ${e.studentId} | Grade ${r.grade} | ${e.programLabel}';
   if (r.materials.isEmpty) return '$head\n  ${r.note ?? 'nothing'}';
-  return [head, for (final m in r.materials) '  - ${m.title} (${m.kind.label}, ${m.language})'].join('\n');
+  return [
+    head,
+    for (final x in r.materials)
+      '  - ${x.material.title} (${x.material.kind.label}, ${x.material.language})'
+          '${x.material.fileName == null ? '' : ' | file: ${x.material.fileName}'}'
+          ' | link: ${x.link == null ? 'none yet' : '${x.link}${x.schoolLink ? ' (school link)' : ''}'}',
+  ].join('\n');
 }
 
 void registerAralMaterialCommands(ConsoleRegistry registry, AralMaterialViewModel vm) {
@@ -106,14 +112,23 @@ void registerAralMaterialCommands(ConsoleRegistry registry, AralMaterialViewMode
   add(
       'aral-material-add',
       'aral-material-add <region|schoolId> <foundational|ks1|ks2|ks3> <basic|plus|any> <learner|tutor|supplementary> '
-          '<English|Filipino> "<title>" [grades=7-10] — add a material to the catalog (online)', (args) async {
+          '<English|Filipino> "<title>" [grades=7-10] ["file=<file name>"] [link=<url>] — add a material to the '
+          'catalog (online)', (args) async {
     const usage = 'Usage: aral-material-add <region|schoolId> <foundational|ks1|ks2|ks3> <basic|plus|any> '
-        '<learner|tutor|supplementary> <English|Filipino> "<title>" [grades=7-10]';
-    if (args.length < 6 || args.length > 7) throw const _Usage(usage);
+        '<learner|tutor|supplementary> <English|Filipino> "<title>" [grades=7-10] ["file=<file name>"] [link=<url>]';
+    if (args.length < 6 || args.length > 9) throw const _Usage(usage);
     var grades = (aralMaterialDefaultMinGrade, aralMaterialDefaultMaxGrade);
-    if (args.length == 7) {
-      if (!args[6].startsWith('grades=')) throw const _Usage(usage);
-      grades = _grades(args[6].substring(7));
+    String? file, link;
+    for (final opt in args.sublist(6)) {
+      if (opt.startsWith('grades=')) {
+        grades = _grades(opt.substring(7));
+      } else if (opt.startsWith('file=')) {
+        file = opt.substring(5);
+      } else if (opt.startsWith('link=')) {
+        link = opt.substring(5);
+      } else {
+        throw const _Usage(usage);
+      }
     }
     final m = await vm.addMaterial(
       schoolId: args[0] == 'region' ? null : _int(args[0], 'schoolId'),
@@ -124,15 +139,19 @@ void registerAralMaterialCommands(ConsoleRegistry registry, AralMaterialViewMode
       title: args[5],
       minGrade: grades.$1,
       maxGrade: grades.$2,
+      fileName: file,
+      link: link,
     );
     return withWarning('Added ${_line(m)}');
   });
 
   add(
       'aral-material-set',
-      'aral-material-set <id|"title"> <title|program|kind|language|grades|description> <value...> — change a material '
-          '(online; program = <ks> <basic|plus|any>, grades = 7-10, description "-" clears)', (args) async {
-    const usage = 'Usage: aral-material-set <id> <title|program|kind|language|grades|description> <value...>';
+      'aral-material-set <id|"title"> <title|program|kind|language|grades|description|file|link> <value...> — change '
+          'a material (online; program = <ks> <basic|plus|any>, grades = 7-10; "-" clears description, file, link)',
+      (args) async {
+    const usage =
+        'Usage: aral-material-set <id|"title"> <title|program|kind|language|grades|description|file|link> <value...>';
     if (args.length < 3) throw const _Usage(usage);
     final id = await ref(args[0]);
     final value = args.sublist(2).join(' ');
@@ -148,6 +167,8 @@ void registerAralMaterialCommands(ConsoleRegistry registry, AralMaterialViewMode
           return vm.updateMaterial(id, minGrade: g.$1, maxGrade: g.$2);
         }(),
       'description' => await vm.updateMaterial(id, description: () => value == '-' ? null : value),
+      'file' => await vm.updateMaterial(id, fileName: () => value == '-' ? null : value),
+      'link' => await vm.updateMaterial(id, link: () => value == '-' ? null : value),
       _ => throw const _Usage(usage),
     };
     return withWarning('Saved ${_line(m)}');
@@ -168,6 +189,19 @@ void registerAralMaterialCommands(ConsoleRegistry registry, AralMaterialViewMode
     final id = await ref(args[0]);
     await vm.deleteMaterial(id);
     return withWarning('Deleted material #$id.');
+  });
+
+  add(
+      'aral-material-school-link',
+      "aral-material-school-link <id|\"title\"> <schoolId> <url|-> — a school's own link for a material it can see "
+          "(online; '-' removes it; the school's learners get this link instead of the material's)", (args) async {
+    if (args.length != 3) throw const _Usage('Usage: aral-material-school-link <id|"title"> <schoolId> <url|->');
+    final id = await ref(args[0]);
+    final schoolId = _int(args[1], 'schoolId');
+    final saved = await vm.setSchoolLink(id, schoolId, args[2] == '-' ? null : args[2]);
+    return withWarning(saved == null
+        ? 'School $schoolId has no own link for material #$id any more.'
+        : 'School $schoolId link for material #$id: ${saved.link}');
   });
 
   add('aral-recommend', 'aral-recommend <enrollmentId> — the materials for one ARAL learner (offline)', (args) async {

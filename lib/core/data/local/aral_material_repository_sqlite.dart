@@ -47,6 +47,36 @@ class AralMaterialRepositorySqlite implements AralMaterialRepository {
 
   @override
   Future<void> removeMirrored(int id) async {
+    await db.delete('aral_material_links', where: 'material_id = ?', whereArgs: [id]);
     await db.delete('aral_materials', where: 'id = ?', whereArgs: [id]);
+  }
+
+  @override
+  Future<AralMaterialLink> saveLink(int materialId, int schoolId, String link) async => _online();
+  @override
+  Future<void> deleteLink(int materialId, int schoolId) async => _online();
+
+  @override
+  Future<List<AralMaterialLink>> linksForSchool(int schoolId) async {
+    final rows = await db.query('aral_material_links', where: 'school_id = ?', whereArgs: [schoolId]);
+    return rows.map(AralMaterialLink.fromMap).toList();
+  }
+
+  @override
+  Future<AralMaterialLink> upsertLinkWithId(AralMaterialLink link) async {
+    if (link.id == null) throw ArgumentError('Cannot upsertLinkWithId an AralMaterialLink with no id');
+    await upsertById(db, 'aral_material_links', toSqliteRow({
+      ...link.toMap(),
+      if (link.updatedBy != null) 'updated_by': link.updatedBy,
+      if (link.updatedAt != null) 'updated_at': link.updatedAt,
+    }));
+    final rows = await db.query('aral_material_links', where: 'id = ?', whereArgs: [link.id]);
+    return AralMaterialLink.fromMap(rows.first);
+  }
+
+  @override
+  Future<void> removeMirroredLink(int materialId, int schoolId) async {
+    await db.delete('aral_material_links',
+        where: 'material_id = ? AND school_id = ?', whereArgs: [materialId, schoolId]);
   }
 }

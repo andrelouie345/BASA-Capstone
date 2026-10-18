@@ -50,6 +50,7 @@ const _pullOrder = <String, String>{
   'aral_checkins': 'id',
   'aral_checkin_answers': 'id',
   'aral_materials': 'id',
+  'aral_material_links': 'id',
 };
 
 /// Tables with the local-only origin column: mirrored rows are 'cloud'.
@@ -65,6 +66,7 @@ const _originTables = {
 /// and login_logs (this device's sign-in history) are kept. import_conflicts
 /// lives in the cloud only; its local copy is unused but may hold old rows.
 const _clearedTables = [
+  'aral_material_links',
   'aral_materials',
   'aral_checkin_answers',
   'aral_checkins',
