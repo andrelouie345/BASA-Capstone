@@ -69,12 +69,15 @@ class PhilIriReportResults {
   final int learnerGrade;
   /// Carried round results built from the counted readings only.
   final List<PhilIriRoundResult> rounds;
-  /// Rounds whose own (finished, dated by asOf) reading counts.
+  /// Rounds that count: those with a finished reading dated by asOf, and
+  /// BOSY when only a counted GST stands for it (the GST carries into BOSY).
   final Set<PhilIriRound> counted;
-  /// The session that stands for each counted round.
+  /// The session that stands for each counted round (none for a GST-only BOSY).
   final Map<PhilIriRound, PhilIriAssessment> sessions;
-  /// Nothing counts at all (no reading, no GST): reports and ARAL assume
-  /// Frustration, 3 levels down ([philIriNotAssessedResult]).
+  /// The GST that counts (taken by asOf, score above 0), if any.
+  final PhilIriGstResult? gst;
+  /// Nothing counts at all (no reading; no GST, or a GST of 0): reports and
+  /// ARAL assume Frustration, 3 levels down ([philIriNotAssessedResult]).
   final bool notAssessed;
 
   const PhilIriReportResults({
@@ -82,6 +85,7 @@ class PhilIriReportResults {
     required this.rounds,
     required this.counted,
     required this.sessions,
+    required this.gst,
     required this.notAssessed,
   });
 
@@ -686,8 +690,10 @@ class PhilIriViewModel {
   /// The year as reports and ARAL count it: only finished sessions (completed
   /// or finalized) assessed by [asOf] (YYYY-MM-DD, default: all) and a GST
   /// taken by then; carried round to round with the school's current
-  /// thresholds (each reading keeps the score its round gave it).
-  /// notAssessed when nothing counts at all (reading coordinator 2026-10-16).
+  /// thresholds (each reading keeps the score its round gave it). The GST
+  /// carries into BOSY, so a GST alone is a BOSY result. A GST of 0 counts as
+  /// no assessment, like no GST at all (the workbook's 0.2 / 0.1 markers).
+  /// notAssessed when nothing counts (reading coordinator 2026-10-16/18).
   Future<PhilIriReportResults> reportResults({
     required int studentId,
     required int sectionId,
@@ -705,7 +711,7 @@ class PhilIriViewModel {
         sessions[r.round] = s;
       }
     }
-    final gst = res.gst != null && byDate(res.gst!.takenAt) ? res.gst : null;
+    final gst = res.gst != null && res.gst!.totalScore > 0 && byDate(res.gst!.takenAt) ? res.gst : null;
     final section = (await _philIriSection(sectionId)).$1;
     final rounds = philIriRoundResults(
       learnerGrade: res.learnerGrade,
@@ -716,8 +722,9 @@ class PhilIriViewModel {
     return PhilIriReportResults(
       learnerGrade: res.learnerGrade,
       rounds: rounds,
-      counted: readings.keys.toSet(),
+      counted: {...readings.keys, if (gst != null) PhilIriRound.bosy},
       sessions: sessions,
+      gst: gst,
       notAssessed: philIriNothingAssessed(rounds),
     );
   }

@@ -21,8 +21,9 @@
 //  * Reading coordinator (2026-10-16): Phil-IRI results are the CARRIED ones
 //    (never lower than an earlier round); without a MOSY round the BOSY result
 //    carries forward. A Grade 4-10 learner with nothing at all by the report
-//    date (no reading, no GST) counts as 3-LD Frustration, flagged
-//    "3-LD (not assessed)". A GST alone still shows as "no result".
+//    date (no reading; no GST or a GST of 0) counts as 3-LD Frustration,
+//    flagged "3-LD (not assessed)". A GST alone (above 0) carries into BOSY
+//    and counts like a BOSY result (2026-10-18).
 import '../core/console/logger.dart';
 import '../core/models/aral_enrollment.dart';
 import '../core/models/crla_assessment.dart' show CrlaRound;
