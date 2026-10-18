@@ -91,7 +91,8 @@ class PhilIriViewModel {
     'No such passage',
     'This passage or its collection is not active',
     'A learner reads a passage of their own grade',
-    'A reading keeps its session and passage; delete it and add a new one instead',
+    'A reading keeps its session, passage and method; delete it and add a new one instead',
+    'A silent reading has no miscues',
     'Word position is outside the passage',
     "That question is not a question of this reading's passage",
     'Score is outside the rubric scale',
@@ -241,9 +242,13 @@ class PhilIriViewModel {
   /// type fits the session's round (BOSY 'pre', MOSY 'mosy', EOSY 'post';
   /// untyped passages fit any round), that the learner has never read (same
   /// text = same passage, any collection, any year), each text listed once.
+  /// For an oral [method] (the default) a text read silently in another
+  /// session of this round and year is offered too, FIRST: the oral follow-up
+  /// may re-read it (reading coordinator, 2026-10-16).
   /// An empty list means the coordinator has to add passages.
-  Future<List<PhilIriPassage>> availablePassages(int assessmentId) async {
-    _log('availablePassages($assessmentId)');
+  Future<List<PhilIriPassage>> availablePassages(int assessmentId,
+      {PhilIriReadingMethod method = PhilIriReadingMethod.wholeText}) async {
+    _log('availablePassages($assessmentId, method: ${method.value})');
     final session = await _requireSession(assessmentId);
     final grade = (await _philIriSection(session.sectionId)).$2;
     final graded = await _passages.getForLevel(grade);
@@ -251,11 +256,13 @@ class PhilIriViewModel {
     for (final c in await _collections.getAll(activeOnly: true)) {
       if (!c.isGradeLeveled) others.addAll(await _passages.getByCollection(c.id!, activeOnly: true));
     }
-    final seen = (await _readPassages(session.studentId)).keys.toSet();
-    return [...graded, ...others]
+    final followUps = <String>{};
+    final seen = (await _blockedTexts(session, method, followUps: followUps)).keys.toSet();
+    final list = [...graded, ...others]
         .where((p) => session.round.allowsPassageTestType(p.testType))
         .where((p) => seen.add(p.textKey)) // false for read texts and for repeats in this list
         .toList();
+    return [...list.where((p) => followUps.contains(p.textKey)), ...list.where((p) => !followUps.contains(p.textKey))];
   }
 
   /// The session's one passage reading. Each session (FLT/BOSY, MOSY, EOSY)
@@ -290,10 +297,11 @@ class PhilIriViewModel {
       throw ViewModelException('${session.round.label} reads ${session.round.passageTestType} passages '
           '("${passage.title}" is a ${passage.testType} passage).');
     }
-    final before = (await _readPassages(session.studentId))[passage.textKey];
+    final before = (await _blockedTexts(session, method))[passage.textKey];
     if (before != null) {
       throw ViewModelException('This learner has already read "${before.title}"; a learner never reads the same '
-          'passage twice. Choose another passage (the coordinator can add passages if none are left).');
+          'passage twice (only an oral follow-up of a silent reading, as another attempt of the same round, may '
+          're-read it). Choose another passage (the coordinator can add passages if none are left).');
     }
     _checkTiming(method, readingSeconds, wordsRead);
     return _write(() => _sessions.insertReading(PhilIriReading(
@@ -301,7 +309,7 @@ class PhilIriViewModel {
           sequenceNo: 1,
           passageId: passageId,
           method: method,
-          readingSeconds: method == PhilIriReadingMethod.wholeText ? readingSeconds : null,
+          readingSeconds: method == PhilIriReadingMethod.oneMinute ? null : readingSeconds,
           wordsRead: method == PhilIriReadingMethod.oneMinute ? wordsRead : null,
         )));
   }
@@ -317,7 +325,7 @@ class PhilIriViewModel {
           sequenceNo: r.reading.sequenceNo,
           passageId: r.reading.passageId,
           method: r.reading.method,
-          readingSeconds: r.reading.method == PhilIriReadingMethod.wholeText ? readingSeconds : null,
+          readingSeconds: r.reading.method == PhilIriReadingMethod.oneMinute ? null : readingSeconds,
           wordsRead: r.reading.method == PhilIriReadingMethod.oneMinute ? wordsRead : null,
           observation: r.reading.observation,
         )));
@@ -359,6 +367,7 @@ class PhilIriViewModel {
   }) async {
     _log('markMiscue(readingId: $readingId, word: $wordIndex, type: ${type.name}, sc: $selfCorrected)');
     final r = await _requireOpenReading(readingId);
+    _requireOral(r.reading);
     _checkWordIndex(r.passage, wordIndex, type);
     return _write(() => _sessions.insertMiscue(PhilIriMiscue(
           readingId: readingId,
@@ -374,6 +383,7 @@ class PhilIriViewModel {
     _log('updateMiscue(${miscue.id})');
     if (miscue.id == null) throw const ViewModelException('Miscue has no id.');
     final r = await _requireOpenReading(miscue.readingId);
+    _requireOral(r.reading);
     _checkWordIndex(r.passage, miscue.wordIndex, miscue.type);
     return _write(() => _sessions.updateMiscue(miscue));
   }
@@ -467,7 +477,7 @@ class PhilIriViewModel {
     final readings = await _sessions.getReadings(assessmentId);
     if (readings.isEmpty) throw const ViewModelException('Record the passage reading before completing the session.');
     final r = readings.first;
-    if (r.method == PhilIriReadingMethod.wholeText && r.readingSeconds == null) {
+    if (r.method != PhilIriReadingMethod.oneMinute && r.readingSeconds == null) {
       throw const ViewModelException('Record the reading time before completing the session.');
     }
     if (r.method == PhilIriReadingMethod.oneMinute && r.wordsRead == null) {
@@ -569,6 +579,15 @@ class PhilIriViewModel {
 
   /// One reading scored now: with the snapshot if its session is finalized,
   /// otherwise with the school's current thresholds (or [thresholds]).
+  /// The silent reading an oral reading follows up (same learner, round,
+  /// year and text, another session), or null. Its answers count when the
+  /// follow-up records none.
+  Future<PhilIriReading?> silentReadingFollowedUp(int readingId) async {
+    final r = await _findReading(readingId);
+    if (!r.method.isOral) return null;
+    return _silentReadingFollowedUp(r, await _requirePassage(r.passageId));
+  }
+
   Future<PhilIriPassageResult> scoreReading(int readingId, {PhilIriThresholds? thresholds}) async {
     _log('scoreReading($readingId)');
     final r = await _findReading(readingId);
@@ -607,7 +626,7 @@ class PhilIriViewModel {
       final rs = await _sessions.getReadings(e.value.id!);
       if (rs.isEmpty) continue;
       final r = rs.first;
-      if (r.method == PhilIriReadingMethod.wholeText && r.readingSeconds == null) continue; // not timed yet
+      if (r.method != PhilIriReadingMethod.oneMinute && r.readingSeconds == null) continue; // not timed yet
       if (r.method == PhilIriReadingMethod.oneMinute && r.wordsRead == null) continue;
       readings[e.key] = await _scoreReading(r, t);
     }
@@ -649,7 +668,22 @@ class PhilIriViewModel {
       final questions = await _passages.getQuestions(passage.id!);
       if (questions.isNotEmpty) {
         total = questions.length;
-        correct = (await _sessions.getAnswers(r.id!)).where((a) => a.isCorrect).length;
+        var answers = await _sessions.getAnswers(r.id!);
+        // Oral follow-up of a silent reading with no questions asked again:
+        // its comprehension is the silent reading's (reading coordinator,
+        // 2026-10-16: the follow-up is for word recognition).
+        if (answers.isEmpty && r.method.isOral) {
+          final silent = await _silentReadingFollowedUp(r, passage);
+          if (silent != null) {
+            answers = await _sessions.getAnswers(silent.id!);
+            // A copy of the text in another collection may have other questions.
+            if (silent.passageId != passage.id) {
+              final n = (await _passages.getQuestions(silent.passageId)).length;
+              if (n > 0) total = n;
+            }
+          }
+        }
+        correct = answers.where((a) => a.isCorrect).length;
       }
     }
     try {
@@ -698,18 +732,50 @@ class PhilIriViewModel {
     return s;
   }
 
-  /// Text keys of every passage the learner has read in any session, any
-  /// school year (no-repeat rule, owner 2026-10-15). Discarded sessions have
-  /// no readings left, so they don't count.
-  Future<Map<String, PhilIriPassage>> _readPassages(int studentId) async {
-    final read = <String, PhilIriPassage>{};
-    for (final s in await _sessions.getByStudent(studentId)) {
+  /// Text keys the learner may not read with [method] in [session], with a
+  /// passage for each: every text read in any session, any school year
+  /// (no-repeat rule, owner 2026-10-15). Exception (reading coordinator,
+  /// 2026-10-16): an oral reading may re-read a text read only SILENTLY, in
+  /// another session of the same round and school year, once (a second
+  /// reading of it blocks it again). [followUps] receives the texts that
+  /// exception opens. Same rule as the local and cloud reading triggers.
+  /// Discarded sessions have no readings left, so they don't count.
+  Future<Map<String, PhilIriPassage>> _blockedTexts(PhilIriAssessment session, PhilIriReadingMethod method,
+      {Set<String>? followUps}) async {
+    final blocked = <String, PhilIriPassage>{};
+    final open = <String>{};
+    for (final s in await _sessions.getByStudent(session.studentId)) {
       for (final r in await _sessions.getReadings(s.id!)) {
         final p = await _passages.findById(r.passageId);
-        if (p != null) read[p.textKey] = p;
+        if (p == null) continue;
+        final followUp = method.isOral && !r.method.isOral && s.id != session.id &&
+            s.round == session.round && s.schoolYear == session.schoolYear;
+        if (followUp) {
+          open.add(p.textKey);
+        } else {
+          blocked[p.textKey] = p;
+        }
       }
     }
-    return read;
+    followUps?.addAll(open.where((k) => !blocked.containsKey(k)));
+    return blocked;
+  }
+
+  /// The silent reading an oral [reading] follows up: same learner, round and
+  /// school year, another session, same text. Null when there is none.
+  Future<PhilIriReading?> _silentReadingFollowedUp(PhilIriReading reading, PhilIriPassage passage) async {
+    final session = await _sessions.findAssessment(reading.assessmentId);
+    if (session == null) return null;
+    PhilIriReading? found;
+    for (final s in await _sessions.getByStudent(session.studentId, schoolYear: session.schoolYear)) {
+      if (s.id == session.id || s.round != session.round) continue;
+      for (final r in await _sessions.getReadings(s.id!)) {
+        if (r.method.isOral) continue;
+        final p = r.passageId == passage.id ? passage : await _passages.findById(r.passageId);
+        if (p != null && p.textKey == passage.textKey) found = r;
+      }
+    }
+    return found;
   }
 
   Future<PhilIriPassage> _requirePassage(int id) async {
@@ -731,6 +797,13 @@ class PhilIriViewModel {
     return (reading: reading, passage: await _requirePassage(reading.passageId), session: session);
   }
 
+  void _requireOral(PhilIriReading reading) {
+    if (!reading.method.isOral) {
+      throw const ViewModelException('A silent reading has no miscues (word reading counts as 100%); '
+          'for word recognition, give an oral follow-up as another attempt of this round.');
+    }
+  }
+
   void _checkWordIndex(PhilIriPassage passage, int wordIndex, PhilIriMiscueType type) {
     final n = passage.words.length;
     final max = type == PhilIriMiscueType.insertion ? n : n - 1;
@@ -740,7 +813,7 @@ class PhilIriViewModel {
   }
 
   void _checkTiming(PhilIriReadingMethod method, int? seconds, int? wordsRead, {bool required = false}) {
-    if (method == PhilIriReadingMethod.wholeText) {
+    if (method != PhilIriReadingMethod.oneMinute) {
       if (wordsRead != null) throw const ViewModelException('Words read only applies to one-minute reading.');
       if (seconds == null && required) throw const ViewModelException('Give the reading time in seconds.');
       if (seconds != null) _checkRange('readingSeconds', seconds, 1, 1 << 30);

@@ -128,6 +128,11 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
           final answers = {for (final a in await vm.answers(r.id!)) a.questionId: a};
           final right = answers.values.where((a) => a.isCorrect).length;
           out.write('\n  Answers: $right of ${questions.length} correct');
+          final silent = answers.isEmpty ? await vm.silentReadingFollowedUp(r.id!) : null;
+          if (silent != null) {
+            out.write(' · not asked again: the score uses the answers of silent reading ${silent.id} '
+                '(session ${silent.assessmentId})');
+          }
           for (final q in questions) {
             final a = answers[q.id];
             final text = a == null
@@ -154,10 +159,15 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
     return out.toString();
   });
 
-  add('phil-iri-passages-for', 'phil-iri-passages-for <assessmentId> — the passages this session may use',
-      (args) async {
-    if (args.length != 1) throw const _Usage('Usage: phil-iri-passages-for <assessmentId>');
-    final list = await vm.availablePassages(_int(args[0], 'assessmentId'));
+  add(
+      'phil-iri-passages-for',
+      'phil-iri-passages-for <assessmentId> [whole|minute|silent] — the passages this session may use '
+          '(oral by default: a text read silently in this round is listed first, for the oral follow-up)', (args) async {
+    if (args.isEmpty || args.length > 2) {
+      throw const _Usage('Usage: phil-iri-passages-for <assessmentId> [whole|minute|silent]');
+    }
+    final list = await vm.availablePassages(_int(args[0], 'assessmentId'),
+        method: args.length == 2 ? _method(args[1]) : PhilIriReadingMethod.wholeText);
     if (list.isEmpty) return 'No usable passages on this device (pull-cloud, or add content).';
     return list.map(_passageLine).join('\n');
   });
@@ -166,24 +176,27 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
 
   add(
       'phil-iri-read',
-      'phil-iri-read <assessmentId> <passageId> [whole [seconds] | minute [wordsRead]] '
-          '— start the session\'s passage reading (whole text by default; time can come later)', (args) async {
-    const usage = 'Usage: phil-iri-read <assessmentId> <passageId> [whole [seconds] | minute [wordsRead]]';
+      'phil-iri-read <assessmentId> <passageId> [whole [seconds] | minute [wordsRead] | silent [seconds]] '
+          '— start the session\'s passage reading (whole text aloud by default; time can come later; '
+          'silent = read silently, timed, no miscues)', (args) async {
+    const usage =
+        'Usage: phil-iri-read <assessmentId> <passageId> [whole [seconds] | minute [wordsRead] | silent [seconds]]';
     if (args.length < 2 || args.length > 4) throw const _Usage(usage);
     final method = args.length < 3 ? PhilIriReadingMethod.wholeText : _method(args[2]);
-    final n = args.length == 4 ? _int(args[3], method == PhilIriReadingMethod.wholeText ? 'seconds' : 'wordsRead') : null;
+    final oneMinute = method == PhilIriReadingMethod.oneMinute;
+    final n = args.length == 4 ? _int(args[3], oneMinute ? 'wordsRead' : 'seconds') : null;
     final r = await vm.startReading(
       assessmentId: _int(args[0], 'assessmentId'),
       passageId: _int(args[1], 'passageId'),
       method: method,
-      readingSeconds: method == PhilIriReadingMethod.wholeText ? n : null,
-      wordsRead: method == PhilIriReadingMethod.oneMinute ? n : null,
+      readingSeconds: oneMinute ? null : n,
+      wordsRead: oneMinute ? n : null,
     );
     return 'Started reading ${r.id} of passage ${r.passageId} · ${_timing(r)}.';
   });
 
   add('phil-iri-time',
-      'phil-iri-time <readingId> <seconds|words> <n> — the reading time (whole text) or words read in the minute',
+      'phil-iri-time <readingId> <seconds|words> <n> — the reading time (whole text, silent) or words read in the minute',
       (args) async {
     if (args.length != 3) throw const _Usage('Usage: phil-iri-time <readingId> <seconds|words> <n>');
     final n = _int(args[2], args[1]);
@@ -386,6 +399,15 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
       final status = s == null ? 'not given' : 'session ${s.id} ${s.status.value}';
       final carried = !round.given && round.profile != null; // an earlier round's result
       out.write('\n${round.round.label.padRight(8)} ${carried ? '(carried) ' : ''}$status · ${_roundText(round)}');
+      final a = round.actual;
+      if (a != null) {
+        // The true current score, for the tutor (the line above is what reports use).
+        final level = round.actualAdjustedLevel == null
+            ? ''
+            : ' · adjusted ${philIriAdjustedLevelLabel(round.actualAdjustedLevel!)} · '
+                '${philIriLevelsDownLabel(round.actualLevelsDown)}';
+        out.write('\n${''.padRight(9)}true score: ${_resultText(a)}$level');
+      }
     }
     out.write('\nEnd result: ${r.end == null ? 'none yet' : '${r.end!.round.label} · ${_roundText(r.end!)}'}');
     return out.toString();
@@ -412,7 +434,8 @@ PhilIriRound _round(String raw) {
 PhilIriReadingMethod _method(String raw) => switch (raw) {
       'whole' => PhilIriReadingMethod.wholeText,
       'minute' => PhilIriReadingMethod.oneMinute,
-      _ => throw _Usage('Reading method is whole or minute (got "$raw")'),
+      'silent' => PhilIriReadingMethod.silent,
+      _ => throw _Usage('Reading method is whole, minute or silent (got "$raw")'),
     };
 
 /// A miscue type by name, label or unique prefix ("omi", "sub").
@@ -437,11 +460,16 @@ String _observationText(PhilIriObservation o) => [
     ].join(', ');
 
 bool _timed(PhilIriReading r) =>
-    r.method == PhilIriReadingMethod.wholeText ? r.readingSeconds != null : r.wordsRead != null;
+    r.method == PhilIriReadingMethod.oneMinute ? r.wordsRead != null : r.readingSeconds != null;
 
-String _timing(PhilIriReading r) => r.method == PhilIriReadingMethod.wholeText
-    ? 'whole text, ${r.readingSeconds == null ? 'not timed yet' : '${r.readingSeconds} s'}'
-    : 'one minute, ${r.wordsRead == null ? 'words read not recorded yet' : '${r.wordsRead} words read'}';
+String _timing(PhilIriReading r) => switch (r.method) {
+      PhilIriReadingMethod.wholeText =>
+        'whole text, ${r.readingSeconds == null ? 'not timed yet' : '${r.readingSeconds} s'}',
+      PhilIriReadingMethod.silent =>
+        'silent, whole text, ${r.readingSeconds == null ? 'not timed yet' : '${r.readingSeconds} s'} (no miscues)',
+      PhilIriReadingMethod.oneMinute =>
+        'one minute, ${r.wordsRead == null ? 'words read not recorded yet' : '${r.wordsRead} words read'}',
+    };
 
 String _miscueText(PhilIriMiscue m, List<String> words) {
   final where = m.type == PhilIriMiscueType.insertion
@@ -455,7 +483,8 @@ String _miscueText(PhilIriMiscue m, List<String> words) {
 String _pct(double? fraction) => fraction == null ? 'blank' : '${philIriWholePercent(fraction)}%';
 
 String _resultText(PhilIriPassageResult r) =>
-    'word reading ${_pct(r.wordReadingScore)} (${r.accuracyLevel.label}), ${r.wordsPerMinute.round()} wpm '
+    '${r.silent ? 'silent · ' : ''}word reading ${_pct(r.wordReadingScore)} (${r.accuracyLevel.label}), '
+    '${r.wordsPerMinute.round()} wpm '
     '(${r.speed.label}) -> ${r.wordReadingLevel.label}; comprehension ${_pct(r.comprehensionScore)} '
     '(${r.comprehensionLevel.label}); profile ${r.profile.label}${r.isStrugglingReader ? ' · Struggling Reader' : ''}';
 
