@@ -23,6 +23,12 @@
 //   count the learner as Frustration, exactly 3 levels down, flagged
 //   notAssessed (philIriNotAssessedResult). It never carries; any later
 //   assessment replaces it, even a worse one. Phil-IRI only (not CRLA).
+// - Reading coordinator's workbook, adopted 2026-10-18: the profile is the
+//   (carried) comprehension level, Non-Reader word reading overriding; a
+//   given round's Frustration levels-down use that round's OWN comprehension;
+//   a round not given keeps the previous adjusted level; BOSY with only a GST
+//   (or a reading without comprehension) uses the GST starting grade
+//   (philIriGstStartingGrade), a reference the IRA later validates.
 // - A Foundational Literacy Test reading has no comprehension; in BOSY the GST
 //   supplies it, as in the workbook.
 // - Every assessment is ONE passage of the learner's own grade; the adjusted
@@ -125,8 +131,21 @@ PhilIriPassageResult philIriScorePassage({
   );
 }
 
-/// Profile from whatever is known: the table when both exist; Non-Reader word
-/// reading wins; with only a GST (no reading yet) the comprehension level.
+/// Adjusted level for [profile]: Non-Reader 0, Independent grade+1,
+/// Instructional grade; Frustration by [frustrationComp] (the round's own
+/// comprehension), or, when there is none and a BOSY [gst] exists, the GST
+/// starting grade (philIriGstStartingGrade), which can't put a Frustration
+/// reader at or above grade level.
+int _adjusted(PhilIriLevel profile, int grade, double? frustrationComp, double? gst, PhilIriThresholds t) {
+  if (profile == PhilIriLevel.frustration && frustrationComp == null && gst != null) {
+    final start = philIriGstStartingGrade(grade, gst);
+    return start >= grade ? (grade > 1 ? grade - 1 : 1) : start;
+  }
+  return philIriAdjustedLevel(profile, grade, frustrationComp, t);
+}
+
+/// Profile from whatever is known: the comprehension level (Non-Reader word
+/// reading wins); with only a word reading, its level.
 PhilIriLevel? _profile(PhilIriLevel? wordReading, PhilIriLevel? comprehension) {
   if (wordReading == PhilIriLevel.nonReader) return PhilIriLevel.nonReader;
   if (wordReading == null) return comprehension;
@@ -228,17 +247,29 @@ List<PhilIriRoundResult> philIriRoundResults({
         ? philIriComprehensionLevel(comp, rt)
         : (wrLevel != null ? philIriComprehensionLevel(0, rt) : null);
     final profile = _profile(wrLevel, compLevel);
-    final adjusted = profile == null
-        ? null
-        : philIriAdjustedLevel(profile, learnerGrade, comp, rt);
+    final bosyGst = round == PhilIriRound.bosy ? gstScore : null;
+    // Adjusted level (workbook AN/BQ/CT/DW/EZ): a given round's Frustration
+    // levels come from the round's OWN comprehension, not the carried one;
+    // BOSY without IRA comprehension uses the GST starting grade; a round
+    // that wasn't given keeps the previous round's adjusted level.
+    final int? adjusted;
+    if (profile == null) {
+      adjusted = null;
+    } else if (own != null) {
+      adjusted = _adjusted(profile, learnerGrade, own.comprehensionScore, bosyGst, rt);
+    } else if (round == PhilIriRound.bosy) {
+      adjusted = _adjusted(profile, learnerGrade, null, bosyGst, rt); // GST only
+    } else {
+      adjusted = results.isEmpty ? null : results.last.adjustedLevel;
+    }
 
     // The true score: this round's reading alone. In BOSY a reading without
     // comprehension (FLT) takes the GST's, as in the carried result.
     int? actualAdjusted;
     if (own != null) {
-      final c = own.comprehensionScore ?? (round == PhilIriRound.bosy ? gstScore : null);
+      final c = own.comprehensionScore ?? bosyGst;
       final p = _profile(own.wordReadingLevel, philIriComprehensionLevel(c ?? 0, rt))!;
-      actualAdjusted = philIriAdjustedLevel(p, learnerGrade, c, rt);
+      actualAdjusted = _adjusted(p, learnerGrade, own.comprehensionScore, bosyGst, rt);
     }
 
     results.add(PhilIriRoundResult(

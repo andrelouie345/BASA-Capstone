@@ -12,8 +12,9 @@
 //
 // Owner decisions (2026-10-13): the rules follow the reading coordinator's
 // workbook where it differs from the manual:
-// - word reading + comprehension combination: sheet "Bases" H4:J12 (the
-//   Table 8 in the 2018 PDF is misaligned);
+// - the reading profile is the comprehension level (Non-Reader word reading
+//   overrides), as in her sheets 01-40 (2026-10-18; the earlier word +
+//   comprehension table from "Bases" H4:J12 is no longer used);
 // - non-reader when word recognition is at or below a cut-off (Sample!AF);
 // - reading speed bands (Sample!AH), and accuracy-Independent only counts as
 //   Independent word reading when the speed is Fast (Sample!AI).
@@ -276,25 +277,51 @@ PhilIriLevel philIriComprehensionLevel(double score,
   return PhilIriLevel.frustration;
 }
 
-/// Reading profile for one passage (workbook "Bases" H4:J13). A Non-Reader
-/// word reading makes the passage Non-Reader whatever the comprehension.
+/// Reading profile for one passage: the COMPREHENSION level, except that a
+/// Non-Reader word reading makes the passage Non-Reader (reading coordinator's
+/// workbook sheets 01-40, columns AM/BP/CS/DV/EY; adopted 2026-10-18). The
+/// word+comprehension table on the workbook's "Bases" sheet (H4:J13) is not
+/// used by any of her formulas, so BASA dropped it too. Word reading still
+/// gives the word reading level, Non-Reader and Struggling Reader.
 PhilIriLevel philIriPassageProfile(PhilIriLevel wordReading, PhilIriLevel comprehension) {
-  const ind = PhilIriLevel.independent;
-  const ins = PhilIriLevel.instructional;
-  const frus = PhilIriLevel.frustration;
   if (comprehension == PhilIriLevel.nonReader) {
     throw ArgumentError('comprehension has no Non-Reader level');
   }
-  switch (wordReading) {
-    case PhilIriLevel.nonReader:
-      return PhilIriLevel.nonReader;
-    case PhilIriLevel.independent:
-      return comprehension; // Ind+Ind Ind, Ind+Ins Ins, Ind+Frus Frus
-    case PhilIriLevel.instructional:
-      return comprehension == frus ? frus : (comprehension == ind ? ind : ins);
-    case PhilIriLevel.frustration:
-      return comprehension == ind ? ins : frus;
-  }
+  return wordReading == PhilIriLevel.nonReader ? PhilIriLevel.nonReader : comprehension;
+}
+
+/// GST "starting grade level" (workbook column M): the learner's grade moved by
+/// the GST percent, never below Grade 1. Reference only — the IRA validates
+/// it; used for the adjusted level when there is no IRA comprehension in BOSY
+/// (reading coordinator 2026-10-18). Whole percents (rounded like the bands):
+/// <=9 -9, <=16 -8, <=24 -7, <=31 -6, <=39 -5, <=46 -4, <=54 -3, <=61 -2,
+/// <=68 -1, >=79 +1, otherwise 0.
+int philIriGstStartingGrade(int learnerGrade, double gstFraction) {
+  final pct = philIriWholePercent(gstFraction);
+  final delta = pct <= 9
+      ? -9
+      : pct <= 16
+          ? -8
+          : pct <= 24
+              ? -7
+              : pct <= 31
+                  ? -6
+                  : pct <= 39
+                      ? -5
+                      : pct <= 46
+                          ? -4
+                          : pct <= 54
+                              ? -3
+                              : pct <= 61
+                                  ? -2
+                                  : pct <= 68
+                                      ? -1
+                                      : pct >= 79
+                                          ? 1
+                                          : 0;
+  final level = learnerGrade + delta;
+  if (level > philIriMaxGrade) return philIriMaxGrade;
+  return level < 1 ? 1 : level;
 }
 
 /// GST size for a learner grade: 20 items (Grades 4–6), 40 items (7 and up).
