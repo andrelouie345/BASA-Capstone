@@ -10,7 +10,8 @@
 ///   asof=YYYY-MM-DD        results assessed by that date (default today)
 ///
 /// Also progress monitoring (progress-report, progress-report-csv): learners
-/// assessed per round against a done threshold, done=<percent> (default 85),
+/// assessed per round against a done threshold, done=<percent> (default: the saved
+/// report setting, 85% when none),
 /// with sections=, rows= and asof= as above.
 ///
 /// And the BOSY masterlist (bosy-masterlist, bosy-masterlist-csv): learners
@@ -151,11 +152,11 @@ String _text(NlaReport report, NlaReportFilter f) {
 
 // ---- progress monitoring ----
 
-const _progressOptions = '[done=<percent, default 85>] [sections=<id,...>] [rows=sections|total|both] [asof=YYYY-MM-DD]';
+const _progressOptions = '[done=<percent, default: saved setting>] [sections=<id,...>] [rows=sections|total|both] [asof=YYYY-MM-DD]';
 
-({double done, Set<int>? sections, bool sectionRows, bool schoolTotal, DateTime? asOf}) _progressFilter(
+({double? done, Set<int>? sections, bool sectionRows, bool schoolTotal, DateTime? asOf}) _progressFilter(
     List<String> opts) {
-  var done = 0.85;
+  double? done;
   Set<int>? sections;
   DateTime? asOf;
   var sectionRows = true, schoolTotal = true;

@@ -18,9 +18,13 @@
 //
 // Also progress monitoring (her sheets STARTHERE / IRA Summary): per section
 // the share of learners assessed in each round against an adjustable "done"
-// threshold (a report parameter, default 85%; owner 2026-10-19), and the BOSY
-// masterlist of learners not grade level ready (her sheet "BOSY Report").
+// threshold (saved in report_settings, default 85%; a passed value is a
+// one-off override), and the BOSY masterlist of learners not grade level ready
+// (her sheet "BOSY Report"). A round the school's calendar does not hold
+// shows NOT SCHEDULED (dashboard D2); without a Phil-IRI calendar for the
+// year, progress is as before.
 import '../core/console/logger.dart';
+import '../core/models/assessment_calendar.dart' show CalendarInstrument;
 import '../core/models/phil_iri_assessment.dart' show PhilIriRound;
 import '../core/models/section.dart';
 import '../core/models/student.dart';
@@ -34,6 +38,8 @@ import '../core/services/phil_iri_results.dart' show philIriNotAssessedResult;
 import '../core/services/phil_iri_rules.dart' show PhilIriLevel, philIriComprehensionLevel, philIriGradeOf;
 import 'auth_viewmodel.dart';
 import 'phil_iri_viewmodel.dart';
+import 'report_settings_viewmodel.dart';
+import 'round_calendar_viewmodel.dart';
 import 'viewmodel_exception.dart';
 
 /// One section (or the school total, when [section] is null).
@@ -218,15 +224,23 @@ class ProgressReport {
   final List<ProgressSectionReport> sections; // by grade, then name
   final ProgressSectionReport total;
 
-  const ProgressReport(this.schoolId, this.schoolYear, this.asOf, this.doneThreshold, this.sections, this.total);
+  /// The Phil-IRI rounds the school's calendar holds this year; null when the
+  /// calendar has no Phil-IRI window for the year (every round counts).
+  final Set<PhilIriRound>? scheduledRounds;
 
-  /// DONE, or the workbook's NO IRA (BOSY) / NO MOSY / NO EOSY; null with
-  /// nobody enrolled.
+  const ProgressReport(this.schoolId, this.schoolYear, this.asOf, this.doneThreshold, this.sections, this.total,
+      {this.scheduledRounds});
+
+  bool isScheduled(PhilIriRound r) => scheduledRounds == null || scheduledRounds!.contains(r);
+
+  /// DONE, NOT SCHEDULED (a round the school does not hold), or the workbook's
+  /// NO IRA (BOSY) / NO MOSY / NO EOSY; null with nobody enrolled.
   String? status(ProgressSectionReport row, PhilIriRound r) {
     if (row.enrolment.total == 0) return null;
     // Counts, not the rounded share: 17 of 20 at 0.85 is DONE.
     final done = row.assessed[r]!.total >= doneThreshold * row.enrolment.total - 1e-9;
     if (done) return 'DONE';
+    if (!isScheduled(r)) return 'NOT SCHEDULED';
     return switch (r) {
       PhilIriRound.bosy => 'NO IRA',
       PhilIriRound.eosy => 'NO EOSY',
@@ -326,17 +340,23 @@ class NlaReportViewModel {
   final SectionRepository _sections;
   final StudentRepository _students;
   final PhilIriViewModel _philIri;
+  final ReportSettingsViewModel _reportSettings;
+  final RoundCalendarViewModel _calendar;
 
   NlaReportViewModel({
     required AuthViewModel auth,
     required SectionRepository sections,
     required StudentRepository students,
     required PhilIriViewModel philIri,
+    required ReportSettingsViewModel reportSettings,
+    required RoundCalendarViewModel calendar,
     Logger? logger,
   })  : _auth = auth,
         _sections = sections,
         _students = students,
         _philIri = philIri,
+        _reportSettings = reportSettings,
+        _calendar = calendar,
         _log = ScopedLogger(logger, 'NlaReportViewModel');
 
   /// Every Grade 4-10 section of the school ([sectionIds] narrows it) as of
@@ -363,21 +383,26 @@ class NlaReportViewModel {
 
   /// Progress monitoring (workbook sheets STARTHERE / IRA Summary): per Grade
   /// 4-10 section, enrolment, GST takers, and per round the share of enrolled
-  /// learners assessed in it, DONE at [doneThreshold] (a fraction, default
-  /// 0.85, her "Assessment 'Done' Threshold") or more. Same access as [report].
+  /// learners assessed in it, DONE at the done threshold (a fraction, her
+  /// "Assessment 'Done' Threshold") or more: [doneThreshold] when given (a
+  /// one-off override), else the saved report setting (default 0.85). Rounds
+  /// the school's calendar does not hold are flagged NOT SCHEDULED. Same
+  /// access as [report].
   Future<ProgressReport> progress({
     required int schoolId,
     required String schoolYear,
     Set<int>? sectionIds,
-    double doneThreshold = 0.85,
+    double? doneThreshold,
     DateTime? asOf,
   }) async {
     _log('progress(school: $schoolId, year: $schoolYear, sections: $sectionIds, done: $doneThreshold)');
-    if (!(doneThreshold > 0 && doneThreshold <= 1)) {
+    if (doneThreshold != null && !(doneThreshold > 0 && doneThreshold <= 1)) {
       throw ViewModelException('The done threshold is a share above 0 and up to 1 (got $doneThreshold).');
     }
     schoolYear = normalizeSchoolYear(schoolYear);
     final sections = await reportSections(schoolId, schoolYear, sectionIds, 'the progress report');
+    doneThreshold ??= (await _reportSettings.effective(schoolId)).doneThreshold;
+    final scheduled = await _scheduledPhilIriRounds(schoolId, schoolYear);
     final date = _date(asOf ?? DateTime.now());
     final total = ProgressSectionReport(null, null);
     final rows = <ProgressSectionReport>[];
@@ -396,7 +421,20 @@ class NlaReportViewModel {
       rows.add(row);
       total.addAll(row);
     }
-    return ProgressReport(schoolId, schoolYear, date, doneThreshold, rows, total);
+    return ProgressReport(schoolId, schoolYear, date, doneThreshold, rows, total, scheduledRounds: scheduled);
+  }
+
+  /// The Phil-IRI rounds [schoolId]'s calendar holds in [year], or null when
+  /// it has no Phil-IRI window that year (skipped ones count as windows).
+  Future<Set<PhilIriRound>?> _scheduledPhilIriRounds(int schoolId, String year) async {
+    final entries = (await _calendar.effectiveCalendar(schoolId, year))
+        .where((e) => e.window.instrument == CalendarInstrument.philIri)
+        .toList();
+    if (entries.isEmpty) return null;
+    return {
+      for (final e in entries)
+        if (!e.skipped) PhilIriRound.values.byName(e.window.round),
+    };
   }
 
   /// The masterlist of learners not grade level ready at BOSY, per Grade 4-10

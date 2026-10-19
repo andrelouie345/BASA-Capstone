@@ -99,6 +99,12 @@ import 'package:basa_capstone/core/console/commands/calendar_commands.dart';
 import 'package:basa_capstone/viewmodels/round_calendar_viewmodel.dart';
 import 'package:basa_capstone/core/data/local/assessment_calendar_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/remote/assessment_calendar_repository_supabase.dart';
+import 'package:basa_capstone/core/console/commands/report_settings_commands.dart';
+import 'package:basa_capstone/viewmodels/report_settings_viewmodel.dart';
+import 'package:basa_capstone/viewmodels/reminder_viewmodel.dart';
+import 'package:basa_capstone/core/console/commands/reminder_commands.dart';
+import 'package:basa_capstone/core/data/local/report_setting_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/remote/report_setting_repository_supabase.dart';
 import 'package:basa_capstone/core/data/local/aral_session_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/aral_tutor_setting_repository_sqlite.dart';
 import 'package:basa_capstone/viewmodels/aral_session_viewmodel.dart';
@@ -364,15 +370,49 @@ Future<void> main() async {
   vmRegistry.register('AralReadabilityViewModel', aralReadabilityVm);
   registerAralReadabilityCommands(registry, aralReadabilityVm);
 
+  final calendarVm = RoundCalendarViewModel(
+    auth: authVm,
+    local: AssessmentCalendarRepositorySqlite(localDb),
+    cloud: (client) => AssessmentCalendarRepositorySupabase(client),
+    logger: session,
+  );
+  vmRegistry.register('RoundCalendarViewModel', calendarVm);
+  registerCalendarCommands(registry, calendarVm);
+
+  final reportSettingsVm = ReportSettingsViewModel(
+    auth: authVm,
+    local: ReportSettingRepositorySqlite(localDb),
+    cloud: (client) => ReportSettingRepositorySupabase(client),
+    logger: session,
+  );
+  vmRegistry.register('ReportSettingsViewModel', reportSettingsVm);
+  registerReportSettingsCommands(registry, reportSettingsVm);
+
   final nlaReportVm = NlaReportViewModel(
     auth: authVm,
     sections: SectionRepositorySqlite(localDb),
     students: StudentRepositorySqlite(localDb),
     philIri: philIriVm,
+    reportSettings: reportSettingsVm,
+    calendar: calendarVm,
     logger: session,
   );
   vmRegistry.register('NlaReportViewModel', nlaReportVm);
   registerNlaReportCommands(registry, nlaReportVm);
+
+  final reminderVm = ReminderViewModel(
+    auth: authVm,
+    calendar: calendarVm,
+    reports: nlaReportVm,
+    reportSettings: reportSettingsVm,
+    schools: SchoolRepositorySqlite(localDb),
+    sections: SectionRepositorySqlite(localDb),
+    students: StudentRepositorySqlite(localDb),
+    crlaResults: CrlaResultRepositorySqlite(localDb),
+    logger: session,
+  );
+  vmRegistry.register('ReminderViewModel', reminderVm);
+  registerReminderCommands(registry, reminderVm);
 
   final srpVm = SrpViewModel(
     reports: nlaReportVm,
@@ -387,15 +427,6 @@ Future<void> main() async {
   );
   vmRegistry.register('SrpViewModel', srpVm);
   registerSrpCommands(registry, srpVm);
-
-  final calendarVm = RoundCalendarViewModel(
-    auth: authVm,
-    local: AssessmentCalendarRepositorySqlite(localDb),
-    cloud: (client) => AssessmentCalendarRepositorySupabase(client),
-    logger: session,
-  );
-  vmRegistry.register('RoundCalendarViewModel', calendarVm);
-  registerCalendarCommands(registry, calendarVm);
 
   final aralReportVm = AralReportViewModel(
     auth: authVm,

@@ -7,6 +7,7 @@ import 'phil_iri_local_schema.dart';
 import 'aral_local_schema.dart';
 import 'srp_local_schema.dart';
 import 'calendar_local_schema.dart';
+import 'report_local_schema.dart';
 import '../../services/crla_rules.dart';
 
 /// Opens/creates the local SQLite DB.
@@ -48,7 +49,8 @@ class LocalDatabase {
         // v29: ARAL readability log (aral_readability_logs, offline-first; createAralLocalSchema).
         // v30: SRP classes + learners (srp_classes, srp_class_members; mirror-only; createSrpLocalSchema).
         // v31: assessment round calendar (assessment_calendar, mirror-only; createCalendarLocalSchema).
-        version: 31,
+        // v32: report settings (report_settings, mirror-only; createReportLocalSchema).
+        version: 32,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
@@ -67,6 +69,7 @@ class LocalDatabase {
           await createAralLocalSchema(db);
           await createSrpLocalSchema(db);
           await createCalendarLocalSchema(db);
+          await createReportLocalSchema(db);
         },
         onUpgrade: (db, oldVersion, newVersion) async {
           if (oldVersion < 2) {
@@ -165,6 +168,8 @@ class LocalDatabase {
           await createSrpLocalSchema(db);
           // v31. IF NOT EXISTS: runs on every upgrade.
           await createCalendarLocalSchema(db);
+          // v32. IF NOT EXISTS: runs on every upgrade.
+          await createReportLocalSchema(db);
           // v14. Rows from before v14 were scored with the default thresholds.
           if (oldVersion < 14) await backfillCrlaScoring(db);
         },

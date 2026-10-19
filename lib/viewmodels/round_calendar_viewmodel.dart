@@ -58,12 +58,22 @@ class RoundCalendarViewModel {
   Future<List<CalendarEntry>> effectiveCalendar(int? schoolId, String year) async {
     _log('effectiveCalendar($schoolId, $year)');
     year = _year(year);
+    // A round its instrument does not hold (only possible by a write outside
+    // the app; the database checks round names, not the pairing) is left out
+    // so progress and reminders never meet it.
+    bool valid(CalendarWindow w) {
+      if (calendarRounds[w.instrument]!.contains(w.round)) return true;
+      _log('WARNING: ignoring calendar row ${w.id}: ${w.instrument.label} has no round "${w.round}"');
+      return false;
+    }
+
     final byKey = <String, CalendarEntry>{
-      for (final w in await _local.regionWindows(year)) _key(w): CalendarEntry(w, false),
+      for (final w in await _local.regionWindows(year))
+        if (valid(w)) _key(w): CalendarEntry(w, false),
     };
     if (schoolId != null) {
       for (final w in await _local.schoolWindows(schoolId, year)) {
-        byKey[_key(w)] = CalendarEntry(w, true);
+        if (valid(w)) byKey[_key(w)] = CalendarEntry(w, true);
       }
     }
     int order(CalendarEntry e) {
