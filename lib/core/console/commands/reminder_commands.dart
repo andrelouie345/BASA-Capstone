@@ -1,6 +1,6 @@
 // lib/core/console/commands/reminder_commands.dart
 
-/// Dashboard reminders (D2: coordinators). Read from this device's copy
+/// Dashboard reminders (D2: coordinators, D3: tutors). Read from this device's copy
 /// (pull-cloud brings the calendar, settings and results). `today=` and
 /// `done=` let a test look at any day or threshold.
 library;
@@ -64,7 +64,29 @@ String _text(List<SchoolReminders> schools) {
   return out.toString();
 }
 
-void registerReminderCommands(ConsoleRegistry registry, ReminderViewModel vm) {
+String _tutorText(TutorReminders t) {
+  final out = StringBuffer('Tutor ${t.tutorName == null ? t.tutorId : '${t.tutorName} (${t.tutorId})'} — ${t.schoolYear}: '
+      '${t.sessionsHeld} ARAL session${t.sessionsHeld == 1 ? '' : 's'} held, last ${t.lastSession ?? 'none'}; '
+      'no-session reminder after ${t.idleSessionDays} days');
+  if (t.reminders.isEmpty) out.write('\n  No reminders.');
+  for (final r in t.reminders) {
+    final tag = switch (r.kind) {
+      TutorReminderKind.overdueAssessment => 'OVERDUE',
+      TutorReminderKind.checkinDue => 'CHECK-IN',
+      TutorReminderKind.openAssessment => 'IN PROGRESS',
+      TutorReminderKind.noIrip => 'NO IRIP',
+      TutorReminderKind.noSessionLately => 'NO SESSION',
+    };
+    out.write('\n  [$tag] ${r.message}');
+    for (final l in r.learners) {
+      out.write('\n      ${l.lrn.isEmpty ? '(no LRN)' : l.lrn}  ${l.name}'
+          '${l.enrollmentId == null ? '' : '  (ARAL #${l.enrollmentId})'}');
+    }
+  }
+  return out.toString();
+}
+
+void registerReminderCommands(ConsoleRegistry registry, ReminderViewModel vm, String? Function() currentUserId) {
   void add(String name, String description, Future<String> Function(List<String> args) handler) {
     registry.register(ConsoleCommand(
       name: name,
@@ -96,5 +118,16 @@ void registerReminderCommands(ConsoleRegistry registry, ReminderViewModel vm) {
     final schools = await vm.coordinatorReminders(schoolId, args[1], today: o.today, doneThreshold: o.done);
     if (schools.isEmpty) return 'No schools on this device.';
     return _text(schools);
+  });
+
+  add('reminders-tutor',
+      'reminders-tutor <tutorId|me> <year> [today=YYYY-MM-DD] — a tutor\'s unfinished work: learners not '
+          'assessed, check-ins due, no IRIP, no session lately', (args) async {
+    const usage = 'Usage: reminders-tutor <tutorId|me> <year> [today=YYYY-MM-DD]';
+    if (args.length < 2) throw const _Usage(usage);
+    final o = _parse(args.sublist(2));
+    if (o.done != null) throw const _Usage('reminders-tutor takes no done= (tutors are reminded per learner). $usage');
+    final tutorId = args[0].toLowerCase() == 'me' ? (currentUserId() ?? (throw const _Usage('Not signed in.'))) : args[0];
+    return _tutorText(await vm.tutorReminders(tutorId, args[1], today: o.today));
   });
 }

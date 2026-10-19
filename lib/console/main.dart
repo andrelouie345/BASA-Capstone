@@ -8,6 +8,7 @@ import 'package:basa_capstone/viewmodels/student_viewmodel.dart';
 import 'package:basa_capstone/core/data/remote/school_repository_supabase.dart';
 import 'package:basa_capstone/core/data/remote/section_repository_supabase.dart';
 import 'package:basa_capstone/core/data/remote/tutor_section_assignment_repository_supabase.dart';
+import 'package:basa_capstone/core/data/local/tutor_section_assignment_repository_sqlite.dart';
 import 'package:basa_capstone/viewmodels/school_viewmodel.dart';
 import 'package:basa_capstone/viewmodels/section_viewmodel.dart';
 import 'package:basa_capstone/viewmodels/tutor_section_assignment_viewmodel.dart';
@@ -200,9 +201,11 @@ Future<void> main() async {
   final sectionVm = SectionViewModel(auth: authVm, repoFactory: SectionRepositorySupabase.new, logger: session);
   vmRegistry.register('SectionViewModel', sectionVm);
   registerSectionCommands(registry, sectionVm);
+  final tutorSectionRepo = TutorSectionAssignmentRepositorySqlite(localDb);
   final tutorSectionVm = TutorSectionAssignmentViewModel(
     auth: authVm,
     repoFactory: TutorSectionAssignmentRepositorySupabase.new,
+    local: tutorSectionRepo,
     logger: session,
   );
   vmRegistry.register('TutorSectionAssignmentViewModel', tutorSectionVm);
@@ -409,10 +412,17 @@ Future<void> main() async {
     sections: SectionRepositorySqlite(localDb),
     students: StudentRepositorySqlite(localDb),
     crlaResults: CrlaResultRepositorySqlite(localDb),
+    assignments: tutorSectionRepo,
+    users: UserRepositorySqlite(localDb),
+    roster: AralEnrollmentRepositorySqlite(localDb),
+    aralSessions: AralSessionRepositorySqlite(localDb),
+    irip: AralIripRepositorySqlite(localDb),
+    checkins: AralCheckinRepositorySqlite(localDb),
+    aralSettings: AralSettingRepositorySqlite(localDb),
     logger: session,
   );
   vmRegistry.register('ReminderViewModel', reminderVm);
-  registerReminderCommands(registry, reminderVm);
+  registerReminderCommands(registry, reminderVm, () => authVm.currentUser?.id);
 
   final srpVm = SrpViewModel(
     reports: nlaReportVm,

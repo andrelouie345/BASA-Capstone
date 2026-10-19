@@ -126,6 +126,30 @@ class AralProgramSettings {
   }
 }
 
+/// ARAL session settings (keys of aral_settings.settings; defaults <- region
+/// <- school). idle_session_days: a tutor with active ARAL learners gets a "no
+/// session lately" reminder when their last session is more than this many
+/// days ago (dashboard D3). A whole number 1-60, default 7.
+class AralSessionSettings {
+  static const idleSessionDaysKey = 'idle_session_days';
+  static const minIdleSessionDays = 1;
+  static const maxIdleSessionDays = 60;
+  static const defaults = AralSessionSettings(idleSessionDays: 7);
+
+  final int idleSessionDays;
+
+  const AralSessionSettings({required this.idleSessionDays});
+
+  /// Defaults, then [m]'s keys (unknown keys and bad values are ignored).
+  factory AralSessionSettings.fromMap(Map<String, Object?> m) {
+    final v = m[idleSessionDaysKey];
+    return AralSessionSettings(
+        idleSessionDays: v is num && v == v.roundToDouble() && v >= minIdleSessionDays && v <= maxIdleSessionDays
+            ? v.toInt()
+            : defaults.idleSessionDays);
+  }
+}
+
 /// Why a Phil-IRI result is outside ARAL (reads at or above grade level).
 String aralNotAralLabel(int adjustedLevel, int grade) =>
     adjustedLevel > grade ? 'advanced reader (enhancement, not ARAL)' : 'grade-level ready (enrichment, not ARAL)';

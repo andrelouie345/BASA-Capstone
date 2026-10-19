@@ -10,11 +10,18 @@ import 'viewmodel_exception.dart';
 /// Tutor <-> section assignments, through the signed-in user's client.
 /// Managed by admins/coordinators; the database checks that the tutor is an
 /// active tutor of the section's school and stamps assigned_by/assigned_at.
+/// Assigning and unassigning are mirrored onto this device ([local]) so tutor
+/// reminders see the change before the next pull-cloud.
 class TutorSectionAssignmentViewModel {
   final ScopedLogger _log;
   final AuthViewModel _auth;
   final TutorSectionAssignmentRepository Function(SupabaseClient client) _repoFor;
+  final TutorSectionAssignmentRepository? _local;
   List<TutorSectionAssignment> items = [];
+
+  /// Set when the last assign/unassign succeeded online but could not be
+  /// copied onto this device (pull-cloud fixes it); null otherwise.
+  String? lastMirrorWarning;
 
   // Tracks which query populated `items`, so refresh() can repeat it
   // after a create/delete without the caller having to remember.
@@ -24,9 +31,11 @@ class TutorSectionAssignmentViewModel {
   TutorSectionAssignmentViewModel({
     required AuthViewModel auth,
     required TutorSectionAssignmentRepository Function(SupabaseClient client) repoFactory,
+    TutorSectionAssignmentRepository? local,
     Logger? logger,
   })  : _auth = auth,
         _repoFor = repoFactory,
+        _local = local,
         _log = ScopedLogger(logger, 'TutorSectionAssignmentViewModel');
 
   TutorSectionAssignmentRepository _repo() {
@@ -79,6 +88,7 @@ class TutorSectionAssignmentViewModel {
       if (e.code == 'P0001') throw ViewModelException(e.message); // validation trigger
       rethrow;
     }
+    await _mirror(() => _local!.upsertWithId(created));
     await refresh();
     return created;
   }
@@ -86,6 +96,18 @@ class TutorSectionAssignmentViewModel {
   Future<void> unassign(int id) async {
     _log('unassign(id: $id)');
     await _repo().delete(id);
+    await _mirror(() => _local!.removeMirrored(id));
     await refresh();
+  }
+
+  Future<void> _mirror(Future<void> Function() write) async {
+    lastMirrorWarning = null;
+    if (_local == null) return;
+    try {
+      await write();
+    } catch (e) {
+      lastMirrorWarning = 'Saved online, but not copied onto this device ($e); run pull-cloud.';
+      _log('mirror failed: $e');
+    }
   }
 }

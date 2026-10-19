@@ -4,7 +4,8 @@
 // superadmin) or one school's override (its admin/coordinator). settings is a
 // partial map; the effective values are the built-in defaults, then the
 // region row, then the school row, key by key (as crla_thresholds).
-// Keys: checkin_pass_pct (1-100, default 75).
+// Keys: checkin_pass_pct (1-100, default 75), foundational_program (bool,
+// default off), idle_session_days (1-60, default 7).
 import 'dart:convert';
 
 class AralSetting {

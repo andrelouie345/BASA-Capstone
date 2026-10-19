@@ -7,4 +7,8 @@ abstract class TutorSectionAssignmentRepository {
   Future<List<TutorSectionAssignment>> getByTutor(String tutorId);
   Future<List<TutorSectionAssignment>> getBySection(int sectionId);
   Future<void> delete(int id);
+
+  // Mirroring onto this device (SQLite only; the Supabase repo throws).
+  Future<void> upsertWithId(TutorSectionAssignment assignment);
+  Future<void> removeMirrored(int id);
 }

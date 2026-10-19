@@ -17,7 +17,8 @@ void registerTutorSectionCommands(ConsoleRegistry registry, TutorSectionAssignme
       if (sectionId == null) return 'Invalid sectionId: "${args[1]}" (expected a number)';
       try {
         final a = await vm.assign(tutorId: args[0], sectionId: sectionId);
-        return 'Assigned tutor ${a.tutorId} to section ${a.sectionId} (assignment ${a.id}).';
+        return 'Assigned tutor ${a.tutorId} to section ${a.sectionId} (assignment ${a.id}).'
+            '${vm.lastMirrorWarning == null ? '' : '\n${vm.lastMirrorWarning}'}';
       } catch (e) {
         return 'Assign failed: $e';
       }
@@ -33,7 +34,7 @@ void registerTutorSectionCommands(ConsoleRegistry registry, TutorSectionAssignme
       if (id == null) return 'Invalid assignmentId: "${args[0]}" (expected a number)';
       try {
         await vm.unassign(id);
-        return 'Unassigned assignment $id.';
+        return 'Unassigned assignment $id.${vm.lastMirrorWarning == null ? '' : '\n${vm.lastMirrorWarning}'}';
       } catch (e) {
         return 'Unassign failed: $e';
       }

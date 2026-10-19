@@ -11,6 +11,7 @@ import '../console_registry.dart';
 import '../../../viewmodels/aral_checkin_viewmodel.dart';
 import '../../models/aral_checkin.dart';
 import '../../services/aral_checkin_rules.dart';
+import '../../services/aral_rules.dart' show AralSessionSettings;
 
 class _Usage implements Exception {
   final String message;
@@ -271,12 +272,38 @@ void registerAralCheckinCommands(ConsoleRegistry registry, AralCheckinViewModel 
         'aral-update.${warn == null ? '' : '\n$warn'}';
   });
 
-  add('aral-checkin-cutoff-reset', 'aral-checkin-cutoff-reset <schoolId> — remove a school\'s cut-off (online)',
-      (args) async {
+  add('aral-checkin-cutoff-reset',
+      'aral-checkin-cutoff-reset <schoolId> — remove a school\'s ARAL settings override: cut-off, SHARP switch, '
+          'idle session days (online)', (args) async {
     if (args.isEmpty) throw const _Usage('Usage: aral-checkin-cutoff-reset <schoolId>');
     final schoolId = _int(args[0], 'schoolId');
     await vm.resetSchoolSettings(schoolId);
     final warn = vm.lastMirrorWarning;
-    return 'School $schoolId uses the region cut-off again.${warn == null ? '' : '\n$warn'}';
+    return 'School $schoolId uses the region ARAL settings again (cut-off, SHARP, idle session days).'
+        '${warn == null ? '' : '\n$warn'}';
+  });
+
+  add('aral-idle-days',
+      'aral-idle-days [schoolId] — after how many days without a session a tutor is reminded (online)',
+      (args) async {
+    final schoolId = args.isEmpty ? null : _int(args[0], 'schoolId');
+    final l = await vm.idleSessionDaysLayers(schoolId);
+    String row(int? v) => v == null ? '(not set)' : '$v days';
+    return 'Default: ${AralSessionSettings.defaults.idleSessionDays} days\n'
+        'Region: ${row(l.region)}\n'
+        '${schoolId == null ? '' : 'School $schoolId: ${row(l.school)}\n'}'
+        'Applies: ${l.effective} days';
+  });
+
+  add('aral-idle-days-set',
+      'aral-idle-days-set <region|schoolId> <1-60> — set the "no session lately" reminder\'s days (online)',
+      (args) async {
+    const usage = 'Usage: aral-idle-days-set <region|schoolId> <1-60>';
+    if (args.length != 2) throw const _Usage(usage);
+    final schoolId = args[0] == 'region' ? null : _int(args[0], 'schoolId');
+    await vm.setIdleSessionDays(schoolId, _int(args[1], 'days'));
+    final warn = vm.lastMirrorWarning;
+    return 'Idle session days for ${schoolId == null ? 'the region' : 'school $schoolId'} set to ${args[1]}.'
+        '${warn == null ? '' : '\n$warn'}';
   });
 }

@@ -8,6 +8,7 @@ import 'aral_local_schema.dart';
 import 'srp_local_schema.dart';
 import 'calendar_local_schema.dart';
 import 'report_local_schema.dart';
+import 'tutor_assignment_local_schema.dart';
 import '../../services/crla_rules.dart';
 
 /// Opens/creates the local SQLite DB.
@@ -50,7 +51,8 @@ class LocalDatabase {
         // v30: SRP classes + learners (srp_classes, srp_class_members; mirror-only; createSrpLocalSchema).
         // v31: assessment round calendar (assessment_calendar, mirror-only; createCalendarLocalSchema).
         // v32: report settings (report_settings, mirror-only; createReportLocalSchema).
-        version: 32,
+        // v33: tutor_section_assignments mirror (D3 tutor reminders; createTutorAssignmentLocalSchema).
+        version: 33,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
@@ -70,6 +72,7 @@ class LocalDatabase {
           await createSrpLocalSchema(db);
           await createCalendarLocalSchema(db);
           await createReportLocalSchema(db);
+          await createTutorAssignmentLocalSchema(db);
         },
         onUpgrade: (db, oldVersion, newVersion) async {
           if (oldVersion < 2) {
@@ -170,6 +173,7 @@ class LocalDatabase {
           await createCalendarLocalSchema(db);
           // v32. IF NOT EXISTS: runs on every upgrade.
           await createReportLocalSchema(db);
+          await createTutorAssignmentLocalSchema(db);
           // v14. Rows from before v14 were scored with the default thresholds.
           if (oldVersion < 14) await backfillCrlaScoring(db);
         },

@@ -412,9 +412,7 @@ class NlaReportViewModel {
         row.enrolment.add(st.sex);
         final res = await _philIri.reportResults(studentId: st.id!, sectionId: s.id!, schoolYear: schoolYear, asOf: date);
         if (res.gst != null) row.gstTakers.add(st.sex);
-        // Her rule: assessed in a round = a passage read in that round (BASA:
-        // a finished session dated by asOf); at BOSY a counted GST counts too.
-        for (final r in res.counted) {
+        for (final r in assessedIn(res)) {
           row.assessed[r]!.add(st.sex);
         }
       }
@@ -423,6 +421,23 @@ class NlaReportViewModel {
     }
     return ProgressReport(schoolId, schoolYear, date, doneThreshold, rows, total, scheduledRounds: scheduled);
   }
+
+  /// The one definition of "assessed in a round" (progress monitoring, tutor
+  /// reminders). Her rule: a passage read in that round (BASA: a finished
+  /// session dated by asOf); at BOSY a counted GST counts too.
+  static Set<PhilIriRound> assessedIn(PhilIriReportResults results) => results.counted;
+
+  /// The Phil-IRI rounds a learner of [sectionId] is assessed in by [asOf]
+  /// (YYYY-MM-DD), per [assessedIn]. No access check: the caller decides who
+  /// may see the learner (tutor reminders: the tutor's own sections).
+  Future<Set<PhilIriRound>> assessedPhilIriRounds({
+    required int studentId,
+    required int sectionId,
+    required String schoolYear,
+    required String asOf,
+  }) async =>
+      assessedIn(await _philIri.reportResults(
+          studentId: studentId, sectionId: sectionId, schoolYear: schoolYear, asOf: asOf));
 
   /// The Phil-IRI rounds [schoolId]'s calendar holds in [year], or null when
   /// it has no Phil-IRI window that year (skipped ones count as windows).

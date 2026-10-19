@@ -31,7 +31,7 @@ import '../core/repositories/aral_setting_repository.dart';
 import '../core/repositories/section_repository.dart';
 import '../core/repositories/student_repository.dart';
 import '../core/services/aral_checkin_rules.dart';
-import '../core/services/aral_rules.dart' show AralProgramSettings;
+import '../core/services/aral_rules.dart' show AralProgramSettings, AralSessionSettings;
 import '../core/services/csv.dart';
 import '../core/services/normalizers.dart';
 import 'auth_viewmodel.dart';
@@ -454,8 +454,49 @@ class AralCheckinViewModel {
     return saved;
   }
 
-  /// Removes a school's override (all its ARAL settings: the check-in cut-off
-  /// and the foundational program switch) so the region values apply again.
+  /// The session settings on this device (idle_session_days): defaults <-
+  /// region <- the school's override (the local mirror).
+  Future<AralSessionSettings> localSessionSettings(int schoolId) async {
+    final region = await _localSettings.getRegion();
+    final school = await _localSettings.getForSchool(schoolId);
+    return AralSessionSettings.fromMap({...?region?.settings, ...?school?.settings});
+  }
+
+  /// The "no session lately" reminder's day count in the cloud: the stored
+  /// region/school values (null = not set) and the one that applies.
+  Future<({int? region, int? school, int effective})> idleSessionDaysLayers(int? schoolId) async {
+    _log('idleSessionDaysLayers($schoolId)');
+    final cloud = _cloud();
+    final region = await cloud.getRegion();
+    final school = schoolId == null ? null : await cloud.getForSchool(schoolId);
+    int? read(AralSetting? s) => (s?.settings[AralSessionSettings.idleSessionDaysKey] as num?)?.toInt();
+    return (
+      region: read(region),
+      school: read(school),
+      effective: AralSessionSettings.fromMap({...?region?.settings, ...?school?.settings}).idleSessionDays,
+    );
+  }
+
+  /// Sets after how many days without a session a tutor with active ARAL
+  /// learners is reminded (1-60), for the region ([schoolId] null,
+  /// superadmin) or a school (its admin/coordinator). Online; mirrored.
+  Future<AralSetting> setIdleSessionDays(int? schoolId, int days) async {
+    _log('setIdleSessionDays($schoolId, $days)');
+    final cloud = _settingsWriter(schoolId);
+    if (days < AralSessionSettings.minIdleSessionDays || days > AralSessionSettings.maxIdleSessionDays) {
+      throw ViewModelException('The idle session days are a whole number '
+          '${AralSessionSettings.minIdleSessionDays}-${AralSessionSettings.maxIdleSessionDays}, not $days.');
+    }
+    final current = schoolId == null ? await cloud.getRegion() : await cloud.getForSchool(schoolId);
+    final saved = await _cloudWrite(() => cloud.save(
+        schoolId, {...?current?.settings, AralSessionSettings.idleSessionDaysKey: days}));
+    await _mirror(() => _localSettings.upsertWithId(saved));
+    return saved;
+  }
+
+  /// Removes a school's override (all its ARAL settings: the check-in cut-off,
+  /// the foundational program switch and the idle session days) so the region
+  /// values apply again.
   Future<void> resetSchoolSettings(int schoolId) async {
     _log('resetSchoolSettings($schoolId)');
     final cloud = _settingsWriter(schoolId);
@@ -530,7 +571,7 @@ class AralCheckinViewModel {
     final superadmin = me.role == UserRole.admin && me.schoolId == null;
     if (!superadmin) {
       if (schoolId == null) {
-        throw const ViewModelException('Forbidden: only the superadmin sets the region-wide cut-off.');
+        throw const ViewModelException('Forbidden: only the superadmin sets the region-wide ARAL settings.');
       }
       if (me.schoolId != schoolId) {
         throw const ViewModelException('Forbidden: you can only set the cut-off of your own school.');

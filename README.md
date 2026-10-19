@@ -47,7 +47,8 @@ Run every file in `supabase/migrations/` that is **newer** than the baseline,
 in filename order (the timestamps sort them). As of 2026-10-19 they are
 `20261018050000` (ARAL readability log), `20261019010000` and `20261019020000`
 (SRP classes), `20261019030000` (assessment calendar), `20261019040000`
-(report settings) and `20261019050000` (calendar round pairing). Each is
+(report settings), `20261019050000` (calendar round pairing) and
+`20261019060000` (ARAL idle session days; app update required: no). Each is
 idempotent. Do **not** run `supabase/migrations_archive/`.
 
 ### 2c. Seeds (content)

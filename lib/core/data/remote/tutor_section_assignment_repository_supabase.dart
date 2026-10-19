@@ -46,4 +46,10 @@ class TutorSectionAssignmentRepositorySupabase implements TutorSectionAssignment
       throw Exception('No assignment deleted — check the id or your permissions ("$id")');
     }
   }
+
+  @override
+  Future<void> upsertWithId(TutorSectionAssignment assignment) => throw UnimplementedError('local mirror only');
+
+  @override
+  Future<void> removeMirrored(int id) => throw UnimplementedError('local mirror only');
 }
