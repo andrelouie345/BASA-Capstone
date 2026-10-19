@@ -8,6 +8,10 @@
 ///   blocks=enrolment,gst,profile,form2b,aral   which parts (default all)
 ///   rows=sections|total|both   section lines, the school total, or both (default both)
 ///   asof=YYYY-MM-DD        results assessed by that date (default today)
+///
+/// Also progress monitoring (progress-report, progress-report-csv): learners
+/// assessed per round against a done threshold, done=<percent> (default 85),
+/// with sections=, rows= and asof= as above.
 library;
 
 import 'dart:io';
@@ -142,6 +146,67 @@ String _text(NlaReport report, NlaReportFilter f) {
   return out.toString();
 }
 
+// ---- progress monitoring ----
+
+const _progressOptions = '[done=<percent, default 85>] [sections=<id,...>] [rows=sections|total|both] [asof=YYYY-MM-DD]';
+
+({double done, Set<int>? sections, bool sectionRows, bool schoolTotal, DateTime? asOf}) _progressFilter(
+    List<String> opts) {
+  var done = 0.85;
+  Set<int>? sections;
+  DateTime? asOf;
+  var sectionRows = true, schoolTotal = true;
+  for (final o in opts) {
+    final eq = o.indexOf('=');
+    if (eq < 0) throw _Usage('Options look like key=value (got "$o"). $_progressOptions');
+    final key = o.substring(0, eq);
+    final raw = o.substring(eq + 1).trim();
+    switch (key) {
+      case 'done':
+        final p = double.tryParse(raw.endsWith('%') ? raw.substring(0, raw.length - 1) : raw);
+        if (p == null || p <= 0 || p > 100) throw _Usage('done is a percent above 0 and up to 100 (got "$raw")');
+        done = p / 100;
+      case 'sections':
+        sections = {
+          for (final v in raw.split(',').map((v) => v.trim()).where((v) => v.isNotEmpty)) _int(v, 'section id'),
+        };
+        if (sections.isEmpty) throw const _Usage('An option needs at least one value.');
+      case 'rows':
+        final v = raw.toLowerCase();
+        if (!{'sections', 'total', 'both'}.contains(v)) throw _Usage('rows is sections, total or both (got "$v")');
+        sectionRows = v != 'total';
+        schoolTotal = v != 'sections';
+      case 'asof':
+        asOf = DateTime.tryParse(raw) ?? (throw _Usage('asof is YYYY-MM-DD'));
+      default:
+        throw _Usage('Unknown option "$key". $_progressOptions');
+    }
+  }
+  return (done: done, sections: sections, sectionRows: sectionRows, schoolTotal: schoolTotal, asOf: asOf);
+}
+
+String _progressText(ProgressReport report, bool sectionRows, bool schoolTotal) {
+  String pct(double? s) => s == null ? '-' : '${progressPercent(s)}%';
+  final out = StringBuffer('Progress monitoring | school ${report.schoolId} | ${report.schoolYear} '
+      '| as of ${report.asOf} | done at ${progressPercent(report.doneThreshold)}%');
+  void block(ProgressSectionReport r, String name) {
+    final e = r.enrolment, g = r.gstTakers;
+    out.write('\n$name');
+    out.write('\n  Enrolment: M ${e.male} F ${e.female} T ${e.total} | GST takers: M ${g.male} F ${g.female} '
+        'T ${g.total} (${pct(r.gstShare())})');
+    out.write('\n  ${PhilIriRound.values.map((round) => '${round.label} ${r.assessed[round]!.total} '
+        '(${pct(r.share(round))}) ${report.status(r, round) ?? '-'}').join(' | ')}');
+  }
+
+  if (sectionRows) {
+    for (final r in report.sections) {
+      block(r, 'G${r.grade} ${r.section!.sectionName} (#${r.section!.id})');
+    }
+  }
+  if (schoolTotal) block(report.total, 'SCHOOL TOTAL (${report.sections.length} section(s))');
+  return out.toString();
+}
+
 void registerNlaReportCommands(ConsoleRegistry registry, NlaReportViewModel vm) {
   void add(String name, String description, Future<String> Function(List<String> args) handler) {
     registry.register(ConsoleCommand(
@@ -169,7 +234,32 @@ void registerNlaReportCommands(ConsoleRegistry registry, NlaReportViewModel vm) 
     return _text(report, filter);
   });
 
-  add('nla-report-csv', 'nla-report-csv <schoolId> <schoolYear> <out.csv> $_options — the same as CSV', (args) async {
+  add('progress-report', 'progress-report <schoolId> <schoolYear> $_progressOptions — progress monitoring: '
+      'learners assessed per round vs the done threshold', (args) async {
+    if (args.length < 2) throw const _Usage('Usage: progress-report <schoolId> <schoolYear> $_progressOptions');
+    final o = _progressFilter(args.sublist(2));
+    final report = await vm.progress(
+        schoolId: _int(args[0], 'schoolId'), schoolYear: args[1], sectionIds: o.sections,
+        doneThreshold: o.done, asOf: o.asOf);
+    if (report.sections.isEmpty) return 'No Grade 4-10 sections for school ${args[0]} in ${args[1]}.';
+    return _progressText(report, o.sectionRows, o.schoolTotal);
+  });
+
+  add('progress-report-csv', 'progress-report-csv <schoolId> <schoolYear> <out.csv> $_progressOptions — the same as CSV',
+      (args) async {
+    if (args.length < 3) {
+      throw const _Usage('Usage: progress-report-csv <schoolId> <schoolYear> <out.csv> $_progressOptions');
+    }
+    final o = _progressFilter(args.sublist(3));
+    final report = await vm.progress(
+        schoolId: _int(args[0], 'schoolId'), schoolYear: args[1], sectionIds: o.sections,
+        doneThreshold: o.done, asOf: o.asOf);
+    await File(args[2]).writeAsString(
+        progressReportCsv(report, sectionRows: o.sectionRows, schoolTotal: o.schoolTotal));
+    return 'Wrote ${args[2]} (${report.sections.length} section(s)).';
+  });
+
+  add('nla-report-csv','nla-report-csv <schoolId> <schoolYear> <out.csv> $_options — the same as CSV', (args) async {
     if (args.length < 3) throw const _Usage('Usage: nla-report-csv <schoolId> <schoolYear> <out.csv> $_options');
     final (filter, sections, asOf) = _filter(args.sublist(3));
     final report = await vm.report(

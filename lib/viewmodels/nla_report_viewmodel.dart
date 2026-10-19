@@ -15,6 +15,10 @@
 //    grade level in it. BASA's roster-based implementation report stays too.
 // Filters (which sexes, rounds, blocks, sections) only choose what is shown:
 // see NlaReportFilter and nlaReportCsv.
+//
+// Also progress monitoring (her sheets STARTHERE / IRA Summary): per section
+// the share of learners assessed in each round against an adjustable "done"
+// threshold (a report parameter, default 85%; owner 2026-10-19).
 import '../core/console/logger.dart';
 import '../core/models/phil_iri_assessment.dart' show PhilIriRound;
 import '../core/models/section.dart';
@@ -174,6 +178,88 @@ String nlaReportCsv(NlaReport report, [NlaReportFilter filter = const NlaReportF
   return csvTable(rows);
 }
 
+// ---- progress monitoring ----
+
+/// One section's progress (or the school total, when [section] is null).
+class ProgressSectionReport {
+  final Section? section;
+  final int? grade;
+  final NlaCounts enrolment = NlaCounts();
+  final NlaCounts gstTakers = NlaCounts();        // GST score above 0
+  final Map<PhilIriRound, NlaCounts> assessed = {for (final r in PhilIriRound.values) r: NlaCounts()};
+
+  ProgressSectionReport(this.section, this.grade);
+
+  /// GST takers / enrolled, or null with nobody enrolled.
+  double? gstShare() => _share(gstTakers.total);
+
+  /// Learners assessed in [r] / enrolled, or null with nobody enrolled.
+  double? share(PhilIriRound r) => _share(assessed[r]!.total);
+
+  double? _share(int n) => enrolment.total == 0 ? null : n / enrolment.total;
+
+  void addAll(ProgressSectionReport o) {
+    enrolment.addAll(o.enrolment);
+    gstTakers.addAll(o.gstTakers);
+    for (final r in PhilIriRound.values) {
+      assessed[r]!.addAll(o.assessed[r]!);
+    }
+  }
+}
+
+class ProgressReport {
+  final int schoolId;
+  final String schoolYear;
+  final String asOf;
+  final double doneThreshold;
+  final List<ProgressSectionReport> sections; // by grade, then name
+  final ProgressSectionReport total;
+
+  const ProgressReport(this.schoolId, this.schoolYear, this.asOf, this.doneThreshold, this.sections, this.total);
+
+  /// DONE, or the workbook's NO IRA (BOSY) / NO MOSY / NO EOSY; null with
+  /// nobody enrolled.
+  String? status(ProgressSectionReport row, PhilIriRound r) {
+    if (row.enrolment.total == 0) return null;
+    // Counts, not the rounded share: 17 of 20 at 0.85 is DONE.
+    final done = row.assessed[r]!.total >= doneThreshold * row.enrolment.total - 1e-9;
+    if (done) return 'DONE';
+    return switch (r) {
+      PhilIriRound.bosy => 'NO IRA',
+      PhilIriRound.eosy => 'NO EOSY',
+      _ => 'NO MOSY',
+    };
+  }
+}
+
+/// A share as a percent with one decimal ("98.0"), '' for none.
+String progressPercent(double? share) => share == null ? '' : (share * 100).toStringAsFixed(1);
+
+/// The progress report as CSV: one row per section (and/or the school total).
+String progressReportCsv(ProgressReport report, {bool sectionRows = true, bool schoolTotal = true}) {
+  final header = <Object?>[
+    'Grade', 'Section', 'Enrolment M', 'Enrolment F', 'Enrolment T',
+    'GST takers M', 'GST takers F', 'GST takers T', 'GST %',
+    for (final r in PhilIriRound.values) ...['${r.label} assessed', '${r.label} %', '${r.label} status'],
+  ];
+  List<Object?> line(ProgressSectionReport r, Object? grade, String name) => [
+        grade, name,
+        r.enrolment.male, r.enrolment.female, r.enrolment.total,
+        r.gstTakers.male, r.gstTakers.female, r.gstTakers.total, progressPercent(r.gstShare()),
+        for (final round in PhilIriRound.values) ...[
+          r.assessed[round]!.total,
+          progressPercent(r.share(round)),
+          report.status(r, round) ?? '',
+        ],
+      ];
+  return csvTable([
+    header,
+    if (sectionRows)
+      for (final r in report.sections) line(r, r.grade, r.section!.sectionName),
+    if (schoolTotal) line(report.total, '', 'SCHOOL TOTAL'),
+  ]);
+}
+
 class NlaReportViewModel {
   final ScopedLogger _log;
   final AuthViewModel _auth;
@@ -202,16 +288,68 @@ class NlaReportViewModel {
     DateTime? asOf,
   }) async {
     _log('report(school: $schoolId, year: $schoolYear, sections: $sectionIds)');
+    schoolYear = normalizeSchoolYear(schoolYear);
+    final sections = await _reportSections(schoolId, schoolYear, sectionIds, 'the NLA report');
+    final date = _date(asOf ?? DateTime.now());
+    final total = NlaSectionReport(null, null);
+    final rows = <NlaSectionReport>[];
+    for (final s in sections) {
+      final row = await _section(s, schoolYear, date);
+      rows.add(row);
+      total.addAll(row);
+    }
+    return NlaReport(schoolId, schoolYear, date, rows, total);
+  }
+
+  /// Progress monitoring (workbook sheets STARTHERE / IRA Summary): per Grade
+  /// 4-10 section, enrolment, GST takers, and per round the share of enrolled
+  /// learners assessed in it, DONE at [doneThreshold] (a fraction, default
+  /// 0.85, her "Assessment 'Done' Threshold") or more. Same access as [report].
+  Future<ProgressReport> progress({
+    required int schoolId,
+    required String schoolYear,
+    Set<int>? sectionIds,
+    double doneThreshold = 0.85,
+    DateTime? asOf,
+  }) async {
+    _log('progress(school: $schoolId, year: $schoolYear, sections: $sectionIds, done: $doneThreshold)');
+    if (!(doneThreshold > 0 && doneThreshold <= 1)) {
+      throw ViewModelException('The done threshold is a share above 0 and up to 1 (got $doneThreshold).');
+    }
+    schoolYear = normalizeSchoolYear(schoolYear);
+    final sections = await _reportSections(schoolId, schoolYear, sectionIds, 'the progress report');
+    final date = _date(asOf ?? DateTime.now());
+    final total = ProgressSectionReport(null, null);
+    final rows = <ProgressSectionReport>[];
+    for (final s in sections) {
+      final row = ProgressSectionReport(s, int.parse(s.gradeLevel));
+      for (final st in await _students.getBySection(s.id!)) {
+        row.enrolment.add(st.sex);
+        final res = await _philIri.reportResults(studentId: st.id!, sectionId: s.id!, schoolYear: schoolYear, asOf: date);
+        if (res.gst != null) row.gstTakers.add(st.sex);
+        // Her rule: assessed in a round = a passage read in that round (BASA:
+        // a finished session dated by asOf); at BOSY a counted GST counts too.
+        for (final r in res.counted) {
+          row.assessed[r]!.add(st.sex);
+        }
+      }
+      rows.add(row);
+      total.addAll(row);
+    }
+    return ProgressReport(schoolId, schoolYear, date, doneThreshold, rows, total);
+  }
+
+  /// The school's Grade 4-10 sections for the year, by grade then name, after
+  /// the access check (admin/coordinator of the school, or the superadmin).
+  Future<List<Section>> _reportSections(int schoolId, String schoolYear, Set<int>? sectionIds, String what) async {
     final me = _auth.currentUser;
     if (me == null) throw const ViewModelException('Not signed in.');
     if (me.role != UserRole.admin && me.role != UserRole.coordinator) {
-      throw const ViewModelException('Forbidden: only an admin or coordinator can generate the NLA report.');
+      throw ViewModelException('Forbidden: only an admin or coordinator can generate $what.');
     }
     if (me.schoolId != null && me.schoolId != schoolId) {
       throw const ViewModelException('Forbidden: that school is not yours.');
     }
-    schoolYear = normalizeSchoolYear(schoolYear);
-    final date = _date(asOf ?? DateTime.now());
     final sections = (await _sections.getAll())
         .where((s) =>
             s.schoolId == schoolId &&
@@ -227,14 +365,7 @@ class NlaReportViewModel {
       final missing = sectionIds.difference(sections.map((s) => s.id!).toSet());
       throw ViewModelException('Not Grade 4-10 sections of school $schoolId for $schoolYear: ${missing.join(', ')}.');
     }
-    final total = NlaSectionReport(null, null);
-    final rows = <NlaSectionReport>[];
-    for (final s in sections) {
-      final row = await _section(s, schoolYear, date);
-      rows.add(row);
-      total.addAll(row);
-    }
-    return NlaReport(schoolId, schoolYear, date, rows, total);
+    return sections;
   }
 
   Future<NlaSectionReport> _section(Section s, String year, String asOf) async {
