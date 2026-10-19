@@ -18,16 +18,19 @@
 //
 // Also progress monitoring (her sheets STARTHERE / IRA Summary): per section
 // the share of learners assessed in each round against an adjustable "done"
-// threshold (a report parameter, default 85%; owner 2026-10-19).
+// threshold (a report parameter, default 85%; owner 2026-10-19), and the BOSY
+// masterlist of learners not grade level ready (her sheet "BOSY Report").
 import '../core/console/logger.dart';
 import '../core/models/phil_iri_assessment.dart' show PhilIriRound;
 import '../core/models/section.dart';
+import '../core/models/student.dart';
 import '../core/models/user_role.dart';
 import '../core/repositories/section_repository.dart';
 import '../core/repositories/student_repository.dart';
 import '../core/services/csv.dart';
 import '../core/services/nla_form2b.dart';
 import '../core/services/normalizers.dart';
+import '../core/services/phil_iri_results.dart' show philIriNotAssessedResult;
 import '../core/services/phil_iri_rules.dart' show PhilIriLevel, philIriComprehensionLevel, philIriGradeOf;
 import 'auth_viewmodel.dart';
 import 'phil_iri_viewmodel.dart';
@@ -260,6 +263,63 @@ String progressReportCsv(ProgressReport report, {bool sectionRows = true, bool s
   ]);
 }
 
+// ---- BOSY masterlist of learners below grade level ----
+
+/// One learner on the BOSY masterlist.
+class BosyMasterlistEntry {
+  final Student student;
+  /// No BOSY result at all (no finished BOSY reading, no GST above 0 by
+  /// asOf): listed anyway, with the assumed Frustration, 3 levels down.
+  final bool notAssessed;
+  final PhilIriLevel profile;      // Frustration or Non-Reader
+  final int adjustedLevel;         // her ADJ GR; 0 for a Non-Reader
+  final int? levelsDown;           // null for a Non-Reader
+  final double? comprehension;     // BOSY carried comprehension (0-1); null if blank
+
+  const BosyMasterlistEntry(
+      this.student, this.notAssessed, this.profile, this.adjustedLevel, this.levelsDown, this.comprehension);
+
+  String get name => '${student.lastName}, ${student.firstName}';
+
+  /// Her group: Non-Reader, 3-LD (3 or more levels down) or 2-LD (1-2).
+  String get group => profile == PhilIriLevel.nonReader
+      ? 'Non-Reader'
+      : (levelsDown ?? 0) >= 3
+          ? '3-LD'
+          : '2-LD';
+}
+
+class BosyMasterlistSection {
+  final Section section;
+  final int grade;
+  final int enrolled;
+  final List<BosyMasterlistEntry> learners; // by name
+
+  const BosyMasterlistSection(this.section, this.grade, this.enrolled, this.learners);
+}
+
+class BosyMasterlist {
+  final int schoolId;
+  final String schoolYear;
+  final String asOf;
+  final List<BosyMasterlistSection> sections; // by grade, then name
+
+  const BosyMasterlist(this.schoolId, this.schoolYear, this.asOf, this.sections);
+}
+
+/// The masterlist as CSV: one row per listed learner.
+String bosyMasterlistCsv(BosyMasterlist list) => csvTable([
+      ['Grade', 'Section', 'No.', 'LRN', 'Learner', 'Sex', 'Adjusted grade level', 'Group', 'Levels down',
+        'Profile', 'BOSY comprehension %', 'Not assessed'],
+      for (final s in list.sections)
+        for (final (i, e) in s.learners.indexed)
+          [
+            s.grade, s.section.sectionName, i + 1, e.student.lrn, e.name, e.student.sex ?? '',
+            e.adjustedLevel, e.group, e.levelsDown ?? '', e.profile.label,
+            e.comprehension == null ? '' : progressPercent(e.comprehension), e.notAssessed ? 'yes' : '',
+          ],
+    ]);
+
 class NlaReportViewModel {
   final ScopedLogger _log;
   final AuthViewModel _auth;
@@ -337,6 +397,49 @@ class NlaReportViewModel {
       total.addAll(row);
     }
     return ProgressReport(schoolId, schoolYear, date, doneThreshold, rows, total);
+  }
+
+  /// The masterlist of learners not grade level ready at BOSY, per Grade 4-10
+  /// section (workbook sheet "BOSY Report"): BOSY profile Frustration or
+  /// Non-Reader (adjusted level below the grade), by name. Learners with no
+  /// BOSY result are listed too, flagged (owner 2026-10-19). Same access as
+  /// [report].
+  Future<BosyMasterlist> bosyMasterlist({
+    required int schoolId,
+    required String schoolYear,
+    Set<int>? sectionIds,
+    DateTime? asOf,
+  }) async {
+    _log('bosyMasterlist(school: $schoolId, year: $schoolYear, sections: $sectionIds)');
+    schoolYear = normalizeSchoolYear(schoolYear);
+    final sections = await _reportSections(schoolId, schoolYear, sectionIds, 'the BOSY masterlist');
+    final date = _date(asOf ?? DateTime.now());
+    final out = <BosyMasterlistSection>[];
+    for (final s in sections) {
+      final grade = int.parse(s.gradeLevel);
+      final learners = await _students.getBySection(s.id!);
+      final listed = <BosyMasterlistEntry>[];
+      for (final st in learners) {
+        final res = await _philIri.reportResults(studentId: st.id!, sectionId: s.id!, schoolYear: schoolYear, asOf: date);
+        if (!res.counted.contains(PhilIriRound.bosy)) {
+          final assumed = philIriNotAssessedResult(PhilIriRound.bosy, grade);
+          listed.add(BosyMasterlistEntry(
+              st, true, assumed.profile!, assumed.adjustedLevel!, assumed.levelsDown, null));
+          continue;
+        }
+        final bosy = res.round(PhilIriRound.bosy);
+        final profile = bosy.profile;
+        if (profile != PhilIriLevel.frustration && profile != PhilIriLevel.nonReader) continue;
+        listed.add(BosyMasterlistEntry(
+            st, false, profile!, bosy.adjustedLevel ?? 0, bosy.levelsDown, bosy.comprehensionScore));
+      }
+      listed.sort((a, b) {
+        final l = a.student.lastName.toUpperCase().compareTo(b.student.lastName.toUpperCase());
+        return l != 0 ? l : a.student.firstName.toUpperCase().compareTo(b.student.firstName.toUpperCase());
+      });
+      out.add(BosyMasterlistSection(s, grade, learners.length, listed));
+    }
+    return BosyMasterlist(schoolId, schoolYear, date, out);
   }
 
   /// The school's Grade 4-10 sections for the year, by grade then name, after

@@ -12,6 +12,9 @@
 /// Also progress monitoring (progress-report, progress-report-csv): learners
 /// assessed per round against a done threshold, done=<percent> (default 85),
 /// with sections=, rows= and asof= as above.
+///
+/// And the BOSY masterlist (bosy-masterlist, bosy-masterlist-csv): learners
+/// not grade level ready at BOSY, with sections= and asof=.
 library;
 
 import 'dart:io';
@@ -207,6 +210,47 @@ String _progressText(ProgressReport report, bool sectionRows, bool schoolTotal) 
   return out.toString();
 }
 
+// ---- BOSY masterlist ----
+
+const _masterlistOptions = '[sections=<id,...>] [asof=YYYY-MM-DD]';
+
+({Set<int>? sections, DateTime? asOf}) _masterlistFilter(List<String> opts) {
+  Set<int>? sections;
+  DateTime? asOf;
+  for (final o in opts) {
+    final eq = o.indexOf('=');
+    if (eq < 0) throw _Usage('Options look like key=value (got "$o"). $_masterlistOptions');
+    final raw = o.substring(eq + 1).trim();
+    switch (o.substring(0, eq)) {
+      case 'sections':
+        sections = {
+          for (final v in raw.split(',').map((v) => v.trim()).where((v) => v.isNotEmpty)) _int(v, 'section id'),
+        };
+        if (sections.isEmpty) throw const _Usage('An option needs at least one value.');
+      case 'asof':
+        asOf = DateTime.tryParse(raw) ?? (throw _Usage('asof is YYYY-MM-DD'));
+      default:
+        throw _Usage('Unknown option "${o.substring(0, eq)}". $_masterlistOptions');
+    }
+  }
+  return (sections: sections, asOf: asOf);
+}
+
+String _masterlistText(BosyMasterlist list) {
+  final out = StringBuffer('Masterlist of learners not grade level ready at BOSY | school ${list.schoolId} '
+      '| ${list.schoolYear} | as of ${list.asOf}');
+  for (final s in list.sections) {
+    out.write('\nG${s.grade} ${s.section.sectionName} (#${s.section.id}): ${s.learners.length} of ${s.enrolled} listed');
+    for (final (i, e) in s.learners.indexed) {
+      final comp = e.comprehension == null ? '' : ' · comprehension ${progressPercent(e.comprehension)}%';
+      final down = e.levelsDown == null ? '' : ', ${e.levelsDown} down';
+      out.write('\n  ${i + 1}. ${e.name} (${e.student.lrn}, ${e.student.sex ?? '?'}) · adjusted grade ${e.adjustedLevel}'
+          ' · ${e.group}$down · ${e.profile.label}$comp${e.notAssessed ? ' · NOT ASSESSED (assumed)' : ''}');
+    }
+  }
+  return out.toString();
+}
+
 void registerNlaReportCommands(ConsoleRegistry registry, NlaReportViewModel vm) {
   void add(String name, String description, Future<String> Function(List<String> args) handler) {
     registry.register(ConsoleCommand(
@@ -257,6 +301,28 @@ void registerNlaReportCommands(ConsoleRegistry registry, NlaReportViewModel vm) 
     await File(args[2]).writeAsString(
         progressReportCsv(report, sectionRows: o.sectionRows, schoolTotal: o.schoolTotal));
     return 'Wrote ${args[2]} (${report.sections.length} section(s)).';
+  });
+
+  add('bosy-masterlist', 'bosy-masterlist <schoolId> <schoolYear> $_masterlistOptions — learners not grade level '
+      'ready at BOSY, by section', (args) async {
+    if (args.length < 2) throw const _Usage('Usage: bosy-masterlist <schoolId> <schoolYear> $_masterlistOptions');
+    final o = _masterlistFilter(args.sublist(2));
+    final list = await vm.bosyMasterlist(
+        schoolId: _int(args[0], 'schoolId'), schoolYear: args[1], sectionIds: o.sections, asOf: o.asOf);
+    if (list.sections.isEmpty) return 'No Grade 4-10 sections for school ${args[0]} in ${args[1]}.';
+    return _masterlistText(list);
+  });
+
+  add('bosy-masterlist-csv', 'bosy-masterlist-csv <schoolId> <schoolYear> <out.csv> $_masterlistOptions — the same '
+      'as CSV', (args) async {
+    if (args.length < 3) {
+      throw const _Usage('Usage: bosy-masterlist-csv <schoolId> <schoolYear> <out.csv> $_masterlistOptions');
+    }
+    final o = _masterlistFilter(args.sublist(3));
+    final list = await vm.bosyMasterlist(
+        schoolId: _int(args[0], 'schoolId'), schoolYear: args[1], sectionIds: o.sections, asOf: o.asOf);
+    await File(args[2]).writeAsString(bosyMasterlistCsv(list));
+    return 'Wrote ${args[2]} (${list.sections.fold<int>(0, (n, s) => n + s.learners.length)} learner(s)).';
   });
 
   add('nla-report-csv','nla-report-csv <schoolId> <schoolYear> <out.csv> $_options — the same as CSV', (args) async {
