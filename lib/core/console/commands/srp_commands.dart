@@ -81,6 +81,26 @@ String _text(SrpList list, bool recommendedOnly) {
   return out.toString();
 }
 
+// ---- classes (part 2) ----
+
+String _classesText(List<SrpClassView> classes, String header) {
+  final out = StringBuffer(header);
+  if (classes.isEmpty) out.write('\n(no SRP classes)');
+  for (final c in classes) {
+    final k = c.srpClass;
+    out.write('\n${k.className} (#${k.id}) · ${k.assessedLabel} · ${c.learners.length} learner(s)'
+        ' · room ${k.room ?? '-'} · ${k.schedule ?? 'no schedule'} · tutor ${c.tutor?.fullName ?? (k.tutorId == null ? '-' : k.tutorId!)}');
+    for (final (i, l) in c.learners.indexed) {
+      out.write('\n  ${i + 1}. ${l.name} (#${l.member.studentId}${l.student == null ? '' : ', ${l.student!.lrn}'})'
+          '${l.section == null ? '' : ' · G${l.section!.gradeLevel} ${l.section!.sectionName}'}');
+    }
+  }
+  return out.toString();
+}
+
+String _withWarning(SrpViewModel vm, String text) =>
+    vm.lastMirrorWarning == null ? text : '$text\nWARNING: ${vm.lastMirrorWarning}';
+
 void registerSrpCommands(ConsoleRegistry registry, SrpViewModel vm) {
   void add(String name, String description, Future<String> Function(List<String> args) handler) {
     registry.register(ConsoleCommand(
@@ -109,7 +129,116 @@ void registerSrpCommands(ConsoleRegistry registry, SrpViewModel vm) {
     return _text(list, o.recommendedOnly);
   });
 
-  add('srp-list-csv', 'srp-list-csv <schoolId> <schoolYear> <out.csv> $_options — the same as CSV', (args) async {
+  add('srp-build', 'srp-build <schoolId> <schoolYear> [per=<n, default 15>] [size=<n, default 15>] '
+      '[asof=YYYY-MM-DD] — build the SRP classes from the recommended learners (online)', (args) async {
+    if (args.length < 2) throw const _Usage('Usage: srp-build <schoolId> <schoolYear> [per=n] [size=n] [asof=YYYY-MM-DD]');
+    var per = srpDefaultPerSection, size = srpDefaultClassSize;
+    DateTime? asOf;
+    for (final o in args.sublist(2)) {
+      final eq = o.indexOf('=');
+      final raw = eq < 0 ? '' : o.substring(eq + 1).trim();
+      switch (eq < 0 ? o : o.substring(0, eq)) {
+        case 'per':
+          per = _int(raw, 'per');
+        case 'size':
+          size = _int(raw, 'size');
+        case 'asof':
+          asOf = DateTime.tryParse(raw) ?? (throw const _Usage('asof is YYYY-MM-DD'));
+        default:
+          throw _Usage('Unknown option "$o". Options: per=n size=n asof=YYYY-MM-DD');
+      }
+    }
+    final classes = await vm.buildClasses(
+        schoolId: _int(args[0], 'schoolId'), schoolYear: args[1], perSection: per, classSize: size, asOf: asOf);
+    return _withWarning(vm, _classesText(classes, 'Built ${classes.length} SRP class(es):'));
+  });
+
+  add('srp-classes', 'srp-classes <schoolId> <schoolYear> — the SRP classes on this device (a tutor: their own)',
+      (args) async {
+    if (args.length != 2) throw const _Usage('Usage: srp-classes <schoolId> <schoolYear>');
+    final classes = await vm.classes(schoolId: _int(args[0], 'schoolId'), schoolYear: args[1]);
+    return _classesText(classes, 'SRP classes | school ${args[0]} | ${args[1]}');
+  });
+
+  add('srp-classes-csv', 'srp-classes-csv <schoolId> <schoolYear> <out.csv> — the SRP masterlist as CSV', (args) async {
+    if (args.length != 3) throw const _Usage('Usage: srp-classes-csv <schoolId> <schoolYear> <out.csv>');
+    final classes = await vm.classes(schoolId: _int(args[0], 'schoolId'), schoolYear: args[1]);
+    await File(args[2]).writeAsString(srpClassesCsv(classes));
+    return 'Wrote ${args[2]} (${classes.length} class(es), '
+        '${classes.fold<int>(0, (n, c) => n + c.learners.length)} learner(s)).';
+  });
+
+  add('srp-class-set', 'srp-class-set <classId|name> [name=..] [room=..|-] [schedule=..|-] [tutor=<email>|-] — change a '
+      'class (online; quote values with spaces: "schedule=MWF 8-10")', (args) async {
+    if (args.length < 2) {
+      throw const _Usage('Usage: srp-class-set <classId|name> [name=..] [room=..|-] [schedule=..|-] [tutor=<email>|-]');
+    }
+    String? name, room, schedule, tutor;
+    var clearRoom = false, clearSchedule = false, clearTutor = false;
+    for (final o in args.sublist(1)) {
+      final eq = o.indexOf('=');
+      if (eq < 0) throw _Usage('Options look like key=value (got "$o").');
+      final raw = o.substring(eq + 1).trim();
+      switch (o.substring(0, eq)) {
+        case 'name':
+          name = raw;
+        case 'room':
+          raw == '-' ? clearRoom = true : room = raw;
+        case 'schedule':
+          raw == '-' ? clearSchedule = true : schedule = raw;
+        case 'tutor':
+          raw == '-' ? clearTutor = true : tutor = raw;
+        default:
+          throw _Usage('Unknown option "${o.substring(0, eq)}". Options: name= room= schedule= tutor=');
+      }
+    }
+    final c = await vm.updateClass(await vm.classIdFor(args[0]),
+        className: name,
+        room: room,
+        schedule: schedule,
+        tutorEmail: tutor,
+        clearRoom: clearRoom,
+        clearSchedule: clearSchedule,
+        clearTutor: clearTutor);
+    return _withWarning(vm, _classesText([c], 'Saved:'));
+  });
+
+  add('srp-add', 'srp-add <classId|name> <studentId> — put a learner in an SRP class (online)', (args) async {
+    if (args.length != 2) throw const _Usage('Usage: srp-add <classId|name> <studentId>');
+    final c = await vm.addLearner(await vm.classIdFor(args[0]), _int(args[1], 'studentId'));
+    return _withWarning(vm, _classesText([c], 'Added:'));
+  });
+
+  add('srp-move', 'srp-move <studentId> <toClassId|name> — move a learner to another SRP class (online)', (args) async {
+    if (args.length != 2) throw const _Usage('Usage: srp-move <studentId> <toClassId|name>');
+    final c = await vm.moveLearner(_int(args[0], 'studentId'), await vm.classIdFor(args[1]));
+    return _withWarning(vm, _classesText([c], 'Moved:'));
+  });
+
+  add('srp-remove', 'srp-remove <classId|name> <studentId> — take a learner out of an SRP class (online)', (args) async {
+    if (args.length != 2) throw const _Usage('Usage: srp-remove <classId|name> <studentId>');
+    final c = await vm.removeLearner(await vm.classIdFor(args[0]), _int(args[1], 'studentId'));
+    return _withWarning(vm, _classesText([c], 'Removed:'));
+  });
+
+  add('srp-class-delete', 'srp-class-delete <classId|name> — delete an SRP class and take its learners out (online)',
+      (args) async {
+    if (args.length != 1) throw const _Usage('Usage: srp-class-delete <classId|name>');
+    await vm.deleteClass(await vm.classIdFor(args[0]));
+    return _withWarning(vm, 'Deleted SRP class ${args[0]}.');
+  });
+
+  add('srp-classes-clear', 'srp-classes-clear <schoolId> <schoolYear> yes — delete ALL the school\'s SRP classes '
+      'for the year (online)', (args) async {
+    if (args.length != 3 || args[2] != 'yes') {
+      throw const _Usage('This deletes every SRP class of the school for that year. '
+          'Usage: srp-classes-clear <schoolId> <schoolYear> yes');
+    }
+    final n = await vm.clearClasses(schoolId: _int(args[0], 'schoolId'), schoolYear: args[1]);
+    return _withWarning(vm, 'Deleted $n SRP class(es).');
+  });
+
+  add('srp-list-csv','srp-list-csv <schoolId> <schoolYear> <out.csv> $_options — the same as CSV', (args) async {
     if (args.length < 3) throw const _Usage('Usage: srp-list-csv <schoolId> <schoolYear> <out.csv> $_options');
     final o = _filter(args.sublist(3));
     final list = await vm.candidates(

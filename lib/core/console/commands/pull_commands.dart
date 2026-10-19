@@ -52,6 +52,8 @@ const _pullOrder = <String, String>{
   'aral_materials': 'id',
   'aral_material_links': 'id',
   'aral_readability_logs': 'id',
+  'srp_classes': 'id',
+  'srp_class_members': 'id',
 };
 
 /// Tables with the local-only origin column: mirrored rows are 'cloud'.
@@ -68,6 +70,8 @@ const _originTables = {
 /// and login_logs (this device's sign-in history) are kept. import_conflicts
 /// lives in the cloud only; its local copy is unused but may hold old rows.
 const _clearedTables = [
+  'srp_class_members',
+  'srp_classes',
   'aral_readability_logs',
   'aral_material_links',
   'aral_materials',
@@ -121,7 +125,7 @@ void registerPullCommands(ConsoleRegistry registry, AuthViewModel authVm, Databa
       final unsyncedTotal = unsynced.fold<int>(0, (n, r) => n + (r['n'] as int));
 
       if (args.isEmpty || args[0] != 'yes') {
-        return 'This CLEARS the local data (schools, users, sections, learners, enrollments, CRLA, Phil-IRI, ARAL) and '
+        return 'This CLEARS the local data (schools, users, sections, learners, enrollments, CRLA, Phil-IRI, ARAL, SRP) and '
             'pulls everything ${authVm.currentUser?.email} can read in the cloud. '
             'Regions and login logs are kept.\n'
             'Local data was last pulled by ${previous ?? "nobody (never pulled)"}.\n'

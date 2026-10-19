@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 
 import 'phil_iri_local_schema.dart';
 import 'aral_local_schema.dart';
+import 'srp_local_schema.dart';
 import '../../services/crla_rules.dart';
 
 /// Opens/creates the local SQLite DB.
@@ -44,7 +45,8 @@ class LocalDatabase {
         // v27: ARAL material catalog (aral_materials, mirror-only; createAralLocalSchema).
         // v28: aral_materials.link + aral_material_links (no stored files).
         // v29: ARAL readability log (aral_readability_logs, offline-first; createAralLocalSchema).
-        version: 29,
+        // v30: SRP classes + learners (srp_classes, srp_class_members; mirror-only; createSrpLocalSchema).
+        version: 30,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
@@ -61,6 +63,7 @@ class LocalDatabase {
           await _createSyncTables(db);
           await createPhilIriLocalSchema(db);
           await createAralLocalSchema(db);
+          await createSrpLocalSchema(db);
         },
         onUpgrade: (db, oldVersion, newVersion) async {
           if (oldVersion < 2) {
@@ -155,6 +158,8 @@ class LocalDatabase {
           if (oldVersion < 21) await rebuildAralEnrollmentsForV21(db);
           // v19. Same pattern: runs on every upgrade.
           await createAralLocalSchema(db);
+          // v30. IF NOT EXISTS: runs on every upgrade.
+          await createSrpLocalSchema(db);
           // v14. Rows from before v14 were scored with the default thresholds.
           if (oldVersion < 14) await backfillCrlaScoring(db);
         },

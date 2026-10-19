@@ -99,6 +99,8 @@ import 'package:basa_capstone/core/console/commands/nla_report_commands.dart';
 import 'package:basa_capstone/viewmodels/nla_report_viewmodel.dart';
 import 'package:basa_capstone/core/console/commands/srp_commands.dart';
 import 'package:basa_capstone/viewmodels/srp_viewmodel.dart';
+import 'package:basa_capstone/core/data/local/srp_class_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/remote/srp_class_repository_supabase.dart';
 import 'package:basa_capstone/core/data/local/aral_session_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/aral_tutor_setting_repository_sqlite.dart';
 import 'package:basa_capstone/viewmodels/aral_session_viewmodel.dart';
@@ -344,6 +346,11 @@ vmRegistry.register('TextViewModel', textVm);
     reports: nlaReportVm,
     students: StudentRepositorySqlite(localDb),
     philIri: philIriVm,
+    auth: authVm,
+    local: SrpClassRepositorySqlite(localDb),
+    cloud: (client) => SrpClassRepositorySupabase(client),
+    users: UserRepositorySqlite(localDb),
+    sections: SectionRepositorySqlite(localDb),
     logger: session,
   );
   vmRegistry.register('SrpViewModel', srpVm);
