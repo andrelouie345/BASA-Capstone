@@ -95,6 +95,10 @@ import 'package:basa_capstone/core/console/commands/srp_commands.dart';
 import 'package:basa_capstone/viewmodels/srp_viewmodel.dart';
 import 'package:basa_capstone/core/data/local/srp_class_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/remote/srp_class_repository_supabase.dart';
+import 'package:basa_capstone/core/console/commands/calendar_commands.dart';
+import 'package:basa_capstone/viewmodels/round_calendar_viewmodel.dart';
+import 'package:basa_capstone/core/data/local/assessment_calendar_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/remote/assessment_calendar_repository_supabase.dart';
 import 'package:basa_capstone/core/data/local/aral_session_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/aral_tutor_setting_repository_sqlite.dart';
 import 'package:basa_capstone/viewmodels/aral_session_viewmodel.dart';
@@ -383,6 +387,15 @@ Future<void> main() async {
   );
   vmRegistry.register('SrpViewModel', srpVm);
   registerSrpCommands(registry, srpVm);
+
+  final calendarVm = RoundCalendarViewModel(
+    auth: authVm,
+    local: AssessmentCalendarRepositorySqlite(localDb),
+    cloud: (client) => AssessmentCalendarRepositorySupabase(client),
+    logger: session,
+  );
+  vmRegistry.register('RoundCalendarViewModel', calendarVm);
+  registerCalendarCommands(registry, calendarVm);
 
   final aralReportVm = AralReportViewModel(
     auth: authVm,

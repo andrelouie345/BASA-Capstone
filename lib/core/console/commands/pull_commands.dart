@@ -18,6 +18,7 @@ import '../../../viewmodels/auth_viewmodel.dart';
 const _pullOrder = <String, String>{
   'schools': 'id',
   'users': 'id',
+  'assessment_calendar': 'id',
   'sections': 'id',
   'students': 'id',
   'enrollments': 'id',
@@ -104,6 +105,7 @@ const _clearedTables = [
   'crla_thresholds',
   'crla_stories',
   'import_conflicts',
+  'assessment_calendar',
   'enrollments',
   'students',
   'sections',
