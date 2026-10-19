@@ -91,6 +91,8 @@ import 'package:basa_capstone/core/data/local/aral_readability_repository_sqlite
 import 'package:basa_capstone/viewmodels/aral_readability_viewmodel.dart';
 import 'package:basa_capstone/core/console/commands/nla_report_commands.dart';
 import 'package:basa_capstone/viewmodels/nla_report_viewmodel.dart';
+import 'package:basa_capstone/core/console/commands/srp_commands.dart';
+import 'package:basa_capstone/viewmodels/srp_viewmodel.dart';
 import 'package:basa_capstone/core/data/local/aral_session_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/aral_tutor_setting_repository_sqlite.dart';
 import 'package:basa_capstone/viewmodels/aral_session_viewmodel.dart';
@@ -365,6 +367,15 @@ Future<void> main() async {
   );
   vmRegistry.register('NlaReportViewModel', nlaReportVm);
   registerNlaReportCommands(registry, nlaReportVm);
+
+  final srpVm = SrpViewModel(
+    reports: nlaReportVm,
+    students: StudentRepositorySqlite(localDb),
+    philIri: philIriVm,
+    logger: session,
+  );
+  vmRegistry.register('SrpViewModel', srpVm);
+  registerSrpCommands(registry, srpVm);
 
   final aralReportVm = AralReportViewModel(
     auth: authVm,

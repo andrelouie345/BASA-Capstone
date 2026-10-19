@@ -349,7 +349,7 @@ class NlaReportViewModel {
   }) async {
     _log('report(school: $schoolId, year: $schoolYear, sections: $sectionIds)');
     schoolYear = normalizeSchoolYear(schoolYear);
-    final sections = await _reportSections(schoolId, schoolYear, sectionIds, 'the NLA report');
+    final sections = await reportSections(schoolId, schoolYear, sectionIds, 'the NLA report');
     final date = _date(asOf ?? DateTime.now());
     final total = NlaSectionReport(null, null);
     final rows = <NlaSectionReport>[];
@@ -377,7 +377,7 @@ class NlaReportViewModel {
       throw ViewModelException('The done threshold is a share above 0 and up to 1 (got $doneThreshold).');
     }
     schoolYear = normalizeSchoolYear(schoolYear);
-    final sections = await _reportSections(schoolId, schoolYear, sectionIds, 'the progress report');
+    final sections = await reportSections(schoolId, schoolYear, sectionIds, 'the progress report');
     final date = _date(asOf ?? DateTime.now());
     final total = ProgressSectionReport(null, null);
     final rows = <ProgressSectionReport>[];
@@ -412,7 +412,7 @@ class NlaReportViewModel {
   }) async {
     _log('bosyMasterlist(school: $schoolId, year: $schoolYear, sections: $sectionIds)');
     schoolYear = normalizeSchoolYear(schoolYear);
-    final sections = await _reportSections(schoolId, schoolYear, sectionIds, 'the BOSY masterlist');
+    final sections = await reportSections(schoolId, schoolYear, sectionIds, 'the BOSY masterlist');
     final date = _date(asOf ?? DateTime.now());
     final out = <BosyMasterlistSection>[];
     for (final s in sections) {
@@ -444,7 +444,7 @@ class NlaReportViewModel {
 
   /// The school's Grade 4-10 sections for the year, by grade then name, after
   /// the access check (admin/coordinator of the school, or the superadmin).
-  Future<List<Section>> _reportSections(int schoolId, String schoolYear, Set<int>? sectionIds, String what) async {
+  Future<List<Section>> reportSections(int schoolId, String schoolYear, Set<int>? sectionIds, String what) async {
     final me = _auth.currentUser;
     if (me == null) throw const ViewModelException('Not signed in.');
     if (me.role != UserRole.admin && me.role != UserRole.coordinator) {
