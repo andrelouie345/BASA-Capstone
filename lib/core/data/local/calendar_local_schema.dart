@@ -5,6 +5,15 @@ import 'package:sqflite_common/sqflite.dart';
 /// 20261019030000), mirror-only like aral_settings: written online, same
 /// CHECKs and unique key as the cloud, no triggers. IF NOT EXISTS, so it runs
 /// on every create and upgrade.
+///
+/// Deliberately WITHOUT the cloud's instrument/round pairing check
+/// (assessment_calendar_round_pairing, migration 20261019050000): the cloud
+/// already refuses wrong pairs, and a local copy would add one more way for an
+/// older app's pull-cloud to roll back. That only helps while a changed round
+/// list reuses existing names and has no assessments yet; otherwise the
+/// round-name CHECK below or the assessment tables' round CHECKs still stop an
+/// old app's pull (see "Assessment rounds" in lib/core/CLAUDE.md: ship the app
+/// update first).
 Future<void> createCalendarLocalSchema(Database db) async {
   await db.execute('''
     CREATE TABLE IF NOT EXISTS assessment_calendar (

@@ -39,6 +39,15 @@ Nothing in `core/` imports Flutter. Keep it that way.
 - `crla_results` also exists as a SQLite view with the same column names as the Postgres one; both read the stored `reading_profile`.
 - Anything changed here must keep local and cloud behavior symmetric (offline and cloud attempt numbering, CHECKs and triggers must agree).
 
+## Assessment rounds (one list per layer, changed together)
+- An instrument's rounds live in: the Dart enums `PhilIriRound` / `CrlaRound` (`calendarRounds` in `services/calendar_rules.dart` is BUILT from them, never edited by hand); the cloud checks `phil_iri_assessments_round_check` / `crla_assessments_round_check`; and the calendar pairing `assessment_calendar_round_pairing` (migration 20261019050000), which must list exactly the same rounds.
+- **Changing an instrument's rounds = the enum + ONE migration** that swaps the assessment table's round check and the calendar pairing together, converting (or deleting, owner's call) existing `assessment_calendar` rows first; the migration must refuse while unconverted rows exist (as 20261019050000 does), never delete silently. Every place that holds round names:
+  - cloud: `phil_iri_assessments_round_check`, `crla_assessments_round_check`, `assessment_calendar_round_check` (names only, 20261019030000) + `assessment_calendar_round_pairing`, `aral_enrollments_basis_round_check` / `_suggestion_round_check`;
+  - local SQLite: `phil_iri_local_schema.dart` (phil_iri_assessments.round), `local_database.dart` (crla_assessments.round, two places), `calendar_local_schema.dart` (round names), `aral_local_schema.dart` (basis_round, suggestion_round) — a CHECK change there needs a table rebuild and a version bump;
+  - Dart: the enums; console argument lists in `crla_commands.dart`, `crla_import_commands.dart`.
+- **Ship the app update before (or with) the migration.** An older app cannot pull data in a round it doesn't know: its local round CHECKs (assessment tables; the calendar's name list for a brand-new name) roll the whole `pull-cloud` back (nothing lost, cryptic error). Until a version gate exists (sync design), every device must update.
+- The local `assessment_calendar` has NO pairing check on purpose (exception to "CHECKs agree"): it buys only the narrow case of an existing round name re-paired before any assessment uses it, and avoids a third failure point. Rows the app doesn't know are ignored on read (`RoundCalendarViewModel.effectiveCalendar`), listed as INVALID by `calendar-show` (`invalidWindows`; mainly an updated app holding an old local copy until its next pull), and `pull-cloud` warns when it gets them.
+
 ## Supabase specifics
 - `crla_assessments.administered_by` is a `users.id` (uuid, handled as a String). ViewModels set it from the signed-in user (for the local DB); the cloud overwrites it with `auth.uid()` in `crla_assessments_before_insert`.
 - Cloud INSERT into `crla_assessments` requires `sections.school_id = school_id` and an **active** enrollment of the learner in that section for that `school_year` (any role), on top of the role scope.

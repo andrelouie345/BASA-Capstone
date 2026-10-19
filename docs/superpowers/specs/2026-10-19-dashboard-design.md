@@ -44,9 +44,12 @@ Table `assessment_calendar` (cloud migration + identical SQLite table):
 
 - Checks: `skipped` OR (`opens_on` and `closes_on` both set and `closes_on >= opens_on`). Skipped rows have no dates.
 - Unique: `(coalesce(school_id, 0), school_year, instrument, round)`.
-- Instrument ↔ round validity is NOT in SQL: one Dart map `calendarRounds` (Phil-IRI: bosy, mosy1-3, eosy; CRLA: bosy,
-  mosy, eosy). CRLA rules are not known yet (owner 2026-10-19) — keep CRLA changes to that map plus at most a constraint
-  swap in a new migration.
+- Instrument ↔ round validity: `calendarRounds` (Phil-IRI: bosy, mosy1-3, eosy; CRLA: bosy, mosy, eosy) is built from
+  the `PhilIriRound` / `CrlaRound` enums, and since 2026-10-19 (D2 fix) the cloud enforces the same pairing
+  (`assessment_calendar_round_pairing`, migration 20261019050000). CRLA rules are not known yet (owner 2026-10-19): a
+  change = the enum plus one migration swapping the assessment round check and the pairing (see `lib/core/CLAUDE.md`).
+  The local mirror has no pairing check on purpose; rows the app doesn't know are ignored on read and shown as INVALID.
+  A rounds change needs the app update on every device first: older apps can't pull data in unknown rounds.
 - RLS (copy of `aral_settings`): select = `is_superadmin()` OR `school_id IS NULL` OR own school (tutors read too);
   write = superadmin, or admin/coordinator with `school_id IS NOT NULL AND school_id = current_user_school_id()`.
   Tutors cannot write.

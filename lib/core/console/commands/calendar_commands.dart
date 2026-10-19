@@ -45,6 +45,14 @@ String _line(CalendarEntry e, DateTime today) {
   return '$name ${w.opensOn} .. ${w.closesOn}  ${roundStatus(w, today).label}$src';
 }
 
+/// A stored row whose round this app version does not know for its instrument.
+String _invalidLine(CalendarWindow w) {
+  final name = '${w.instrument.label} "${w.round}"'.padRight(17);
+  final src = w.schoolId == null ? '' : '  (school override)';
+  return '$name INVALID (ignored: ${w.instrument.label} has no round "${w.round}" in this app version; '
+      'run pull-cloud, or update the app)$src';
+}
+
 void registerCalendarCommands(ConsoleRegistry registry, RoundCalendarViewModel vm) {
   void add(String name, String description, Future<String> Function(List<String> args) handler) {
     registry.register(ConsoleCommand(
@@ -111,8 +119,13 @@ void registerCalendarCommands(ConsoleRegistry registry, RoundCalendarViewModel v
     }
     final schoolId = _school(args[0]);
     final entries = await vm.effectiveCalendar(schoolId, args[1]);
+    final invalid = await vm.invalidWindows(schoolId, args[1]);
     final head = 'Assessment calendar | ${_who(schoolId)} | ${args[1]} | today ${calendarDate(today)}';
-    if (entries.isEmpty) return '$head\nNo rounds scheduled.';
-    return [head, for (final e in entries) '  ${_line(e, today)}'].join('\n');
+    return [
+      head,
+      if (entries.isEmpty) 'No rounds scheduled.',
+      for (final e in entries) '  ${_line(e, today)}',
+      for (final w in invalid) '  ${_invalidLine(w)}',
+    ].join('\n');
   });
 }

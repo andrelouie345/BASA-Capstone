@@ -58,11 +58,11 @@ class RoundCalendarViewModel {
   Future<List<CalendarEntry>> effectiveCalendar(int? schoolId, String year) async {
     _log('effectiveCalendar($schoolId, $year)');
     year = _year(year);
-    // A round its instrument does not hold (only possible by a write outside
-    // the app; the database checks round names, not the pairing) is left out
-    // so progress and reminders never meet it.
+    // A round this app version does not know for its instrument (only around
+    // a change of rounds, see invalidWindows) is left out so progress and
+    // reminders never meet it.
     bool valid(CalendarWindow w) {
-      if (calendarRounds[w.instrument]!.contains(w.round)) return true;
+      if (isCalendarRound(w.instrument, w.round)) return true;
       _log('WARNING: ignoring calendar row ${w.id}: ${w.instrument.label} has no round "${w.round}"');
       return false;
     }
@@ -82,6 +82,20 @@ class RoundCalendarViewModel {
     }
 
     return byKey.values.toList()..sort((a, b) => order(a).compareTo(order(b)));
+  }
+
+  /// The stored windows of [schoolId] (null = region only) and the region in
+  /// [year] whose round this app version does not know for its instrument.
+  /// The database refuses such rows, so they only appear around a change of
+  /// rounds: an updated app with an old local copy (the next pull-cloud fixes
+  /// it) or an old app with new data (update the app). effectiveCalendar
+  /// leaves them out; the UI shows them as invalid.
+  Future<List<CalendarWindow>> invalidWindows(int? schoolId, String year) async {
+    year = _year(year);
+    return [
+      ...await _local.regionWindows(year),
+      if (schoolId != null) ...await _local.schoolWindows(schoolId, year),
+    ].where((w) => !isCalendarRound(w.instrument, w.round)).toList();
   }
 
   /// The rounds of [instrument] that [schoolId] holds in [year] (not skipped).

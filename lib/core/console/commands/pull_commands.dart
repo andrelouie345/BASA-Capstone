@@ -9,6 +9,8 @@ import 'package:supabase/supabase.dart' show SupabaseClient;
 import '../console_command.dart';
 import '../console_registry.dart';
 import '../../../viewmodels/auth_viewmodel.dart';
+import '../../models/assessment_calendar.dart';
+import '../../services/calendar_rules.dart';
 
 /// Parents before children (foreign keys), mapped to the column used for
 /// stable paging. Part tables must come after crla_assessments: the local
@@ -188,6 +190,11 @@ void registerPullCommands(ConsoleRegistry registry, AuthViewModel authVm, Databa
         out.writeln('${entry.key}: ${entry.value.length} rows');
       }
       out.write('Done. Local data now belongs to ${authVm.currentUser?.email}.');
+      final unknown = _unknownCalendarRounds(fetched['assessment_calendar']!);
+      if (unknown.isNotEmpty) {
+        out.write('\nWARNING: ${unknown.length} calendar row(s) use a round this app version does not know '
+            '(${unknown.join(', ')}); they are ignored until the app is updated.');
+      }
       return out.toString();
     },
   ));
@@ -286,3 +293,12 @@ Map<String, Object?> _toLocal(Map<String, dynamic> row, Set<String> localCols) {
   });
   return out;
 }
+
+/// "CRLA mosy2 (row 12)" for each pulled calendar row whose round this app
+/// version does not know for its instrument (the cloud holds a newer round
+/// list than this app).
+List<String> _unknownCalendarRounds(List<Map<String, dynamic>> rows) => [
+      for (final r in rows)
+        if (!isCalendarRound(CalendarInstrument.parse(r['instrument'] as String), r['round'] as String))
+          '${CalendarInstrument.parse(r['instrument'] as String).label} ${r['round']} (row ${r['id']})',
+    ];
