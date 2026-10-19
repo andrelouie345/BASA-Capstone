@@ -9,6 +9,14 @@ host many schools (a shared regional deployment), or you can run one
 project per school if a region prefers full isolation — nothing about the
 schema or app forces either choice.
 
+> **⚠ Hard requirement: keep the database and every device on the same BASA
+> release.** Each release is an app version plus the migrations it needs. A
+> school or division that hosts its own database must apply a release's
+> migrations when it installs that app version, and update every device when
+> the release notes say so. Running mixed versions makes pulls fail, refuses
+> work entered on outdated devices, or has outdated devices work by old rules.
+> See *Keeping BASA up to date* below before going live.
+
 > **Schema status (2026-10-18).** The whole database schema is one file,
 > `supabase/migrations/20261018040000_baseline.sql`, generated from the live
 > project and checked to rebuild it exactly. The 29 older migrations it
@@ -36,8 +44,11 @@ project) runs nothing here.
 ### 2b. Newer migrations
 
 Run every file in `supabase/migrations/` that is **newer** than the baseline,
-in filename order (the timestamps sort them). As of 2026-10-18 there are none.
-Do **not** run `supabase/migrations_archive/`.
+in filename order (the timestamps sort them). As of 2026-10-19 they are
+`20261018050000` (ARAL readability log), `20261019010000` and `20261019020000`
+(SRP classes), `20261019030000` (assessment calendar), `20261019040000`
+(report settings) and `20261019050000` (calendar round pairing). Each is
+idempotent. Do **not** run `supabase/migrations_archive/`.
 
 ### 2c. Seeds (content)
 
@@ -263,6 +274,45 @@ Recommendations (`aral-recommend <enrollmentId>`, `aral-recommend-section
 that applies to the learner's school, and work offline once the catalog is on
 the device (`pull-cloud`).
 
+## Keeping BASA up to date (hard requirement)
+
+A BASA **release** is an app version plus the database migrations it needs.
+The database and every device must run the same release.
+
+**What does NOT need an update:** everyday data. Calendar windows, done
+thresholds, ARAL settings, users, schools, sections, learners and assessments
+are changed through the app at any time.
+
+**What does:** a new release. In this order:
+
+1. **Apply the release's new migrations first** (section 2b), in filename
+   order, before or together with installing the new app. A new app on an
+   older database fails wherever it needs something new; for example,
+   `pull-cloud` stops when a table it copies doesn't exist yet.
+2. **Update every device** when the release notes say so. An older app on a
+   newer database is safe only for additions (new tables or columns: it
+   ignores them). When a release **changes rules**, every device must update.
+   Examples: an instrument's assessment rounds, a value that becomes required,
+   a renamed or removed column. Until a device is updated:
+   - its `pull-cloud` rolls back and keeps its old copy (nothing is lost, but
+     it can't get new data);
+   - work entered on it can be refused by the database;
+   - it keeps computing with the old rules.
+
+What protects the data: the database checks refuse rows that break the
+current rules, so an outdated device cannot store invalid data in the cloud.
+What it does NOT protect against is an outdated device working by old rules
+until it is updated. That is why updating is a requirement, not a
+recommendation.
+
+**Before going live, decide who applies migrations** on a self-hosted
+database, and **how devices get updated** (installation package, app store,
+or manual install). Re-check this every school year.
+
+Not built yet: a version check at sign-in that tells an outdated app or
+database to update, instead of a failed pull. Until it exists, follow the
+release notes by hand.
+
 ## Known gaps (not yet built)
 
 - **The baseline is generated, not hand-written** — after a schema change,
@@ -291,6 +341,9 @@ the device (`pull-cloud`).
   client-side/UI-level only, not enforced by excluding code from the
   build.
 - **LAN/self-hosted profile is untested end-to-end.**
+- **No app/database version check** — an outdated app or database is only
+  noticed when a pull fails or a write is refused (see *Keeping BASA up to
+  date*).
 - **Sf1Importer's Supabase write and local mirror aren't atomic** — a
   crash mid-import can leave the local cache stale (Supabase stays
   correct; local needs a manual re-sync in that case).
