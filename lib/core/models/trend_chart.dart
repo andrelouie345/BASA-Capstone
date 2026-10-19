@@ -23,15 +23,21 @@ class TrendChart {
   bool get isEmpty => xLabels.isEmpty || series.every((s) => s.values.every((v) => v == null));
 }
 
-/// What a trend covers: one section, one school, or every school on this
-/// device (the region; superadmin only).
+/// What a trend covers: one section, one school, one tutor (ARAL activity
+/// only), or every school on this device (the region; superadmin only).
 sealed class TrendScope {
   const TrendScope();
 
-  /// `section:ID`, `school:ID` or `region`.
+  /// `section:ID`, `school:ID`, `tutor:ID`, `tutor:me` or `region`.
   static TrendScope parse(String raw) {
     final s = raw.trim().toLowerCase();
     if (s == 'region') return const RegionScope();
+    if (s.startsWith('tutor:')) {
+      // User ids are strings: kept as typed (trimmed), not lowercased.
+      final id = raw.trim().substring(6).trim();
+      if (id.toLowerCase() == 'me') return const TutorScope(null);
+      if (id.isNotEmpty) return TutorScope(id);
+    }
     final colon = s.indexOf(':');
     final id = colon < 0 ? null : int.tryParse(s.substring(colon + 1));
     if (id != null && id > 0) {
@@ -42,7 +48,7 @@ sealed class TrendScope {
           return SchoolScope(id);
       }
     }
-    throw FormatException('A scope is section:ID, school:ID or region (got "$raw").');
+    throw FormatException('A scope is section:ID, school:ID, tutor:ID, tutor:me or region (got "$raw").');
   }
 }
 
@@ -54,6 +60,12 @@ class SectionScope extends TrendScope {
 class SchoolScope extends TrendScope {
   final int schoolId;
   const SchoolScope(this.schoolId);
+}
+
+/// One tutor's ARAL sessions; [tutorId] null = the signed-in user.
+class TutorScope extends TrendScope {
+  final String? tutorId;
+  const TutorScope(this.tutorId);
 }
 
 class RegionScope extends TrendScope {

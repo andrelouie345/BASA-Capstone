@@ -127,6 +127,12 @@ schools through the existing per-school ViewModels).
 - D5 `aralActivity(scope, year)` — sessions held per month and attendance rate (present ÷ marked) per month, per tutor
   or school.
 - D5 `aralExits(scope, year)` — exited-by-round using the NLA/Division report's definition (no second count).
+- D5 as built (owner 2026-10-20): CRLA = one count per learner per round by the ARAL report's rule (latest attempt
+  per variant, the weakest; `variant=` limits to one; `No profile` series); attendance = present ÷ (present + absent),
+  the existing `AralAttendanceSummary.rate` (excused don't count), months `YYYY-MM` first to last session with gaps
+  filled; activity scope tutor (`tutor:ID|me`) / school / region, not section, two charts (sessions, attendance);
+  exits = ARAL (3-LD + 2-LD) and exited (GLR, none at BOSY), Phil-IRI only; tutors use only `tutor:me` activity.
+  Plan: `docs/superpowers/plans/2026-10-20-d5-trends-crla-aral.md`.
 
 Console: `trend-<name> <scope> <year>`.
 

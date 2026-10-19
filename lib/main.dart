@@ -402,7 +402,12 @@ vmRegistry.register('TextViewModel', textVm);
     auth: authVm,
     schools: SchoolRepositorySqlite(localDb),
     sections: SectionRepositorySqlite(localDb),
+    students: StudentRepositorySqlite(localDb),
+    users: UserRepositorySqlite(localDb),
+    crlaResults: CrlaResultRepositorySqlite(localDb),
     nla: nlaReportVm,
+    aral: aralSessionVm,
+    aralSessions: AralSessionRepositorySqlite(localDb),
     logger: session,
   );
   vmRegistry.register('TrendViewModel', trendVm);

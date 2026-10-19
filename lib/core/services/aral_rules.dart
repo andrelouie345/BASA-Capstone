@@ -25,6 +25,7 @@ library;
 
 import '../models/aral_enrollment.dart';
 import '../models/crla_assessment.dart' show CrlaRound;
+import '../models/crla_result.dart';
 import 'crla_rules.dart';
 import 'phil_iri_results.dart' show PhilIriRoundResult;
 
@@ -57,6 +58,26 @@ String? aralWeakerCrlaProfile(String? a, String? b) {
     return aralCrlaProfileOrder.contains(p) ? aralCrlaProfileOrder.indexOf(p) : 98;
   }
   return rank(a) <= rank(b) ? a : b;
+}
+
+/// One learner's CRLA profile in [round], from their [results] assessed on or
+/// before [asOf] (YYYY-MM-DD): the latest attempt with a profile per variant,
+/// then the weakest of those. [variant] (`mt`, `fil`, `eng`) keeps only that
+/// variant's latest attempt. Null = no profile in that round. Shared by the
+/// ARAL implementation report and the dashboard CRLA trend.
+String? aralCrlaLearnerProfile(Iterable<CrlaResult> results, CrlaRound round, String asOf, {String? variant}) {
+  final latest = <String, CrlaResult>{};
+  for (final r in results) {
+    if (r.round != round || r.readingProfile == null || r.assessedAt.substring(0, 10).compareTo(asOf) > 0) continue;
+    if (variant != null && r.subjectVariant != variant) continue;
+    final prev = latest[r.subjectVariant];
+    if (prev == null || r.attemptNo > prev.attemptNo) latest[r.subjectVariant] = r;
+  }
+  String? weakest;
+  for (final r in latest.values) {
+    weakest = weakest == null ? r.readingProfile : aralWeakerCrlaProfile(r.readingProfile, weakest);
+  }
+  return weakest;
 }
 
 /// Every CRLA profile below "Reading At Grade Level" qualifies.

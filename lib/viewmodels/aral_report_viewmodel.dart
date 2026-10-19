@@ -27,7 +27,6 @@
 import '../core/console/logger.dart';
 import '../core/models/aral_enrollment.dart';
 import '../core/models/crla_assessment.dart' show CrlaRound;
-import '../core/models/crla_result.dart';
 import '../core/models/phil_iri_assessment.dart' show PhilIriRound;
 import '../core/models/section.dart';
 import '../core/models/user_role.dart';
@@ -283,8 +282,8 @@ class AralReportViewModel {
       final results = await _crlaResults.getBySection(s.id!, schoolYear: year);
       for (final e in roster) {
         final mine = results.where((r) => r.studentId == e.studentId).toList();
-        add(bosy, _crlaProfile(mine, CrlaRound.bosy, asOf) ?? aralReportNoResult);
-        if (inAralOn(e)) add(mosy, _crlaProfile(mine, CrlaRound.mosy, asOf) ?? aralReportNoResult);
+        add(bosy, aralCrlaLearnerProfile(mine, CrlaRound.bosy, asOf) ?? aralReportNoResult);
+        if (inAralOn(e)) add(mosy, aralCrlaLearnerProfile(mine, CrlaRound.mosy, asOf) ?? aralReportNoResult);
       }
     } else {
       for (final e in roster) {
@@ -320,22 +319,6 @@ class AralReportViewModel {
       exitedGradeLevelReady: exited.where((e) => e.exitReason == AralExitReason.gradeLevelReady).length,
       exitedOther: exited.where((e) => e.exitReason != AralExitReason.gradeLevelReady).length,
     );
-  }
-
-  /// The learner's profile in [round] (assessed by [asOf]): latest attempt per
-  /// variant, the weakest.
-  static String? _crlaProfile(List<CrlaResult> results, CrlaRound round, String asOf) {
-    final latest = <String, CrlaResult>{};
-    for (final r in results.where((r) =>
-        r.round == round && r.readingProfile != null && r.assessedAt.substring(0, 10).compareTo(asOf) <= 0)) {
-      final prev = latest[r.subjectVariant];
-      if (prev == null || r.attemptNo > prev.attemptNo) latest[r.subjectVariant] = r;
-    }
-    String? weakest;
-    for (final r in latest.values) {
-      weakest = weakest == null ? r.readingProfile : aralWeakerCrlaProfile(r.readingProfile, weakest);
-    }
-    return weakest;
   }
 
   /// CRLA columns: the four below-grade-level profiles, then anything else seen.
