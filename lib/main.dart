@@ -110,6 +110,8 @@ import 'package:basa_capstone/core/console/commands/report_settings_commands.dar
 import 'package:basa_capstone/viewmodels/report_settings_viewmodel.dart';
 import 'package:basa_capstone/viewmodels/reminder_viewmodel.dart';
 import 'package:basa_capstone/core/console/commands/reminder_commands.dart';
+import 'package:basa_capstone/viewmodels/trend_viewmodel.dart';
+import 'package:basa_capstone/core/console/commands/trend_commands.dart';
 import 'package:basa_capstone/core/data/local/report_setting_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/remote/report_setting_repository_supabase.dart';
 import 'package:basa_capstone/core/data/local/aral_session_repository_sqlite.dart';
@@ -395,6 +397,16 @@ vmRegistry.register('TextViewModel', textVm);
   );
   vmRegistry.register('ReminderViewModel', reminderVm);
   registerReminderCommands(registry, reminderVm, () => authVm.currentUser?.id);
+
+  final trendVm = TrendViewModel(
+    auth: authVm,
+    schools: SchoolRepositorySqlite(localDb),
+    sections: SectionRepositorySqlite(localDb),
+    nla: nlaReportVm,
+    logger: session,
+  );
+  vmRegistry.register('TrendViewModel', trendVm);
+  registerTrendCommands(registry, trendVm);
 
   final srpVm = SrpViewModel(
     reports: nlaReportVm,
