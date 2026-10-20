@@ -16,4 +16,5 @@ const Map<String, String> basaMigrations = {
   '20261019050000': 'calendar_round_pairing',
   '20261019060000': 'aral_idle_session_days',
   '20261020010000': 'basa_migrations',
+  '20261020020000': 'sync_uploads',
 };

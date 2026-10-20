@@ -50,7 +50,9 @@ in filename order (the timestamps sort them). As of 2026-10-19 they are
 (report settings), `20261019050000` (calendar round pairing),
 `20261019060000` (ARAL idle session days; app update required: no) and
 `20261020010000` (migrations ledger `basa_migrations`, for the version check at
-sign-in; app update required: no). Each is idempotent. Do **not** run
+sign-in; app update required: no) and `20261020020000` (sync uploads: upload,
+review and apply of device work; app update required: **yes**, apply only when
+every device has synced and every upload is decided). Each is idempotent. Do **not** run
 `supabase/migrations_archive/`.
 
 **Rule for every new migration:** its header says `App update required on all
