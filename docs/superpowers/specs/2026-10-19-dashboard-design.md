@@ -146,6 +146,17 @@ Console: `trend-<name> <scope> <year>`.
 
 Charts are not inside `summary`; the UI calls `TrendViewModel` on demand. Console: `dashboard [year] [today]`.
 
+As built (owner 2026-10-20, plan `docs/superpowers/plans/2026-10-20-d6-dashboard-summary.md`): the year is always
+passed (no rule says which school year a date is in); `schoolYears()` lists the years on this device, latest first,
+for the UI to preselect; console `dashboard <year> [today=YYYY-MM-DD]` and `dashboard-years`. ARAL active/exited =
+the roster (`aral_enrollments`) on today, exits per reason (not the D5 Division exits). Current round = every round
+open on today, else the most recently closed one; next = the earliest upcoming; each with assessed/enrolled and
+sections done at the saved threshold (Phil-IRI = progress school total, CRLA = `ReminderViewModel.crlaCompletion`).
+Per-instrument section counts include sections with no learners; a round's section count does not (the reminders'
+definition). Region = the school summary per school + sums; no regional round (schools override dates). Masterlist =
+learners listed + how many not assessed; SRP = candidates, recommended, classes, learners in classes. Tutor learners
+= their assigned sections; sessions held / last session come from the D3 reminders.
+
 ## Out of scope
 
 CRLA in SRP/NLA/progress; push/OS notifications (reminders are data the UI shows); caching of regional loops;

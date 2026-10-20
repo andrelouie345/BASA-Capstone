@@ -112,6 +112,8 @@ import 'package:basa_capstone/viewmodels/reminder_viewmodel.dart';
 import 'package:basa_capstone/core/console/commands/reminder_commands.dart';
 import 'package:basa_capstone/viewmodels/trend_viewmodel.dart';
 import 'package:basa_capstone/core/console/commands/trend_commands.dart';
+import 'package:basa_capstone/viewmodels/dashboard_viewmodel.dart';
+import 'package:basa_capstone/core/console/commands/dashboard_commands.dart';
 import 'package:basa_capstone/core/data/local/report_setting_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/remote/report_setting_repository_supabase.dart';
 import 'package:basa_capstone/core/data/local/aral_session_repository_sqlite.dart';
@@ -426,6 +428,22 @@ vmRegistry.register('TextViewModel', textVm);
   );
   vmRegistry.register('SrpViewModel', srpVm);
   registerSrpCommands(registry, srpVm);
+
+  final dashboardVm = DashboardViewModel(
+    auth: authVm,
+    calendar: calendarVm,
+    reminders: reminderVm,
+    reports: nlaReportVm,
+    srp: srpVm,
+    aral: aralVm,
+    schools: SchoolRepositorySqlite(localDb),
+    sections: SectionRepositorySqlite(localDb),
+    students: StudentRepositorySqlite(localDb),
+    assignments: tutorSectionRepo,
+    logger: session,
+  );
+  vmRegistry.register('DashboardViewModel', dashboardVm);
+  registerDashboardCommands(registry, dashboardVm);
 
   final aralReportVm = AralReportViewModel(
     auth: authVm,

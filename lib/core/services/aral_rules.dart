@@ -80,6 +80,17 @@ String? aralCrlaLearnerProfile(Iterable<CrlaResult> results, CrlaRound round, St
   return weakest;
 }
 
+/// Whether [e] is on the ARAL roster on [day] (YYYY-MM-DD): entered by then
+/// and not exited by then (a learner who left later was still in ARAL that
+/// day). Tutor reminders and the dashboard.
+bool aralActiveOn(AralEnrollment e, String day) => _byDay(e.enteredOn, day) && !aralExitedBy(e, day);
+
+/// Whether [e] left ARAL on or before [day] (YYYY-MM-DD).
+bool aralExitedBy(AralEnrollment e, String day) => e.exitedOn != null && _byDay(e.exitedOn!, day);
+
+bool _byDay(String date, String day) =>
+    (date.length >= 10 ? date.substring(0, 10) : date).compareTo(day) <= 0;
+
 /// Every CRLA profile below "Reading At Grade Level" qualifies.
 bool aralCrlaQualifies(String profile) =>
     aralCrlaProfileOrder.contains(profile) && profile != crlaAtGradeLevel;

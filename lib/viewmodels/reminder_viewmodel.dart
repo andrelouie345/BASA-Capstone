@@ -40,7 +40,7 @@ import '../core/repositories/student_repository.dart';
 import '../core/repositories/tutor_section_assignment_repository.dart';
 import '../core/repositories/user_repository.dart';
 import '../core/services/aral_checkin_rules.dart' show aralCheckinCheckpoints;
-import '../core/services/aral_rules.dart' show AralSessionSettings;
+import '../core/services/aral_rules.dart' show AralSessionSettings, aralActiveOn;
 import '../core/services/phil_iri_rules.dart' show philIriGradeOf;
 import '../core/services/calendar_rules.dart';
 import '../core/services/normalizers.dart';
@@ -333,9 +333,7 @@ class ReminderViewModel {
       final s = await _sections.getById(a.sectionId);
       if (s != null && s.schoolYear == year) sections.add(s);
     }
-    final roster = (await _roster.getByTutor(tutorId, schoolYear: year))
-        .where((e) => byToday(e.enteredOn) && (e.exitedOn == null || !byToday(e.exitedOn!)))
-        .toList();
+    final roster = (await _roster.getByTutor(tutorId, schoolYear: year)).where((e) => aralActiveOn(e, day)).toList();
 
     // Access. The tutor's school is their users row, or, when that row is not
     // on this device or has no school, the schools of their sections/roster.
@@ -514,6 +512,33 @@ class ReminderViewModel {
   static String _name(Student st) => '${st.lastName.toUpperCase()}, ${st.firstName}';
   static int _byName(ReminderLearner a, ReminderLearner b) => a.name.compareTo(b.name);
   static String _n(int d) => d == 1 ? '1 day' : '$d days';
+
+  /// CRLA completion of [round] in [schoolId] in [year] as of [today] (default
+  /// now): per Grade 1-3 section with learners, by grade then name. The same
+  /// numbers the coordinator reminders use. [doneThreshold] (a share) overrides
+  /// the saved setting. Admin/coordinator of the school, or the superadmin.
+  Future<List<SectionCompletion>> crlaCompletion(int schoolId, String year, CrlaRound round,
+      {DateTime? today, double? doneThreshold}) async {
+    _log('crlaCompletion($schoolId, $year, ${round.name}, today: $today, done: $doneThreshold)');
+    final me = _auth.currentUser;
+    if (me == null) throw const ViewModelException('Not signed in.');
+    if (me.role != UserRole.admin && me.role != UserRole.coordinator) {
+      throw const ViewModelException('Forbidden: only an admin or coordinator sees CRLA completion.');
+    }
+    if (me.schoolId != null && schoolId != me.schoolId) {
+      throw const ViewModelException('Forbidden: that school is not yours.');
+    }
+    if (doneThreshold != null && !(doneThreshold > 0 && doneThreshold <= 1)) {
+      throw ViewModelException('The done threshold is a share above 0 and up to 1 (got $doneThreshold).');
+    }
+    try {
+      year = normalizeSchoolYear(year);
+    } on FormatException catch (e) {
+      throw ViewModelException(e.message);
+    }
+    final threshold = doneThreshold ?? (await _reportSettings.effective(schoolId)).doneThreshold;
+    return _crlaCompletion(schoolId, year, round, calendarDate(today ?? DateTime.now()), threshold);
+  }
 
   /// Per Grade 1-3 section of the school with learners: how many of its
   /// learners have a crla_results row of [round] in that section dated on or

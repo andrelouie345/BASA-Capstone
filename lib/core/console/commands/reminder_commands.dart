@@ -42,7 +42,8 @@ const _options = '[today=YYYY-MM-DD] [done=<percent>]';
   return (today: today, done: done);
 }
 
-String _text(List<SchoolReminders> schools) {
+/// Coordinator reminders as console text (also used by `dashboard`).
+String coordinatorRemindersText(List<SchoolReminders> schools) {
   final out = StringBuffer();
   for (final s in schools) {
     if (out.isNotEmpty) out.write('\n');
@@ -64,7 +65,8 @@ String _text(List<SchoolReminders> schools) {
   return out.toString();
 }
 
-String _tutorText(TutorReminders t) {
+/// Tutor reminders as console text (also used by `dashboard`).
+String tutorRemindersText(TutorReminders t) {
   final out = StringBuffer('Tutor ${t.tutorName == null ? t.tutorId : '${t.tutorName} (${t.tutorId})'} — ${t.schoolYear}: '
       '${t.sessionsHeld} ARAL session${t.sessionsHeld == 1 ? '' : 's'} held, last ${t.lastSession ?? 'none'}; '
       'no-session reminder after ${t.idleSessionDays} days');
@@ -117,7 +119,7 @@ void registerReminderCommands(ConsoleRegistry registry, ReminderViewModel vm, St
     final o = _parse(args.sublist(2));
     final schools = await vm.coordinatorReminders(schoolId, args[1], today: o.today, doneThreshold: o.done);
     if (schools.isEmpty) return 'No schools on this device.';
-    return _text(schools);
+    return coordinatorRemindersText(schools);
   });
 
   add('reminders-tutor',
@@ -128,6 +130,6 @@ void registerReminderCommands(ConsoleRegistry registry, ReminderViewModel vm, St
     final o = _parse(args.sublist(2));
     if (o.done != null) throw const _Usage('reminders-tutor takes no done= (tutors are reminded per learner). $usage');
     final tutorId = args[0].toLowerCase() == 'me' ? (currentUserId() ?? (throw const _Usage('Not signed in.'))) : args[0];
-    return _tutorText(await vm.tutorReminders(tutorId, args[1], today: o.today));
+    return tutorRemindersText(await vm.tutorReminders(tutorId, args[1], today: o.today));
   });
 }
