@@ -1,330 +1,78 @@
 // lib/core/console/commands/pull_commands.dart
 
-/// TEMPORARY one-way cloud -> local copy, until real sync is built.
+/// pull-cloud: refresh the local copy from the server (SyncViewModel.pull, a
+/// merge that keeps this device's unsent work).
 library;
 
-import 'dart:convert';
-import 'package:sqflite_common/sqflite.dart';
-import 'package:supabase/supabase.dart' show SupabaseClient;
 import '../console_command.dart';
 import '../console_registry.dart';
-import '../../../viewmodels/auth_viewmodel.dart';
-import '../../models/assessment_calendar.dart';
-import '../../services/calendar_rules.dart';
-import '../../data/local/sync_local_schema.dart';
-import '../../data/local/sync_local_writes.dart';
+import '../../../viewmodels/sync_viewmodel.dart';
+import '../../../viewmodels/viewmodel_exception.dart';
 
-/// Parents before children (foreign keys), mapped to the column used for
-/// stable paging. Part tables must come after crla_assessments: the local
-/// variant-check triggers look up the parent row. Likewise the Phil-IRI
-/// child tables come after phil_iri_assessments, whose origin tells the local
-/// triggers to leave mirrored rows alone.
-const _pullOrder = <String, String>{
-  'schools': 'id',
-  'users': 'id',
-  'assessment_calendar': 'id',
-  'report_settings': 'id',
-  'sections': 'id',
-  'tutor_section_assignments': 'id',
-  'students': 'id',
-  'enrollments': 'id',
-  'crla_stories': 'id',
-  'crla_thresholds': 'id',
-  'crla_assessments': 'id',
-  'crla_part1_standard': 'assessment_id',
-  'crla_part1_english': 'assessment_id',
-  'crla_part2_fluency': 'assessment_id',
-  'phil_iri_collections': 'id',
-  'phil_iri_rubric_criteria': 'id',
-  'phil_iri_passages': 'id',
-  'phil_iri_questions': 'id',
-  'phil_iri_thresholds': 'id',
-  'phil_iri_gst_results': 'id',
-  'phil_iri_assessments': 'id',
-  'phil_iri_readings': 'id',
-  'phil_iri_miscues': 'id',
-  'phil_iri_answers': 'id',
-  'phil_iri_rubric_scores': 'id',
-  'aral_enrollments': 'id',
-  'aral_sessions': 'id',
-  'aral_attendance': 'id',
-  'aral_tutor_settings': 'tutor_id',
-  'aral_irip_targets': 'id',
-  'aral_irip_weeks': 'id',
-  'aral_settings': 'id',
-  'aral_checkin_tools': 'id',
-  'aral_checkin_items': 'id',
-  'aral_checkins': 'id',
-  'aral_checkin_answers': 'id',
-  'aral_materials': 'id',
-  'aral_material_links': 'id',
-  'aral_readability_logs': 'id',
-  'srp_classes': 'id',
-  'srp_class_members': 'id',
-};
-
-/// Tables with the local-only origin column: mirrored rows are 'cloud'.
-const _originTables = {
-  'crla_assessments', 'phil_iri_gst_results', 'phil_iri_assessments', 'aral_enrollments', 'aral_sessions',
-  'aral_tutor_settings',
-  'aral_irip_weeks',
-  'aral_checkins',
-  'aral_readability_logs',
-};
-
-/// Local tables a pull empties before writing (children first). Everything
-/// the signed-in user can read comes back from the cloud; regions (seed data)
-/// and login_logs (this device's sign-in history) are kept. import_conflicts
-/// lives in the cloud only; its local copy is unused but may hold old rows.
-const _clearedTables = [
-  'srp_class_members',
-  'srp_classes',
-  'aral_readability_logs',
-  'aral_material_links',
-  'aral_materials',
-  'aral_checkin_answers',
-  'aral_checkins',
-  'aral_checkin_items',
-  'aral_checkin_tools',
-  'aral_settings',
-  'aral_irip_weeks',
-  'aral_irip_targets',
-  'aral_tutor_settings',
-  'aral_attendance',
-  'aral_sessions',
-  'aral_enrollments',
-  'phil_iri_rubric_scores',
-  'phil_iri_answers',
-  'phil_iri_miscues',
-  'phil_iri_readings',
-  'phil_iri_assessments',
-  'phil_iri_gst_results',
-  'phil_iri_thresholds',
-  'phil_iri_questions',
-  'phil_iri_passages',
-  'phil_iri_rubric_criteria',
-  'phil_iri_collections',
-  'crla_part2_fluency',
-  'crla_part1_english',
-  'crla_part1_standard',
-  'crla_assessments',
-  'crla_thresholds',
-  'crla_stories',
-  'import_conflicts',
-  'report_settings',
-  'assessment_calendar',
-  'enrollments',
-  'students',
-  'tutor_section_assignments',
-  'sections',
-  'users',
-  'schools',
-];
-
-void registerPullCommands(ConsoleRegistry registry, AuthViewModel authVm, Database localDb) {
+void registerPullCommands(ConsoleRegistry registry, SyncViewModel syncVm) {
   registry.register(ConsoleCommand(
     name: 'pull-cloud',
-    description: 'pull-cloud yes [discard-local] — replace the local data with everything the signed-in '
-        'user can read in the cloud (all or nothing)',
+    description: 'pull-cloud yes [discard-local] — refresh the local copy with everything the signed-in user '
+        'can read on the server, keeping this device\'s unsent work (discard-local deletes it first)',
     handler: (args) async {
-      final guardError = authVm.requireOnlineSession();
-      if (guardError != null) return guardError;
-
-      final previous = await _lastPull(localDb);
-      final unsynced = await _unsynced(localDb);
-      final unsyncedTotal = unsynced.fold<int>(0, (n, r) => n + (r['n'] as int));
-
-      if (args.isEmpty || args[0] != 'yes') {
-        return 'This CLEARS the local data (schools, users, sections, learners, enrollments, CRLA, Phil-IRI, ARAL, SRP) and '
-            'pulls everything ${authVm.currentUser?.email} can read in the cloud. '
-            'Regions and login logs are kept.\n'
-            'Local data was last pulled by ${previous ?? "nobody (never pulled)"}.\n'
-            '${unsyncedTotal > 0 ? "$unsyncedTotal record(s) entered on this device are not uploaded yet; the pull will refuse.\n" : ""}'
-            'Run "pull-cloud yes" to continue.';
-      }
-
-      final discardLocal = args.length > 1 && args[1] == 'discard-local';
-      if (unsyncedTotal > 0 && !discardLocal) {
-        final lines = unsynced.map((r) => r['section_id'] == null
-            ? '  ${r['n']} ${r['kind']}'
-            : '  ${r['n']} ${r['kind']} in section ${r['section_id']} '
-                '(grade ${r['grade_level'] ?? "?"} ${r['section_name'] ?? "unknown"}, ${r['school_year'] ?? ""})');
-        return 'Refused: $unsyncedTotal record(s) were entered on this device and are not in the cloud yet:\n'
-            '${lines.join('\n')}\n'
-            'A pull would delete them. Upload them first, or run "pull-cloud yes discard-local" to delete them.';
-      }
-
-      final client = authVm.client!;
-
-      // Fetch everything first, then clear and write in one transaction: a
-      // network error or any write error leaves the local DB exactly as it was.
-      final fetched = <String, List<Map<String, dynamic>>>{};
       try {
-        for (final entry in _pullOrder.entries) {
-          fetched[entry.key] = await _fetchTable(client, entry.key, entry.value);
+        if (args.isEmpty || args[0] != 'yes') {
+          final p = await syncVm.pullPreview();
+          final out = StringBuffer()
+            ..writeln('This refreshes the local copy (schools, users, sections, learners, enrollments, CRLA, '
+                'Phil-IRI, ARAL, SRP) with everything ${p.currentEmail} can read on the server. '
+                'Regions and login logs are kept.')
+            ..writeln('Local data was last pulled by ${p.owner ?? "nobody (never pulled)"}.');
+          final lines = p.localWork.map((l) => '  $l').join('\n');
+          if (p.ownerSwitch && p.localTotal > 0) {
+            out.writeln('This device holds work of ${p.owner!.email ?? p.owner!.userId} that is not on the server '
+                'yet; the pull will refuse until they sync (or "pull-cloud yes discard-local" deletes it):\n$lines');
+          } else if (p.ownerSwitch) {
+            out.writeln('The pull replaces ${p.owner!.email ?? p.owner!.userId}\'s copy with yours.');
+          } else if (p.localTotal > 0) {
+            out.writeln('Kept on this device (not on the server yet):\n$lines');
+          }
+          out.write('Run "pull-cloud yes" to continue.');
+          return out.toString();
         }
-      } catch (e) {
-        return 'Pull stopped while downloading, nothing was changed: $e';
-      }
 
-      try {
-        // Under the sync bypass: the pull's own deletes and writes of server
-        // rows are not local edits (no journal lines, no pending-lock refusal).
-        await localDb.transaction((txn) => withSyncBypass(txn, () async {
-              for (final table in _clearedTables) {
-                await txn.delete(table);
-              }
-              // Only reached with nothing unsent, or with discard-local.
-              await txn.delete('sync_changes');
-              await txn.delete('sync_pending');
-              for (final entry in _pullOrder.entries) {
-                await _writeTable(txn, entry.key, fetched[entry.key]!);
-              }
-              final user = authVm.currentUser;
-              await _setMeta(txn, {
-                'last_pull_user_id': user?.id,
-                'last_pull_user_email': user?.email,
-                'last_pull_at': DateTime.now().toUtc().toIso8601String(),
-              });
-            }));
-      } catch (e) {
-        return 'Pull stopped, nothing was changed (rolled back): $e';
+        final discardLocal = args.length > 1 && args[1] == 'discard-local';
+        final r = await syncVm.pull(discardLocal: discardLocal);
+        final m = r.merge;
+        final out = StringBuffer();
+        for (final e in m.serverRows.entries) {
+          out.writeln('${e.key}: ${e.value} rows');
+        }
+        if (m.keptNew + m.keptChanged + m.keptPending > 0) {
+          out.writeln('Kept on this device: ${m.keptNew} new, ${m.keptChanged} changed, '
+              '${m.keptPending} waiting for approval.');
+        }
+        if (m.skippedUnderDeleted > 0) {
+          out.writeln('${m.skippedUnderDeleted} server row(s) under records deleted on this device not written '
+              '(they go away once the delete is uploaded).');
+        }
+        if (m.skippedNewClash > 0) {
+          out.writeln('${m.skippedNewClash} server row(s) not written: a record made on this device has the same key '
+              '(sorted out when it is uploaded).');
+        }
+        if (m.discarded + m.discardedChanges > 0) {
+          out.writeln('Discarded this device\'s unsent work: ${m.discarded} new record(s), '
+              '${m.discardedChanges} change(s) to server records.');
+        }
+        if (m.discardedPending > 0) {
+          out.writeln('Dropped the lock on ${m.discardedPending} record(s) in pending uploads; those uploads are still '
+              'on the server and come back with a later pull if they are approved.');
+        }
+        if (r.ownerChanged) out.writeln('Replaced the copy of ${r.previousOwnerEmail}.');
+        out.write('Done. Local data now belongs to ${syncVm.currentEmail}.');
+        if (r.unknownCalendarRounds.isNotEmpty) {
+          out.write('\nWARNING: ${r.unknownCalendarRounds.length} calendar row(s) use a round this app version does '
+              'not know (${r.unknownCalendarRounds.join(', ')}); they are ignored until the app is updated.');
+        }
+        return out.toString();
+      } on ViewModelException catch (e) {
+        return e.message;
       }
-
-      final out = StringBuffer();
-      if (discardLocal && unsyncedTotal > 0) {
-        out.writeln('Discarded $unsyncedTotal local record(s).');
-      }
-      for (final entry in fetched.entries) {
-        out.writeln('${entry.key}: ${entry.value.length} rows');
-      }
-      out.write('Done. Local data now belongs to ${authVm.currentUser?.email}.');
-      final unknown = _unknownCalendarRounds(fetched['assessment_calendar']!);
-      if (unknown.isNotEmpty) {
-        out.write('\nWARNING: ${unknown.length} calendar row(s) use a round this app version does not know '
-            '(${unknown.join(', ')}); they are ignored until the app is updated.');
-      }
-      return out.toString();
     },
   ));
 }
-
-/// "email on UTC-time" of the last successful pull, or null if none.
-Future<String?> _lastPull(Database db) async {
-  final rows = await db.query('sync_meta');
-  final meta = {for (final r in rows) r['key'] as String: r['value'] as String?};
-  final email = meta['last_pull_user_email'];
-  return email == null ? null : '$email on ${meta['last_pull_at']}';
-}
-
-/// Records entered on this device (origin 'local'), per kind and section:
-/// CRLA assessments, Phil-IRI sessions, Phil-IRI GST results, ARAL
-/// enrollments, ARAL sessions (with their attendance; no section) and ARAL
-/// tutor settings (no section), ARAL IRIP weeks and check-ins (by the
-/// learner's section). (Phil-IRI readings, miscues and answers belong to their
-/// session; check-in answers to their check-in.) Since v34 also edits of
-/// records that came from the server (sync_changes) and new items added under
-/// them (a child row without row_version whose parent has one), no section.
-Future<List<Map<String, Object?>>> _unsynced(Database db) => db.rawQuery('''
-      SELECT x.kind, x.section_id, COUNT(*) AS n, s.grade_level, s.section_name, s.school_year
-      FROM (
-        SELECT 'CRLA assessment(s)' AS kind, section_id FROM crla_assessments WHERE origin = 'local'
-        UNION ALL
-        SELECT 'Phil-IRI session(s)', section_id FROM phil_iri_assessments WHERE origin = 'local'
-        UNION ALL
-        SELECT 'Phil-IRI GST result(s)', section_id FROM phil_iri_gst_results WHERE origin = 'local'
-        UNION ALL
-        SELECT 'ARAL enrollment(s)', section_id FROM aral_enrollments WHERE origin = 'local'
-        UNION ALL
-        SELECT 'ARAL session(s)', NULL FROM aral_sessions WHERE origin = 'local'
-        UNION ALL
-        SELECT 'ARAL tutor setting(s)', NULL FROM aral_tutor_settings
-        -- an edited pulled setting is also 'local' (save()); it counts as a change below
-        WHERE origin = 'local' AND row_version IS NULL
-        UNION ALL
-        SELECT 'ARAL IRIP week(s)', e.section_id FROM aral_irip_weeks w
-        LEFT JOIN aral_enrollments e ON e.id = w.enrollment_id WHERE w.origin = 'local'
-        UNION ALL
-        SELECT 'ARAL check-in(s)', e.section_id FROM aral_checkins c
-        LEFT JOIN aral_enrollments e ON e.id = c.enrollment_id WHERE c.origin = 'local'
-        UNION ALL
-        SELECT 'ARAL readability log entr(ies)', e.section_id FROM aral_readability_logs r
-        LEFT JOIN aral_enrollments e ON e.id = r.enrollment_id WHERE r.origin = 'local'
-        UNION ALL
-        SELECT 'change(s) to records already on the server', NULL FROM sync_changes
-        UNION ALL
-        $_newUnderServerRows
-      ) x
-      LEFT JOIN sections s ON s.id = x.section_id
-      GROUP BY x.kind, x.section_id
-      ORDER BY x.section_id, x.kind
-    ''');
-
-/// One SELECT per child table: new rows (row_version NULL) whose parent came
-/// from the server.
-final _newUnderServerRows = [
-  for (final e in syncedParents.entries)
-    "SELECT 'new item(s) added to records already on the server', NULL FROM ${e.key} c "
-        "JOIN ${e.value.$1} p ON p.${syncedTables[e.value.$1]} = c.${e.value.$2} "
-        'WHERE c.row_version IS NULL AND p.row_version IS NOT NULL',
-].join('\n        UNION ALL\n        ');
-
-Future<void> _setMeta(Transaction txn, Map<String, String?> values) async {
-  for (final e in values.entries) {
-    await txn.insert('sync_meta', {'key': e.key, 'value': e.value},
-        conflictAlgorithm: ConflictAlgorithm.replace);
-  }
-}
-
-Future<List<Map<String, dynamic>>> _fetchTable(SupabaseClient client, String table, String orderBy) async {
-  const pageSize = 1000; // Supabase caps a single request at 1000 rows by default
-  final all = <Map<String, dynamic>>[];
-  var start = 0;
-  while (true) {
-    final page = await client
-        .from(table)
-        .select()
-        .order(orderBy, ascending: true)
-        .range(start, start + pageSize - 1);
-    final rows = (page as List).cast<Map<String, dynamic>>();
-    all.addAll(rows);
-    if (rows.length < pageSize) break;
-    start += pageSize;
-  }
-  return all;
-}
-
-Future<void> _writeTable(Transaction txn, String table, List<Map<String, dynamic>> rows) async {
-  // Only copy columns the local table has, so extra cloud columns don't break the insert.
-  final info = await txn.rawQuery('PRAGMA table_info($table)');
-  final localCols = info.map((c) => c['name'] as String).toSet();
-
-  // The tables were just emptied, so plain inserts: nothing can clash.
-  for (final row in rows) {
-    final local = _toLocal(row, localCols);
-    if (_originTables.contains(table)) local['origin'] = 'cloud';
-    await txn.insert(table, local);
-  }
-}
-
-Map<String, Object?> _toLocal(Map<String, dynamic> row, Set<String> localCols) {
-  final out = <String, Object?>{};
-  row.forEach((key, value) {
-    if (!localCols.contains(key)) return;
-    out[key] = switch (value) {
-      bool b => b ? 1 : 0, // SQLite has no bool (users.is_active)
-      Map _ || List _ => jsonEncode(value),
-      _ => value,
-    };
-  });
-  return out;
-}
-
-/// "CRLA mosy2 (row 12)" for each pulled calendar row whose round this app
-/// version does not know for its instrument (the cloud holds a newer round
-/// list than this app).
-List<String> _unknownCalendarRounds(List<Map<String, dynamic>> rows) => [
-      for (final r in rows)
-        if (!isCalendarRound(CalendarInstrument.parse(r['instrument'] as String), r['round'] as String))
-          '${CalendarInstrument.parse(r['instrument'] as String).label} ${r['round']} (row ${r['id']})',
-    ];
