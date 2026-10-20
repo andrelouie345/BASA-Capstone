@@ -5,6 +5,8 @@ library;
 
 import 'package:basa_capstone/core/console/commands/school_commands.dart';
 import 'package:basa_capstone/core/console/commands/auth_commands.dart';
+import 'package:basa_capstone/core/console/commands/version_commands.dart';
+import 'package:basa_capstone/core/data/remote/migration_ledger_repository_supabase.dart';
 import 'package:basa_capstone/core/console/commands/config_commands.dart';
 import 'package:basa_capstone/core/console/commands/debug_commands.dart';
 import 'package:basa_capstone/core/console/commands/section-commands.dart';
@@ -166,9 +168,11 @@ vmRegistry.register('TextViewModel', textVm);
     loginLogRepo: LoginLogRepositorySqlite(localDb),
     config: config,
     userRepoFactory: (client) => UserRepositorySupabase(client),
+    ledgerRepoFactory: (client) => MigrationLedgerRepositorySupabase(client),
     logger: session,
   );
   registerAuthCommands(registry, authVm);
+  registerVersionCommands(registry, authVm);
   final userVm = UserViewModel(auth: authVm, repoFactory: UserRepositorySupabase.new, logger: session);
   vmRegistry.register('UserViewModel', userVm);
   registerUserCommands(registry, userVm);

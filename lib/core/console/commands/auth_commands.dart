@@ -13,7 +13,8 @@ void registerAuthCommands(ConsoleRegistry registry, AuthViewModel authVm) {
         target: args[0], email: args[1], password: args.sublist(2).join(' '));
       if (error != null) return error;
       final note = authVm.mustChangePassword ? ' (must change password)' : '';
-      return 'Signed in as ${authVm.currentUser?.email} (${authVm.currentUser?.role.name})$note';
+      final warning = authVm.versionWarning == null ? '' : '\n${authVm.versionWarning}';
+      return 'Signed in as ${authVm.currentUser?.email} (${authVm.currentUser?.role.name})$note$warning';
     },
   ));
 

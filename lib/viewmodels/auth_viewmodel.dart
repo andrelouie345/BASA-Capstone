@@ -8,6 +8,10 @@ import '../core/models/login_method.dart';
 import '../core/repositories/user_repository.dart';
 import '../core/repositories/login_log_repository.dart';
 import '../core/data/remote/supabase_config.dart';
+import '../core/release.dart';
+import '../core/repositories/migration_ledger_repository.dart';
+import '../core/services/version_check.dart';
+import '../core/services/version_check.dart' as rule show checkVersion;
 
 
 /// ViewModel for Authentication
@@ -18,19 +22,26 @@ class AuthViewModel {
   final LoginLogRepository _loginLogRepo;
   final SupabaseConfigStore _config;
   final UserRepository Function(SupabaseClient client) _userRepoFactory;
+  final MigrationLedgerRepository Function(SupabaseClient client) _ledgerRepoFactory;
 
   SupabaseClient? _client;
   User? currentUser;
   bool mustChangePassword = false;
 
+  /// Set when the last sign-in succeeded but the database has additions this
+  /// app doesn't know (version check verdict warn); null otherwise.
+  String? versionWarning;
+
   AuthViewModel({
     required LoginLogRepository loginLogRepo,
     required SupabaseConfigStore config,
     required UserRepository Function(SupabaseClient client) userRepoFactory,
+    required MigrationLedgerRepository Function(SupabaseClient client) ledgerRepoFactory,
     Logger? logger,
   })  : _loginLogRepo = loginLogRepo,
         _config = config,
         _userRepoFactory = userRepoFactory,
+        _ledgerRepoFactory = ledgerRepoFactory,
         _log = ScopedLogger(logger, 'AuthViewModel');
 
   bool get isSignedIn => _client != null && currentUser != null;
@@ -42,6 +53,7 @@ class AuthViewModel {
     required String password,
   }) async {
     _log('signIn(target: $target, email: "$email")');
+    versionWarning = null;
     final profile = switch (target) {
       'cloud' => _config.cloud,
       'lan' => _config.lan,
@@ -74,6 +86,24 @@ class AuthViewModel {
         return 'Sign-in failed: account is inactive';
       }
 
+      // Version check (rule A). Runs before the session is kept, so a refusal
+      // leaves any earlier session untouched. Fails closed.
+      final VersionCheck check;
+      try {
+        check = await checkVersion(client);
+      } catch (e) {
+        await _recordAttempt(email, success: false, userId: authUser.id,
+            failureReason: fetchFailedReason, client: client);
+        await _abandon(client);
+        return fetchFailedMessage(e);
+      }
+      if (check.blocks) {
+        await _recordAttempt(email, success: false, userId: authUser.id,
+            failureReason: versionFailureReason(check), client: client);
+        await _abandon(client);
+        return versionMessage(check);
+      }
+
       // Replacing an existing session: end the old one so its refresh token dies.
       final previous = _client;
       if (previous != null && previous != client) await _abandon(previous);
@@ -81,6 +111,7 @@ class AuthViewModel {
       _client = client;
       currentUser = profileRow;
       mustChangePassword = authUser.userMetadata?['must_change_password'] == true;
+      if (check.verdict == VersionVerdict.warn) versionWarning = versionMessage(check);
 
       await _recordAttempt(email, success: true, userId: authUser.id, client: client);
       return null; // null return = success
@@ -106,6 +137,23 @@ class AuthViewModel {
     _client = null;
     currentUser = null;
     mustChangePassword = false;
+    versionWarning = null;
+  }
+
+  /// Compares this build's migrations (lib/core/release.dart) with the
+  /// server's basa_migrations ledger. Defaults to the session's client.
+  /// A missing ledger table gives verdict noLedger; any other fetch error is
+  /// rethrown (sign-in treats it as a refusal).
+  Future<VersionCheck> checkVersion([SupabaseClient? client]) async {
+    final c = client ?? _client;
+    if (c == null) throw StateError('Not signed in.');
+    try {
+      return rule.checkVersion(basaMigrations, await _ledgerRepoFactory(c).fetchAll());
+    } on PostgrestException catch (e) {
+      // PGRST205: table not in PostgREST's schema cache; 42P01: undefined table.
+      if (e.code == 'PGRST205' || e.code == '42P01') return rule.checkVersion(basaMigrations, null);
+      rethrow;
+    }
   }
 
   Future<String?> changePassword(String newPassword) async {

@@ -47,9 +47,24 @@ Run every file in `supabase/migrations/` that is **newer** than the baseline,
 in filename order (the timestamps sort them). As of 2026-10-19 they are
 `20261018050000` (ARAL readability log), `20261019010000` and `20261019020000`
 (SRP classes), `20261019030000` (assessment calendar), `20261019040000`
-(report settings), `20261019050000` (calendar round pairing) and
-`20261019060000` (ARAL idle session days; app update required: no). Each is
-idempotent. Do **not** run `supabase/migrations_archive/`.
+(report settings), `20261019050000` (calendar round pairing),
+`20261019060000` (ARAL idle session days; app update required: no) and
+`20261020010000` (migrations ledger `basa_migrations`, for the version check at
+sign-in; app update required: no). Each is idempotent. Do **not** run
+`supabase/migrations_archive/`.
+
+**Rule for every new migration:** its header says `App update required on all
+devices: yes/no`, and its **last statement** records it in the ledger, with the
+same yes/no:
+
+```sql
+insert into public.basa_migrations (id, name, app_update_required)
+values ('<id>', '<name>', <true|false>) on conflict (id) do nothing;
+```
+
+The same commit adds `'<id>': '<name>'` to `lib/core/release.dart`. Without the
+ledger row, every app built with that migration refuses to sign in to the
+database ("the database is older than this BASA app").
 
 ### 2c. Seeds (content)
 
@@ -310,9 +325,28 @@ recommendation.
 database, and **how devices get updated** (installation package, app store,
 or manual install). Re-check this every school year.
 
-Not built yet: a version check at sign-in that tells an outdated app or
-database to update, instead of a failed pull. Until it exists, follow the
-release notes by hand.
+**The version check at sign-in** compares the migrations the app was built for
+(`version-app` in the console lists them) with the database's `basa_migrations`
+ledger. Every online sign-in (cloud and LAN) runs it:
+
+- **The database is older than the app**: sign-in is refused and the message
+  lists the files to apply, in order. The person who manages the database
+  applies them (section 2b), then sign in again. A database without the ledger
+  at all asks for `20261020010000_basa_migrations.sql` and any earlier file
+  not yet applied.
+- **The app is older and the database has a change marked "app update
+  required"**: sign-in is refused ("this BASA app is too old"). Update BASA on
+  that device.
+- **The app is older but the database only has additions**: sign-in works,
+  with a note to update when you can.
+- **The ledger can't be read** (a connection error after the password was
+  accepted, or a broken select permission): sign-in is refused; try again, and
+  if it repeats, check the ledger's select policy.
+
+`version-check` in the console runs the same comparison for the signed-in
+database at any time (e.g. after migrations were applied mid-session).
+Refused sign-ins are recorded in the login log with a `version check: ...`
+reason.
 
 ## Known gaps (not yet built)
 
@@ -342,9 +376,10 @@ release notes by hand.
   client-side/UI-level only, not enforced by excluding code from the
   build.
 - **LAN/self-hosted profile is untested end-to-end.**
-- **No app/database version check** — an outdated app or database is only
-  noticed when a pull fails or a write is refused (see *Keeping BASA up to
-  date*).
+- **The version check runs only at online sign-in** — a database migrated
+  while someone is signed in is noticed at their next sign-in (or with
+  `version-check`). There is no offline sign-in yet; sync will decide what it
+  trusts.
 - **Sf1Importer's Supabase write and local mirror aren't atomic** — a
   crash mid-import can leave the local cache stale (Supabase stays
   correct; local needs a manual re-sync in that case).
