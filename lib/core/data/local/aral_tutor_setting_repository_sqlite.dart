@@ -4,6 +4,7 @@
 // triggers (aral_local_schema.dart) re-check the cloud's rules for rows saved
 // on this device; role checks live in the ViewModel.
 import 'package:sqflite_common/sqflite.dart';
+import 'sync_local_writes.dart';
 import 'mirror_write.dart';
 import 'sqlite_values.dart';
 import '../../models/aral_tutor_setting.dart';
@@ -40,7 +41,7 @@ class AralTutorSettingRepositorySqlite implements AralTutorSettingRepository {
 
   @override
   Future<AralTutorSetting> upsertMirrored(AralTutorSetting setting) async {
-    await upsertById(db, 'aral_tutor_settings', {...toSqliteRow(setting.toMap()), 'origin': 'cloud'}, key: 'tutor_id');
+    await mirrorSyncedRow(db, 'aral_tutor_settings', {...toSqliteRow(setting.toMap()), 'origin': 'cloud'}, key: 'tutor_id');
     return (await find(setting.tutorId))!;
   }
 }

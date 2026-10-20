@@ -5,7 +5,7 @@
 // sessions entered on this device and assign session_no. Local foreign keys
 // are off, so deleting a session deletes its attendance here.
 import 'package:sqflite_common/sqflite.dart';
-import 'mirror_write.dart';
+import 'sync_local_writes.dart';
 import 'sqlite_values.dart';
 import '../../models/aral_session.dart';
 import '../../repositories/aral_session_repository.dart';
@@ -25,7 +25,7 @@ class AralSessionRepositorySqlite implements AralSessionRepository {
     final now = _now();
     // session_no left at 0: the AFTER INSERT trigger assigns it.
     final row = toSqliteRow(session.toMap())
-      ..remove('id')
+      ..['id'] = await nextLocalId(db)
       ..remove('session_no')
       ..['created_at'] = now
       ..['updated_at'] = now;
@@ -87,7 +87,8 @@ class AralSessionRepositorySqlite implements AralSessionRepository {
     late final int id;
     if (existing.isEmpty) {
       id = await db.insert('aral_attendance', {
-        ...toSqliteRow(attendance.toMap())..remove('id'),
+        ...toSqliteRow(attendance.toMap()),
+        'id': await nextLocalId(db),
         'created_at': now,
         'updated_at': now,
       });
@@ -107,7 +108,9 @@ class AralSessionRepositorySqlite implements AralSessionRepository {
 
   @override
   Future<List<AralAttendance>> getAttendance(int sessionId) async {
-    final rows = await db.query('aral_attendance', where: 'session_id = ?', whereArgs: [sessionId], orderBy: 'id');
+    final rows = await db.query('aral_attendance', where: 'session_id = ?', whereArgs: [sessionId],
+        // Pulled rows first, then new rows in entry order (-1, -2, ...).
+        orderBy: '(id < 0), abs(id)');
     return rows.map(AralAttendance.fromMap).toList();
   }
 
@@ -130,14 +133,14 @@ class AralSessionRepositorySqlite implements AralSessionRepository {
     if (session.sessionNo == null || session.sessionNo == 0) {
       throw ArgumentError('upsertSessionWithId requires the real sessionNo (got ${session.sessionNo})');
     }
-    await upsertById(db, 'aral_sessions', {...toSqliteRow(session.toMap()), 'origin': 'cloud'});
+    await mirrorSyncedRow(db, 'aral_sessions', {...toSqliteRow(session.toMap()), 'origin': 'cloud'});
     return (await findSession(session.id!))!;
   }
 
   @override
   Future<AralAttendance> upsertAttendanceWithId(AralAttendance attendance) async {
     if (attendance.id == null) throw ArgumentError('Cannot upsertAttendanceWithId an AralAttendance with no id');
-    await upsertById(db, 'aral_attendance', toSqliteRow(attendance.toMap()));
+    await mirrorSyncedRow(db, 'aral_attendance', toSqliteRow(attendance.toMap()));
     final rows = await db.query('aral_attendance', where: 'id = ?', whereArgs: [attendance.id]);
     return AralAttendance.fromMap(rows.first);
   }

@@ -4,6 +4,7 @@
 // main write path, offline-first). The local triggers (aral_local_schema.dart)
 // re-check the cloud's rules, number attempts and score choice items.
 import 'package:sqflite_common/sqflite.dart';
+import 'sync_local_writes.dart';
 import 'mirror_write.dart';
 import 'sqlite_values.dart';
 import '../../models/aral_checkin.dart';
@@ -60,7 +61,7 @@ class AralCheckinRepositorySqlite implements AralCheckinRepository {
   Future<AralCheckin> insertCheckin(AralCheckin checkin) async {
     final now = _now();
     final row = toSqliteRow(checkin.toMap())
-      ..remove('id')
+      ..['id'] = await nextLocalId(db)
       ..remove('attempt_no') // 0 = the trigger assigns the next number
       ..['created_at'] = now
       ..['updated_at'] = now;
@@ -113,6 +114,7 @@ class AralCheckinRepositorySqlite implements AralCheckinRepository {
     final existing = await _findAnswer(answer.checkinId, answer.itemId);
     if (existing == null) {
       await db.insert('aral_checkin_answers', {
+        'id': await nextLocalId(db),
         'checkin_id': answer.checkinId,
         'item_id': answer.itemId,
         'response': response,
@@ -149,14 +151,14 @@ class AralCheckinRepositorySqlite implements AralCheckinRepository {
   @override
   Future<AralCheckin> upsertCheckinWithId(AralCheckin checkin) async {
     if (checkin.id == null) throw ArgumentError('Cannot upsertCheckinWithId an AralCheckin with no id');
-    await upsertById(db, 'aral_checkins', {...toSqliteRow(checkin.toMap()), 'origin': 'cloud'});
+    await mirrorSyncedRow(db, 'aral_checkins', {...toSqliteRow(checkin.toMap()), 'origin': 'cloud'});
     return (await findCheckin(checkin.id!))!;
   }
 
   @override
   Future<AralCheckinAnswer> upsertAnswerWithId(AralCheckinAnswer answer) async {
     if (answer.id == null) throw ArgumentError('Cannot upsertAnswerWithId an AralCheckinAnswer with no id');
-    await upsertById(db, 'aral_checkin_answers', toSqliteRow(answer.toMap()));
+    await mirrorSyncedRow(db, 'aral_checkin_answers', toSqliteRow(answer.toMap()));
     final rows = await db.query('aral_checkin_answers', where: 'id = ?', whereArgs: [answer.id]);
     return AralCheckinAnswer.fromMap(rows.first);
   }

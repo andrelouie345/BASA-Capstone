@@ -4,6 +4,7 @@
 // offline-first). The local triggers (aral_local_schema.dart) re-check the
 // cloud's rules for weeks entered on this device.
 import 'package:sqflite_common/sqflite.dart';
+import 'sync_local_writes.dart';
 import 'mirror_write.dart';
 import 'sqlite_values.dart';
 import '../../models/aral_irip.dart';
@@ -47,7 +48,7 @@ class AralIripRepositorySqlite implements AralIripRepository {
   Future<AralIripWeek> insertWeek(AralIripWeek week) async {
     final now = _now();
     final row = toSqliteRow(week.toMap())
-      ..remove('id')
+      ..['id'] = await nextLocalId(db)
       ..['created_at'] = now
       ..['updated_at'] = now;
     final id = await db.insert('aral_irip_weeks', row);
@@ -78,7 +79,7 @@ class AralIripRepositorySqlite implements AralIripRepository {
   @override
   Future<AralIripWeek> upsertWeekWithId(AralIripWeek week) async {
     if (week.id == null) throw ArgumentError('Cannot upsertWeekWithId an AralIripWeek with no id');
-    await upsertById(db, 'aral_irip_weeks', {...toSqliteRow(week.toMap()), 'origin': 'cloud'});
+    await mirrorSyncedRow(db, 'aral_irip_weeks', {...toSqliteRow(week.toMap()), 'origin': 'cloud'});
     return (await findWeek(week.id!))!;
   }
 }

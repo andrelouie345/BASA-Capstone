@@ -1,6 +1,6 @@
 // lib/core/data/local/phil_iri_gst_repository_sqlite.dart
 import 'package:sqflite_common/sqflite.dart';
-import 'mirror_write.dart';
+import 'sync_local_writes.dart';
 import 'sqlite_values.dart';
 import '../../models/phil_iri_gst_result.dart';
 import '../../repositories/phil_iri_gst_repository.dart';
@@ -13,7 +13,9 @@ class PhilIriGstRepositorySqlite implements PhilIriGstRepository {
   Future<PhilIriGstResult> insert(PhilIriGstResult result) async {
     // attempt_no is left out (default 0): the AFTER INSERT trigger assigns it,
     // so re-read the row. origin defaults to 'local'.
-    final row = toSqliteRow(result.toMap())..remove('attempt_no');
+    final row = toSqliteRow(result.toMap())
+      ..remove('attempt_no')
+      ..['id'] = await nextLocalId(db);
     final id = await db.insert('phil_iri_gst_results', row);
     final stored = await findById(id);
     if (stored == null) throw StateError('phil_iri_gst_results row $id vanished right after insert');
@@ -61,7 +63,7 @@ class PhilIriGstRepositorySqlite implements PhilIriGstRepository {
       // 0 would make the local trigger renumber it.
       throw ArgumentError('upsertWithId requires the real attemptNo (got ${result.attemptNo})');
     }
-    await upsertById(db, 'phil_iri_gst_results', {...toSqliteRow(result.toMap()), 'origin': 'cloud'});
+    await mirrorSyncedRow(db, 'phil_iri_gst_results', {...toSqliteRow(result.toMap()), 'origin': 'cloud'});
     return (await findById(result.id!))!;
   }
 }

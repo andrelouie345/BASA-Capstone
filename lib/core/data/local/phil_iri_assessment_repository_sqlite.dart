@@ -6,7 +6,7 @@
 // remove children explicitly.
 import 'dart:convert';
 import 'package:sqflite_common/sqflite.dart';
-import 'mirror_write.dart';
+import 'sync_local_writes.dart';
 import 'sqlite_values.dart';
 import '../../models/phil_iri_answer.dart';
 import '../../models/phil_iri_assessment.dart';
@@ -26,7 +26,9 @@ class PhilIriAssessmentRepositorySqlite implements PhilIriAssessmentRepository {
   @override
   Future<PhilIriAssessment> insertAssessment(PhilIriAssessment assessment) async {
     // attempt_no left out (default 0): the AFTER INSERT trigger assigns it.
-    final row = toSqliteRow(assessment.toMap())..remove('attempt_no');
+    final row = toSqliteRow(assessment.toMap())
+      ..remove('attempt_no')
+      ..['id'] = await nextLocalId(db);
     final id = await db.insert('phil_iri_assessments', row);
     final stored = await findAssessment(id);
     if (stored == null) throw StateError('phil_iri_assessments row $id vanished right after insert');
@@ -151,7 +153,7 @@ class PhilIriAssessmentRepositorySqlite implements PhilIriAssessmentRepository {
     for (final c in PhilIriReading.resultColumns) {
       row.remove(c); // results are written at finalization only
     }
-    final id = await db.insert('phil_iri_readings', row);
+    final id = await db.insert('phil_iri_readings', {...row, 'id': await nextLocalId(db)});
     return (await _reading(id))!;
   }
 
@@ -202,7 +204,7 @@ class PhilIriAssessmentRepositorySqlite implements PhilIriAssessmentRepository {
 
   @override
   Future<PhilIriMiscue> insertMiscue(PhilIriMiscue miscue) async {
-    final id = await db.insert('phil_iri_miscues', toSqliteRow(miscue.toMap()));
+    final id = await db.insert('phil_iri_miscues', {...toSqliteRow(miscue.toMap()), 'id': await nextLocalId(db)});
     return (await _miscue(id))!;
   }
 
@@ -244,7 +246,7 @@ class PhilIriAssessmentRepositorySqlite implements PhilIriAssessmentRepository {
         columns: ['id'], where: 'reading_id = ? AND question_id = ?', whereArgs: [answer.readingId, answer.questionId]);
     final int id;
     if (existing.isEmpty) {
-      id = await db.insert('phil_iri_answers', row);
+      id = await db.insert('phil_iri_answers', {...row, 'id': await nextLocalId(db)});
     } else {
       id = existing.first['id'] as int;
       await db.update('phil_iri_answers', row, where: 'id = ?', whereArgs: [id]);
@@ -277,7 +279,7 @@ class PhilIriAssessmentRepositorySqlite implements PhilIriAssessmentRepository {
         whereArgs: [score.assessmentId, score.criterionId]);
     final int id;
     if (existing.isEmpty) {
-      id = await db.insert('phil_iri_rubric_scores', score.toMap()..remove('id'));
+      id = await db.insert('phil_iri_rubric_scores', {...score.toMap(), 'id': await nextLocalId(db)});
     } else {
       id = existing.first['id'] as int;
       await db.update('phil_iri_rubric_scores', {'score': score.score}, where: 'id = ?', whereArgs: [id]);
@@ -299,7 +301,7 @@ class PhilIriAssessmentRepositorySqlite implements PhilIriAssessmentRepository {
     if (assessment.attemptNo == null || assessment.attemptNo == 0) {
       throw ArgumentError('upsertAssessmentWithId requires the real attemptNo (got ${assessment.attemptNo})');
     }
-    await upsertById(db, 'phil_iri_assessments', {...toSqliteRow(assessment.toMap()), 'origin': 'cloud'});
+    await mirrorSyncedRow(db, 'phil_iri_assessments', {...toSqliteRow(assessment.toMap()), 'origin': 'cloud'});
     return (await findAssessment(assessment.id!))!;
   }
 

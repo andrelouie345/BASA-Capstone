@@ -1,5 +1,6 @@
 // lib/core/data/local/aral_readability_repository_sqlite.dart
 import 'package:sqflite_common/sqflite.dart';
+import 'sync_local_writes.dart';
 import 'sqlite_values.dart';
 import '../../models/aral_readability_log.dart';
 import '../../repositories/aral_readability_repository.dart';
@@ -29,7 +30,8 @@ class AralReadabilityRepositorySqlite implements AralReadabilityRepository {
   Future<AralReadabilityLog> insert(AralReadabilityLog log) async {
     final now = _now();
     final id = await db.insert('aral_readability_logs', toSqliteRow({
-      ...log.toMap()..remove('id'),
+      ...log.toMap(),
+      'id': await nextLocalId(db),
       'created_at': now,
       'updated_at': now,
       'origin': 'local',

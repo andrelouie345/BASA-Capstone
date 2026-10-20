@@ -39,6 +39,13 @@ Nothing in `core/` imports Flutter. Keep it that way.
 - `crla_results` also exists as a SQLite view with the same column names as the Postgres one; both read the stored `reading_profile`.
 - Anything changed here must keep local and cloud behavior symmetric (offline and cloud attempt numbering, CHECKs and triggers must agree).
 
+## Sync bookkeeping (SQLite v34; spec `docs/superpowers/specs/2026-10-20-sync-design.md`)
+- The 18 synced tables (`syncedTables` in `data/local/sync_local_schema.dart`) carry `row_version`: NULL = new on this device, not NULL = copy of a server row (0 = pulled before v34, version unknown).
+- **Every new row in the 14 id-keyed synced tables gets `'id': await nextLocalId(db)`** (`sync_local_writes.dart`; -1, -2, ... one countdown, never reused). A trigger refuses a new row with a positive id. Lists that order by id use `(id < 0), abs(id)`.
+- Edits/deletes of server rows are journaled in `sync_changes` by triggers; ops the server refuses are refused locally (`crla_assessments` and `phil_iri_gst_results` insert-only, except the CRLA `reading_profile`; CRLA parts never deleted). Rows in `sync_pending` (an upload awaiting a decision) can't change, and no child can be added under them (`'pending upload'`).
+- Cloud rows copied down outside a pull go through `mirrorSyncedRow` (not `upsertById`); the pull runs under `withSyncBypass`. The bypass only exists inside a transaction.
+- A table rebuild must copy `row_version` and run before `createSyncLocalSchema` (called last), which recreates the sync triggers.
+
 ## Assessment rounds (one list per layer, changed together)
 - An instrument's rounds live in: the Dart enums `PhilIriRound` / `CrlaRound` (`calendarRounds` in `services/calendar_rules.dart` is BUILT from them, never edited by hand); the cloud checks `phil_iri_assessments_round_check` / `crla_assessments_round_check`; and the calendar pairing `assessment_calendar_round_pairing` (migration 20261019050000), which must list exactly the same rounds.
 - **Changing an instrument's rounds = the enum + ONE migration** that swaps the assessment table's round check and the calendar pairing together, converting (or deleting, owner's call) existing `assessment_calendar` rows first; the migration must refuse while unconverted rows exist (as 20261019050000 does), never delete silently. Every place that holds round names:

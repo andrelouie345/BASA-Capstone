@@ -1,5 +1,6 @@
 // lib/core/data/local/crla_part2_fluency_repository_sqlite.dart
 import 'package:sqflite_common/sqflite.dart';
+import 'sync_local_writes.dart';
 import '../../models/crla_part2_fluency.dart';
 import '../../repositories/crla_part2_fluency_repository.dart';
 
@@ -49,7 +50,8 @@ class CrlaPart2FluencyRepositorySqlite implements CrlaPart2FluencyRepository {
 
   @override
   Future<CrlaPart2Fluency> upsertWithId(CrlaPart2Fluency fluency) async {
-    await db.insert(
+    await mirrorSyncedRow(
+      db,
       'crla_part2_fluency',
       {
         ...fluency.toMap(),
@@ -57,7 +59,8 @@ class CrlaPart2FluencyRepositorySqlite implements CrlaPart2FluencyRepository {
         // trigger's WHEN NEW.wpm IS NULL false, so it is stored as-is.
         if (fluency.wpm != null) 'wpm': fluency.wpm,
       },
-      conflictAlgorithm: ConflictAlgorithm.replace, // INSERT OR REPLACE
+      key: 'assessment_id',
+      replace: true, // INSERT OR REPLACE, keeping the row_version
     );
     return (await findByAssessmentId(fluency.assessmentId))!;
   }

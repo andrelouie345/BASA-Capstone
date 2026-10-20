@@ -5,7 +5,7 @@
 // rules for rows entered on this device; the repository stamps the times the
 // cloud stamps there (the cloud re-stamps on upload).
 import 'package:sqflite_common/sqflite.dart';
-import 'mirror_write.dart';
+import 'sync_local_writes.dart';
 import 'sqlite_values.dart';
 import '../../models/aral_enrollment.dart';
 import '../../repositories/aral_enrollment_repository.dart';
@@ -27,7 +27,7 @@ class AralEnrollmentRepositorySqlite implements AralEnrollmentRepository {
   Future<AralEnrollment> insert(AralEnrollment enrollment) async {
     final now = _now();
     final row = toSqliteRow(enrollment.toMap())
-      ..remove('id')
+      ..['id'] = await nextLocalId(db)
       ..['created_at'] = now
       ..['updated_at'] = now;
     final id = await db.insert('aral_enrollments', row);
@@ -95,7 +95,7 @@ class AralEnrollmentRepositorySqlite implements AralEnrollmentRepository {
   @override
   Future<AralEnrollment> upsertWithId(AralEnrollment enrollment) async {
     if (enrollment.id == null) throw ArgumentError('Cannot upsertWithId an AralEnrollment with no id');
-    await upsertById(db, 'aral_enrollments', {...toSqliteRow(enrollment.toMap()), 'origin': 'cloud'});
+    await mirrorSyncedRow(db, 'aral_enrollments', {...toSqliteRow(enrollment.toMap()), 'origin': 'cloud'});
     return (await findById(enrollment.id!))!;
   }
 }

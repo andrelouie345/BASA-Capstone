@@ -11,6 +11,8 @@ import '../console_registry.dart';
 import '../../../viewmodels/auth_viewmodel.dart';
 import '../../models/assessment_calendar.dart';
 import '../../services/calendar_rules.dart';
+import '../../data/local/sync_local_schema.dart';
+import '../../data/local/sync_local_writes.dart';
 
 /// Parents before children (foreign keys), mapped to the column used for
 /// stable paging. Part tables must come after crla_assessments: the local
@@ -166,20 +168,25 @@ void registerPullCommands(ConsoleRegistry registry, AuthViewModel authVm, Databa
       }
 
       try {
-        await localDb.transaction((txn) async {
-          for (final table in _clearedTables) {
-            await txn.delete(table);
-          }
-          for (final entry in _pullOrder.entries) {
-            await _writeTable(txn, entry.key, fetched[entry.key]!);
-          }
-          final user = authVm.currentUser;
-          await _setMeta(txn, {
-            'last_pull_user_id': user?.id,
-            'last_pull_user_email': user?.email,
-            'last_pull_at': DateTime.now().toUtc().toIso8601String(),
-          });
-        });
+        // Under the sync bypass: the pull's own deletes and writes of server
+        // rows are not local edits (no journal lines, no pending-lock refusal).
+        await localDb.transaction((txn) => withSyncBypass(txn, () async {
+              for (final table in _clearedTables) {
+                await txn.delete(table);
+              }
+              // Only reached with nothing unsent, or with discard-local.
+              await txn.delete('sync_changes');
+              await txn.delete('sync_pending');
+              for (final entry in _pullOrder.entries) {
+                await _writeTable(txn, entry.key, fetched[entry.key]!);
+              }
+              final user = authVm.currentUser;
+              await _setMeta(txn, {
+                'last_pull_user_id': user?.id,
+                'last_pull_user_email': user?.email,
+                'last_pull_at': DateTime.now().toUtc().toIso8601String(),
+              });
+            }));
       } catch (e) {
         return 'Pull stopped, nothing was changed (rolled back): $e';
       }
@@ -215,7 +222,9 @@ Future<String?> _lastPull(Database db) async {
 /// enrollments, ARAL sessions (with their attendance; no section) and ARAL
 /// tutor settings (no section), ARAL IRIP weeks and check-ins (by the
 /// learner's section). (Phil-IRI readings, miscues and answers belong to their
-/// session; check-in answers to their check-in.)
+/// session; check-in answers to their check-in.) Since v34 also edits of
+/// records that came from the server (sync_changes) and new items added under
+/// them (a child row without row_version whose parent has one), no section.
 Future<List<Map<String, Object?>>> _unsynced(Database db) => db.rawQuery('''
       SELECT x.kind, x.section_id, COUNT(*) AS n, s.grade_level, s.section_name, s.school_year
       FROM (
@@ -229,7 +238,9 @@ Future<List<Map<String, Object?>>> _unsynced(Database db) => db.rawQuery('''
         UNION ALL
         SELECT 'ARAL session(s)', NULL FROM aral_sessions WHERE origin = 'local'
         UNION ALL
-        SELECT 'ARAL tutor setting(s)', NULL FROM aral_tutor_settings WHERE origin = 'local'
+        SELECT 'ARAL tutor setting(s)', NULL FROM aral_tutor_settings
+        -- an edited pulled setting is also 'local' (save()); it counts as a change below
+        WHERE origin = 'local' AND row_version IS NULL
         UNION ALL
         SELECT 'ARAL IRIP week(s)', e.section_id FROM aral_irip_weeks w
         LEFT JOIN aral_enrollments e ON e.id = w.enrollment_id WHERE w.origin = 'local'
@@ -239,11 +250,24 @@ Future<List<Map<String, Object?>>> _unsynced(Database db) => db.rawQuery('''
         UNION ALL
         SELECT 'ARAL readability log entr(ies)', e.section_id FROM aral_readability_logs r
         LEFT JOIN aral_enrollments e ON e.id = r.enrollment_id WHERE r.origin = 'local'
+        UNION ALL
+        SELECT 'change(s) to records already on the server', NULL FROM sync_changes
+        UNION ALL
+        $_newUnderServerRows
       ) x
       LEFT JOIN sections s ON s.id = x.section_id
       GROUP BY x.kind, x.section_id
       ORDER BY x.section_id, x.kind
     ''');
+
+/// One SELECT per child table: new rows (row_version NULL) whose parent came
+/// from the server.
+final _newUnderServerRows = [
+  for (final e in syncedParents.entries)
+    "SELECT 'new item(s) added to records already on the server', NULL FROM ${e.key} c "
+        "JOIN ${e.value.$1} p ON p.${syncedTables[e.value.$1]} = c.${e.value.$2} "
+        'WHERE c.row_version IS NULL AND p.row_version IS NOT NULL',
+].join('\n        UNION ALL\n        ');
 
 Future<void> _setMeta(Transaction txn, Map<String, String?> values) async {
   for (final e in values.entries) {

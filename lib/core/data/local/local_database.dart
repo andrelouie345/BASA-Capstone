@@ -9,6 +9,7 @@ import 'srp_local_schema.dart';
 import 'calendar_local_schema.dart';
 import 'report_local_schema.dart';
 import 'tutor_assignment_local_schema.dart';
+import 'sync_local_schema.dart';
 import '../../services/crla_rules.dart';
 
 /// Opens/creates the local SQLite DB.
@@ -52,7 +53,10 @@ class LocalDatabase {
         // v31: assessment round calendar (assessment_calendar, mirror-only; createCalendarLocalSchema).
         // v32: report settings (report_settings, mirror-only; createReportLocalSchema).
         // v33: tutor_section_assignments mirror (D3 tutor reminders; createTutorAssignmentLocalSchema).
-        version: 33,
+        // v34: sync bookkeeping (row_version, negative local ids, sync_changes
+        // journal, sync_pending lock, offline_credentials; createSyncLocalSchema,
+        // runs last) and the one-time renumber of local rows.
+        version: 34,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
@@ -73,6 +77,7 @@ class LocalDatabase {
           await createCalendarLocalSchema(db);
           await createReportLocalSchema(db);
           await createTutorAssignmentLocalSchema(db);
+          await createSyncLocalSchema(db);
         },
         onUpgrade: (db, oldVersion, newVersion) async {
           if (oldVersion < 2) {
@@ -175,7 +180,12 @@ class LocalDatabase {
           await createReportLocalSchema(db);
           await createTutorAssignmentLocalSchema(db);
           // v14. Rows from before v14 were scored with the default thresholds.
+          // Before the v34 triggers: pulled CRLA headers are read-only after it.
           if (oldVersion < 14) await backfillCrlaScoring(db);
+          // v34. Last: its triggers cover every synced table.
+          await createSyncLocalSchema(db);
+          // v34 one-time step: local rows get negative ids, pulled rows row_version 0.
+          if (oldVersion < 34) await renumberLocalRowsForV34(db);
         },
       ),
     );

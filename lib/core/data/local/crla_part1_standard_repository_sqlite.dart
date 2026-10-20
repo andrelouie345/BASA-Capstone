@@ -1,5 +1,6 @@
 // lib/core/data/local/crla_part1_standard_repository_sqlite.dart
 import 'package:sqflite_common/sqflite.dart';
+import 'sync_local_writes.dart';
 import '../../models/crla_part1_standard.dart';
 import '../../repositories/crla_part1_standard_repository.dart';
 
@@ -49,11 +50,8 @@ class CrlaPart1StandardRepositorySqlite implements CrlaPart1StandardRepository {
 
   @override
   Future<CrlaPart1Standard> upsertWithId(CrlaPart1Standard part1) async {
-    await db.insert(
-      'crla_part1_standard',
-      part1.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace, // INSERT OR REPLACE
-    );
+    // INSERT OR REPLACE (see mirrorSyncedRow), keeping the row_version.
+    await mirrorSyncedRow(db, 'crla_part1_standard', part1.toMap(), key: 'assessment_id', replace: true);
     return (await findByAssessmentId(part1.assessmentId))!;
   }
 }
