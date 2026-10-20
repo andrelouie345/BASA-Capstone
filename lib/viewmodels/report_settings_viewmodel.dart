@@ -97,7 +97,7 @@ class ReportSettingsViewModel {
   /// region's): an online session of the superadmin, or of an admin/
   /// coordinator of that school.
   ReportSettingRepository _writer(int? schoolId) {
-    final sessionError = _auth.requireActiveSession();
+    final sessionError = _auth.requireOnlineSession();
     if (sessionError != null) throw ViewModelException(sessionError);
     final me = _me();
     final superadmin = me.role == UserRole.admin && me.schoolId == null;

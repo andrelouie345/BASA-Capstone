@@ -39,7 +39,7 @@ class TutorSectionAssignmentViewModel {
         _log = ScopedLogger(logger, 'TutorSectionAssignmentViewModel');
 
   TutorSectionAssignmentRepository _repo() {
-    final sessionError = _auth.requireActiveSession();
+    final sessionError = _auth.requireOnlineSession();
     if (sessionError != null) throw ViewModelException(sessionError);
     final role = _auth.currentUser?.role;
     if (role != UserRole.admin && role != UserRole.coordinator) {

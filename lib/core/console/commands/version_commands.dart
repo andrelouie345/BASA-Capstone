@@ -19,7 +19,8 @@ void registerVersionCommands(ConsoleRegistry registry, AuthViewModel authVm) {
     name: 'version-check',
     description: "version-check — compare this app's migrations with the signed-in database's ledger (reports only)",
     handler: (_) async {
-      if (!authVm.isSignedIn) return authVm.requireActiveSession()!;
+      final guardError = authVm.requireOnlineSession(allowPendingPasswordChange: true);
+      if (guardError != null) return guardError;
       try {
         final check = await authVm.checkVersion();
         final message = versionMessage(check);

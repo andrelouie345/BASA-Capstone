@@ -26,7 +26,7 @@ class StudentViewModel {
         _log = ScopedLogger(logger, 'StudentViewModel');
 
   StudentRepository _repo() {
-    final sessionError = _auth.requireActiveSession();
+    final sessionError = _auth.requireOnlineSession();
     if (sessionError != null) throw ViewModelException(sessionError);
     return _repoFor(_auth.client!);
   }

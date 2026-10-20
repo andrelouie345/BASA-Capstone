@@ -485,7 +485,7 @@ class SrpViewModel {
   /// The cloud repository for a change to [schoolId]'s SRP classes: an online
   /// session of an admin/coordinator of the school, or the superadmin.
   SrpClassRepository _writer(int schoolId) {
-    final sessionError = _auth.requireActiveSession();
+    final sessionError = _auth.requireOnlineSession();
     if (sessionError != null) throw ViewModelException(sessionError);
     if (!_manages(_me(), schoolId)) {
       throw const ViewModelException("Forbidden: only an admin or coordinator of the school manages its SRP classes.");

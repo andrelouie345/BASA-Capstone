@@ -50,7 +50,7 @@ void registerLoginCommands(ConsoleRegistry registry, LoginLogViewModel vm, AuthV
     name: 'login-recent',
     description: 'login-recent [limit] — recent login attempts from this device and the cloud, tagged by source (default 50; admin/coordinator only)',
     handler: (args) async {
-      final guardError = authVm.requireActiveSession();
+      final guardError = authVm.requireOnlineSession();
       if (guardError != null) return guardError;
       final actingRole = authVm.currentUser?.role;
       if (actingRole != UserRole.admin && actingRole != UserRole.coordinator) {
@@ -67,7 +67,7 @@ void registerLoginCommands(ConsoleRegistry registry, LoginLogViewModel vm, AuthV
     name: 'login-history',
     description: 'login-history <userId> — login attempts for one user from this device and the cloud, tagged by source (admin/coordinator only)',
     handler: (args) async {
-      final guardError = authVm.requireActiveSession();
+      final guardError = authVm.requireOnlineSession();
       if (guardError != null) return guardError;
       final actingRole = authVm.currentUser?.role;
       if (actingRole != UserRole.admin && actingRole != UserRole.coordinator) {

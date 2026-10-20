@@ -2,6 +2,7 @@
 import '../console_command.dart';
 import '../console_registry.dart';
 import '../../../viewmodels/auth_viewmodel.dart';
+import '../../services/offline_signin_rules.dart';
 
 void registerAuthCommands(ConsoleRegistry registry, AuthViewModel authVm) {
   registry.register(ConsoleCommand(
@@ -14,7 +15,34 @@ void registerAuthCommands(ConsoleRegistry registry, AuthViewModel authVm) {
       if (error != null) return error;
       final note = authVm.mustChangePassword ? ' (must change password)' : '';
       final warning = authVm.versionWarning == null ? '' : '\n${authVm.versionWarning}';
-      return 'Signed in as ${authVm.currentUser?.email} (${authVm.currentUser?.role.name})$note$warning';
+      final offline = authVm.offlineWarning == null ? '' : '\n${authVm.offlineWarning}';
+      return 'Signed in as ${authVm.currentUser?.email} (${authVm.currentUser?.role.name})$note$warning$offline';
+    },
+  ));
+
+  registry.register(ConsoleCommand(
+    name: 'sign-in-offline',
+    description: "sign-in-offline <email> <password> — sign in without a connection (this device's owner, within the offline window)",
+    handler: (args) async {
+      if (args.length < 2) return 'Usage: sign-in-offline <email> <password>';
+      final error = await authVm.signInOffline(email: args[0], password: args.sublist(1).join(' '));
+      if (error != null) return error;
+      return 'Signed in offline as ${authVm.currentUser?.email} (${authVm.currentUser?.role.name}). '
+          'Server work needs an online sign-in.';
+    },
+  ));
+
+  registry.register(ConsoleCommand(
+    name: 'offline-status',
+    description: 'offline-status — whose offline sign-in this device holds, its window and failed attempts (no password shown)',
+    handler: (_) async {
+      final c = await authVm.offlineCredential();
+      if (c == null) return 'Offline sign-in: not set up on this device.';
+      final user = await authVm.offlineCredentialUser();
+      final days = await authVm.offlineWindowDays(user?.schoolId);
+      final until = DateTime.parse(c.lastOnlineAt).add(Duration(days: days));
+      return 'Offline sign-in: ${c.email}, last online ${c.lastOnlineAt}, window $days days '
+          '(until ${until.toIso8601String()}), failed attempts ${c.failedAttempts}/$offlineMaxFailedAttempts';
     },
   ));
 
@@ -33,7 +61,8 @@ void registerAuthCommands(ConsoleRegistry registry, AuthViewModel authVm) {
     handler: (_) async {
       if (!authVm.isSignedIn) return 'Not signed in.';
       final u = authVm.currentUser!;
-      return 'Signed in as ${u.email} (${u.role.name})${authVm.mustChangePassword ? " — must change password" : ""}';
+      return 'Signed in as ${u.email} (${u.role.name})${authVm.mustChangePassword ? " — must change password" : ""}'
+          '${authVm.isOffline ? " — offline" : ""}';
     },
   ));
 

@@ -1,6 +1,7 @@
 // lib/core/data/local/login_log_repository_sqlite.dart
 import 'package:sqflite_common/sqflite.dart';
 import '../../models/login_log.dart';
+import '../../models/login_method.dart';
 import '../../repositories/login_log_repository.dart';
 
 class LoginLogRepositorySqlite implements LoginLogRepository {
@@ -16,6 +17,7 @@ class LoginLogRepositorySqlite implements LoginLogRepository {
       'method': attempt.method.name,
       'timestamp': attempt.timestamp.toUtc().toIso8601String(),
       'failure_reason': attempt.failureReason,
+      'mode': attempt.method == LoginMethod.offline ? 'offline' : 'online',
     });
   }
 

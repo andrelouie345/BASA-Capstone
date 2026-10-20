@@ -117,6 +117,7 @@ import 'package:basa_capstone/core/data/local/aral_tutor_setting_repository_sqli
 import 'package:basa_capstone/viewmodels/aral_session_viewmodel.dart';
 import 'package:basa_capstone/core/data/local/aral_enrollment_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/user_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/local/offline_credential_repository_sqlite.dart';
 import 'package:basa_capstone/viewmodels/aral_viewmodel.dart';
 import 'package:basa_capstone/core/data/local/phil_iri_assessment_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/phil_iri_collection_repository_sqlite.dart';
@@ -175,6 +176,9 @@ Future<void> main() async {
   config: config,
   userRepoFactory: (client) => UserRepositorySupabase(client),
   ledgerRepoFactory: (client) => MigrationLedgerRepositorySupabase(client),
+  credentials: OfflineCredentialRepositorySqlite(localDb),
+  localUsers: UserRepositorySqlite(localDb),
+  localReportSettings: ReportSettingRepositorySqlite(localDb),
   logger: session,
   );
   registerAuthCommands(registry, authVm);

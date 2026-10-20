@@ -36,7 +36,7 @@ class UserViewModel {
       _auth.currentUser?.role == UserRole.admin || _auth.currentUser?.role == UserRole.coordinator;
 
   UserRepository _repo() {
-    final sessionError = _auth.requireActiveSession();
+    final sessionError = _auth.requireOnlineSession();
     if (sessionError != null) throw ViewModelException(sessionError);
     return _repoFor(_auth.client!);
   }

@@ -83,7 +83,7 @@ class CrlaThresholdViewModel {
       _auth.currentUser?.role == UserRole.admin && _auth.currentUser?.schoolId == null;
 
   CrlaThresholdCloudRepos _cloud() {
-    final sessionError = _auth.requireActiveSession();
+    final sessionError = _auth.requireOnlineSession();
     if (sessionError != null) throw ViewModelException(sessionError);
     return _cloudFor(_auth.client!);
   }

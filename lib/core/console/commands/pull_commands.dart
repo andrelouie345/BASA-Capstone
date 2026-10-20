@@ -127,7 +127,7 @@ void registerPullCommands(ConsoleRegistry registry, AuthViewModel authVm, Databa
     description: 'pull-cloud yes [discard-local] — replace the local data with everything the signed-in '
         'user can read in the cloud (all or nothing)',
     handler: (args) async {
-      final guardError = authVm.requireActiveSession();
+      final guardError = authVm.requireOnlineSession();
       if (guardError != null) return guardError;
 
       final previous = await _lastPull(localDb);

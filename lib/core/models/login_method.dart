@@ -2,7 +2,8 @@
 
 enum LoginMethod{
   online,
-  cachedSession;
+  cachedSession,
+  offline; // offline sign-in against the stored credential (local log only, mode 'offline')
 
   static LoginMethod fromString(String value) => LoginMethod.values.firstWhere(
     (m) => m.name == value,

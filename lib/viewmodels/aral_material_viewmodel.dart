@@ -301,7 +301,7 @@ class AralMaterialViewModel {
 
   /// The cloud repository for writing [schoolId]'s materials (null = region-wide).
   AralMaterialRepository _writer(int? schoolId, {String what = 'materials'}) {
-    final sessionError = _auth.requireActiveSession();
+    final sessionError = _auth.requireOnlineSession();
     if (sessionError != null) throw ViewModelException(sessionError);
     final me = _me();
     if (me.role != UserRole.admin && me.role != UserRole.coordinator) {
