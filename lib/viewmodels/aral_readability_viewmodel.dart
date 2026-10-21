@@ -18,6 +18,7 @@ import '../core/repositories/aral_material_repository.dart';
 import '../core/repositories/aral_readability_repository.dart';
 import '../core/repositories/aral_setting_repository.dart';
 import '../core/services/aral_readability.dart';
+import '../core/services/sync_upload_rules.dart' show pendingLockMessage;
 import '../core/services/aral_rules.dart' show AralProgramSettings;
 import 'viewmodel_exception.dart';
 import 'auth_viewmodel.dart';
@@ -212,6 +213,9 @@ class AralReadabilityViewModel {
     try {
       return await write();
     } catch (err) {
+      // A record waiting in an upload (sync): say so, whatever else the
+      // statement's text happens to contain.
+      if ('$err'.contains(pendingLockMessage)) throw const ViewModelException(pendingLockMessage);
       final text = err.toString();
       for (final refusal in _dbRefusals) {
         if (text.contains(refusal)) throw ViewModelException(refusal.endsWith('.') ? refusal : '$refusal.');

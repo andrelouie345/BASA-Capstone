@@ -39,6 +39,7 @@ import '../core/services/csv.dart';
 import '../core/services/crla_rules.dart' show crlaAtGradeLevel;
 import '../core/services/phil_iri_results.dart' show philIriNotAssessedResult;
 import '../core/services/normalizers.dart';
+import '../core/services/sync_upload_rules.dart' show pendingLockMessage;
 import 'auth_viewmodel.dart';
 import 'phil_iri_viewmodel.dart';
 import 'viewmodel_exception.dart';
@@ -870,6 +871,9 @@ class AralViewModel {
     try {
       return await write();
     } catch (e) {
+      // A record waiting in an upload (sync): say so, whatever else the
+      // statement's text happens to contain.
+      if ('$e'.contains(pendingLockMessage)) throw const ViewModelException(pendingLockMessage);
       final text = e.toString();
       if (text.contains('UNIQUE constraint failed: aral_enrollments.student_id') ||
           text.contains('aral_enrollments_one_per_year')) {

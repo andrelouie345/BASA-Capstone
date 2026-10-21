@@ -103,3 +103,40 @@ const pullClearOrder = [
   'users',
   'schools',
 ];
+
+/// The 18 synced tables (parents before children, as pull-cloud's order) and
+/// the column that keys a record.
+const syncedTables = <String, String>{
+  'crla_assessments': 'id',
+  'crla_part1_standard': 'assessment_id',
+  'crla_part1_english': 'assessment_id',
+  'crla_part2_fluency': 'assessment_id',
+  'phil_iri_gst_results': 'id',
+  'phil_iri_assessments': 'id',
+  'phil_iri_readings': 'id',
+  'phil_iri_miscues': 'id',
+  'phil_iri_answers': 'id',
+  'phil_iri_rubric_scores': 'id',
+  'aral_enrollments': 'id',
+  'aral_sessions': 'id',
+  'aral_attendance': 'id',
+  'aral_tutor_settings': 'tutor_id',
+  'aral_irip_weeks': 'id',
+  'aral_checkins': 'id',
+  'aral_checkin_answers': 'id',
+  'aral_readability_logs': 'id',
+};
+
+/// Child tables that travel with their owner record: (parent table, column
+/// holding the parent's key).
+const syncedParents = <String, (String, String)>{
+  'crla_part1_standard': ('crla_assessments', 'assessment_id'),
+  'crla_part1_english': ('crla_assessments', 'assessment_id'),
+  'crla_part2_fluency': ('crla_assessments', 'assessment_id'),
+  'phil_iri_readings': ('phil_iri_assessments', 'assessment_id'),
+  'phil_iri_rubric_scores': ('phil_iri_assessments', 'assessment_id'),
+  'phil_iri_miscues': ('phil_iri_readings', 'reading_id'),
+  'phil_iri_answers': ('phil_iri_readings', 'reading_id'),
+  'aral_attendance': ('aral_sessions', 'session_id'),
+  'aral_checkin_answers': ('aral_checkins', 'checkin_id'),
+};

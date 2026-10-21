@@ -29,6 +29,7 @@ import '../core/repositories/aral_tutor_setting_repository.dart';
 import '../core/repositories/student_repository.dart';
 import '../core/repositories/user_repository.dart';
 import '../core/services/normalizers.dart';
+import '../core/services/sync_upload_rules.dart' show pendingLockMessage;
 import 'auth_viewmodel.dart';
 import 'viewmodel_exception.dart';
 
@@ -217,7 +218,7 @@ class AralSessionViewModel {
   Future<void> deleteSession(int sessionId) async {
     _log('deleteSession($sessionId)');
     await _requireWritable(sessionId);
-    await _sessions.deleteSession(sessionId);
+    await _write(() => _sessions.deleteSession(sessionId));
   }
 
   Future<AralSession> getSession(int sessionId) => _requireReadable(sessionId);
@@ -296,7 +297,7 @@ class AralSessionViewModel {
     await _requireWritable(sessionId);
     final a = (await _sessions.getAttendance(sessionId)).where((a) => a.enrollmentId == enrollmentId).firstOrNull;
     if (a == null) throw const ViewModelException('That learner has no mark in this session.');
-    await _sessions.deleteAttendance(a.id!);
+    await _write(() => _sessions.deleteAttendance(a.id!));
   }
 
   /// One ARAL learner's marks across the year, oldest first.
@@ -497,6 +498,9 @@ class AralSessionViewModel {
     try {
       return await write();
     } catch (e) {
+      // A record waiting in an upload (sync): say so, whatever else the
+      // statement's text happens to contain.
+      if ('$e'.contains(pendingLockMessage)) throw const ViewModelException(pendingLockMessage);
       final text = e.toString().toLowerCase();
       for (final refusal in _dbRefusals) {
         if (text.contains(refusal.toLowerCase())) throw ViewModelException('$refusal.');

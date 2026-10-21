@@ -24,44 +24,12 @@
 //   before createSyncLocalSchema, which recreates these triggers.
 import 'package:sqflite_common/sqflite.dart';
 
+import '../../services/sync_upload_rules.dart' show pendingLockMessage;
+import '../pull_tables.dart';
 import 'sync_local_writes.dart';
 
-/// The 18 synced tables (parents before children, as pull-cloud's order) and
-/// the column that keys a record.
-const syncedTables = <String, String>{
-  'crla_assessments': 'id',
-  'crla_part1_standard': 'assessment_id',
-  'crla_part1_english': 'assessment_id',
-  'crla_part2_fluency': 'assessment_id',
-  'phil_iri_gst_results': 'id',
-  'phil_iri_assessments': 'id',
-  'phil_iri_readings': 'id',
-  'phil_iri_miscues': 'id',
-  'phil_iri_answers': 'id',
-  'phil_iri_rubric_scores': 'id',
-  'aral_enrollments': 'id',
-  'aral_sessions': 'id',
-  'aral_attendance': 'id',
-  'aral_tutor_settings': 'tutor_id',
-  'aral_irip_weeks': 'id',
-  'aral_checkins': 'id',
-  'aral_checkin_answers': 'id',
-  'aral_readability_logs': 'id',
-};
-
-/// Child tables that travel with their owner record: (parent table, column
-/// holding the parent's key).
-const syncedParents = <String, (String, String)>{
-  'crla_part1_standard': ('crla_assessments', 'assessment_id'),
-  'crla_part1_english': ('crla_assessments', 'assessment_id'),
-  'crla_part2_fluency': ('crla_assessments', 'assessment_id'),
-  'phil_iri_readings': ('phil_iri_assessments', 'assessment_id'),
-  'phil_iri_rubric_scores': ('phil_iri_assessments', 'assessment_id'),
-  'phil_iri_miscues': ('phil_iri_readings', 'reading_id'),
-  'phil_iri_answers': ('phil_iri_readings', 'reading_id'),
-  'aral_attendance': ('aral_sessions', 'session_id'),
-  'aral_checkin_answers': ('aral_checkins', 'checkin_id'),
-};
+export '../pull_tables.dart' show syncedTables, syncedParents;
+export '../../services/sync_upload_rules.dart' show pendingLockMessage;
 
 /// Server rows of these tables are never changed by the server's rules.
 const _noServerUpdate = {'crla_assessments', 'phil_iri_gst_results'};
@@ -149,18 +117,18 @@ Future<void> createSyncLocalSchema(Database db) async {
     await trigger('sync_lock_upd_$t', '''
       BEFORE UPDATE ON $t
       WHEN $_bypassOff AND EXISTS (SELECT 1 FROM sync_pending WHERE table_name = '$t' AND row_key = $oldKey)
-      BEGIN SELECT RAISE(ABORT, 'pending upload'); END''');
+      BEGIN SELECT RAISE(ABORT, '$pendingLockMessage'); END''');
     await trigger('sync_lock_del_$t', '''
       BEFORE DELETE ON $t
       WHEN $_bypassOff AND EXISTS (SELECT 1 FROM sync_pending WHERE table_name = '$t' AND row_key = $oldKey)
-      BEGIN SELECT RAISE(ABORT, 'pending upload'); END''');
+      BEGIN SELECT RAISE(ABORT, '$pendingLockMessage'); END''');
     final parent = syncedParents[t];
     if (parent != null) {
       await trigger('sync_lock_child_$t', '''
         BEFORE INSERT ON $t
         WHEN $_bypassOff AND EXISTS (SELECT 1 FROM sync_pending
                                      WHERE table_name = '${parent.$1}' AND row_key = CAST(NEW.${parent.$2} AS TEXT))
-        BEGIN SELECT RAISE(ABORT, 'pending upload'); END''');
+        BEGIN SELECT RAISE(ABORT, '$pendingLockMessage'); END''');
     }
 
     if (_noServerUpdate.contains(t)) {
@@ -221,7 +189,7 @@ Future<void> createSyncLocalSchema(Database db) async {
       await db.execute('''
         CREATE TRIGGER $name BEFORE $event ON $table
         WHEN $_bypassOff$extra AND $pending
-        BEGIN SELECT RAISE(ABORT, 'pending upload'); END''');
+        BEGIN SELECT RAISE(ABORT, '$pendingLockMessage'); END''');
     }
   }
 
@@ -272,16 +240,8 @@ Future<void> renumberLocalRowsForV34(Database db) async {
               'AND $fk IN (SELECT ${syncedTables[parent]} FROM $parent WHERE row_version IS NOT NULL)$learner');
         }
 
-        // 2. Other triggers off (restored below).
-        final names = syncedTables.keys.map((t) => "'$t'").join(', ');
-        final saved = (await txn.rawQuery(
-                "SELECT name, sql FROM sqlite_master WHERE type = 'trigger' AND tbl_name IN ($names)"))
-            .where((t) => !(t['name'] as String).startsWith('sync_'))
-            .toList();
-        for (final t in saved) {
-          await txn.execute('DROP TRIGGER ${t['name']}');
-        }
-
+        // 2. Other triggers off for 3-4.
+        await withOtherSyncTableTriggersOff(txn, () async {
         // 3. New ids, parents first.
         final moved = <String, Map<int, int>>{};
         for (final e in syncedTables.entries.where((e) => e.value == 'id')) {
@@ -314,9 +274,60 @@ Future<void> renumberLocalRowsForV34(Database db) async {
         const crlaGrade = "(SELECT grade_level FROM sections WHERE id = aral_enrollments.section_id) IN ('1', '2', '3')";
         await follow('aral_enrollments', 'suggestion_assessment_id', 'crla_assessments', crlaGrade);
         await follow('aral_enrollments', 'suggestion_assessment_id', 'phil_iri_assessments', 'NOT $crlaGrade');
-
-        for (final t in saved) {
-          await txn.execute(t['sql'] as String);
-        }
+        });
       }));
+}
+
+/// Runs [body] inside [txn] with every trigger on the synced tables dropped
+/// except the sync_ ones (finalized/locked rows, "keeps its session" and
+/// compute triggers would refuse or redo id changes and copied rows), then
+/// recreates them from their stored SQL. If [body] throws, the transaction's
+/// rollback restores them.
+Future<void> withOtherSyncTableTriggersOff(Transaction txn, Future<void> Function() body) async {
+  final names = syncedTables.keys.map((t) => "'$t'").join(', ');
+  final saved = (await txn.rawQuery(
+          "SELECT name, sql FROM sqlite_master WHERE type = 'trigger' AND tbl_name IN ($names)"))
+      .where((t) => !(t['name'] as String).startsWith('sync_'))
+      .toList();
+  for (final t in saved) {
+    await txn.execute('DROP TRIGGER ${t['name']}');
+  }
+  await body();
+  for (final t in saved) {
+    await txn.execute(t['sql'] as String);
+  }
+}
+
+/// Gives this device's records their server ids ([moved]: device id ->
+/// server id, every table at once): the records themselves and every column
+/// pointing at them (declared foreign keys of every local table, plus the
+/// ARAL basis/suggestion ids). Following by value is sound only because the
+/// old ids are negative and unique across tables (one countdown); never use
+/// it for positive ids. Call inside [withOtherSyncTableTriggersOff].
+Future<void> followLocalIds(Transaction txn, Map<int, int> moved) async {
+  if (moved.isEmpty) return;
+  assert(moved.keys.every((k) => k < 0));
+  final idTables = {for (final e in syncedTables.entries) if (e.value == 'id') e.key};
+  final columns = <(String, String)>[
+    for (final t in idTables) (t, 'id'),
+    ('aral_enrollments', 'basis_assessment_id'),
+    ('aral_enrollments', 'suggestion_assessment_id'),
+  ];
+  final tables = await txn.rawQuery("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'");
+  for (final t in tables.map((r) => r['name'] as String)) {
+    for (final fk in await txn.rawQuery('PRAGMA foreign_key_list($t)')) {
+      if (idTables.contains(fk['table'])) columns.add((t, fk['from'] as String));
+    }
+  }
+  // Chunks: older Android SQLite allows 999 bound values per statement.
+  final entries = moved.entries.toList();
+  for (var i = 0; i < entries.length; i += 500) {
+    final chunk = entries.sublist(i, i + 500 > entries.length ? entries.length : i + 500);
+    final olds = [for (final e in chunk) e.key];
+    final marks = List.filled(olds.length, '?').join(', ');
+    final cases = chunk.map((e) => 'WHEN ${e.key} THEN ${e.value}').join(' ');
+    for (final (table, column) in columns.toSet()) {
+      await txn.rawUpdate('UPDATE $table SET $column = CASE $column $cases END WHERE $column IN ($marks)', olds);
+    }
+  }
 }

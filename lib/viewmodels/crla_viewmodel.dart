@@ -17,6 +17,7 @@ import '../core/repositories/school_repository.dart';
 import '../core/repositories/section_repository.dart';
 import '../core/services/crla_rules.dart';
 import '../core/services/normalizers.dart';
+import '../core/services/sync_upload_rules.dart' show pendingLockMessage;
 import 'viewmodel_exception.dart';
 
 /// CRLA assessments, offline-first (local database).
@@ -380,7 +381,7 @@ class CrlaViewModel {
       variant: a.subjectVariant,
       t: _thresholdsOf(a),
     );
-    await _assessments.setReadingProfile(a.id!, profile);
+    await _write(() => _assessments.setReadingProfile(a.id!, profile));
   }
 
   Future<CrlaAssessment> _requireVariant(
@@ -415,6 +416,9 @@ class CrlaViewModel {
     try {
       return await write();
     } catch (e) {
+      // A record waiting in an upload (sync): say so, whatever else the
+      // statement's text happens to contain.
+      if ('$e'.contains(pendingLockMessage)) throw const ViewModelException(pendingLockMessage);
       final text = e.toString();
       for (final refusal in _dbRefusals) {
         if (text.contains(refusal)) throw ViewModelException('$refusal.');

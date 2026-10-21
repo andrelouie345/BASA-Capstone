@@ -13,14 +13,11 @@
 //   parent record, ...) refuses the whole pull: rolled back, rows listed.
 // One transaction under the sync bypass, so the pull's own writes are never
 // journaled or refused by the pending lock.
-import 'dart:convert';
-
 import 'package:sqflite_common/sqflite.dart';
 
 import '../../models/sync_pull.dart';
 import '../../repositories/sync_local_repository.dart';
 import '../pull_tables.dart';
-import 'sync_local_schema.dart';
 import 'sync_local_writes.dart';
 
 /// Tables with the local-only origin column: mirrored rows are 'cloud'.
@@ -52,6 +49,9 @@ String _kept(String table, String alias) {
       "OR $key IN (SELECT row_key FROM sync_pending WHERE table_name = '$table')"
       "${table == 'crla_assessments' ? ' OR $key IN ($_crlaWithNewPart)' : ''})";
 }
+
+/// localWork's kind for records waiting in an upload (followed by its id).
+const pendingWorkKind = 'record(s) waiting in upload ';
 
 class SyncLocalRepositorySqlite implements SyncLocalRepository {
   final Database db;
@@ -114,7 +114,7 @@ class SyncLocalRepositorySqlite implements SyncLocalRepository {
         UNION ALL
         $_newUnderServerRows
         UNION ALL
-        SELECT 'record(s) waiting in upload ' || upload_id, NULL FROM sync_pending
+        SELECT '$pendingWorkKind' || upload_id, NULL FROM sync_pending
       ) x
       LEFT JOIN sections s ON s.id = x.section_id
       GROUP BY x.kind, x.section_id
@@ -215,7 +215,7 @@ class SyncLocalRepositorySqlite implements SyncLocalRepository {
                     continue;
                   }
                 }
-                final local = _toLocal(row, localCols);
+                final local = serverRowToLocal(row, localCols);
                 if (_originTables.contains(t)) local['origin'] = 'cloud';
                 try {
                   await txn.insert(t, local);
@@ -331,17 +331,4 @@ Future<void> _setMeta(Transaction txn, Map<String, String?> values) async {
   for (final e in values.entries) {
     await txn.insert('sync_meta', {'key': e.key, 'value': e.value}, conflictAlgorithm: ConflictAlgorithm.replace);
   }
-}
-
-Map<String, Object?> _toLocal(Map<String, dynamic> row, Set<String> localCols) {
-  final out = <String, Object?>{};
-  row.forEach((key, value) {
-    if (!localCols.contains(key)) return;
-    out[key] = switch (value) {
-      bool b => b ? 1 : 0, // SQLite has no bool (users.is_active)
-      Map _ || List _ => jsonEncode(value),
-      _ => value,
-    };
-  });
-  return out;
 }

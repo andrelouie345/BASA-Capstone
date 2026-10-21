@@ -23,6 +23,7 @@ import '../core/models/user_role.dart';
 import '../core/repositories/aral_enrollment_repository.dart';
 import '../core/repositories/aral_irip_repository.dart';
 import '../core/services/aral_irip_rules.dart';
+import '../core/services/sync_upload_rules.dart' show pendingLockMessage;
 import 'auth_viewmodel.dart';
 import 'viewmodel_exception.dart';
 
@@ -285,7 +286,7 @@ class AralIripViewModel {
     _log('deleteWeek($weekId)');
     final w = await _requireWeek(weekId);
     await _requireLast(w, 'be deleted');
-    await _irip.deleteWeek(weekId);
+    await _write(() => _irip.deleteWeek(weekId));
   }
 
   // ---- helpers ----
@@ -343,6 +344,9 @@ class AralIripViewModel {
     try {
       return await write();
     } catch (e) {
+      // A record waiting in an upload (sync): say so, whatever else the
+      // statement's text happens to contain.
+      if ('$e'.contains(pendingLockMessage)) throw const ViewModelException(pendingLockMessage);
       final text = e.toString().toLowerCase();
       for (final refusal in _dbRefusals) {
         if (text.contains(refusal.toLowerCase())) throw ViewModelException('$refusal.');

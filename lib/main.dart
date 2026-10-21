@@ -67,8 +67,11 @@ import 'package:basa_capstone/core/data/local/crla_part2_fluency_repository_sqli
 import 'package:basa_capstone/core/data/local/crla_result_repository_sqlite.dart';
 import 'package:basa_capstone/viewmodels/crla_viewmodel.dart';
 import 'package:basa_capstone/core/console/commands/pull_commands.dart';
+import 'package:basa_capstone/core/console/commands/sync_commands.dart';
 import 'package:basa_capstone/core/data/local/sync_local_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/remote/sync_download_supabase.dart';
+import 'package:basa_capstone/core/data/remote/sync_remote_supabase.dart';
+import 'package:basa_capstone/core/data/local/sync_upload_local_sqlite.dart';
 import 'package:basa_capstone/viewmodels/sync_viewmodel.dart';
 import 'package:basa_capstone/core/data/local/crla_story_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/crla_threshold_repository_sqlite.dart';
@@ -204,10 +207,13 @@ vmRegistry.register('TextViewModel', textVm);
     auth: authVm,
     local: SyncLocalRepositorySqlite(localDb),
     download: SyncDownloadSupabase.new,
+    uploadLocal: SyncUploadLocalSqlite(localDb),
+    remote: SyncRemoteSupabase.new,
     logger: session,
   );
   vmRegistry.register('SyncViewModel', syncVm);
   registerPullCommands(registry, syncVm);
+  registerSyncCommands(registry, syncVm);
 
   
     final crlaVm = CrlaViewModel(

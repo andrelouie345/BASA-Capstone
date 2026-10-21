@@ -34,6 +34,7 @@ import '../core/services/aral_checkin_rules.dart';
 import '../core/services/aral_rules.dart' show AralProgramSettings, AralSessionSettings;
 import '../core/services/csv.dart';
 import '../core/services/normalizers.dart';
+import '../core/services/sync_upload_rules.dart' show pendingLockMessage;
 import 'auth_viewmodel.dart';
 import 'viewmodel_exception.dart';
 
@@ -339,7 +340,7 @@ class AralCheckinViewModel {
   Future<void> deleteCheckin(int checkinId) async {
     _log('deleteCheckin($checkinId)');
     await _requireCheckin(checkinId);
-    await _checkins.deleteCheckin(checkinId);
+    await _write(() => _checkins.deleteCheckin(checkinId));
   }
 
   /// Enters the learner's letters for consecutive choice items, starting at
@@ -387,7 +388,7 @@ class AralCheckinViewModel {
     _log('clearAnswer($checkinId, $itemNo)');
     final (c, _) = await _requireCheckin(checkinId);
     final item = await _item(c, itemNo);
-    await _checkins.deleteAnswer(c.id!, item.id);
+    await _write(() => _checkins.deleteAnswer(c.id!, item.id));
   }
 
   // ---- Cut-off ----
@@ -585,6 +586,9 @@ class AralCheckinViewModel {
     try {
       return await write();
     } catch (e) {
+      // A record waiting in an upload (sync): say so, whatever else the
+      // statement's text happens to contain.
+      if ('$e'.contains(pendingLockMessage)) throw const ViewModelException(pendingLockMessage);
       final text = e.toString().toLowerCase();
       for (final refusal in _dbRefusals) {
         if (text.contains(refusal.toLowerCase())) throw ViewModelException('$refusal.');

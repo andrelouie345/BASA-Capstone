@@ -36,6 +36,7 @@ import '../core/repositories/section_repository.dart';
 import '../core/services/normalizers.dart';
 import '../core/services/phil_iri_results.dart';
 import '../core/services/phil_iri_rules.dart';
+import '../core/services/sync_upload_rules.dart' show pendingLockMessage;
 import 'auth_viewmodel.dart';
 import 'viewmodel_exception.dart';
 
@@ -917,6 +918,9 @@ class PhilIriViewModel {
     try {
       return await write();
     } catch (e) {
+      // A record waiting in an upload (sync): say so, whatever else the
+      // statement's text happens to contain.
+      if ('$e'.contains(pendingLockMessage)) throw const ViewModelException(pendingLockMessage);
       final text = e.toString();
       for (final refusal in _dbRefusals) {
         if (text.contains(refusal)) throw ViewModelException(refusal.endsWith('.') ? refusal : '$refusal.');

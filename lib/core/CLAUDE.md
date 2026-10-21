@@ -42,7 +42,7 @@ Nothing in `core/` imports Flutter. Keep it that way.
 ## Sync bookkeeping (SQLite v34; spec `docs/superpowers/specs/2026-10-20-sync-design.md`)
 - The 18 synced tables (`syncedTables` in `data/local/sync_local_schema.dart`) carry `row_version`: NULL = new on this device, not NULL = copy of a server row (0 = pulled before v34, version unknown).
 - **Every new row in the 14 id-keyed synced tables gets `'id': await nextLocalId(db)`** (`sync_local_writes.dart`; -1, -2, ... one countdown, never reused). A trigger refuses a new row with a positive id. Lists that order by id use `(id < 0), abs(id)`.
-- Edits/deletes of server rows are journaled in `sync_changes` by triggers; ops the server refuses are refused locally (`crla_assessments` and `phil_iri_gst_results` insert-only, except the CRLA `reading_profile`; CRLA parts never deleted). Rows in `sync_pending` (an upload awaiting a decision) can't change, and no child can be added under them (`'pending upload'`).
+- Edits/deletes of server rows are journaled in `sync_changes` by triggers; ops the server refuses are refused locally (`crla_assessments` and `phil_iri_gst_results` insert-only, except the CRLA `reading_profile`; CRLA parts never deleted). Rows in `sync_pending` (an upload awaiting a decision) can't change, and no child can be added under them (`pendingLockMessage`: "This record is waiting for approval. Withdraw the upload to change it.").
 - Cloud rows copied down outside a pull go through `mirrorSyncedRow` (not `upsertById`); the pull runs under `withSyncBypass`. The bypass only exists inside a transaction.
 - A table rebuild must copy `row_version` and run before `createSyncLocalSchema` (called last), which recreates the sync triggers.
 

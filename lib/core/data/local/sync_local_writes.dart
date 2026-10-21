@@ -7,6 +7,8 @@
 //   the bypass row never outlives the transaction that wrote it.
 // - mirrorSyncedRow: a cloud row copied onto this device outside a pull
 //   (e.g. CRLA regenerate), the synced-table form of upsertById.
+import 'dart:convert';
+
 import 'package:sqflite_common/sqflite.dart';
 
 import 'mirror_write.dart';
@@ -55,4 +57,19 @@ Future<void> mirrorSyncedRow(
           await upsertById(txn, table, existing.isEmpty ? full : row, key: key);
         }
       }));
+}
+
+/// A server row in the local shape: only columns the local table has
+/// ([localCols]); booleans as 0/1, JSON as text.
+Map<String, Object?> serverRowToLocal(Map<String, dynamic> row, Set<String> localCols) {
+  final out = <String, Object?>{};
+  row.forEach((key, value) {
+    if (!localCols.contains(key)) return;
+    out[key] = switch (value) {
+      bool b => b ? 1 : 0, // SQLite has no bool (users.is_active)
+      Map _ || List _ => jsonEncode(value),
+      _ => value,
+    };
+  });
+  return out;
 }
