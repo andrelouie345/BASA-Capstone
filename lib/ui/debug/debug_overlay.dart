@@ -24,6 +24,7 @@ class DebugConsoleShell extends StatefulWidget {
 class _DebugConsoleShellState extends State<DebugConsoleShell> {
   bool _visible = false;
   late final TripleTildeDetector _detector;
+  late final CornerTapDetector _cornerTaps;
   late final CommandRecorder _commandRecorder;
   final _inputController = TextEditingController();
   final _focusNode = FocusNode();
@@ -37,6 +38,9 @@ class _DebugConsoleShellState extends State<DebugConsoleShell> {
   void initState() {
     super.initState();
     _detector = TripleTildeDetector(
+      onTriggered: () => setState(() => _visible = !_visible),
+    );
+    _cornerTaps = CornerTapDetector(
       onTriggered: () => setState(() => _visible = !_visible),
     );
     _commandRecorder = CommandRecorder();
@@ -76,7 +80,11 @@ class _DebugConsoleShellState extends State<DebugConsoleShell> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
+    // Listener, not GestureDetector: sees corner taps without taking them
+    // from the widget underneath.
+    return Listener(
+      onPointerDown: (e) => _cornerTaps.handlePointerDown(e.position),
+      child: Stack(
       children: [
         widget.child,
         if (_visible)
@@ -141,6 +149,7 @@ class _DebugConsoleShellState extends State<DebugConsoleShell> {
             ),
           ),
       ],
+      ),
     );
   }
 }

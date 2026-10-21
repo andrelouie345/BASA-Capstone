@@ -49,7 +49,6 @@ import 'core/console/console_session.dart';
 import 'core/console/commands/text_commands.dart';
 import 'viewmodels/text_viewmodel.dart';
 import 'ui/debug/debug_overlay.dart';
-import 'dart:io';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite_common/sqflite.dart';
 import 'package:path_provider/path_provider.dart';
@@ -145,14 +144,18 @@ import 'package:basa_capstone/viewmodels/phil_iri_content_viewmodel.dart';
 import 'package:basa_capstone/viewmodels/phil_iri_viewmodel.dart';
 
 Future <void> main() async{
+  // Must come first: on Android/iOS sqflite and path_provider talk to the
+  // platform over channels, which need the binding. Desktop (FFI) never
+  // noticed; without this the phone crashes before runApp (black screen).
+  WidgetsFlutterBinding.ensureInitialized();
 
-  // Desktop needs FFI explicitly. Android/iOS get sqflite's native
-  // factory automatically via the Flutter plugin system — do NOT set
-  // databaseFactory yourself there, or you'll fight the plugin.
-  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
-  }
+  // FFI on every platform, so every device runs the SQLite that
+  // package:sqlite3 bundles (its build hook compiles it into the app), not
+  // the phone's system SQLite. Android 10 ships 3.22: its fixed parser stack
+  // overflows on the Phil-IRI no-repeat trigger (26 nested replace() calls)
+  // and JSON1 depends on the vendor. Same engine as desktop and the console.
+  sqfliteFfiInit();
+  databaseFactory = databaseFactoryFfi;
     final docsDir = await getApplicationDocumentsDirectory();
     final localDb = await LocalDatabase.instance(docsDir.path);
     final registry = ConsoleRegistry();
