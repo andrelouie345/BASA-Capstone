@@ -66,6 +66,10 @@ insert into public.basa_migrations (id, name, app_update_required)
 values ('<id>', '<name>', <true|false>) on conflict (id) do nothing;
 ```
 
+A migration marked **yes** also says, in its header, `Apply only when all work
+is finalized: every device synced, every upload decided (README "Keeping BASA
+up to date")`, and its line in the list above says the same.
+
 The same commit adds `'<id>': '<name>'` to `lib/core/release.dart`. Without the
 ledger row, every app built with that migration refuses to sign in to the
 database ("the database is older than this BASA app").
@@ -247,6 +251,52 @@ student-list
 student-list-section <sectionId>
 ```
 
+**Offline sign-in** (only the device's owner = the last user who ran
+`pull-cloud` here; within the offline window; the password is typed every time)
+
+```
+sign-in-offline <email> <password>
+offline-status
+```
+
+**Sync, tutor side** (online sign-in; the device owner only)
+
+```
+pull-cloud yes [discard-local]
+sync-preview
+sync-resolve <table> <key> mine|server
+sync-upload yes
+sync-status
+sync-withdraw <id>|latest
+```
+
+`pull-cloud` merges: it refreshes the local copy but keeps this device's
+unsent and pending work (`discard-local` deletes that work first). Sending
+work is `sync-preview` (what would go, and conflicts to resolve first) →
+`sync-upload yes` (one upload) → after the decision, `sync-status` takes the
+result in → `pull-cloud yes`. Records in a pending upload are read-only until
+it is decided; `sync-withdraw` takes it back to change them.
+
+**Sync, approver side** (admin/coordinator: own school; superadmin: all
+schools, or one with `sync-pending <schoolId>`; online)
+
+```
+sync-pending [schoolId]
+sync-show <id>|latest
+sync-approve <id>|latest
+sync-reject <id>|latest <reason...>
+sync-auto-approve <region|schoolId> [on|off]
+offline-days <region|schoolId>
+offline-days-set <region|schoolId> <1-60>
+```
+
+Approving applies the upload on the server; run `pull-cloud yes` to see it on
+the approver's device. With auto-approve on for a school, its tutors' uploads
+apply as they arrive (uploads already waiting still need `sync-approve`);
+admin/coordinator uploads always apply at once. Settings reach the tablets at
+their next pull. `report-settings-reset <schoolId>` drops the school's done
+threshold, auto-approve and offline window so the region's apply.
+
 **Local cache only** (offline reads — may lag behind Supabase)
 
 ```
@@ -319,6 +369,21 @@ are changed through the app at any time.
    - work entered on it can be refused by the database;
    - it keeps computing with the old rules.
 
+**Pre-update checklist** (for every release with a migration marked `App
+update required on all devices: yes`). Uploads are checked against the
+release that made them, so finish the open work first:
+
+1. **Every device syncs** (`sync-upload yes`, then `sync-status`).
+2. **Approvers decide every upload**: `sync-pending` (superadmin: per school)
+   must show none still pending and none sent back in conflict.
+3. **Only then** apply the migrations (section 2b) and update every device.
+
+Safety net: an upload made by the older release that is still pending after
+the migration is refused by `sync-approve` ("made by an older BASA
+release"). Nothing is lost; its records are still on the tablet, locked. The
+approver rejects it (or the tutor withdraws it), the tutor updates BASA and
+syncs again.
+
 What protects the data: the database checks refuse rows that break the
 current rules, so an outdated device cannot store invalid data in the cloud.
 What it does NOT protect against is an outdated device working by old rules
@@ -359,7 +424,17 @@ reason.
   baseline. To refresh the baseline later, re-dump the live schema
   (`pg_dump --schema-only --schema=public --no-owner --no-privileges`, session
   pooler connection) and regenerate it.
-- **Login is always online** — no offline/cached fallback exists.
+- **A lost device keeps its offline sign-in and its data** — deactivating
+  the account or changing the password can't reach a device that stays
+  offline; the old password keeps working there until the offline window
+  (`offline-days`, default 14) runs out. The stored password hash is salted
+  and slow, but the local database is not encrypted. Unsent work on a lost
+  device is lost; its pending uploads can still be approved or rejected.
+- **The offline window trusts the device clock**, which a user can change.
+- **Offline sign-in attempts stay on the device** — they are written to the
+  local login log only, never pushed to the server.
+- **Every sync does a full pull** — fine for a tutor's sections, slow for a
+  superadmin's whole region.
 - **Cloud login-log sync has no retry** — an attempt logged locally while
   offline never gets flushed to the cloud once connectivity returns.
 - **`login_logs` INSERT is open to `anon` for failed attempts** — required
@@ -373,23 +448,25 @@ reason.
   them.
 - **Orphaned students** (`school_id` NULL, never enrolled) can be updated
   by any admin/coordinator but deleted only by a superadmin.
-- **Local cache isn't scoped per user yet** — a second user signing in on
-  a shared device is intended to replace the local cache (with a warning
-  to the user), but this isn't implemented.
+- **A device has one owner** (the last user who pulled). Another user's
+  `pull-cloud` is refused while the owner has unsent or pending work on it;
+  the owner syncs first (or `pull-cloud yes discard-local` deletes that work).
+  Tablets are handed over, not shared.
 - **No separate admin/tutor builds** — role gating is currently
   client-side/UI-level only, not enforced by excluding code from the
   build.
 - **LAN/self-hosted profile is untested end-to-end.**
 - **The version check runs only at online sign-in** — a database migrated
   while someone is signed in is noticed at their next sign-in (or with
-  `version-check`). There is no offline sign-in yet; sync will decide what it
-  trusts.
+  `version-check`). Offline sign-in trusts the release recorded at the last
+  online sign-in.
 - **Sf1Importer's Supabase write and local mirror aren't atomic** — a
   crash mid-import can leave the local cache stale (Supabase stays
   correct; local needs a manual re-sync in that case).
-- **Multi-tutor concurrent-edit protection** (two co-assigned tutors on
-  the same section editing the same data without clobbering each other)
-  is deferred to the CRLA/ARAL assessment modules — not designed yet.
+- **Two tutors editing the same record** — an upload is stopped when a
+  record it changes was changed on the server since the device pulled it;
+  the tutor picks which copy to keep (`sync-resolve`). Nothing merges two
+  edits of the same record field by field.
 - **`resolve-conflicts-all`** applies its action to every pending
   conflict with no individual review — fine for seeded test data, risky
   if ever exposed for real admin use without a confirmation step.
