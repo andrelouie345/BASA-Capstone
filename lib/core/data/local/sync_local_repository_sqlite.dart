@@ -149,6 +149,8 @@ class SyncLocalRepositorySqlite implements SyncLocalRepository {
               }
               discardedPending = await txn.delete('sync_pending');
               discardedChanges = await txn.delete('sync_changes');
+              // An upload whose answer never came is discarded with its rows.
+              await txn.delete('sync_meta', where: 'key = ?', whereArgs: ['upload_in_flight']);
             }
 
             // What stays: keys per synced table.

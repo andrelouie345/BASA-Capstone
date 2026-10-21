@@ -5,7 +5,8 @@
 // partial map; the effective values are the built-in defaults, then the
 // region row, then the school row, key by key (as aral_settings).
 // Keys: done_threshold (a share 0.01-1, default 0.85), offline_signin_days
-// (whole days 1-60, default 14; sync spec 2.4), sync_auto_approve (S6).
+// (whole days 1-60, default 14; sync spec 2.4), sync_auto_approve (bool,
+// default false; sync S6).
 import 'dart:convert';
 
 class ReportSetting {
@@ -49,6 +50,9 @@ class ReportSettings {
   static const defaultDoneThreshold = 0.85;
   static const offlineSigninDaysKey = 'offline_signin_days';
   static const defaultOfflineSigninDays = 14;
+  static const syncAutoApproveKey = 'sync_auto_approve';
+  static const minOfflineSigninDays = 1;
+  static const maxOfflineSigninDays = 60;
 
   /// Share of a section's enrolled learners that must be assessed in a round
   /// for the section to count as done (progress monitoring, reminders).
@@ -58,11 +62,19 @@ class ReportSettings {
   /// sign in offline.
   final int offlineSigninDays;
 
-  const ReportSettings({this.doneThreshold = defaultDoneThreshold, this.offlineSigninDays = defaultOfflineSigninDays});
+  /// Uploads from this school's tutors apply without an approver (sync).
+  final bool syncAutoApprove;
+
+  const ReportSettings({
+    this.doneThreshold = defaultDoneThreshold,
+    this.offlineSigninDays = defaultOfflineSigninDays,
+    this.syncAutoApprove = false,
+  });
 
   factory ReportSettings.fromMap(Map<String, Object?> m) => ReportSettings(
         doneThreshold: (m[doneThresholdKey] as num?)?.toDouble() ?? defaultDoneThreshold,
         offlineSigninDays: (m[offlineSigninDaysKey] as num?)?.toInt() ?? defaultOfflineSigninDays,
+        syncAutoApprove: m[syncAutoApproveKey] == true,
       );
 }
 

@@ -1,7 +1,8 @@
 // lib/viewmodels/report_settings_viewmodel.dart
 //
 // Report settings (dashboard D2): the progress "done" threshold, saved per
-// region (superadmin) with school overrides (their admin/coordinator).
+// region (superadmin) with school overrides (their admin/coordinator). Sync
+// (S6) adds the auto-approve switch and the offline sign-in window, same rows.
 // Progress monitoring and coordinator reminders read the value that applies:
 // the built-in default (0.85), then the region row, then the school row.
 // Written online and mirrored to this device; read from the local copy.
@@ -57,6 +58,35 @@ class ReportSettingsViewModel {
     );
   }
 
+  /// The stored auto-approve values (null = not set) and the one that
+  /// applies to [schoolId] (null = the region's).
+  Future<({bool? region, bool? school, bool effective})> autoApproveLayers(int? schoolId) async {
+    _log('autoApproveLayers($schoolId)');
+    final (region, school) = await _layers(schoolId);
+    bool? read(ReportSetting? s) => s?.settings[ReportSettings.syncAutoApproveKey] as bool?;
+    return (
+      region: read(region),
+      school: read(school),
+      effective: ReportSettings.fromMap({...?region?.settings, ...?school?.settings}).syncAutoApprove,
+    );
+  }
+
+  /// The stored offline sign-in windows (null = not set) and the one that
+  /// applies to [schoolId] (null = the region's).
+  Future<({int? region, int? school, int effective})> offlineDaysLayers(int? schoolId) async {
+    _log('offlineDaysLayers($schoolId)');
+    final (region, school) = await _layers(schoolId);
+    int? read(ReportSetting? s) => (s?.settings[ReportSettings.offlineSigninDaysKey] as num?)?.toInt();
+    return (
+      region: read(region),
+      school: read(school),
+      effective: ReportSettings.fromMap({...?region?.settings, ...?school?.settings}).offlineSigninDays,
+    );
+  }
+
+  Future<(ReportSetting?, ReportSetting?)> _layers(int? schoolId) async =>
+      (await _local.getRegion(), schoolId == null ? null : await _local.getForSchool(schoolId));
+
   // ---- Writing (online, then mirrored) ----
 
   /// Sets the done threshold (a share 0.01-1) of the region ([schoolId] null,
@@ -67,11 +97,27 @@ class ReportSettingsViewModel {
     if (!(share >= 0.01 && share <= 1)) {
       throw ViewModelException('The done threshold is a share from 0.01 to 1 (1% to 100%), not $share.');
     }
-    final current = schoolId == null ? await cloud.getRegion() : await cloud.getForSchool(schoolId);
-    final saved = await _cloudWrite(
-        () => cloud.save(schoolId, {...?current?.settings, ReportSettings.doneThresholdKey: share}));
-    await _mirror(() => _local.upsertWithId(saved));
-    return saved;
+    return _setKey(cloud, schoolId, ReportSettings.doneThresholdKey, share);
+  }
+
+  /// Turns sync auto-approve on or off for the region ([schoolId] null,
+  /// superadmin) or a school (its admin/coordinator). Uploads already
+  /// waiting are not applied by turning it on.
+  Future<ReportSetting> setAutoApprove(int? schoolId, bool on) async {
+    _log('setAutoApprove($schoolId, $on)');
+    return _setKey(_writer(schoolId), schoolId, ReportSettings.syncAutoApproveKey, on);
+  }
+
+  /// Sets the offline sign-in window (whole days 1-60) of the region or a
+  /// school. Tablets get it with their next pull.
+  Future<ReportSetting> setOfflineDays(int? schoolId, int days) async {
+    _log('setOfflineDays($schoolId, $days)');
+    final cloud = _writer(schoolId);
+    if (days < ReportSettings.minOfflineSigninDays || days > ReportSettings.maxOfflineSigninDays) {
+      throw ViewModelException('The offline sign-in window is ${ReportSettings.minOfflineSigninDays} to '
+          '${ReportSettings.maxOfflineSigninDays} days, not $days.');
+    }
+    return _setKey(cloud, schoolId, ReportSettings.offlineSigninDaysKey, days);
   }
 
   /// Removes a school's override so the region values apply again.
@@ -86,6 +132,15 @@ class ReportSettingsViewModel {
   }
 
   // ---- Helpers ----
+
+  /// Saves one key into the row of [schoolId] (null = the region's), keeping
+  /// its other keys, then mirrors it.
+  Future<ReportSetting> _setKey(ReportSettingRepository cloud, int? schoolId, String key, Object value) async {
+    final current = schoolId == null ? await cloud.getRegion() : await cloud.getForSchool(schoolId);
+    final saved = await _cloudWrite(() => cloud.save(schoolId, {...?current?.settings, key: value}));
+    await _mirror(() => _local.upsertWithId(saved));
+    return saved;
+  }
 
   User _me() {
     final me = _auth.currentUser;

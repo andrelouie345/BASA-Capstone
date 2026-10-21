@@ -31,4 +31,15 @@ abstract class SyncRemoteRepository {
   Future<SyncApplyResult> apply(int uploadId);
 
   Future<void> withdraw(int uploadId);
+
+  // ---- Approver (S6) ----
+
+  /// Uploads of [schoolId] (null = every school the caller may read) with
+  /// one of [statuses], oldest first. Never the payload.
+  Future<List<SyncUploadRow>> schoolUploads({int? schoolId, required List<String> statuses});
+
+  /// One upload the caller may read, with its payload when [withPayload].
+  Future<SyncUploadRow?> uploadById(int id, {bool withPayload = false});
+
+  Future<void> reject(int uploadId, String reason);
 }

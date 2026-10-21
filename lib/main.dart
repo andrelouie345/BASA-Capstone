@@ -73,6 +73,8 @@ import 'package:basa_capstone/core/data/remote/sync_download_supabase.dart';
 import 'package:basa_capstone/core/data/remote/sync_remote_supabase.dart';
 import 'package:basa_capstone/core/data/local/sync_upload_local_sqlite.dart';
 import 'package:basa_capstone/viewmodels/sync_viewmodel.dart';
+import 'package:basa_capstone/viewmodels/sync_review_viewmodel.dart';
+import 'package:basa_capstone/core/data/local/sync_review_local_sqlite.dart';
 import 'package:basa_capstone/core/data/local/crla_story_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/crla_threshold_repository_sqlite.dart';
 import 'package:basa_capstone/core/console/commands/crla_threshold_commands.dart';
@@ -214,6 +216,15 @@ vmRegistry.register('TextViewModel', textVm);
   vmRegistry.register('SyncViewModel', syncVm);
   registerPullCommands(registry, syncVm);
   registerSyncCommands(registry, syncVm);
+
+  final syncReviewVm = SyncReviewViewModel(
+    auth: authVm,
+    local: SyncReviewLocalSqlite(localDb),
+    remote: SyncRemoteSupabase.new,
+    logger: session,
+  );
+  vmRegistry.register('SyncReviewViewModel', syncReviewVm);
+  registerSyncReviewCommands(registry, syncReviewVm);
 
   
     final crlaVm = CrlaViewModel(

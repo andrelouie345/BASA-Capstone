@@ -202,6 +202,22 @@ class SyncViewModel {
           continue;
         case 'applied':
           await _takeIn(remote, row);
+        case 'conflict':
+          // Sent back: withdraw it so it doesn't stay open on the server. The
+          // records stay locked until that worked (the next refresh retries).
+          try {
+            await remote.withdraw(id);
+          } catch (e) {
+            _log('upload $id: conflict, withdraw failed: $e');
+            out.add(SyncOutcome(
+                uploadId: id,
+                status: 'conflict',
+                records: records,
+                reason: 'it could not be withdrawn on the server (${_plain(e)}); run sync-status again',
+                conflicts: row.conflicts));
+            continue;
+          }
+          await _uploadLocal.releaseUpload(id);
         default:
           await _uploadLocal.releaseUpload(id);
       }
@@ -275,12 +291,23 @@ class SyncViewModel {
     } catch (e) {
       applyError = _plain(e);
     }
-    final outcomes = applyNow ? await refreshStatus() : const <SyncOutcome>[];
+    // The upload is on the server now: failing to read its decision must not
+    // look like a failed upload (S5 review M4).
+    var outcomes = const <SyncOutcome>[];
+    String? statusError;
+    if (applyNow) {
+      try {
+        outcomes = await refreshStatus();
+      } catch (e) {
+        statusError = e is ViewModelException ? e.message : '$e';
+      }
+    }
     return SyncUploadResult(
       uploadId: row.id,
       records: p.package.rowCount,
       outcome: outcomes.where((o) => o.uploadId == row.id).firstOrNull,
       applyError: applyError,
+      statusError: statusError,
     );
   }
 

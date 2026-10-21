@@ -112,6 +112,10 @@ class SyncProblem {
 /// payload).
 class SyncUploadRow {
   final int id;
+  final String? uploaderId;
+
+  /// null only for a superadmin's own upload.
+  final int? schoolId;
 
   /// pending | applied | rejected | withdrawn | conflict | error
   final String status;
@@ -124,8 +128,14 @@ class SyncUploadRow {
   final DateTime? decidedAt;
   final Map<String, Object?> summary;
 
+  /// The package; only read for one upload (SyncReviewViewModel.details).
+  final Map<String, Object?>? payload;
+
   const SyncUploadRow({
     required this.id,
+    this.uploaderId,
+    this.schoolId,
+    this.payload,
     required this.status,
     required this.createdAt,
     this.reason,
@@ -140,20 +150,31 @@ class SyncUploadRow {
   /// Rows sent (records and their items).
   int get rows => (summary['rows'] as num?)?.toInt() ?? 0;
 
+  /// The counts per kind and section the uploader's device wrote.
+  List<LocalWorkLine> get summaryLines => [
+        for (final l in (summary['lines'] as List?) ?? const [])
+          LocalWorkLine(
+            kind: '${l['kind']}',
+            count: (l['count'] as num?)?.toInt() ?? 0,
+            sectionId: (l['section_id'] as num?)?.toInt(),
+            gradeLevel: l['grade_level'] as String?,
+            sectionName: l['section_name'] as String?,
+            schoolYear: l['school_year'] as String?,
+          ),
+      ];
+
+  /// The package's records (empty when it wasn't read).
+  List<Map<String, Object?>> get records => [
+        for (final r in (payload?['records'] as List?) ?? const []) (r as Map).cast<String, Object?>(),
+      ];
+
   factory SyncUploadRow.fromMap(Map<String, dynamic> m) => SyncUploadRow(
         id: (m['id'] as num).toInt(),
         status: m['status'] as String,
         reason: m['reason'] as String?,
-        conflicts: [
-          for (final c in (m['conflicts'] as List?) ?? const [])
-            SyncProblem(
-              table: c['table'] as String,
-              key: '${(c['key'] as Map).values.first}',
-              kind: c['server_row'] == null ? 'server_deleted' : 'conflict',
-              baseVersion: (c['base_version'] as num?)?.toInt(),
-              serverVersion: (c['server_version'] as num?)?.toInt(),
-            ),
-        ],
+        uploaderId: m['uploader_id'] as String?,
+        schoolId: (m['school_id'] as num?)?.toInt(),
+        conflicts: parseSyncConflicts(m['conflicts']),
         idMap: {
           for (final e in ((m['id_map'] as Map?) ?? const {}).entries)
             e.key as String: {for (final k in (e.value as Map).entries) k.key as String: (k.value as num).toInt()},
@@ -161,14 +182,28 @@ class SyncUploadRow {
         createdAt: DateTime.parse(m['created_at'] as String),
         decidedAt: m['decided_at'] == null ? null : DateTime.parse(m['decided_at'] as String),
         summary: Map<String, Object?>.from((m['summary'] as Map?) ?? const {}),
+        payload: (m['payload'] as Map?)?.cast<String, Object?>(),
       );
 }
+
+/// sync_uploads.conflicts / sync_apply's conflicts as problems.
+List<SyncProblem> parseSyncConflicts(Object? raw) => [
+      for (final c in (raw as List?) ?? const [])
+        SyncProblem(
+          table: c['table'] as String,
+          key: '${(c['key'] as Map).values.first}',
+          kind: c['server_row'] == null ? 'server_deleted' : 'conflict',
+          baseVersion: (c['base_version'] as num?)?.toInt(),
+          serverVersion: (c['server_version'] as num?)?.toInt(),
+        ),
+    ];
 
 /// What sync_apply answered.
 class SyncApplyResult {
   final String status;
   final String? reason;
-  const SyncApplyResult({required this.status, this.reason});
+  final List<SyncProblem> conflicts;
+  const SyncApplyResult({required this.status, this.reason, this.conflicts = const []});
 }
 
 /// What happened to an upload since this device last looked.
@@ -189,8 +224,12 @@ class SyncOutcome {
         'rejected' => 'Upload $uploadId rejected: ${reason ?? "no reason given"}. Its $records row(s) can be changed again.',
         'error' => 'Upload $uploadId failed on the server: ${reason ?? "unknown error"}. Its $records row(s) can be changed again.',
         'withdrawn' => 'Upload $uploadId withdrawn; its $records row(s) can be changed again.',
-        'conflict' => 'Upload $uploadId stopped on ${conflicts.length} conflict(s); its $records row(s) can be changed '
-            'again. Resolve with sync-resolve, then upload again:\n${conflicts.map((c) => '  $c').join('\n')}',
+        'conflict' => reason != null
+            ? 'Upload $uploadId stopped on ${conflicts.length} conflict(s); $reason. Its $records row(s) stay '
+                'locked until then:\n${conflicts.map((c) => '  $c').join('\n')}'
+            : 'Upload $uploadId stopped on ${conflicts.length} conflict(s) and was withdrawn on the server; its '
+                '$records row(s) can be changed again. Resolve with sync-resolve, then upload again:\n'
+                '${conflicts.map((c) => '  $c').join('\n')}',
         'unknown' => 'Upload $uploadId: the server does not show it to you; its $records row(s) stay locked.',
         _ => 'Upload $uploadId: $status.',
       };
@@ -256,13 +295,20 @@ class SyncUploadResult {
   /// pending.
   final String? applyError;
 
-  const SyncUploadResult({required this.uploadId, required this.records, this.outcome, this.applyError});
+  /// Why the decision could not be read back after sending (the upload is
+  /// on the server either way).
+  final String? statusError;
+
+  const SyncUploadResult(
+      {required this.uploadId, required this.records, this.outcome, this.applyError, this.statusError});
 
   @override
   String toString() =>
       outcome?.toString() ??
-      'Upload $uploadId sent: $records row(s), waiting for approval.'
-          '${applyError == null ? '' : '\nIt could not be applied at once: $applyError'}';
+      (statusError != null
+          ? 'Upload $uploadId sent: $records row(s). Its decision could not be read ($statusError); run sync-status.'
+          : 'Upload $uploadId sent: $records row(s), waiting for approval.'
+              '${applyError == null ? '' : '\nIt could not be applied at once: $applyError'}');
 }
 
 /// What sync() did: the preview, the upload (null when nothing was sent)

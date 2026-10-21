@@ -5,7 +5,8 @@ import '../../models/sync_upload.dart';
 import '../../repositories/sync_remote_repository.dart';
 
 /// Upload columns read back (never the payload: listings stay small).
-const _uploadColumns = 'id, status, reason, conflicts, id_map, created_at, decided_at, summary';
+const _uploadColumns =
+    'id, uploader_id, school_id, status, reason, conflicts, id_map, created_at, decided_at, summary';
 
 class SyncRemoteSupabase implements SyncRemoteRepository {
   final SupabaseClient _client;
@@ -74,11 +75,34 @@ class SyncRemoteSupabase implements SyncRemoteRepository {
   @override
   Future<SyncApplyResult> apply(int uploadId) async {
     final r = Map<String, dynamic>.from(await _client.rpc('sync_apply', params: {'p_id': uploadId}) as Map);
-    return SyncApplyResult(status: r['status'] as String, reason: r['reason'] as String?);
+    return SyncApplyResult(
+        status: r['status'] as String, reason: r['reason'] as String?, conflicts: parseSyncConflicts(r['conflicts']));
   }
 
   @override
   Future<void> withdraw(int uploadId) => _client.rpc('sync_withdraw', params: {'p_id': uploadId});
+
+  @override
+  Future<List<SyncUploadRow>> schoolUploads({int? schoolId, required List<String> statuses}) async {
+    var q = _client.from('sync_uploads').select(_uploadColumns).inFilter('status', statuses);
+    if (schoolId != null) q = q.eq('school_id', schoolId);
+    final rows = await q.order('id', ascending: true);
+    return [for (final r in (rows as List).cast<Map<String, dynamic>>()) SyncUploadRow.fromMap(r)];
+  }
+
+  @override
+  Future<SyncUploadRow?> uploadById(int id, {bool withPayload = false}) async {
+    final row = await _client
+        .from('sync_uploads')
+        .select(withPayload ? '$_uploadColumns, payload' : _uploadColumns)
+        .eq('id', id)
+        .maybeSingle();
+    return row == null ? null : SyncUploadRow.fromMap(row);
+  }
+
+  @override
+  Future<void> reject(int uploadId, String reason) =>
+      _client.rpc('sync_reject', params: {'p_id': uploadId, 'p_reason': reason});
 
   String get _me {
     final id = _client.auth.currentUser?.id;

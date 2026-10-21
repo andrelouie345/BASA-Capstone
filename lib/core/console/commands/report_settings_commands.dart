@@ -3,6 +3,7 @@
 /// Report settings (dashboard D2): the progress "done" threshold per region
 /// (superadmin) and school (its admin/coordinator). report-settings-show reads
 /// this device's copy; set/reset are online. `region` = the region-wide row.
+/// Sync S6 adds sync-auto-approve and offline-days[-set] (same rows).
 library;
 
 import '../console_command.dart';
@@ -63,12 +64,56 @@ void registerReportSettingsCommands(ConsoleRegistry registry, ReportSettingsView
   });
 
   add('report-settings-reset',
-      "report-settings-reset <schoolId> — drop a school's report settings so the region's apply (online)",
+      "report-settings-reset <schoolId> — drop the school's done threshold, auto-approve and offline window so the "
+          "region's apply (online)",
       (args) async {
     if (args.length != 1) throw const _Usage('Usage: report-settings-reset <schoolId>');
     final schoolId = _school(args[0]);
     if (schoolId == null) throw const _Usage('Only a school override can be reset, not the region row.');
     await vm.resetSchool(schoolId);
     return 'School $schoolId now uses the region report settings.${warn()}';
+  });
+
+  String onOff(bool? v) => v == null ? 'not set' : (v ? 'on' : 'off');
+  String days(int? v) => v == null ? 'not set' : '$v days';
+
+  add('sync-auto-approve',
+      "sync-auto-approve <region|schoolId> [on|off] — show (this device's copy) or set whether tutors' uploads "
+          'apply without an approver (online)', (args) async {
+    const usage = 'Usage: sync-auto-approve <region|schoolId> [on|off]';
+    if (args.isEmpty || args.length > 2) throw const _Usage(usage);
+    final schoolId = _school(args[0]);
+    if (args.length == 1) {
+      final l = await vm.autoApproveLayers(schoolId);
+      return 'Auto-approve: region ${onOff(l.region)}'
+          '${schoolId == null ? '' : ' · school ${onOff(l.school)}'} · applies ${onOff(l.effective)}';
+    }
+    if (!const ['on', 'off'].contains(args[1])) throw const _Usage(usage);
+    final on = args[1] == 'on';
+    await vm.setAutoApprove(schoolId, on);
+    return 'Auto-approve for ${_who(schoolId)} is now ${onOff(on)}.'
+        '${on ? '\nUploads already waiting still need sync-approve.' : ''}${warn()}';
+  });
+
+  add('offline-days',
+      'offline-days <region|schoolId> — the offline sign-in window: region, school, the one that applies',
+      (args) async {
+    if (args.length != 1) throw const _Usage('Usage: offline-days <region|schoolId>');
+    final schoolId = _school(args[0]);
+    final l = await vm.offlineDaysLayers(schoolId);
+    return 'Offline sign-in window: region ${days(l.region)}'
+        '${schoolId == null ? '' : ' · school ${days(l.school)}'} · applies ${l.effective} days';
+  });
+
+  add('offline-days-set',
+      'offline-days-set <region|schoolId> <1-60> — set the offline sign-in window in days (online)', (args) async {
+    const usage = 'Usage: offline-days-set <region|schoolId> <1-60>';
+    if (args.length != 2) throw const _Usage(usage);
+    final schoolId = _school(args[0]);
+    final n = int.tryParse(args[1]);
+    if (n == null) throw _Usage('The window is a whole number of days (got "${args[1]}"). $usage');
+    await vm.setOfflineDays(schoolId, n);
+    return 'Offline sign-in window for ${_who(schoolId)}: $n days. Tablets get it after their next pull-cloud.'
+        '${warn()}';
   });
 }
