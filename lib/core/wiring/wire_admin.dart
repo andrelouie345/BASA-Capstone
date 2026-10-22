@@ -1,0 +1,157 @@
+// lib/core/wiring/wire_admin.dart
+// Admin build only (admins, coordinators): user management, SF1 import, the
+// sync approver, login logs, CRLA scoresheet import, ARAL reports and roster
+// import. Never imported from the tutor entry points (tool/check_tutor_imports.dart).
+import '../../viewmodels/aral_report_viewmodel.dart';
+import '../../viewmodels/aral_roster_import_viewmodel.dart';
+import '../../viewmodels/crla_import_viewmodel.dart';
+import '../../viewmodels/import_viewmodel.dart';
+import '../../viewmodels/login_log_viewmodel.dart';
+import '../../viewmodels/sync_review_viewmodel.dart';
+import '../../viewmodels/user_viewmodel.dart';
+import '../console/commands/admin_bootstrap_commands.dart';
+import '../console/commands/aral_export_commands.dart';
+import '../console/commands/aral_report_commands.dart';
+import '../console/commands/crla_import_commands.dart';
+import '../console/commands/import_commands.dart';
+import '../console/commands/login_commands.dart';
+import '../console/commands/nla_report_commands.dart';
+import '../console/commands/report_settings_commands.dart';
+import '../console/commands/sync_commands.dart';
+import '../console/commands/user_commands.dart';
+import '../data/local/aral_enrollment_repository_sqlite.dart';
+import '../data/local/crla_assessment_repository_sqlite.dart';
+import '../data/local/crla_result_repository_sqlite.dart';
+import '../data/local/login_log_repository_sqlite.dart';
+import '../data/local/school_repository_sqlite.dart';
+import '../data/local/section_repository_sqlite.dart';
+import '../data/local/student_repository_sqlite.dart';
+import '../data/local/sync_review_local_sqlite.dart';
+import '../data/local/user_repository_sqlite.dart';
+import '../data/remote/import_conflict_repository_supabase.dart';
+import '../data/remote/school_repository_supabase.dart';
+import '../data/remote/section_repository_supabase.dart';
+import '../data/remote/student_repository_supabase.dart';
+import '../data/remote/sync_remote_supabase.dart';
+import '../data/remote/user_repository_supabase.dart';
+import '../services/sf1_column_map.dart';
+import 'app_context.dart';
+import 'wire_shared.dart';
+import 'wire_tutor.dart';
+
+class AdminVms {
+  final UserViewModel userVm;
+  final ImportViewModel importVm;
+  final SyncReviewViewModel syncReviewVm;
+  final LoginLogViewModel loginLogVm;
+  final CrlaImportViewModel crlaImportVm;
+  final AralReportViewModel aralReportVm;
+  final AralRosterImportViewModel aralRosterImportVm;
+
+  AdminVms({
+    required this.userVm,
+    required this.importVm,
+    required this.syncReviewVm,
+    required this.loginLogVm,
+    required this.crlaImportVm,
+    required this.aralReportVm,
+    required this.aralRosterImportVm,
+  });
+}
+
+Future<AdminVms> wireAdmin(AppContext ctx, SharedVms s, TutorVms t) async {
+  final db = ctx.localDb;
+  final session = ctx.session;
+  final vms = ctx.vmRegistry;
+  final authVm = ctx.authVm;
+
+  final userVm = UserViewModel(auth: authVm, repoFactory: UserRepositorySupabase.new, logger: session);
+  vms.register('UserViewModel', userVm);
+
+  final columnMap = await Sf1ColumnMap.load(ctx.dataDir);
+  final importVm = ImportViewModel(
+    auth: authVm,
+    cloudFactory: (client) => ImportCloudRepos(
+      schools: SchoolRepositorySupabase(client),
+      sections: SectionRepositorySupabase(client),
+      students: StudentRepositorySupabase(client),
+      conflicts: ImportConflictRepositorySupabase(client),
+    ),
+    localSchools: SchoolRepositorySqlite(db),
+    localSections: s.sectionRepo,
+    localStudents: s.studentRepo,
+    columnMap: columnMap,
+    logger: session,
+  );
+  vms.register('ImportViewModel', importVm);
+
+  final syncReviewVm = SyncReviewViewModel(
+    auth: authVm,
+    local: SyncReviewLocalSqlite(db),
+    remote: SyncRemoteSupabase.new,
+    logger: session,
+  );
+  vms.register('SyncReviewViewModel', syncReviewVm);
+
+  final loginLogVm = LoginLogViewModel(repo: LoginLogRepositorySqlite(db), logger: session);
+  vms.register('LoginLogViewModel', loginLogVm);
+
+  final crlaImportVm = CrlaImportViewModel(
+    auth: authVm,
+    crla: t.crlaVm,
+    assessments: CrlaAssessmentRepositorySqlite(db),
+    sections: SectionRepositorySqlite(db),
+    students: StudentRepositorySqlite(db),
+    logger: session,
+  );
+  vms.register('CrlaImportViewModel', crlaImportVm);
+
+  final aralReportVm = AralReportViewModel(
+    auth: authVm,
+    roster: AralEnrollmentRepositorySqlite(db),
+    sections: SectionRepositorySqlite(db),
+    students: StudentRepositorySqlite(db),
+    crlaResults: CrlaResultRepositorySqlite(db),
+    philIri: t.philIriVm,
+    logger: session,
+  );
+  vms.register('AralReportViewModel', aralReportVm);
+
+  final aralRosterImportVm = AralRosterImportViewModel(
+    auth: authVm,
+    aral: t.aralVm,
+    roster: AralEnrollmentRepositorySqlite(db),
+    sections: SectionRepositorySqlite(db),
+    students: StudentRepositorySqlite(db),
+    users: UserRepositorySqlite(db),
+    logger: session,
+  );
+  vms.register('AralRosterImportViewModel', aralRosterImportVm);
+
+  return AdminVms(
+    userVm: userVm,
+    importVm: importVm,
+    syncReviewVm: syncReviewVm,
+    loginLogVm: loginLogVm,
+    crlaImportVm: crlaImportVm,
+    aralReportVm: aralReportVm,
+    aralRosterImportVm: aralRosterImportVm,
+  );
+}
+
+void registerAdminCommands(AppContext ctx, SharedVms s, TutorVms t, AdminVms a) {
+  final r = ctx.registry;
+  final authVm = ctx.authVm;
+  registerAdminBootstrapCommands(r, ctx.config, ctx.session);
+  registerUserCommands(r, a.userVm);
+  registerImportCommands(r, a.importVm);
+  registerSyncReviewCommands(r, a.syncReviewVm);
+  registerLoginCommands(r, a.loginLogVm, authVm);
+  registerCrlaImportCommands(r, authVm, a.crlaImportVm);
+  registerReportSettingsCommands(r, t.reportSettingsVm);
+  registerNlaReportCommands(r, t.nlaReportVm);
+  registerAralReportCommands(r, a.aralReportVm);
+  // Mixed until Task 2 splits it (aral-export-roster moves to the tutor side).
+  registerAralExportCommands(r, t.aralVm, a.aralReportVm, t.aralCheckinVm);
+  registerAralRosterImportCommands(r, a.aralRosterImportVm);
+}
