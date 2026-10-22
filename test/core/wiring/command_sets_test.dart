@@ -34,4 +34,17 @@ void main() {
     final names = ctx.registry.all.map((c) => c.name).toList()..sort();
     expect(names, _expected('admin_commands.txt'));
   });
+
+  // What lib/main_tutor.dart and lib/console/main_tutor.dart register.
+  test('tutor build registers exactly the tutor commands', () async {
+    final ctx = await AppContext.open(dataDir: dir.path);
+    final s = wireShared(ctx);
+    final t = wireTutor(ctx, s);
+    registerSharedCommands(ctx, s);
+    registerTutorCommands(ctx, s, t);
+    registerDevCommands(ctx, s);
+
+    final names = ctx.registry.all.map((c) => c.name).toList()..sort();
+    expect(names, _expected('tutor_commands.txt'));
+  });
 }
