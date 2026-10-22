@@ -3,16 +3,20 @@
 /// the tutor app is lib/main_tutor.dart.
 library;
 
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'core/console/console_session.dart';
+import 'app_shell.dart';
 import 'core/wiring/app_context.dart';
+import 'core/wiring/data_dir.dart';
 import 'core/wiring/wire_admin.dart';
 import 'core/wiring/wire_shared.dart';
 import 'core/wiring/wire_tutor.dart';
-import 'ui/debug/debug_overlay.dart';
-import 'viewmodels/text_viewmodel.dart';
+
+const _title = 'BASA';
 
 Future <void> main() async{
   // Must come first: on Android/iOS sqflite and path_provider talk to the
@@ -27,62 +31,35 @@ Future <void> main() async{
   // and JSON1 depends on the vendor. Same engine as desktop and the console.
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
-  final docsDir = await getApplicationDocumentsDirectory();
-  final ctx = await AppContext.open(dataDir: docsDir.path);
+
+  // <documents>/BASA/admin. Older desktop builds wrote straight into
+  // Documents; those files move here once (on a phone the documents folder
+  // was already private to the app, and the new app id starts fresh).
+  final String dataDir;
+  try {
+    dataDir = await prepareDataDir(
+      documentsPath: (await getApplicationDocumentsDirectory()).path,
+      variant: 'admin',
+      moveLegacy: Platform.isWindows || Platform.isLinux || Platform.isMacOS,
+      warn: debugPrint,
+    );
+  } on DataDirMoveException catch (e) {
+    runApp(BasaStartupErrorApp(title: _title, message: e.message));
+    return;
+  }
+
+  final ctx = await AppContext.open(dataDir: dataDir);
   final shared = wireShared(ctx);
   final tutor = wireTutor(ctx, shared);
   final admin = await wireAdmin(ctx, shared, tutor);
-  registerSharedCommands(ctx, shared);
-  registerTutorCommands(ctx, shared, tutor);
-  registerAdminCommands(ctx, shared, tutor, admin);
-  registerDevCommands(ctx, shared);
-
-  runApp(BasaApp(session: ctx.session, textVm: shared.textVm));
-}
-
-class BasaApp extends StatefulWidget {
-  final ConsoleSession session;
-  final TextViewModel textVm;
-  const BasaApp({super.key, required this.session, required this.textVm});
-
-  @override
-  State<BasaApp> createState() => _BasaAppState();
-}
-
-class _BasaAppState extends State<BasaApp> {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'BASA',
-      debugShowCheckedModeBanner: false,
-      home: DebugConsoleShell(
-        session: widget.session,
-        onCommandRun: () => setState(() {}),   // rebuilds everything below
-        child: BasaHomeScreen(textVm: widget.textVm),
-      ),
-    );
+  // Console commands exist in debug builds only (written here, at the call
+  // site, so the constant drops every command file from release builds).
+  if (kDebugMode) {
+    registerSharedCommands(ctx, shared);
+    registerTutorCommands(ctx, shared, tutor);
+    registerAdminCommands(ctx, shared, tutor, admin);
+    registerDevCommands(ctx, shared);
   }
-}
 
-class BasaHomeScreen extends StatefulWidget {
-  final TextViewModel textVm;
-  const BasaHomeScreen({super.key, required this.textVm});
-
-  @override
-  State<BasaHomeScreen> createState() => _BasaHomeScreenState();
-}
-
-class _BasaHomeScreenState extends State<BasaHomeScreen> {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('BASA')),
-      body: Center(
-        child: Text(
-          widget.textVm.value.isEmpty ? '(empty)' : widget.textVm.value,
-          style: const TextStyle(fontSize: 24),
-        ),
-      ),
-    );
-  }
+  runApp(BasaApp(title: _title, session: ctx.session, textVm: shared.textVm));
 }
