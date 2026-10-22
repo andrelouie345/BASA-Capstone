@@ -15,6 +15,7 @@ import '../../models/phil_iri_passage.dart';
 import '../../models/phil_iri_reading.dart';
 import '../../services/phil_iri_results.dart';
 import '../../services/phil_iri_rules.dart';
+import 'phil_iri_command_helpers.dart';
 
 void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
   void add(String name, String description, Future<String> Function(List<String> args) handler) {
@@ -24,7 +25,7 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
       handler: (args) async {
         try {
           return await handler(args);
-        } on _Usage catch (e) {
+        } on PhilIriUsage catch (e) {
           return e.message;
         } catch (e) {
           return '$name failed: $e';
@@ -41,15 +42,15 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
           '— record a Group Screening Test (out of 20 for Grades 4-6, 40 for 7-10; a retake is another call)',
       (args) async {
     const usage = 'Usage: phil-iri-gst <studentId> <sectionId> <schoolYear> <total> [literal inferential critical]';
-    if (args.length != 4 && args.length != 7) throw const _Usage(usage);
+    if (args.length != 4 && args.length != 7) throw const PhilIriUsage(usage);
     final g = await vm.recordGst(
-      studentId: _int(args[0], 'studentId'),
-      sectionId: _int(args[1], 'sectionId'),
+      studentId: philIriInt(args[0], 'studentId'),
+      sectionId: philIriInt(args[1], 'sectionId'),
       schoolYear: args[2],
-      totalScore: _int(args[3], 'total'),
-      literalCorrect: args.length == 7 ? _int(args[4], 'literal') : null,
-      inferentialCorrect: args.length == 7 ? _int(args[5], 'inferential') : null,
-      criticalCorrect: args.length == 7 ? _int(args[6], 'critical') : null,
+      totalScore: philIriInt(args[3], 'total'),
+      literalCorrect: args.length == 7 ? philIriInt(args[4], 'literal') : null,
+      inferentialCorrect: args.length == 7 ? philIriInt(args[5], 'inferential') : null,
+      criticalCorrect: args.length == 7 ? philIriInt(args[6], 'critical') : null,
     );
     // The max score tells the grade group (40 = Grades 7-10), which is all the pass mark needs.
     final passed = philIriGstPassed(g.maxScore == 40 ? 7 : 4, g.totalScore, await vm.effectiveThresholds(g.schoolId));
@@ -58,8 +59,8 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
   });
 
   add('phil-iri-gst-list', 'phil-iri-gst-list <sectionId> [schoolYear] — GST results of a section', (args) async {
-    if (args.isEmpty || args.length > 2) throw const _Usage('Usage: phil-iri-gst-list <sectionId> [schoolYear]');
-    final list = await vm.gstForSection(_int(args[0], 'sectionId'), schoolYear: args.length > 1 ? args[1] : null);
+    if (args.isEmpty || args.length > 2) throw const PhilIriUsage('Usage: phil-iri-gst-list <sectionId> [schoolYear]');
+    final list = await vm.gstForSection(philIriInt(args[0], 'sectionId'), schoolYear: args.length > 1 ? args[1] : null);
     if (list.isEmpty) return 'No GST results.';
     return list.map((g) {
       final parts = g.literalCorrect == null ? '' : ' (L ${g.literalCorrect}, I ${g.inferentialCorrect}, C ${g.criticalCorrect})';
@@ -75,30 +76,30 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
       'phil-iri-start <studentId> <sectionId> <schoolYear> <bosy|mosy1|mosy2|mosy3|eosy> '
           '— start a session in a Grade 4-10 section (a retake is another start)', (args) async {
     if (args.length != 4) {
-      throw const _Usage('Usage: phil-iri-start <studentId> <sectionId> <schoolYear> <bosy|mosy1|mosy2|mosy3|eosy>');
+      throw const PhilIriUsage('Usage: phil-iri-start <studentId> <sectionId> <schoolYear> <bosy|mosy1|mosy2|mosy3|eosy>');
     }
     final s = await vm.startSession(
-      studentId: _int(args[0], 'studentId'),
-      sectionId: _int(args[1], 'sectionId'),
+      studentId: philIriInt(args[0], 'studentId'),
+      sectionId: philIriInt(args[1], 'sectionId'),
       schoolYear: args[2],
-      round: _round(args[3]),
+      round: philIriRound(args[3]),
     );
     return 'Started session ${s.id}: ${_sessionLine(s)}';
   });
 
   add('phil-iri-sessions', 'phil-iri-sessions <sectionId> [schoolYear] [round] — the sessions of a section',
       (args) async {
-    if (args.isEmpty || args.length > 3) throw const _Usage('Usage: phil-iri-sessions <sectionId> [schoolYear] [round]');
-    await vm.loadForSection(_int(args[0], 'sectionId'),
-        schoolYear: args.length > 1 ? args[1] : null, round: args.length > 2 ? _round(args[2]) : null);
+    if (args.isEmpty || args.length > 3) throw const PhilIriUsage('Usage: phil-iri-sessions <sectionId> [schoolYear] [round]');
+    await vm.loadForSection(philIriInt(args[0], 'sectionId'),
+        schoolYear: args.length > 1 ? args[1] : null, round: args.length > 2 ? philIriRound(args[2]) : null);
     if (vm.assessments.isEmpty) return 'No sessions.';
     return vm.assessments.map((s) => '[${s.id}] ${_sessionLine(s)}').join('\n');
   });
 
   add('phil-iri-session', 'phil-iri-session <assessmentId> — a session: its reading, miscues, answers, rubric and score',
       (args) async {
-    if (args.length != 1) throw const _Usage('Usage: phil-iri-session <assessmentId>');
-    final s = await vm.getSession(_int(args[0], 'assessmentId'));
+    if (args.length != 1) throw const PhilIriUsage('Usage: phil-iri-session <assessmentId>');
+    final s = await vm.getSession(philIriInt(args[0], 'assessmentId'));
     if (s == null) return 'No session with id ${args[0]}.';
     final out = StringBuffer('[${s.id}] ${_sessionLine(s)}');
     final readings = await vm.readings(s.id!);
@@ -164,9 +165,9 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
       'phil-iri-passages-for <assessmentId> [whole|minute|silent] — the passages this session may use '
           '(oral by default: a text read silently in this round is listed first, for the oral follow-up)', (args) async {
     if (args.isEmpty || args.length > 2) {
-      throw const _Usage('Usage: phil-iri-passages-for <assessmentId> [whole|minute|silent]');
+      throw const PhilIriUsage('Usage: phil-iri-passages-for <assessmentId> [whole|minute|silent]');
     }
-    final list = await vm.availablePassages(_int(args[0], 'assessmentId'),
+    final list = await vm.availablePassages(philIriInt(args[0], 'assessmentId'),
         method: args.length == 2 ? _method(args[1]) : PhilIriReadingMethod.wholeText);
     if (list.isEmpty) return 'No usable passages on this device (pull-cloud, or add content).';
     return list.map(_passageLine).join('\n');
@@ -181,13 +182,13 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
           'silent = read silently, timed, no miscues)', (args) async {
     const usage =
         'Usage: phil-iri-read <assessmentId> <passageId> [whole [seconds] | minute [wordsRead] | silent [seconds]]';
-    if (args.length < 2 || args.length > 4) throw const _Usage(usage);
+    if (args.length < 2 || args.length > 4) throw const PhilIriUsage(usage);
     final method = args.length < 3 ? PhilIriReadingMethod.wholeText : _method(args[2]);
     final oneMinute = method == PhilIriReadingMethod.oneMinute;
-    final n = args.length == 4 ? _int(args[3], oneMinute ? 'wordsRead' : 'seconds') : null;
+    final n = args.length == 4 ? philIriInt(args[3], oneMinute ? 'wordsRead' : 'seconds') : null;
     final r = await vm.startReading(
-      assessmentId: _int(args[0], 'assessmentId'),
-      passageId: _int(args[1], 'passageId'),
+      assessmentId: philIriInt(args[0], 'assessmentId'),
+      passageId: philIriInt(args[1], 'passageId'),
       method: method,
       readingSeconds: oneMinute ? null : n,
       wordsRead: oneMinute ? n : null,
@@ -198,12 +199,12 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
   add('phil-iri-time',
       'phil-iri-time <readingId> <seconds|words> <n> — the reading time (whole text, silent) or words read in the minute',
       (args) async {
-    if (args.length != 3) throw const _Usage('Usage: phil-iri-time <readingId> <seconds|words> <n>');
-    final n = _int(args[2], args[1]);
+    if (args.length != 3) throw const PhilIriUsage('Usage: phil-iri-time <readingId> <seconds|words> <n>');
+    final n = philIriInt(args[2], args[1]);
     final r = switch (args[1]) {
-      'seconds' => await vm.saveTiming(_int(args[0], 'readingId'), readingSeconds: n),
-      'words' => await vm.saveTiming(_int(args[0], 'readingId'), wordsRead: n),
-      _ => throw const _Usage('Usage: phil-iri-time <readingId> <seconds|words> <n>'),
+      'seconds' => await vm.saveTiming(philIriInt(args[0], 'readingId'), readingSeconds: n),
+      'words' => await vm.saveTiming(philIriInt(args[0], 'readingId'), wordsRead: n),
+      _ => throw const PhilIriUsage('Usage: phil-iri-time <readingId> <seconds|words> <n>'),
     };
     return 'Reading ${r.id}: ${_timing(r)}.';
   });
@@ -212,22 +213,22 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
       'phil-iri-observe',
       'phil-iri-observe <readingId> [wordbyword] [noexpression] [inaudible] [punctuation] [pointing] [noanalysis] '
           '[other "<text>"] — replace the oral reading observation checklist (no flags clears it)', (args) async {
-    if (args.isEmpty) throw const _Usage('Usage: phil-iri-observe <readingId> [flags...] [other "<text>"]');
+    if (args.isEmpty) throw const PhilIriUsage('Usage: phil-iri-observe <readingId> [flags...] [other "<text>"]');
     final flags = <String>{};
     String? other;
     for (var i = 1; i < args.length; i++) {
       if (args[i] == 'other') {
-        if (i + 1 >= args.length) throw const _Usage('other needs a text: other "<text>"');
+        if (i + 1 >= args.length) throw const PhilIriUsage('other needs a text: other "<text>"');
         other = args.sublist(i + 1).join(' ');
         break;
       }
       if (!_observationFlags.contains(args[i])) {
-        throw _Usage('Unknown observation "${args[i]}". Use: ${_observationFlags.join(', ')}, other "<text>".');
+        throw PhilIriUsage('Unknown observation "${args[i]}". Use: ${_observationFlags.join(', ')}, other "<text>".');
       }
       flags.add(args[i]);
     }
     final r = await vm.saveObservation(
-        _int(args[0], 'readingId'),
+        philIriInt(args[0], 'readingId'),
         PhilIriObservation(
           wordByWord: flags.contains('wordbyword'),
           lacksExpression: flags.contains('noexpression'),
@@ -244,8 +245,8 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
   add('phil-iri-reading-delete',
       'phil-iri-reading-delete <readingId> — remove the reading with its miscues and answers (to use another passage)',
       (args) async {
-    if (args.length != 1) throw const _Usage('Usage: phil-iri-reading-delete <readingId>');
-    final id = _int(args[0], 'readingId');
+    if (args.length != 1) throw const PhilIriUsage('Usage: phil-iri-reading-delete <readingId>');
+    final id = philIriInt(args[0], 'readingId');
     await vm.deleteReading(id);
     return 'Deleted reading $id.';
   });
@@ -257,12 +258,12 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
       'phil-iri-miscue <readingId> <wordIndex> <type> [sc] [spoken text...] — mark a miscue on a word '
           '(positions from phil-iri-passage-show; an insertion goes BEFORE the word; sc = self-corrected, not counted)',
       (args) async {
-    if (args.length < 3) throw const _Usage('Usage: phil-iri-miscue <readingId> <wordIndex> <type> [sc] [spoken text...]');
+    if (args.length < 3) throw const PhilIriUsage('Usage: phil-iri-miscue <readingId> <wordIndex> <type> [sc] [spoken text...]');
     final sc = args.length > 3 && args[3] == 'sc';
     final spoken = args.sublist(sc ? 4 : 3).join(' ');
     final m = await vm.markMiscue(
-      readingId: _int(args[0], 'readingId'),
-      wordIndex: _int(args[1], 'wordIndex'),
+      readingId: philIriInt(args[0], 'readingId'),
+      wordIndex: philIriInt(args[1], 'wordIndex'),
       type: _miscueType(args[2]),
       selfCorrected: sc,
       spokenText: spoken.isEmpty ? null : spoken,
@@ -275,14 +276,14 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
       'phil-iri-miscue-update <readingId> <miscueId> <wordIndex> <type> [sc] [spoken text...] — replace a miscue',
       (args) async {
     if (args.length < 4) {
-      throw const _Usage('Usage: phil-iri-miscue-update <readingId> <miscueId> <wordIndex> <type> [sc] [spoken text...]');
+      throw const PhilIriUsage('Usage: phil-iri-miscue-update <readingId> <miscueId> <wordIndex> <type> [sc] [spoken text...]');
     }
     final sc = args.length > 4 && args[4] == 'sc';
     final spoken = args.sublist(sc ? 5 : 4).join(' ');
     final m = await vm.updateMiscue(PhilIriMiscue(
-      readingId: _int(args[0], 'readingId'),
-      id: _int(args[1], 'miscueId'),
-      wordIndex: _int(args[2], 'wordIndex'),
+      readingId: philIriInt(args[0], 'readingId'),
+      id: philIriInt(args[1], 'miscueId'),
+      wordIndex: philIriInt(args[2], 'wordIndex'),
       type: _miscueType(args[3]),
       selfCorrected: sc,
       spokenText: spoken.isEmpty ? null : spoken,
@@ -291,8 +292,8 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
   });
 
   add('phil-iri-miscue-remove', 'phil-iri-miscue-remove <miscueId> — remove a miscue', (args) async {
-    if (args.length != 1) throw const _Usage('Usage: phil-iri-miscue-remove <miscueId>');
-    final id = _int(args[0], 'miscueId');
+    if (args.length != 1) throw const PhilIriUsage('Usage: phil-iri-miscue-remove <miscueId>');
+    final id = philIriInt(args[0], 'miscueId');
     await vm.removeMiscue(id);
     return 'Removed miscue $id.';
   });
@@ -304,11 +305,11 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
       'phil-iri-answer <readingId> <questionId> <letter|x> [lb] — record an answer '
           '(x = does not know, counted wrong; lb = looked back at the passage; again replaces it)', (args) async {
     if (args.length < 3 || args.length > 4 || (args.length == 4 && args[3] != 'lb')) {
-      throw const _Usage('Usage: phil-iri-answer <readingId> <questionId> <letter|x> [lb]');
+      throw const PhilIriUsage('Usage: phil-iri-answer <readingId> <questionId> <letter|x> [lb]');
     }
     final a = await vm.answer(
-      readingId: _int(args[0], 'readingId'),
-      questionId: _int(args[1], 'questionId'),
+      readingId: philIriInt(args[0], 'readingId'),
+      questionId: philIriInt(args[1], 'questionId'),
       chosen: args[2].toLowerCase() == 'x' ? null : args[2],
       lookedBack: args.length == 4,
     );
@@ -318,11 +319,11 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
 
   add('phil-iri-rubric', 'phil-iri-rubric <assessmentId> <criterionId> <score> — score one rubric criterion (again replaces it)',
       (args) async {
-    if (args.length != 3) throw const _Usage('Usage: phil-iri-rubric <assessmentId> <criterionId> <score>');
+    if (args.length != 3) throw const PhilIriUsage('Usage: phil-iri-rubric <assessmentId> <criterionId> <score>');
     final x = await vm.scoreRubric(
-      assessmentId: _int(args[0], 'assessmentId'),
-      criterionId: _int(args[1], 'criterionId'),
-      score: _int(args[2], 'score'),
+      assessmentId: philIriInt(args[0], 'assessmentId'),
+      criterionId: philIriInt(args[1], 'criterionId'),
+      score: philIriInt(args[2], 'score'),
     );
     return 'Session ${x.assessmentId}: criterion ${x.criterionId} scored ${x.score}.';
   });
@@ -331,50 +332,30 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
 
   add('phil-iri-complete', 'phil-iri-complete <assessmentId> — mark a session done (needs the timed reading)',
       (args) async {
-    if (args.length != 1) throw const _Usage('Usage: phil-iri-complete <assessmentId>');
-    final s = await vm.complete(_int(args[0], 'assessmentId'));
+    if (args.length != 1) throw const PhilIriUsage('Usage: phil-iri-complete <assessmentId>');
+    final s = await vm.complete(philIriInt(args[0], 'assessmentId'));
     return 'Session ${s.id} is ${s.status.value}.';
   });
 
   add('phil-iri-reopen', 'phil-iri-reopen <assessmentId> — put a completed session back in progress', (args) async {
-    if (args.length != 1) throw const _Usage('Usage: phil-iri-reopen <assessmentId>');
-    final s = await vm.reopen(_int(args[0], 'assessmentId'));
+    if (args.length != 1) throw const PhilIriUsage('Usage: phil-iri-reopen <assessmentId>');
+    final s = await vm.reopen(philIriInt(args[0], 'assessmentId'));
     return 'Session ${s.id} is ${s.status.value}.';
   });
 
   add('phil-iri-discard', 'phil-iri-discard <assessmentId> — throw away an in-progress session and everything in it',
       (args) async {
-    if (args.length != 1) throw const _Usage('Usage: phil-iri-discard <assessmentId>');
-    final id = _int(args[0], 'assessmentId');
+    if (args.length != 1) throw const PhilIriUsage('Usage: phil-iri-discard <assessmentId>');
+    final id = philIriInt(args[0], 'assessmentId');
     await vm.discard(id);
     return 'Discarded session $id.';
-  });
-
-  add('phil-iri-finalize',
-      'phil-iri-finalize <assessmentId> — admin/coordinator: freeze a completed session with today\'s thresholds',
-      (args) async {
-    if (args.length != 1) throw const _Usage('Usage: phil-iri-finalize <assessmentId>');
-    final s = await vm.finalize(_int(args[0], 'assessmentId'));
-    return 'Session ${s.id} is ${s.status.value} (${s.finalizedAt}).';
-  });
-
-  add(
-      'phil-iri-finalize-round',
-      'phil-iri-finalize-round <sectionId> <schoolYear> <round> — admin/coordinator: close a round '
-          '(finalizes each learner\'s completed latest attempt)', (args) async {
-    if (args.length != 3) throw const _Usage('Usage: phil-iri-finalize-round <sectionId> <schoolYear> <round>');
-    final c = await vm.finalizeRound(sectionId: _int(args[0], 'sectionId'), schoolYear: args[1], round: _round(args[2]));
-    String ids(List<PhilIriAssessment> list) =>
-        list.isEmpty ? 'none' : list.map((s) => '${s.id} (student ${s.studentId})').join(', ');
-    return 'Finalized: ${ids(c.finalized)}\nStill in progress: ${ids(c.stillInProgress)}\n'
-        'Already finalized: ${ids(c.alreadyFinalized)}';
   });
 
   // ---- Results ----
 
   add('phil-iri-score', 'phil-iri-score <readingId> — one reading scored (frozen once finalized)', (args) async {
-    if (args.length != 1) throw const _Usage('Usage: phil-iri-score <readingId>');
-    return _resultText(await vm.scoreReading(_int(args[0], 'readingId')));
+    if (args.length != 1) throw const PhilIriUsage('Usage: phil-iri-score <readingId>');
+    return _resultText(await vm.scoreReading(philIriInt(args[0], 'readingId')));
   });
 
   add(
@@ -382,11 +363,11 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
       'phil-iri-results <studentId> <sectionId> <schoolYear> [current] — a learner\'s year: every round and the end '
           'result (current = regenerate with today\'s thresholds; nothing stored changes)', (args) async {
     if (args.length < 3 || args.length > 4 || (args.length == 4 && args[3] != 'current')) {
-      throw const _Usage('Usage: phil-iri-results <studentId> <sectionId> <schoolYear> [current]');
+      throw const PhilIriUsage('Usage: phil-iri-results <studentId> <sectionId> <schoolYear> [current]');
     }
     final r = await vm.learnerResults(
-      studentId: _int(args[0], 'studentId'),
-      sectionId: _int(args[1], 'sectionId'),
+      studentId: philIriInt(args[0], 'studentId'),
+      sectionId: philIriInt(args[1], 'sectionId'),
       schoolYear: args[2],
       useCurrentThresholds: args.length == 4,
     );
@@ -414,28 +395,11 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
   });
 }
 
-/// A bad argument: the handler returns the message as-is.
-class _Usage implements Exception {
-  final String message;
-  const _Usage(this.message);
-}
-
-int _int(String raw, String name) =>
-    int.tryParse(raw) ?? (throw _Usage('Invalid $name: "$raw" (expected a number)'));
-
-PhilIriRound _round(String raw) {
-  try {
-    return PhilIriRound.fromString(raw.toLowerCase());
-  } on ArgumentError {
-    throw _Usage('Round is bosy, mosy1, mosy2, mosy3 or eosy (got "$raw")');
-  }
-}
-
 PhilIriReadingMethod _method(String raw) => switch (raw) {
       'whole' => PhilIriReadingMethod.wholeText,
       'minute' => PhilIriReadingMethod.oneMinute,
       'silent' => PhilIriReadingMethod.silent,
-      _ => throw _Usage('Reading method is whole, minute or silent (got "$raw")'),
+      _ => throw PhilIriUsage('Reading method is whole, minute or silent (got "$raw")'),
     };
 
 /// A miscue type by name, label or unique prefix ("omi", "sub").
@@ -443,7 +407,7 @@ PhilIriMiscueType _miscueType(String raw) {
   final key = raw.toLowerCase();
   final matches = PhilIriMiscueType.values.where((t) => t.name.startsWith(key)).toList();
   if (key.isNotEmpty && matches.length == 1) return matches.single;
-  throw _Usage('Miscue type is one of ${PhilIriMiscueType.values.map((t) => t.name).join(', ')} '
+  throw PhilIriUsage('Miscue type is one of ${PhilIriMiscueType.values.map((t) => t.name).join(', ')} '
       '(a unique start is enough; got "$raw")');
 }
 

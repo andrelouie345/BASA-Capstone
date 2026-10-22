@@ -12,27 +12,16 @@ import '../../../viewmodels/aral_checkin_viewmodel.dart';
 import '../../models/aral_checkin.dart';
 import '../../services/aral_checkin_rules.dart';
 import '../../services/aral_rules.dart' show AralSessionSettings;
-
-class _Usage implements Exception {
-  final String message;
-  const _Usage(this.message);
-}
-
-int _int(String raw, String what) =>
-    int.tryParse(raw) ?? (throw _Usage('Invalid $what: "$raw" (expected a number)'));
+import 'aral_checkin_command_helpers.dart';
 
 bool _isDate(String a) => RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(a) && DateTime.tryParse(a) != null;
-
-String _pct(AralCheckinScore s) => '${s.percent.toStringAsFixed(0)}%';
-
-String _verdict(AralCheckinScore s, int passPct) => s.passes(passPct) ? 'Met' : 'Not met';
 
 String _summary(AralCheckinResult r) {
   final c = r.checkin;
   final s = r.score;
   final state = r.complete ? '' : ' (${s.total - s.answered} not answered)';
-  return '#${c.id} ${r.tool.label} attempt ${c.attemptNo} | ${c.takenOn} | ${s.correct}/${s.total} ${_pct(s)} '
-      '${_verdict(s, r.passPct)}$state${c.notes == null ? '' : ' | ${c.notes}'}';
+  return '#${c.id} ${r.tool.label} attempt ${c.attemptNo} | ${c.takenOn} | ${s.correct}/${s.total} ${aralCheckinPct(s)} '
+      '${aralCheckinVerdict(s, r.passPct)}$state${c.notes == null ? '' : ' | ${c.notes}'}';
 }
 
 void registerAralCheckinCommands(ConsoleRegistry registry, AralCheckinViewModel vm) {
@@ -43,7 +32,7 @@ void registerAralCheckinCommands(ConsoleRegistry registry, AralCheckinViewModel 
       handler: (args) async {
         try {
           return await handler(args);
-        } on _Usage catch (e) {
+        } on AralCheckinUsage catch (e) {
           return e.message;
         } catch (e) {
           return '$name failed: $e';
@@ -65,8 +54,8 @@ void registerAralCheckinCommands(ConsoleRegistry registry, AralCheckinViewModel 
   });
 
   add('aral-checkin-items', 'aral-checkin-items <toolId> — a tool\'s items, parts and keys', (args) async {
-    if (args.isEmpty) throw const _Usage('Usage: aral-checkin-items <toolId>');
-    final items = await vm.items(_int(args[0], 'toolId'));
+    if (args.isEmpty) throw const AralCheckinUsage('Usage: aral-checkin-items <toolId>');
+    final items = await vm.items(aralCheckinInt(args[0], 'toolId'));
     if (items.isEmpty) return 'No items for tool ${args[0]}.';
     final lines = <String>[];
     String? part;
@@ -83,8 +72,8 @@ void registerAralCheckinCommands(ConsoleRegistry registry, AralCheckinViewModel 
 
   add('aral-checkins', 'aral-checkins <enrollmentId> — a learner\'s check-ins with scores (today\'s cut-off)',
       (args) async {
-    if (args.isEmpty) throw const _Usage('Usage: aral-checkins <enrollmentId>');
-    final l = await vm.learnerCheckins(_int(args[0], 'enrollmentId'));
+    if (args.isEmpty) throw const AralCheckinUsage('Usage: aral-checkins <enrollmentId>');
+    final l = await vm.learnerCheckins(aralCheckinInt(args[0], 'enrollmentId'));
     final e = l.enrollment;
     final lines = ['ARAL #${e.id} (student ${e.studentId}) | ${e.programLabel}'];
     if (l.toolsByCheckpoint.isEmpty) {
@@ -103,8 +92,8 @@ void registerAralCheckinCommands(ConsoleRegistry registry, AralCheckinViewModel 
 
   add('aral-checkin', 'aral-checkin <checkinId> — one check-in: every item, the score per part, met or not',
       (args) async {
-    if (args.isEmpty) throw const _Usage('Usage: aral-checkin <checkinId>');
-    final r = await vm.result(_int(args[0], 'checkinId'));
+    if (args.isEmpty) throw const AralCheckinUsage('Usage: aral-checkin <checkinId>');
+    final r = await vm.result(aralCheckinInt(args[0], 'checkinId'));
     final lines = [_summary(r)];
     String? part;
     for (final i in r.items) {
@@ -112,7 +101,7 @@ void registerAralCheckinCommands(ConsoleRegistry registry, AralCheckinViewModel 
         part = i.section;
         if (part != null) {
           final s = r.scoring.sections[part]!;
-          lines.add('$part: ${s.correct}/${s.total} ${_pct(s)} ${_verdict(s, r.passPct)}');
+          lines.add('$part: ${s.correct}/${s.total} ${aralCheckinPct(s)} ${aralCheckinVerdict(s, r.passPct)}');
         }
       }
       final a = r.answerByItem[i.id];
@@ -128,14 +117,14 @@ void registerAralCheckinCommands(ConsoleRegistry registry, AralCheckinViewModel 
       'aral-checkin-start <enrollmentId> <16|32> [YYYY-MM-DD] ["notes"] — record a check-in attempt '
           '(date defaults to today)', (args) async {
     const usage = 'Usage: aral-checkin-start <enrollmentId> <16|32> [YYYY-MM-DD] ["notes"]';
-    if (args.length < 2) throw const _Usage(usage);
+    if (args.length < 2) throw const AralCheckinUsage(usage);
     var rest = args.sublist(2);
     DateTime? on;
     if (rest.isNotEmpty && _isDate(rest.first)) {
       on = DateTime.parse(rest.first);
       rest = rest.sublist(1);
     }
-    final c = await vm.startCheckin(_int(args[0], 'enrollmentId'), _int(args[1], 'checkpoint'),
+    final c = await vm.startCheckin(aralCheckinInt(args[0], 'enrollmentId'), aralCheckinInt(args[1], 'checkpoint'),
         on: on, notes: rest.isEmpty ? null : rest.join(' '));
     return 'Check-in #${c.id} recorded (attempt ${c.attemptNo}, ${c.takenOn}). '
         'Enter answers: aral-checkin-answers ${c.id} 1 <letters>; open items: aral-checkin-mark.';
@@ -145,9 +134,9 @@ void registerAralCheckinCommands(ConsoleRegistry registry, AralCheckinViewModel 
       'aral-checkin-answers <checkinId> <fromItemNo> <letters> — learner\'s letters for consecutive multiple-choice '
           'items (e.g. CDCA-B; "-" = left blank)', (args) async {
     const usage = 'Usage: aral-checkin-answers <checkinId> <fromItemNo> <letters> (e.g. CDCA-B)';
-    if (args.length < 3) throw const _Usage(usage);
+    if (args.length < 3) throw const AralCheckinUsage(usage);
     final letters = args.sublist(2).join().split('').map((ch) => ch == '-' ? null : ch).toList();
-    final saved = await vm.answerChoices(_int(args[0], 'checkinId'), _int(args[1], 'fromItemNo'), letters);
+    final saved = await vm.answerChoices(aralCheckinInt(args[0], 'checkinId'), aralCheckinInt(args[1], 'fromItemNo'), letters);
     final right = saved.where((a) => a.isCorrect).length;
     return 'Saved ${saved.length} answer(s): $right right, ${saved.length - right} wrong.';
   });
@@ -156,22 +145,22 @@ void registerAralCheckinCommands(ConsoleRegistry registry, AralCheckinViewModel 
       'aral-checkin-mark <checkinId> <itemNo> <right|wrong> ["what the learner wrote"] — mark an open item',
       (args) async {
     const usage = 'Usage: aral-checkin-mark <checkinId> <itemNo> <right|wrong> ["response"]';
-    if (args.length < 3 || (args[2] != 'right' && args[2] != 'wrong')) throw const _Usage(usage);
-    final a = await vm.markOpen(_int(args[0], 'checkinId'), _int(args[1], 'itemNo'), args[2] == 'right',
+    if (args.length < 3 || (args[2] != 'right' && args[2] != 'wrong')) throw const AralCheckinUsage(usage);
+    final a = await vm.markOpen(aralCheckinInt(args[0], 'checkinId'), aralCheckinInt(args[1], 'itemNo'), args[2] == 'right',
         response: args.length > 3 ? args.sublist(3).join(' ') : null);
     return 'Item ${args[1]} marked ${a.isCorrect ? 'right' : 'wrong'}.';
   });
 
   add('aral-checkin-clear', 'aral-checkin-clear <checkinId> <itemNo> — remove an item\'s answer', (args) async {
-    if (args.length < 2) throw const _Usage('Usage: aral-checkin-clear <checkinId> <itemNo>');
-    await vm.clearAnswer(_int(args[0], 'checkinId'), _int(args[1], 'itemNo'));
+    if (args.length < 2) throw const AralCheckinUsage('Usage: aral-checkin-clear <checkinId> <itemNo>');
+    await vm.clearAnswer(aralCheckinInt(args[0], 'checkinId'), aralCheckinInt(args[1], 'itemNo'));
     return 'Item ${args[1]} is not answered now.';
   });
 
   add('aral-checkin-edit', 'aral-checkin-edit <checkinId> [YYYY-MM-DD] ["notes"|-] — change the date or notes',
       (args) async {
     const usage = 'Usage: aral-checkin-edit <checkinId> [YYYY-MM-DD] ["notes"|-]';
-    if (args.length < 2) throw const _Usage(usage);
+    if (args.length < 2) throw const AralCheckinUsage(usage);
     var rest = args.sublist(1);
     DateTime? on;
     if (_isDate(rest.first)) {
@@ -179,56 +168,20 @@ void registerAralCheckinCommands(ConsoleRegistry registry, AralCheckinViewModel 
       rest = rest.sublist(1);
     }
     final text = rest.join(' ');
-    final c = await vm.editCheckin(_int(args[0], 'checkinId'),
+    final c = await vm.editCheckin(aralCheckinInt(args[0], 'checkinId'),
         on: on, notes: rest.isEmpty ? null : (text == '-' ? '' : text));
     return 'Check-in #${c.id}: ${c.takenOn}${c.notes == null ? '' : ' | ${c.notes}'}.';
   });
 
   add('aral-checkin-delete', 'aral-checkin-delete <checkinId> — delete a check-in and its answers', (args) async {
-    if (args.isEmpty) throw const _Usage('Usage: aral-checkin-delete <checkinId>');
-    await vm.deleteCheckin(_int(args[0], 'checkinId'));
+    if (args.isEmpty) throw const AralCheckinUsage('Usage: aral-checkin-delete <checkinId>');
+    await vm.deleteCheckin(aralCheckinInt(args[0], 'checkinId'));
     return 'Deleted check-in ${args[0]}.';
-  });
-
-  add('aral-checkin-report',
-      'aral-checkin-report <schoolId> <schoolYear> [sectionId] — each ARAL learner\'s latest check-in after '
-          'sessions 16 and 32, with per-section totals (admin/coordinator)', (args) async {
-    const usage = 'Usage: aral-checkin-report <schoolId> <schoolYear> [sectionId]';
-    if (args.length < 2) throw const _Usage(usage);
-    final r = await vm.checkinReport(
-        schoolId: _int(args[0], 'schoolId'),
-        schoolYear: args[1],
-        sectionId: args.length > 2 ? _int(args[2], 'sectionId') : null);
-    if (r.sections.isEmpty) return 'No ARAL learners in school ${r.schoolId} for ${r.schoolYear}.';
-    String cell(AralCheckinResult? x) {
-      if (x == null) return 'not taken';
-      final s = x.score;
-      return '${s.correct}/${s.total} ${_pct(s)} ${_verdict(s, r.passPct)}'
-          '${x.complete ? '' : ' (incomplete)'}${x.checkin.attemptNo > 1 ? ' [attempt ${x.checkin.attemptNo}]' : ''}';
-    }
-
-    final lines = ['ARAL check-ins, school ${r.schoolId}, ${r.schoolYear} (cut-off ${r.passPct}%)'];
-    for (final s in r.sections) {
-      lines.add('Grade ${s.section.gradeLevel} ${s.section.sectionName} (section ${s.section.id}):');
-      for (final l in s.learners) {
-        final e = l.enrollment;
-        final head = '  #${e.id} ${l.name} | ${e.programLabel}${e.isActive ? '' : ' (exited)'}';
-        lines.add(l.hasTools
-            ? '$head | after 16: ${cell(l.after16)} | after 32: ${cell(l.after32)}'
-            : '$head | no check-in tools');
-      }
-      lines.add('  Totals (${s.withTools} with check-in tools): after 16 took ${s.took(16)}, met ${s.met(16)} | '
-          'after 32 took ${s.took(32)}, met ${s.met(32)}');
-    }
-    if (r.sections.length > 1) {
-      lines.add('School: after 16 took ${r.took(16)}, met ${r.met(16)} | after 32 took ${r.took(32)}, met ${r.met(32)}');
-    }
-    return lines.join('\n');
   });
 
   add('aral-checkin-cutoff','aral-checkin-cutoff [schoolId] — the check-in cut-off in the cloud (online)',
       (args) async {
-    final schoolId = args.isEmpty ? null : _int(args[0], 'schoolId');
+    final schoolId = args.isEmpty ? null : aralCheckinInt(args[0], 'schoolId');
     final l = await vm.settingLayers(schoolId);
     String row(Object? v) => v == null ? '(not set)' : '$v%';
     return 'Default: ${AralCheckinSettings.defaults.passPct}%\n'
@@ -237,20 +190,9 @@ void registerAralCheckinCommands(ConsoleRegistry registry, AralCheckinViewModel 
         'Applies: ${l.effective.passPct}%';
   });
 
-  add('aral-checkin-cutoff-set',
-      'aral-checkin-cutoff-set <region|schoolId> <1-100> — set the check-in cut-off (online)', (args) async {
-    const usage = 'Usage: aral-checkin-cutoff-set <region|schoolId> <1-100>';
-    if (args.length < 2) throw const _Usage(usage);
-    final schoolId = args[0] == 'region' ? null : _int(args[0], 'schoolId');
-    await vm.setPassPct(schoolId, _int(args[1], 'cut-off'));
-    final warn = vm.lastMirrorWarning;
-    return 'Cut-off for ${schoolId == null ? 'the region' : 'school $schoolId'} set to ${args[1]}%.'
-        '${warn == null ? '' : '\n$warn'}';
-  });
-
   add('aral-sharp', 'aral-sharp [schoolId] — is the foundational literacy program (SHARP) on? (online)',
       (args) async {
-    final schoolId = args.isEmpty ? null : _int(args[0], 'schoolId');
+    final schoolId = args.isEmpty ? null : aralCheckinInt(args[0], 'schoolId');
     final l = await vm.foundationalProgramLayers(schoolId);
     String row(bool? v) => v == null ? '(not set)' : (v ? 'on' : 'off');
     return 'Default: off (levels 0-1 go to KS1)\n'
@@ -259,51 +201,15 @@ void registerAralCheckinCommands(ConsoleRegistry registry, AralCheckinViewModel 
         'Applies: ${l.effective ? 'on (levels 0-1 go to Foundational / SHARP)' : 'off (levels 0-1 go to KS1)'}';
   });
 
-  add('aral-sharp-set',
-      'aral-sharp-set <region|schoolId> <on|off> — switch the foundational literacy program (SHARP) (online)',
-      (args) async {
-    const usage = 'Usage: aral-sharp-set <region|schoolId> <on|off>';
-    if (args.length != 2 || (args[1] != 'on' && args[1] != 'off')) throw const _Usage(usage);
-    final schoolId = args[0] == 'region' ? null : _int(args[0], 'schoolId');
-    await vm.setFoundationalProgram(schoolId, args[1] == 'on');
-    final warn = vm.lastMirrorWarning;
-    return 'Foundational literacy program (SHARP) ${args[1]} for '
-        '${schoolId == null ? 'the region' : 'school $schoolId'}. Learners already in ARAL move at the next '
-        'aral-update.${warn == null ? '' : '\n$warn'}';
-  });
-
-  add('aral-checkin-cutoff-reset',
-      'aral-checkin-cutoff-reset <schoolId> — remove a school\'s ARAL settings override: cut-off, SHARP switch, '
-          'idle session days (online)', (args) async {
-    if (args.isEmpty) throw const _Usage('Usage: aral-checkin-cutoff-reset <schoolId>');
-    final schoolId = _int(args[0], 'schoolId');
-    await vm.resetSchoolSettings(schoolId);
-    final warn = vm.lastMirrorWarning;
-    return 'School $schoolId uses the region ARAL settings again (cut-off, SHARP, idle session days).'
-        '${warn == null ? '' : '\n$warn'}';
-  });
-
   add('aral-idle-days',
       'aral-idle-days [schoolId] — after how many days without a session a tutor is reminded (online)',
       (args) async {
-    final schoolId = args.isEmpty ? null : _int(args[0], 'schoolId');
+    final schoolId = args.isEmpty ? null : aralCheckinInt(args[0], 'schoolId');
     final l = await vm.idleSessionDaysLayers(schoolId);
     String row(int? v) => v == null ? '(not set)' : '$v days';
     return 'Default: ${AralSessionSettings.defaults.idleSessionDays} days\n'
         'Region: ${row(l.region)}\n'
         '${schoolId == null ? '' : 'School $schoolId: ${row(l.school)}\n'}'
         'Applies: ${l.effective} days';
-  });
-
-  add('aral-idle-days-set',
-      'aral-idle-days-set <region|schoolId> <1-60> — set the "no session lately" reminder\'s days (online)',
-      (args) async {
-    const usage = 'Usage: aral-idle-days-set <region|schoolId> <1-60>';
-    if (args.length != 2) throw const _Usage(usage);
-    final schoolId = args[0] == 'region' ? null : _int(args[0], 'schoolId');
-    await vm.setIdleSessionDays(schoolId, _int(args[1], 'days'));
-    final warn = vm.lastMirrorWarning;
-    return 'Idle session days for ${schoolId == null ? 'the region' : 'school $schoolId'} set to ${args[1]}.'
-        '${warn == null ? '' : '\n$warn'}';
   });
 }

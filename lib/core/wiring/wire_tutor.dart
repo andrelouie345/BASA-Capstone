@@ -24,6 +24,7 @@ import '../../viewmodels/srp_viewmodel.dart';
 import '../../viewmodels/trend_viewmodel.dart';
 import '../console/commands/aral_checkin_commands.dart';
 import '../console/commands/aral_commands.dart';
+import '../console/commands/aral_export_commands.dart';
 import '../console/commands/aral_irip_commands.dart';
 import '../console/commands/aral_material_commands.dart';
 import '../console/commands/aral_readability_commands.dart';
@@ -389,6 +390,7 @@ void registerTutorCommands(AppContext ctx, SharedVms s, TutorVms t) {
   registerAralCheckinCommands(r, t.aralCheckinVm);
   registerAralMaterialCommands(r, t.aralMaterialVm);
   registerAralReadabilityCommands(r, t.aralReadabilityVm);
+  registerAralExportCommands(r, t.aralVm);
   registerCalendarCommands(r, t.calendarVm);
   registerReminderCommands(r, t.reminderVm, () => authVm.currentUser?.id);
   registerTrendCommands(r, t.trendVm);
