@@ -1,0 +1,86 @@
+# T2 Reads and pull, on tutor devices. tutor1 teaches G2 and G7; tutor2 has
+# no section. What a tutor can read is checked twice: through the commands
+# and in the local copy the pull leaves (it holds what RLS gave them).
+
+device t2-phone tutor fresh
+run pull-cloud yes
+refuse Not signed in. Sign in first.
+as tutor1
+run pull-cloud
+expect Run "pull-cloud yes" to continue.
+run pull-cloud yes
+expect users:
+sql select count(*) from schools where id = {school} => 1
+sql select count(*) from schools where id = {schoolB} => 0
+sql select count(*) from students where id in ({s_g2_1}, {s_g2_2}, {s_g2_3}, {s_g2_4}, {s_g7_1}, {s_g7_2}, {s_g7_3}, {s_g7_4}) => 8
+sql select count(*) from students where id = {s_b7_1} => 0
+sql select count(*) from aral_enrollments where section_id = {sec_g7} and status = 'active' => 3
+
+run school-list
+expect {name_a}
+run section-list
+expect ZZTEST-G2
+expect ZZTEST-G7
+run list-sections
+expect {sec_g7}: 7 - ZZTEST-G7 ({year})
+run list-students {sec_g7}
+expect {lrn_g7_1}: ZZTESTA, Learner001
+run list-students abc
+refuse Usage:
+run student-list
+expect ZZTESTA, Learner001
+run student-list-section {sec_g2}
+expect ZZTESTD, Learner004
+# Another school's section: RLS gives nothing.
+run student-list-section {sec_b7}
+expect (no students found in this section)
+
+run calendar-show {school} {year}
+expect Phil-IRI BOSY     {past} .. {future}  OPEN  (school override)
+expect CRLA BOSY         {past} .. {future}  OPEN  (school override)
+run calendar-show {school} 2026
+refuse School year must look like 2025-2026
+run dashboard-years
+expect {year}
+run dashboard {year}
+expect Grade 2 ZZTEST-G2 (#{sec_g2}): 4 learners
+expect Grade 7 ZZTEST-G7 (#{sec_g7}): 4 learners
+expect ARAL roster: 3 active, 0 exited
+expect Sessions held: 0, last none
+run reminders-tutor me {year}
+expect 0 ARAL sessions held, last none
+expect {lrn_g7_1}  ZZTESTA, Learner001  (ARAL #{enr_1})
+run reminders-tutor {tutor2_id} {year}
+refuse Forbidden: a tutor sees only their own reminders.
+run trend-aral-activity tutor:me {year}
+expect No ARAL sessions yet.
+run trend-aral-activity school:{school} {year}
+refuse Forbidden: only an admin or coordinator can do that.
+run aral-tutors {school} {year}
+expect {tutor1_id} | ZZTEST Pass Tutor1 r{run} | 3 active ARAL learner(s)
+run aral-tutor-summary {year}
+expect 0 session(s), 0 minutes, last session -; next check-in after session 16 (16 to go)
+expect 3 active ARAL learner(s); marks: 0 present, 0 absent, 0 excused
+# Another tutor is not on a tutor's device.
+run aral-tutor-summary {year} {tutor2_id}
+refuse No tutor with id {tutor2_id}.
+run srp-classes {school} {year}
+expect (no SRP classes)
+
+# --- tutor2: no section --------------------------------------------------------
+device t2-phone2 tutor fresh
+as tutor2
+run pull-cloud yes
+expect users:
+sql select count(*) from students => 0
+sql select count(*) from aral_enrollments => 0
+run section-list
+expect (no sections found)
+run student-list
+expect (no students found)
+run dashboard {year}
+expect My sections:
+expect None this school year.
+expect ARAL roster: 0 active, 0 exited
+run reminders-tutor me {year}
+expect No reminders.
