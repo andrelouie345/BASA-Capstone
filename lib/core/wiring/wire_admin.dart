@@ -83,7 +83,8 @@ Future<AdminVms> wireAdmin(AppContext ctx, SharedVms s, TutorVms t) async {
   final vms = ctx.vmRegistry;
   final authVm = ctx.authVm;
 
-  final userVm = UserViewModel(auth: authVm, repoFactory: UserRepositorySupabase.new, logger: session);
+  final userVm = UserViewModel(
+      auth: authVm, repoFactory: UserRepositorySupabase.new, local: UserRepositorySqlite(db), logger: session);
   vms.register('UserViewModel', userVm);
 
   final columnMap = await Sf1ColumnMap.load(ctx.dataDir);

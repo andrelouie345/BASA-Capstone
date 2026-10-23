@@ -37,9 +37,10 @@ void registerUserCommands(ConsoleRegistry registry, UserViewModel vm) {
           role: role,
           schoolId: schoolId,
         );
+        final warn = vm.lastMirrorWarning;
         return 'Created: ${args[0]} as ${role.name} at school ${schoolId ?? "- (regional)"}.\n'
             'Temporary password: ${tempPassword ?? "(not returned — is the create-user function deployed?)"} '
-            '(shown once; must be changed on first login).';
+            '(shown once; must be changed on first login).${warn == null ? '' : '\n$warn'}';
       } catch (e) {
         return 'Create failed: $e';
       }
@@ -57,7 +58,8 @@ void registerUserCommands(ConsoleRegistry registry, UserViewModel vm) {
       }
       try {
         await vm.setActive(args[0], activeArg == 'true');
-        return 'Set ${args[0]} active=$activeArg.';
+        final warn = vm.lastMirrorWarning;
+        return 'Set ${args[0]} active=$activeArg.${warn == null ? '' : '\n$warn'}';
       } catch (e) {
         return 'Update failed: $e';
       }

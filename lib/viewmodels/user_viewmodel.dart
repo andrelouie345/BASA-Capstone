@@ -15,18 +15,28 @@ import 'viewmodel_exception.dart';
 /// Accounts are only ever created in the cloud (the edge function creates
 /// the Auth user and the profile row together). A local-only profile row
 /// would have no Auth account behind it and could never log in.
+///
+/// Creating and (de)activating are mirrored onto this device ([local]), so
+/// rules that read the local users table (an ARAL tutor must be an active
+/// tutor of the school) know the account before the next pull-cloud.
 class UserViewModel {
   final ScopedLogger _log;
   final AuthViewModel _auth;
   final UserRepository Function(SupabaseClient client) _repoFor;
+  final UserRepository? _local;
   List<User> items = [];
+
+  /// Set when a change was saved online but not copied onto this device.
+  String? lastMirrorWarning;
 
   UserViewModel({
     required AuthViewModel auth,
     required UserRepository Function(SupabaseClient client) repoFactory,
+    UserRepository? local,
     Logger? logger,
   })  : _auth = auth,
         _repoFor = repoFactory,
+        _local = local,
         _log = ScopedLogger(logger, 'UserViewModel');
 
   bool get _isSuperadmin =>
@@ -95,6 +105,11 @@ class UserViewModel {
       final message = details is Map ? details['error'] : null;
       throw ViewModelException('${message ?? details ?? e.reasonPhrase ?? e.status}');
     }
+    await _mirror(() async {
+      final created = await repo.getByEmail(email.trim());
+      if (created == null) throw StateError('the new account is not readable yet');
+      await _local!.upsertMirror(created);
+    });
     await _refreshIfLoaded();
     return tempPassword;
   }
@@ -118,7 +133,19 @@ class UserViewModel {
     } on PostgrestException catch (e) {
       throw ViewModelException(e.message);
     }
+    await _mirror(() => _local!.setActive(id, isActive));
     await _refreshIfLoaded();
+  }
+
+  Future<void> _mirror(Future<void> Function() write) async {
+    lastMirrorWarning = null;
+    if (_local == null) return;
+    try {
+      await write();
+    } catch (e) {
+      lastMirrorWarning = 'Saved online, but not copied onto this device ($e); run pull-cloud.';
+      _log('mirror failed: $e');
+    }
   }
 
   Future<void> _refreshIfLoaded() async {

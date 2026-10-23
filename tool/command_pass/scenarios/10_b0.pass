@@ -37,6 +37,8 @@ capture temp_tutor1 = Temporary password: (\S+)
 run user-create zztest.pass.r{run}.tutor2@basa.test tutor {school} ZZTEST Pass Tutor2 r{run}
 expect Created: zztest.pass.r{run}.tutor2@basa.test as tutor at school {school}.
 capture temp_tutor2 = Temporary password: (\S+)
+# The new accounts are on this device at once (F1), before any pull.
+sql select count(*) from users where email = 'zztest.pass.r{run}.tutor2@basa.test' and role = 'tutor' and is_active = 1 => 1
 # A coordinator creates accounts for their own school only.
 run user-create zztest.pass.r{run}.other@basa.test tutor {schoolB} ZZTEST Other
 refuse own school

@@ -52,4 +52,7 @@ class UserRepositorySupabase implements UserRepository {
       throw Exception('No user updated — check the id or your permissions ("$id")');
     }
   }
+
+  @override
+  Future<void> upsertMirror(User user) => throw UnimplementedError('local mirror only');
 }
