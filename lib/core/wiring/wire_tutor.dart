@@ -5,6 +5,7 @@
 // and srp-classes need them (owner decision D1, 2026-10-22); their admin-only
 // methods are dropped by tree shaking and checked by tool/admin_markers.txt.
 import '../../viewmodels/aral_checkin_viewmodel.dart';
+import '../../viewmodels/aral_class_viewmodel.dart';
 import '../../viewmodels/aral_irip_viewmodel.dart';
 import '../../viewmodels/aral_material_viewmodel.dart';
 import '../../viewmodels/aral_readability_viewmodel.dart';
@@ -23,6 +24,7 @@ import '../../viewmodels/round_calendar_viewmodel.dart';
 import '../../viewmodels/srp_viewmodel.dart';
 import '../../viewmodels/trend_viewmodel.dart';
 import '../console/commands/aral_checkin_commands.dart';
+import '../console/commands/aral_class_commands.dart';
 import '../console/commands/aral_commands.dart';
 import '../console/commands/aral_irip_commands.dart';
 import '../console/commands/aral_material_commands.dart';
@@ -39,6 +41,7 @@ import '../console/commands/reminder_commands.dart';
 import '../console/commands/srp_commands.dart';
 import '../console/commands/trend_commands.dart';
 import '../data/local/aral_checkin_repository_sqlite.dart';
+import '../data/local/aral_class_repository_sqlite.dart';
 import '../data/local/aral_enrollment_repository_sqlite.dart';
 import '../data/local/aral_irip_repository_sqlite.dart';
 import '../data/local/aral_material_repository_sqlite.dart';
@@ -87,6 +90,7 @@ class TutorVms {
   final PhilIriContentViewModel philIriContentVm;
   final PhilIriViewModel philIriVm;
   final AralViewModel aralVm;
+  final AralClassViewModel aralClassVm;
   final AralSessionViewModel aralSessionVm;
   final AralIripViewModel aralIripVm;
   final AralCheckinViewModel aralCheckinVm;
@@ -107,6 +111,7 @@ class TutorVms {
     required this.philIriContentVm,
     required this.philIriVm,
     required this.aralVm,
+    required this.aralClassVm,
     required this.aralSessionVm,
     required this.aralIripVm,
     required this.aralCheckinVm,
@@ -211,6 +216,14 @@ TutorVms wireTutor(AppContext ctx, SharedVms s) {
     logger: session,
   );
   vms.register('AralViewModel', aralVm);
+
+  final aralClassVm = AralClassViewModel(
+    auth: authVm,
+    classes: AralClassRepositorySqlite(db),
+    users: UserRepositorySqlite(db),
+    logger: session,
+  );
+  vms.register('AralClassViewModel', aralClassVm);
 
   final aralSessionVm = AralSessionViewModel(
     auth: authVm,
@@ -361,6 +374,7 @@ TutorVms wireTutor(AppContext ctx, SharedVms s) {
     philIriContentVm: philIriContentVm,
     philIriVm: philIriVm,
     aralVm: aralVm,
+    aralClassVm: aralClassVm,
     aralSessionVm: aralSessionVm,
     aralIripVm: aralIripVm,
     aralCheckinVm: aralCheckinVm,
@@ -385,6 +399,7 @@ void registerTutorCommands(AppContext ctx, SharedVms s, TutorVms t) {
   registerPhilIriContentCommands(r, t.philIriContentVm);
   registerPhilIriCommands(r, t.philIriVm);
   registerAralCommands(r, t.aralVm);
+  registerAralClassCommands(r, t.aralClassVm);
   registerAralSessionCommands(r, t.aralSessionVm);
   registerAralIripCommands(r, t.aralIripVm);
   registerAralCheckinCommands(r, t.aralCheckinVm);

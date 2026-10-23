@@ -1,6 +1,7 @@
 // lib/core/console/commands/aral_command_helpers.dart
 // Helpers shared by aral_commands.dart and aral_admin_commands.dart (no admin code here).
 
+import '../../models/aral_class.dart';
 import '../../models/aral_enrollment.dart';
 
 class AralUsage implements Exception {
@@ -21,3 +22,9 @@ String aralLine(AralEnrollment e, Map<int, String> names) {
   return '#${e.id} | $who (${e.studentId}) | ${e.programLabel} | $status | tutor ${e.tutorId ?? '-'} | '
       'basis: ${basis.trim()} | $suggested${e.notes == null ? '' : ' | notes: ${e.notes}'}';
 }
+
+/// One ARAL class: `#id | name | program | Grades band | tutor id` (+ room
+/// and schedule when set).
+String aralClassLine(AralClass c) => '#${c.id} | ${c.className} | ${c.program.label} | Grades ${c.gradeBand.value} | '
+    'tutor ${c.tutorId ?? '-'}${c.room == null ? '' : ' | room ${c.room}'}'
+    '${c.schedule == null ? '' : ' | ${c.schedule}'}';

@@ -139,7 +139,68 @@ const _suggestionColumns = {
   'suggested_on': 'TEXT',
 };
 
+/// ARAL classes (cloud 20261023040000): school + year + name, one program and
+/// grade band, an optional tutor. Offline-first like the roster: `origin`
+/// tells rows made here ('local', checked by the triggers) from mirrored ones.
+/// row_version is the sync column (createSyncLocalSchema adds the same to the
+/// other synced tables). Before the roster, whose class_id points here.
+Future<void> _createClassTables(Database db) async {
+  await db.execute('''
+    CREATE TABLE IF NOT EXISTS aral_classes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      school_id INTEGER NOT NULL REFERENCES schools(id),
+      school_year TEXT NOT NULL
+        CHECK (school_year GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9]'
+               AND CAST(substr(school_year, 6, 4) AS INTEGER) = CAST(substr(school_year, 1, 4) AS INTEGER) + 1),
+      class_name TEXT NOT NULL CHECK (length(trim(class_name)) > 0),
+      program TEXT NOT NULL
+        CHECK (program IN ('foundational', 'ks1', 'ks2_basic', 'ks2_plus', 'ks3_basic', 'ks3_plus')),
+      grade_band TEXT NOT NULL CHECK (grade_band IN ('1-3', '4-6', '7-10')),
+      tutor_id TEXT REFERENCES users(id),
+      room TEXT,
+      schedule TEXT,
+      notes TEXT,
+      created_by TEXT REFERENCES users(id),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      origin TEXT NOT NULL DEFAULT 'local' CHECK (origin IN ('local', 'cloud')),
+      row_version INTEGER
+    )
+  ''');
+  // Same name rule as the cloud's aral_classes_name_key (lower(btrim(...))).
+  await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS aral_classes_name_key '
+      'ON aral_classes (school_id, school_year, lower(trim(class_name)))');
+  await db.execute('CREATE INDEX IF NOT EXISTS aral_classes_tutor ON aral_classes (tutor_id, school_year)');
+
+  const tutorOk = '''(SELECT 1 FROM users u WHERE u.id = NEW.tutor_id AND u.role = 'tutor'
+                        AND u.is_active = 1 AND u.school_id = NEW.school_id)''';
+  const tutorMsg = "The ARAL class tutor must be an active tutor of the class''s school";
+  await db.execute('DROP TRIGGER IF EXISTS check_aral_class_ins');
+  await db.execute('''
+    CREATE TRIGGER check_aral_class_ins
+    BEFORE INSERT ON aral_classes
+    WHEN NEW.origin = 'local'
+    BEGIN
+      SELECT RAISE(ABORT, '$tutorMsg')
+      WHERE NEW.tutor_id IS NOT NULL AND NOT EXISTS $tutorOk;
+    END
+  ''');
+  await db.execute('DROP TRIGGER IF EXISTS check_aral_class_upd');
+  await db.execute('''
+    CREATE TRIGGER check_aral_class_upd
+    BEFORE UPDATE ON aral_classes
+    WHEN OLD.origin = 'local'
+    BEGIN
+      SELECT RAISE(ABORT, 'An ARAL class keeps its school and school year')
+      WHERE NEW.school_id IS NOT OLD.school_id OR NEW.school_year IS NOT OLD.school_year;
+      SELECT RAISE(ABORT, '$tutorMsg')
+      WHERE NEW.tutor_id IS NOT NULL AND NEW.tutor_id IS NOT OLD.tutor_id AND NOT EXISTS $tutorOk;
+    END
+  ''');
+}
+
 Future<void> createAralLocalSchema(Database db) async {
+  await _createClassTables(db);
   await db.execute(_enrollmentsTableSql('aral_enrollments'));
   final have = (await db.rawQuery('PRAGMA table_info(aral_enrollments)')).map((c) => c['name']).toSet();
   for (final c in _suggestionColumns.entries) {

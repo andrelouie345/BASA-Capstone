@@ -14,6 +14,11 @@ aral-checkin-report
 aral-checkin-start
 aral-checkin-tools
 aral-checkins
+aral-class-add
+aral-class-delete
+aral-class-edit
+aral-class-show
+aral-classes
 aral-enroll
 aral-enroll-proposed
 aral-exit

@@ -28,6 +28,7 @@
 //    8 KS3 Basic; 9 KS3 Plus.
 library;
 
+import '../models/aral_class.dart';
 import '../models/aral_enrollment.dart';
 import '../models/crla_assessment.dart' show CrlaRound;
 import '../models/crla_result.dart';
@@ -36,6 +37,46 @@ import 'phil_iri_results.dart' show PhilIriRoundResult;
 
 /// At most this many learners of one section are in ARAL at a time.
 const aralSectionCap = 15;
+
+/// At most this many ACTIVE learners in one ARAL class (DepEd Memorandum 064
+/// s. 2025, Encl. 2 item 7; hard stop on the device and the cloud). Exited
+/// learners stay linked to the class but don't count.
+const aralClassCap = 15;
+
+/// Why a learner can't go into an ARAL class, in the order the cloud's
+/// aral_check_class_placement checks them (20261023040000).
+enum AralPlacementProblem { otherSchoolOrYear, programMismatch, gradeOutsideBand, full }
+
+/// The first reason an active learner of [schoolId]/[schoolYear] in [program]
+/// and Grade [grade] can't go into [target], which already holds
+/// [activeOthersInClass] other active learners; null = they can.
+AralPlacementProblem? aralPlacementProblem({
+  required AralClass target,
+  required int schoolId,
+  required String schoolYear,
+  required AralClassProgram program,
+  required int grade,
+  required int activeOthersInClass,
+}) {
+  if (target.schoolId != schoolId || target.schoolYear != schoolYear) return AralPlacementProblem.otherSchoolOrYear;
+  if (target.program != program) return AralPlacementProblem.programMismatch;
+  if (!target.gradeBand.contains(grade)) return AralPlacementProblem.gradeOutsideBand;
+  if (activeOthersInClass >= aralClassCap) return AralPlacementProblem.full;
+  return null;
+}
+
+/// The refusal text for [p] ([learner] = "Last, First").
+String aralPlacementMessage(AralPlacementProblem p,
+        {required String learner, required AralClass target, required int grade, required AralClassProgram program}) =>
+    switch (p) {
+      AralPlacementProblem.full => 'Class "${target.className}" already has $aralClassCap active ARAL learners.',
+      AralPlacementProblem.programMismatch =>
+        '$learner is in ${program.label}; class "${target.className}" is ${target.program.label}.',
+      AralPlacementProblem.gradeOutsideBand =>
+        '$learner is in Grade $grade; class "${target.className}" takes Grades ${target.gradeBand.value}.',
+      AralPlacementProblem.otherSchoolOrYear =>
+        'Class "${target.className}" belongs to another school or school year.',
+    };
 
 /// basis_level of a Phil-IRI learner entered while not assessed at all
 /// (assumed Frustration, 3 levels down); a real result later replaces the

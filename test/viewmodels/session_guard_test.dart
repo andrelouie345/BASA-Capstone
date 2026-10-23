@@ -4,6 +4,7 @@
 // touches the device's data.
 import 'dart:io';
 
+import 'package:basa_capstone/core/models/aral_class.dart';
 import 'package:basa_capstone/core/models/aral_enrollment.dart';
 import 'package:basa_capstone/core/models/aral_irip.dart';
 import 'package:basa_capstone/core/models/aral_session.dart';
@@ -62,6 +63,7 @@ void main() {
   test('the ARAL ViewModels refuse every call while signed out', () async {
     final aral = t.aralVm, ses = t.aralSessionVm, irip = t.aralIripVm;
     final ck = t.aralCheckinVm, read = t.aralReadabilityVm, mat = t.aralMaterialVm;
+    final cls = t.aralClassVm;
     const y = '2026-2027';
     final calls = <String, Future<Object?> Function()>{
       'aral.propose': () => aral.propose(sectionId: 1, schoolYear: y),
@@ -84,6 +86,13 @@ void main() {
       'aral.rosterCsv': () => aral.rosterCsv(schoolId: 1, schoolYear: y),
       'aral.tutors': () => aral.tutors(schoolId: 1, schoolYear: y),
       'aral.learnerNames': () => aral.learnerNames(1),
+      'class.classes': () => cls.classes(schoolId: 1),
+      'class.getClass': () => cls.getClass(1),
+      'class.createClass': () => cls.createClass(
+          schoolId: 1, schoolYear: y, className: 'x', program: AralClassProgram.ks1, gradeBand: AralGradeBand.g1to3),
+      'class.editClass': () => cls.editClass(const AralClass(
+          id: 1, schoolId: 1, schoolYear: y, className: 'x', program: AralClassProgram.ks1, gradeBand: AralGradeBand.g1to3)),
+      'class.deleteClass': () => cls.deleteClass(1),
       'session.logSession': () => ses.logSession(schoolYear: y, minutes: 30, setup: AralSetup.pullOut),
       'session.editSession': () => ses.editSession(1, minutes: 5),
       'session.deleteSession': () => ses.deleteSession(1),
