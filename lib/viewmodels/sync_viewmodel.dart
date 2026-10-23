@@ -330,10 +330,15 @@ class SyncViewModel {
   }
 
   /// How many of this device's records are locked, per upload (0 = being sent).
-  Future<Map<int, int>> lockedCounts() async => {
-        for (final id in [if (await _uploadLocal.inFlight() != null) 0, ...await _uploadLocal.pendingUploadIds()])
-          id: (await _uploadLocal.pendingRecords(id)).length,
-      };
+  /// Reads only this device, so an offline sign-in is enough.
+  Future<Map<int, int>> lockedCounts() async {
+    final error = _auth.requireActiveSession();
+    if (error != null) throw ViewModelException(error);
+    return {
+      for (final id in [if (await _uploadLocal.inFlight() != null) 0, ...await _uploadLocal.pendingUploadIds()])
+        id: (await _uploadLocal.pendingRecords(id)).length,
+    };
+  }
 
   /// The future sync button: refresh, preview, upload if [confirm] agrees
   /// and nothing stops it, then pull.

@@ -91,7 +91,8 @@ refuse No assessment with id 999999.
 
 # Exports.
 run crla-export {sec_g2} sample-files/crla/CRLA2_Grade2Scoresheet_v1.xlsx "{rundir}/t3_crla_g2.xlsx" bosy "ZZTEST Teacher"
-expect : Grade 2 ZZTEST-G2, BOSY, 4 learner(s); results: fil 4.
+# (T6 adds an English attempt for learner 4, so "eng 1" may follow.)
+expect : Grade 2 ZZTEST-G2, BOSY, 4 learner(s); results: fil 4
 run export-section {sec_g2} "{rundir}/t3_g2.csv"
 expect Exported 4 students to
 # An unwritable path (no such folder) must be refused, not crash.

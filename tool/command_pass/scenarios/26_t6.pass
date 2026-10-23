@@ -1,0 +1,163 @@
+# T6 Sync: tutor1 uploads work, withdraws, is rejected, is approved; a
+# conflict with the coordinator's change is resolved; signed-out refusals.
+
+device t6-phone tutor fresh
+as tutor1
+run pull-cloud yes
+expect users:
+run sync-preview
+expect Nothing to upload.
+run sync-status
+expect Nothing on this device is waiting for approval.
+
+# --- New work on the device ---------------------------------------------------
+run crla-start {s_g2_4} {sec_g2} {year} eng bosy English
+expect attempt
+capture t6_crla = Started assessment (-?\d+)
+run crla-part1 {t6_crla} 8 3
+expect total 11, level Light Refresher.
+run aral-log {year} 40 during_class lesson "ZZ T6"
+expect Logged:
+capture t6_ses = Logged: #(-?\d+)
+run aral-mark-rest {t6_ses} present
+expect Marked 3 learner(s) present.
+run sync-preview
+expect Would upload 6 row(s):
+expect 1 ARAL session(s)
+expect 1 CRLA assessment(s) in section {sec_g2} (grade 2 ZZTEST-G2, {year})
+run sync-upload
+expect Run "sync-upload yes" to send.
+run sync-upload yes
+expect 6 row(s), waiting for approval.
+capture up_1 = Upload (\d+) sent
+run sync-status
+expect {up_1}  pending
+expect Locked on this device: 6 row(s) in upload {up_1}.
+# Waiting for approval: locked.
+run crla-part1 {t6_crla} 9 3
+refuse This record is waiting for approval. Withdraw the upload to change it.
+run sync-withdraw latest
+expect Upload {up_1} withdrawn; its records can be changed again.
+run crla-part1 {t6_crla} 9 3
+expect total 12, level Light Refresher.
+run sync-upload yes
+expect 6 row(s), waiting for approval.
+capture up_2 = Upload (\d+) sent
+
+# --- The coordinator rejects it -------------------------------------------------
+device coord-pc admin
+as coord
+run sync-pending
+expect Waiting for approval (oldest first):
+expect ZZTEST Pass Tutor1 r{run}
+run sync-show {up_2}
+expect Upload {up_2} by ZZTEST Pass Tutor1 r{run}
+expect ZZTESTD, Learner004 (G2 ZZTEST-G2): CRLA bosy eng, new, with Part 1 English
+expect ARAL session 1 ({today}): new, with 3 attendance marks
+run sync-reject {up_2}
+refuse Usage: sync-reject <upload id>|latest <reason...>
+run sync-reject {up_2} ZZ wrong learner, please check
+expect Upload {up_2} rejected and sent back to ZZTEST Pass Tutor1 r{run}: ZZ wrong learner, please check
+
+device t6-phone tutor
+run sync-status
+expect Upload {up_2} rejected: ZZ wrong learner, please check. Its 6 row(s) can be changed again.
+run sync-upload yes
+expect 6 row(s), waiting for approval.
+capture up_3 = Upload (\d+) sent
+
+# --- The coordinator approves it -----------------------------------------------
+device coord-pc admin
+run sync-approve {up_3}
+expect Upload {up_3} applied.
+
+device t6-phone tutor
+run sync-status
+expect Upload {up_3} applied: 6 row(s) now on the server.
+sql select count(*) from crla_assessments where id < 0 => 0
+sql select count(*) from aral_sessions where id < 0 => 0
+run aral-sessions
+expect 1 session(s), 40 minutes.
+capture t6_ses_srv = #(\d+) \| session \d+ \| {today} \| 40 min
+
+# --- A conflict: the coordinator changed the session first --------------------
+device coord-pc admin
+run pull-cloud yes
+expect aral_sessions
+run aral-session-edit {t6_ses_srv} minutes=45
+expect Updated: #{t6_ses_srv} | session 1 | {today} | 45 min
+run sync-upload yes
+expect 1 row(s) now on the server.
+
+device t6-phone tutor
+run aral-session-edit {t6_ses_srv} minutes=55
+expect | 55 min |
+run sync-preview
+expect aral_sessions {t6_ses_srv}: changed on the server (yours from version
+run sync-upload yes
+refuse Resolve these first (sync-resolve <table> <key> mine|server):
+run sync-resolve aral_sessions {t6_ses_srv} server
+expect Took the server's copy of aral_sessions {t6_ses_srv}
+run aral-sessions
+expect | 45 min |
+run sync-preview
+expect Nothing to upload.
+
+# --- Again, and this time the tutor keeps their own change ---------------------
+device coord-pc admin
+run aral-session-edit {t6_ses_srv} remarks "ZZ coordinator note"
+expect remarks: ZZ coordinator note
+run sync-upload yes
+expect~ [Aa]pplied
+device t6-phone tutor
+run aral-session-edit {t6_ses_srv} lesson "ZZ T6 corrected"
+expect ZZ T6 corrected
+run sync-resolve aral_sessions {t6_ses_srv} mine
+expect Kept yours for aral_sessions {t6_ses_srv} (will overwrite server version
+run sync-upload yes
+expect 1 row(s), waiting for approval.
+capture up_4 = Upload (\d+)
+device coord-pc admin
+run sync-approve {up_4}
+expect Upload {up_4} applied.
+device t6-phone tutor
+run sync-status
+expect Upload {up_4} applied: 1 row(s) now on the server.
+# "mine" sends the whole row: the coordinator's note is replaced.
+run aral-sessions
+expect | 45 min | During class |
+expect ZZ T6 corrected
+
+# --- A delete travels too; it also leaves tutor1 without a session today, so
+# the batch can run again.
+run aral-session-delete {t6_ses_srv}
+expect Deleted ARAL session {t6_ses_srv}.
+run sync-upload yes
+expect waiting for approval.
+capture up_5 = Upload (\d+)
+device coord-pc admin
+run sync-approve {up_5}
+expect Upload {up_5} applied.
+run pull-cloud yes
+expect aral_sessions
+sql select count(*) from aral_sessions where id = {t6_ses_srv} => 0
+device t6-phone tutor
+run sync-status
+expect Upload {up_5} applied
+sql select count(*) from aral_sessions where id = {t6_ses_srv} => 0
+run sync-preview
+expect Nothing to upload.
+
+# --- Signed out ------------------------------------------------------------------
+run sign-out
+expect Signed out.
+run sync-preview
+refuse Not signed in. Sign in first.
+run sync-upload yes
+refuse Not signed in. Sign in first.
+run sync-status
+refuse Not signed in. Sign in first.
+run sync-withdraw latest
+refuse Not signed in. Sign in first.
+run sync-resolve aral_sessions {t6_ses_srv} server
+refuse Not signed in. Sign in first.

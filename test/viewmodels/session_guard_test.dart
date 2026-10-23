@@ -8,6 +8,7 @@ import 'package:basa_capstone/core/models/aral_enrollment.dart';
 import 'package:basa_capstone/core/models/aral_irip.dart';
 import 'package:basa_capstone/core/models/aral_session.dart';
 import 'package:basa_capstone/core/models/crla_assessment.dart' show CrlaRound;
+import 'package:basa_capstone/core/models/sync_upload.dart' show SyncChoice;
 import 'package:basa_capstone/core/models/phil_iri_assessment.dart' show PhilIriRound;
 import 'package:basa_capstone/core/models/phil_iri_miscue.dart';
 import 'package:basa_capstone/core/models/phil_iri_reading.dart';
@@ -23,12 +24,14 @@ final _refused = throwsA(isA<ViewModelException>().having((e) => e.message, 'mes
 
 void main() {
   late TutorVms t;
+  late SharedVms wiredShared;
 
   setUpAll(() async {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
     final ctx = await AppContext.open(dataDir: Directory.systemTemp.createTempSync('basa_guard_').path);
-    t = wireTutor(ctx, wireShared(ctx)); // nobody signed in
+    wiredShared = wireShared(ctx);
+    t = wireTutor(ctx, wiredShared); // nobody signed in
   });
 
   test('CrlaViewModel refuses every call while signed out', () async {
@@ -153,6 +156,24 @@ void main() {
       }
     }
     expect(open, isEmpty);
+  });
+
+  test('SyncViewModel refuses every call while signed out', () async {
+    final vm = wiredShared.syncVm;
+    final calls = <String, Future<Object?> Function()>{
+      'pullPreview': () => vm.pullPreview(),
+      'pull': () => vm.pull(),
+      'preview': () => vm.preview(),
+      'resolve': () => vm.resolve('aral_sessions', '1', SyncChoice.server),
+      'refreshStatus': () => vm.refreshStatus(),
+      'upload': () => vm.upload(),
+      'withdraw': () => vm.withdraw(1),
+      'uploads': () => vm.uploads(),
+      'lockedCounts': () => vm.lockedCounts(),
+    };
+    for (final e in calls.entries) {
+      await expectLater(e.value(), _refused, reason: e.key);
+    }
   });
 
   test('PhilIriViewModel refuses every call while signed out', () async {
