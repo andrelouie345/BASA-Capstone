@@ -24,6 +24,7 @@ const _adminFiles = [
   'core/console/commands/nla_report_commands.dart',
   'core/console/commands/aral_report_commands.dart',
   'core/console/commands/aral_export_commands.dart',
+  'core/console/commands/tutor_section_commands.dart',
   'core/console/commands/report_settings_commands.dart',
   // Admin-only ViewModels, repositories and services.
   'viewmodels/sync_review_viewmodel.dart',

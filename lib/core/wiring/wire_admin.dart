@@ -31,7 +31,7 @@ import '../console/commands/section_admin_commands.dart';
 import '../console/commands/srp_admin_commands.dart';
 import '../console/commands/sync_admin_commands.dart';
 import '../console/commands/trend_admin_commands.dart';
-import '../console/commands/tutor_section_admin_commands.dart';
+import '../console/commands/tutor_section_commands.dart';
 import '../console/commands/user_commands.dart';
 import '../data/local/aral_enrollment_repository_sqlite.dart';
 import '../data/local/crla_assessment_repository_sqlite.dart';
@@ -161,7 +161,7 @@ void registerAdminCommands(AppContext ctx, SharedVms s, TutorVms t, AdminVms a) 
   registerImportCommands(r, a.importVm);
   registerSchoolAdminCommands(r, s.schoolVm);
   registerSectionAdminCommands(r, s.sectionVm);
-  registerTutorSectionAdminCommands(r, s.tutorSectionVm);
+  registerTutorSectionCommands(r, s.tutorSectionVm);
   registerSyncReviewCommands(r, a.syncReviewVm);
   registerLoginCommands(r, a.loginLogVm, authVm);
   registerCrlaImportCommands(r, authVm, a.crlaImportVm);

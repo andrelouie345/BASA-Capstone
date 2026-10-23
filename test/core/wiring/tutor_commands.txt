@@ -30,7 +30,6 @@ aral-readability-add
 aral-readability-delete
 aral-readability-set
 aral-recommend
-aral-recommend-section
 aral-roster
 aral-session-delete
 aral-session-edit
@@ -66,7 +65,6 @@ get-text
 help
 list-sections
 list-students
-list-tutor-sections
 list-viewmodels
 log-filter
 offline-status

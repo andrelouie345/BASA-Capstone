@@ -54,7 +54,10 @@ sign-in; app update required: no) and `20261020020000` (sync uploads: upload,
 review and apply of device work; app update required: **yes**, apply only when
 every device has synced and every upload is decided) and `20261021010000`
 (sync follow-up updates, so work completed or exited offline keeps its status;
-app update required: **yes**, same rule). Each is idempotent. Do **not** run
+app update required: **yes**, same rule) and `20261023010000` (restores the ARAL
+roster rules of piece A1c that never reached the cloud: the 15-learner cap per
+section, which reactivation needed, and the Foundational program; app update
+required: no). Each is idempotent. Do **not** run
 `supabase/migrations_archive/`.
 
 **Rule for every new migration:** its header says `App update required on all

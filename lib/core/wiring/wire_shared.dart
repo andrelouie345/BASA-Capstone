@@ -18,7 +18,6 @@ import '../console/commands/student_commands.dart';
 import '../console/commands/sync_commands.dart';
 import '../console/commands/test_data_commands.dart';
 import '../console/commands/text_commands.dart';
-import '../console/commands/tutor_section_commands.dart';
 import '../console/commands/version_commands.dart';
 import '../data/local/section_repository_sqlite.dart';
 import '../data/local/student_repository_sqlite.dart';
@@ -122,7 +121,6 @@ void registerSharedCommands(AppContext ctx, SharedVms s) {
   registerStudentCommands(r, s.exporter, s.sectionRepo, s.studentRepo, s.studentVm);
   registerSchoolCommands(r, s.schoolVm);
   registerSectionCommands(r, s.sectionVm);
-  registerTutorSectionCommands(r, s.tutorSectionVm);
   registerPullCommands(r, s.syncVm);
   registerSyncCommands(r, s.syncVm);
 }

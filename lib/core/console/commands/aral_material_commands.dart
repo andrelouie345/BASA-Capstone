@@ -11,19 +11,6 @@ import '../console_registry.dart';
 import '../../../viewmodels/aral_material_viewmodel.dart';
 import 'aral_material_command_helpers.dart';
 
-String _recommendation(AralRecommendation r) {
-  final e = r.enrollment;
-  final head = '#${e.id} | student ${e.studentId} | Grade ${r.grade} | ${e.programLabel}';
-  if (r.materials.isEmpty) return '$head\n  ${r.note ?? 'nothing'}';
-  return [
-    head,
-    for (final x in r.materials)
-      '  - ${x.material.title} (${x.material.kind.label}, ${x.material.language})'
-          '${x.material.fileName == null ? '' : ' | file: ${x.material.fileName}'}'
-          ' | link: ${x.link == null ? 'none yet' : '${x.link}${x.schoolLink ? ' (school link)' : ''}'}',
-  ].join('\n');
-}
-
 void registerAralMaterialCommands(ConsoleRegistry registry, AralMaterialViewModel vm) {
   void add(String name, String description, Future<String> Function(List<String> args) handler) {
     registry.register(ConsoleCommand(
@@ -49,15 +36,6 @@ void registerAralMaterialCommands(ConsoleRegistry registry, AralMaterialViewMode
 
   add('aral-recommend', 'aral-recommend <enrollmentId> — the materials for one ARAL learner (offline)', (args) async {
     if (args.length != 1) throw const AralMaterialUsage('Usage: aral-recommend <enrollmentId>');
-    return _recommendation(await vm.recommendations(aralMaterialInt(args[0], 'enrollmentId')));
-  });
-
-  add('aral-recommend-section',
-      'aral-recommend-section <sectionId> <schoolYear> — the materials for every active ARAL learner of a section',
-      (args) async {
-    if (args.length != 2) throw const AralMaterialUsage('Usage: aral-recommend-section <sectionId> <schoolYear>');
-    final list = await vm.sectionRecommendations(sectionId: aralMaterialInt(args[0], 'sectionId'), schoolYear: args[1]);
-    if (list.isEmpty) return 'No active ARAL learners in section ${args[0]} for ${args[1]}.';
-    return list.map(_recommendation).join('\n');
+    return aralMaterialRecommendation(await vm.recommendations(aralMaterialInt(args[0], 'enrollmentId')));
   });
 }

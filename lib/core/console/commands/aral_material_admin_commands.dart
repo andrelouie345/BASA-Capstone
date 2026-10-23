@@ -135,6 +135,15 @@ void registerAralMaterialAdminCommands(ConsoleRegistry registry, AralMaterialVie
         ? 'School $schoolId has no own link for material #$id any more.'
         : 'School $schoolId link for material #$id: ${saved.link}');
   });
+
+  add('aral-recommend-section',
+      'aral-recommend-section <sectionId> <schoolYear> — the materials for every active ARAL learner of a section',
+      (args) async {
+    if (args.length != 2) throw const AralMaterialUsage('Usage: aral-recommend-section <sectionId> <schoolYear>');
+    final list = await vm.sectionRecommendations(sectionId: aralMaterialInt(args[0], 'sectionId'), schoolYear: args[1]);
+    if (list.isEmpty) return 'No active ARAL learners in section ${args[0]} for ${args[1]}.';
+    return list.map(aralMaterialRecommendation).join('\n');
+  });
 }
 
 AralKeyStage _keyStage(String raw) {
