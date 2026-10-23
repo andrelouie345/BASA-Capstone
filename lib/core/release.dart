@@ -19,4 +19,5 @@ const Map<String, String> basaMigrations = {
   '20261020020000': 'sync_uploads',
   '20261021010000': 'sync_followup_updates',
   '20261023010000': 'aral_restore_a1c',
+  '20261023020000': 'crla_words_read_from_story',
 };

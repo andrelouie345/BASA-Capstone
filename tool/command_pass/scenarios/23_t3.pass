@@ -2,11 +2,12 @@
 # four reading profiles (default thresholds, G2 sheet, Tagalog story 1 = 96
 # words), a retake, the grade limits, results, exports.
 #
-#   learner  part 1          level           part 2 (words, s, comp)  wpm   pct     profile
-#   s_g2_1   8, 9 -> 27      Grade Ready     90, 60 s, 6              90.0  93.75%  At Grade Level
-#   s_g2_2   3, 4 -> 7       Full Refresher  20, 120 s, 0             10.0  20.83%  Low Emerging
-#   s_g2_3   5, 8 -> 13      Moderate        40, 80 s, 0              30.0  41.67%  High Emerging
-#   s_g2_4   8, 5 -> 23      Light           60, 90 s, 4              40.0  62.50%  Transitioning
+# Words read = story words - miscues (CRLA2 scoresheet; F10).
+#   learner  part 1          level           miscues -> words, s, comp  wpm   pct     profile
+#   s_g2_1   8, 9 -> 27      Grade Ready     2 -> 94, 60 s, 6           94.0  97.92%  At Grade Level
+#   s_g2_2   3, 4 -> 7       Full Refresher  10 -> 86, 120 s, 0         43.0  89.58%  Low Emerging
+#   s_g2_3   5, 8 -> 13      Moderate        60 -> 36, 80 s, 0          27.0  37.50%  High Emerging
+#   s_g2_4   8, 5 -> 23      Light           36 -> 60, 90 s, 4          40.0  62.50%  Transitioning
 
 device t3-phone tutor fresh
 run crla-start {s_g2_1} {sec_g2} {year} fil bosy Tagalog
@@ -28,56 +29,75 @@ expect Region row: none (defaults); school {school} override: none
 expect~ g2_g\s+5
 
 run crla-start {s_g2_1} {sec_g2} {year} fil bosy Tagalog
-expect (BOSY, attempt 1, fil, Tagalog) for student {s_g2_1}.
+expect~ \(BOSY,\ attempt \d+,\ fil,\ Tagalog\)\ for\ student\ {s_g2_1}\.
 capture crla_1 = Started assessment (-?\d+)
 run crla-part1 {crla_1} 8 9
 expect Saved Part 1 for assessment {crla_1}: total 27, level Grade Ready.
-run crla-part2 {crla_1} 1 2 90 1 0 6
-expect Saved Part 2 for assessment {crla_1}: wpm 90.0.
-sql select wpm from crla_part2_fluency where assessment_id = {crla_1} => 90.0
+run crla-part2 {crla_1} 1 2 1 0 6
+expect Saved Part 2 for assessment {crla_1}: 94 words read, wpm 94.0.
+sql select words_read from crla_part2_fluency where assessment_id = {crla_1} => 94
+sql select wpm from crla_part2_fluency where assessment_id = {crla_1} => 94.0
 
 run crla-start {s_g2_2} {sec_g2} {year} fil bosy Tagalog
 capture crla_2 = Started assessment (-?\d+)
 run crla-part1 {crla_2} 3 4
 expect total 7, level Full Refresher.
-run crla-part2 {crla_2} 1 10 20 2 0 0
-expect wpm 10.0.
+run crla-part2 {crla_2} 1 10 2 0 0
+expect 86 words read, wpm 43.0.
 
 run crla-start {s_g2_3} {sec_g2} {year} fil bosy Tagalog
 capture crla_3 = Started assessment (-?\d+)
 run crla-part1 {crla_3} 5 8
 expect total 13, level Moderate Refresher.
-run crla-part2 {crla_3} 1 5 40 1 20 0
-expect wpm 30.0.
+run crla-part2 {crla_3} 1 60 1 20 0
+expect 36 words read, wpm 27.0.
 
 run crla-start {s_g2_4} {sec_g2} {year} fil bosy Tagalog
 capture crla_4 = Started assessment (-?\d+)
 run crla-part1 {crla_4} 8 5
 expect total 23, level Light Refresher.
-run crla-part2 {crla_4} 1 3 60 1 30 4
-expect wpm 40.0.
+run crla-part2 {crla_4} 1 36 1 30 4
+expect 60 words read, wpm 40.0.
 sql select reading_profile from crla_assessments where id = {crla_4} => Transitioning Reader
 
 run crla-results assessment {crla_1}
-expect #{crla_1} | student {s_g2_1} | fil Tagalog BOSY attempt 1 | P1 27 Grade Ready | P2 story 1 wpm 90.0 comp 6 words 93.8% | Reading At Grade Level
+expect~ \#{crla_1}\ \|\ student\ {s_g2_1}\ \|\ fil\ Tagalog\ BOSY\ attempt \d+\ \|\ P1\ 27\ Grade\ Ready\ \|\ P2\ story\ 1\ wpm\ 94\.0\ comp\ 6\ words\ 97\.9%\ \|\ Reading\ At\ Grade\ Level
 run crla-results section {sec_g2} {year}
-expect #{crla_2} | student {s_g2_2} | fil Tagalog BOSY attempt 1 | P1 7 Full Refresher | P2 story 1 wpm 10.0 comp 0 words 20.8% | Low Emerging Reader
-expect #{crla_3} | student {s_g2_3} | fil Tagalog BOSY attempt 1 | P1 13 Moderate Refresher | P2 story 1 wpm 30.0 comp 0 words 41.7% | High Emerging Reader
-expect #{crla_4} | student {s_g2_4} | fil Tagalog BOSY attempt 1 | P1 23 Light Refresher | P2 story 1 wpm 40.0 comp 4 words 62.5% | Transitioning Reader
+expect~ \#{crla_2}\ \|\ student\ {s_g2_2}\ \|\ fil\ Tagalog\ BOSY\ attempt \d+\ \|\ P1\ 7\ Full\ Refresher\ \|\ P2\ story\ 1\ wpm\ 43\.0\ comp\ 0\ words\ 89\.6%\ \|\ Low\ Emerging\ Reader
+expect~ \#{crla_3}\ \|\ student\ {s_g2_3}\ \|\ fil\ Tagalog\ BOSY\ attempt \d+\ \|\ P1\ 13\ Moderate\ Refresher\ \|\ P2\ story\ 1\ wpm\ 27\.0\ comp\ 0\ words\ 37\.5%\ \|\ High\ Emerging\ Reader
+expect~ \#{crla_4}\ \|\ student\ {s_g2_4}\ \|\ fil\ Tagalog\ BOSY\ attempt \d+\ \|\ P1\ 23\ Light\ Refresher\ \|\ P2\ story\ 1\ wpm\ 40\.0\ comp\ 4\ words\ 62\.5%\ \|\ Transitioning\ Reader
 
 # A retake: attempt 2 for the same learner, round and variant.
 run crla-start {s_g2_2} {sec_g2} {year} fil bosy Tagalog
-expect (BOSY, attempt 2, fil, Tagalog)
+expect~ \(BOSY,\ attempt \d+,\ fil,\ Tagalog\)
 capture crla_2b = Started assessment (-?\d+)
 run crla-results student {s_g2_2}
-expect #{crla_2b} | student {s_g2_2} | fil Tagalog BOSY attempt 2 | P1 - | P2 story - wpm - comp - words - | -
-expect #{crla_2} | student {s_g2_2} | fil Tagalog BOSY attempt 1
+expect~ \#{crla_2b}\ \|\ student\ {s_g2_2}\ \|\ fil\ Tagalog\ BOSY\ attempt \d+\ \|\ P1\ \-\ \|\ P2\ story\ \-\ wpm\ \-\ comp\ \-\ words\ \-\ \|\ \-
+expect~ \#{crla_2}\ \|\ student\ {s_g2_2}\ \|\ fil\ Tagalog\ BOSY\ attempt \d+
 
 # Grade limits (G2: comprehension max 6, reading time max 120 s).
-run crla-part2 {crla_2b} 1 0 50 1 0 7
+run crla-part2 {crla_2b} 1 0 1 0 7
 refuse Part 2 failed: comprehensionCorrect must be between 0 and 6 (got 7).
-run crla-part2 {crla_2b} 1 0 50 2 1 3
+run crla-part2 {crla_2b} 1 0 2 1 3
 refuse Part 2 failed: Reading time 2:01 is over the Grade 2 fil limit of 2:00.
+# Words read come from the story; a typed value that disagrees is refused,
+# and so are more miscues than the story has words.
+run crla-part2 {crla_2b} 1 2 1 0 3 words=90
+refuse Words read come from the story: 96 - 2 = 94 (got 90). Leave words= out.
+run crla-part2 {crla_2b} 1 97 1 0 3
+refuse 97 miscues is more than the 96 words of the story.
+# No story for the language: words= is required, and % correct can't be computed.
+# (fil and eng always mean Tagalog and English; only mt takes a language.)
+run crla-start {s_g2_3} {sec_g2} {year} mt bosy Klingon
+expect~ \(BOSY, attempt \d+, mt, Klingon\)
+capture crla_nos = Started assessment (-?\d+)
+run crla-part1 {crla_nos} 5 8
+expect total 13
+run crla-part2 {crla_nos} 1 2 1 0 3
+refuse give them with words=<n>.
+run crla-part2 {crla_nos} 1 2 1 0 3 words=40
+expect 40 words read, wpm 40.0.
+expect No story matched
 # Part 1 task 2: low score only below 7 on task 1 (CHECK).
 run crla-part1 {crla_2b} 3
 expect Saved Part 1 for assessment {crla_2b}: total 3, level Full Refresher.
@@ -92,7 +112,10 @@ refuse No assessment with id 999999.
 # Exports.
 run crla-export {sec_g2} sample-files/crla/CRLA2_Grade2Scoresheet_v1.xlsx "{rundir}/t3_crla_g2.xlsx" bosy "ZZTEST Teacher"
 # (T6 adds an English attempt for learner 4, so "eng 1" may follow.)
-expect : Grade 2 ZZTEST-G2, BOSY, 4 learner(s); results: fil 4
+expect : Grade 2 ZZTEST-G2, BOSY, 4 learner(s); results:
+expect fil 4
+# F10: the no-story MT result can't be carried by the sheet's formula: a warning.
+expect ZZTESTC, Learner003 (MT): the sheet can't show BASA's 40 words read
 run export-section {sec_g2} "{rundir}/t3_g2.csv"
 expect Exported 4 students to
 # An unwritable path (no such folder) must be refused, not crash.

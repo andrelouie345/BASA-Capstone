@@ -261,7 +261,7 @@ run crla-start {s_g2_3} {sec_g2} {year} fil bosy Tagalog
 refuse Not signed in. Sign in first.
 run crla-part1 -1 8 9
 refuse Not signed in. Sign in first.
-run crla-part2 -1 1 2 90 1 0 6
+run crla-part2 -1 1 2 1 0 6
 refuse Not signed in. Sign in first.
 run crla-results section {sec_g2} {year}
 refuse Not signed in. Sign in first.

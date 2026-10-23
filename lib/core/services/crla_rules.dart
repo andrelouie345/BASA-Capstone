@@ -40,6 +40,40 @@ int crlaTimeCapSeconds(int grade, String variant) {
   return 120;
 }
 
+class CrlaWordsReadException implements Exception {
+  final String message;
+  const CrlaWordsReadException(this.message);
+  @override
+  String toString() => message;
+}
+
+/// Part 2 words read, as the CRLA2 scoresheet computes it (column M; ENG 100
+/// words): [storyWords] - [miscues] when the story is known (owner decision
+/// 2026-10-23, command pass F10). With a story, [typed] may only repeat that
+/// value (a scoresheet row does); without one (regions without stories) it is
+/// required. Postgres does the same in check_crla_part2_limits (migration
+/// 20261023020000).
+int crlaWordsRead({required int? storyWords, required int miscues, int? typed}) {
+  if (storyWords != null) {
+    if (miscues > storyWords) {
+      throw CrlaWordsReadException('$miscues miscues is more than the $storyWords words of the story.');
+    }
+    final words = storyWords - miscues;
+    if (typed != null && typed != words) {
+      throw CrlaWordsReadException('Words read come from the story: $storyWords - $miscues = $words '
+          '(got $typed). Leave words= out.');
+    }
+    return words;
+  }
+  if (typed == null) {
+    throw const CrlaWordsReadException(
+        'No CRLA story matches this school\'s region, language, grade and story number, so the words read '
+        'can\'t be computed: give them with words=<n>.');
+  }
+  if (typed < 0) throw CrlaWordsReadException('Words read must be 0 or more (got $typed).');
+  return typed;
+}
+
 // ---- Levels and profiles (stored as these exact strings) ----
 
 const crlaFullRefresher = 'Full Refresher';

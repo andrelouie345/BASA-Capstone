@@ -114,46 +114,54 @@ void registerCrlaCommands(ConsoleRegistry registry, AuthViewModel authVm, CrlaVi
   ));
     registry.register(ConsoleCommand(
     name: 'crla-part2',
-    description: 'crla-part2 <assessmentId> <storyNo> <miscues> <wordsRead> <minutes> <seconds> '
-        '<comprehension> [experience|-] [observation|-] [remarks...] — save Part 2 (fluency; '
-        'comprehension max and time limit depend on grade/variant)',
+    description: 'crla-part2 <assessmentId> <storyNo> <miscues> <minutes> <seconds> <comprehension> '
+        '[experience|-] [observation|-] [words=<n>] [remarks...] — save Part 2 (fluency; words read = the '
+        "story's words - miscues, as on the CRLA2 scoresheet; words= only when no story matches)",
     handler: (args) async {
       final guardError = authVm.requireActiveSession();
       if (guardError != null) return guardError;
 
-      const usage = 'Usage: crla-part2 <assessmentId> <storyNo> <miscues> <wordsRead> '
-          '<minutes> <seconds> <comprehension> [experience|-] [observation|-] [remarks...]';
-      if (args.length < 7) return usage;
+      const usage = 'Usage: crla-part2 <assessmentId> <storyNo> <miscues> <minutes> <seconds> '
+          '<comprehension> [experience|-] [observation|-] [words=<n>] [remarks...]';
+      // words=<n> may stand anywhere after the six numbers.
+      final wordsArgs = args.where((a) => a.startsWith('words=')).toList();
+      final rest = args.where((a) => !a.startsWith('words=')).toList();
+      if (rest.length < 6 || wordsArgs.length > 1) return usage;
+      int? typedWords;
+      if (wordsArgs.isNotEmpty) {
+        typedWords = int.tryParse(wordsArgs.single.substring(6));
+        if (typedWords == null) return 'Invalid words: "${wordsArgs.single}" (expected words=<number>)';
+      }
 
-      final names = ['assessmentId', 'storyNo', 'miscues', 'wordsRead', 'minutes', 'seconds', 'comprehension'];
+      final names = ['assessmentId', 'storyNo', 'miscues', 'minutes', 'seconds', 'comprehension'];
       final nums = <int>[];
-      for (var i = 0; i < 7; i++) {
-        final n = int.tryParse(args[i]);
-        if (n == null) return 'Invalid ${names[i]}: "${args[i]}" (expected a number)';
+      for (var i = 0; i < 6; i++) {
+        final n = int.tryParse(rest[i]);
+        if (n == null) return 'Invalid ${names[i]}: "${rest[i]}" (expected a number)';
         nums.add(n);
       }
 
       // Optional rating and observation: a number, or "-" to skip it.
       int? optional(int index, String name) {
-        if (args.length <= index || args[index] == '-') return null;
-        final n = int.tryParse(args[index]);
-        if (n == null) throw FormatException('Invalid $name: "${args[index]}" (expected a number or -)');
+        if (rest.length <= index || rest[index] == '-') return null;
+        final n = int.tryParse(rest[index]);
+        if (n == null) throw FormatException('Invalid $name: "${rest[index]}" (expected a number or -)');
         return n;
       }
 
       try {
-        final experience = optional(7, 'experience');
-        final observation = optional(8, 'observation');
-        final remarks = args.length > 9 ? args.sublist(9).join(' ') : null;
+        final experience = optional(6, 'experience');
+        final observation = optional(7, 'observation');
+        final remarks = rest.length > 8 ? rest.sublist(8).join(' ') : null;
 
         final stored = await vm.savePart2Fluency(
           assessmentId: nums[0],
           storyNo: nums[1],
           miscues: nums[2],
-          wordsRead: nums[3],
-          timeMinutes: nums[4],
-          timeSeconds: nums[5],
-          comprehensionCorrect: nums[6],
+          wordsRead: typedWords,
+          timeMinutes: nums[3],
+          timeSeconds: nums[4],
+          comprehensionCorrect: nums[5],
           learnerExperienceRating: experience,
           observationLevel: observation,
           remarks: remarks,
@@ -161,7 +169,7 @@ void registerCrlaCommands(ConsoleRegistry registry, AuthViewModel authVm, CrlaVi
 
         final result = await vm.getResult(nums[0]);
         final out = StringBuffer('Saved Part 2 for assessment ${nums[0]}: '
-            'wpm ${stored.wpm?.toStringAsFixed(1) ?? "-"}.');
+            '${stored.wordsRead} words read, wpm ${stored.wpm?.toStringAsFixed(1) ?? "-"}.');
         if (result != null) {
           out.write('\n${_formatResult(result)}');
           if (result.pctCorrectWordsRead == null) {

@@ -57,7 +57,10 @@ every device has synced and every upload is decided) and `20261021010000`
 app update required: **yes**, same rule) and `20261023010000` (restores the ARAL
 roster rules of piece A1c that never reached the cloud: the 15-learner cap per
 section, which reactivation needed, and the Foundational program; app update
-required: no). Each is idempotent. Do **not** run
+required: no) and `20261023020000` (CRLA Part 2 words read follow the CRLA2
+scoresheet, story words - miscues, when the story is known; app update
+required: **yes**, apply only when every device has synced and every upload is
+decided). Each is idempotent. Do **not** run
 `supabase/migrations_archive/`.
 
 **Rule for every new migration:** its header says `App update required on all

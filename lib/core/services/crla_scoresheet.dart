@@ -297,6 +297,17 @@ String? _date(Object? v) {
 
 // ---- Writing (IE3) ----
 
+/// The export's warning for a row whose words read the sheet can't show: its
+/// words-read column is a formula (story words - miscues) and is never
+/// overwritten, so a learner with no matching story (or an older typed value)
+/// comes back different on import. Null when the sheet computes the same value.
+String? crlaWordsReadExportNote(String learner, String variant,
+    {required int? sheetStoryWords, required int miscues, required int wordsRead}) {
+  if (sheetStoryWords != null && sheetStoryWords - miscues == wordsRead) return null;
+  return "$learner (${variant.toUpperCase()}): the sheet can't show BASA's $wordsRead words read (no matching "
+      'story, or a value from before the story rule); type $wordsRead in the sheet before importing it again.';
+}
+
 /// One variant's latest attempt, as the scoresheet's input columns.
 class CrlaScoresheetEntry {
   final String assessedOn;      // YYYY-MM-DD

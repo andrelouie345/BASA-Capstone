@@ -137,13 +137,26 @@ class CrlaExportViewModel {
     final counts = <String, int>{};
     for (final s in students) {
       final entries = <String, CrlaScoresheetEntry>{};
+      final middle = (s.middleName ?? '').trim();
       for (final variant in const ['mt', 'fil', 'eng']) {
         final a = latest[(s.id!, variant)];
         if (a == null) continue;
         entries[variant] = await _entry(a);
         counts[variant] = (counts[variant] ?? 0) + 1;
+        // The sheet computes words read from its own story (F10): warn when it
+        // can't show BASA's value (owner 2026-10-23: a warning, no round trip).
+        final p2 = await _part2.findByAssessmentId(a.id!);
+        if (p2 != null) {
+          final sheetWords = switch (variant) {
+            'eng' => 100,
+            'fil' => await words('Tagalog', p2.storyNo),
+            _ => a.language == mtLanguage ? await words(mtLanguage, p2.storyNo) : null,
+          };
+          final note = crlaWordsReadExportNote('${s.lastName}, ${s.firstName}', variant,
+              sheetStoryWords: sheetWords, miscues: p2.miscues, wordsRead: p2.wordsRead);
+          if (note != null) notes.add(note);
+        }
       }
-      final middle = (s.middleName ?? '').trim();
       learners.add(CrlaScoresheetLearner(
         s.lrn,
         '${s.lastName}, ${s.firstName}${middle.isEmpty ? '' : ' ${middle[0]}.'}',

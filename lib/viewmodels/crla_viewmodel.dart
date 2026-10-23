@@ -265,7 +265,7 @@ class CrlaViewModel {
     required int assessmentId,
     required int storyNo,
     required int miscues,
-    required int wordsRead,
+    int? wordsRead,
     required int timeMinutes,
     required int timeSeconds,
     required int comprehensionCorrect,
@@ -275,7 +275,7 @@ class CrlaViewModel {
   }) async {
     _requireSignIn();
     _log('savePart2Fluency(assessmentId: $assessmentId, story: $storyNo, '
-        'words: $wordsRead, miscues: $miscues, time: $timeMinutes:$timeSeconds)');
+        'miscues: $miscues, typed words: $wordsRead, time: $timeMinutes:$timeSeconds)');
 
     final assessment = await _requireVariant(assessmentId, {'mt', 'fil', 'eng'}, 'Part 2');
     final section = await _sections.getById(assessment.sectionId);
@@ -288,7 +288,6 @@ class CrlaViewModel {
 
     _checkRange('storyNo', storyNo, 1, 2);
     _checkRange('miscues', miscues, 0, 1 << 30);
-    _checkRange('wordsRead', wordsRead, 0, 1 << 30);
     _checkRange('timeMinutes', timeMinutes, 0, 1 << 30);
     _checkRange('timeSeconds', timeSeconds, 0, 59);
     _checkRange('comprehensionCorrect', comprehensionCorrect, 0, crlaComprehensionMax(grade, variant));
@@ -302,12 +301,20 @@ class CrlaViewModel {
     if (observationLevel != null) {
       _checkRange('observationLevel', observationLevel, 1, 4);
     }
+    // Words read follow the CRLA2 scoresheet: story words - miscues (F10).
+    final story = await _storyFor(assessment, grade, storyNo);
+    final int words;
+    try {
+      words = crlaWordsRead(storyWords: story?.wordCount, miscues: miscues, typed: wordsRead);
+    } on CrlaWordsReadException catch (e) {
+      throw ViewModelException(e.message);
+    }
 
     final fluency = CrlaPart2Fluency(
       assessmentId: assessmentId,
       storyNo: storyNo,
       miscues: miscues,
-      wordsRead: wordsRead,
+      wordsRead: words,
       timeMinutes: timeMinutes,
       timeSeconds: timeSeconds,
       comprehensionCorrect: comprehensionCorrect,
@@ -376,6 +383,17 @@ class CrlaViewModel {
   /// Re-scores the stored reading profile from Part 1 + Part 2 and the
   /// story's exact word count (same match as crla_results: the school's
   /// region, the assessment's language, the section's grade, the story no).
+  /// The story an assessment's Part 2 was read from (school's region, the
+  /// assessment's language, the section's grade, the story number), or null
+  /// when the region has no such story.
+  Future<CrlaStory?> _storyFor(CrlaAssessment a, int grade, int storyNo) async {
+    final regionId = (await _schools.getById(a.schoolId))?.regionId;
+    if (regionId == null) return null;
+    return (await _stories.getByRegion(regionId, language: a.language, grade: grade))
+        .where((s) => s.storyNo == storyNo)
+        .firstOrNull;
+  }
+
   Future<void> _refreshProfile(CrlaAssessment a) async {
     final section = await _sections.getById(a.sectionId);
     final grade = section == null ? null : crlaGradeOf(section.gradeLevel);
@@ -387,13 +405,8 @@ class CrlaViewModel {
 
     double? pct;
     if (part2 != null) {
-      final regionId = (await _schools.getById(a.schoolId))?.regionId;
-      if (regionId != null) {
-        final story = (await _stories.getByRegion(regionId, language: a.language, grade: grade))
-            .where((s) => s.storyNo == part2.storyNo)
-            .firstOrNull;
-        if (story != null && story.wordCount > 0) pct = part2.wordsRead / story.wordCount;
-      }
+      final story = await _storyFor(a, grade, part2.storyNo);
+      if (story != null && story.wordCount > 0) pct = part2.wordsRead / story.wordCount;
     }
 
     final profile = crlaReadingProfile(
