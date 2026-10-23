@@ -4,6 +4,9 @@
 // touches the device's data.
 import 'dart:io';
 
+import 'package:basa_capstone/core/models/aral_enrollment.dart';
+import 'package:basa_capstone/core/models/aral_irip.dart';
+import 'package:basa_capstone/core/models/aral_session.dart';
 import 'package:basa_capstone/core/models/crla_assessment.dart' show CrlaRound;
 import 'package:basa_capstone/core/models/phil_iri_assessment.dart' show PhilIriRound;
 import 'package:basa_capstone/core/models/phil_iri_miscue.dart';
@@ -51,6 +54,105 @@ void main() {
     for (final e in calls.entries) {
       await expectLater(e.value(), _refused, reason: e.key);
     }
+  });
+
+  test('the ARAL ViewModels refuse every call while signed out', () async {
+    final aral = t.aralVm, ses = t.aralSessionVm, irip = t.aralIripVm;
+    final ck = t.aralCheckinVm, read = t.aralReadabilityVm, mat = t.aralMaterialVm;
+    const y = '2026-2027';
+    final calls = <String, Future<Object?> Function()>{
+      'aral.propose': () => aral.propose(sectionId: 1, schoolYear: y),
+      'aral.freePlaces': () => aral.freePlaces(sectionId: 1, schoolYear: y),
+      'aral.programSettings': () => aral.programSettings(1),
+      'aral.enroll': () => aral.enroll(sectionId: 1, schoolYear: y, studentId: 1),
+      'aral.enrollProposed': () => aral.enrollProposed(sectionId: 1, schoolYear: y),
+      'aral.setPlacement': () => aral.setPlacement(1, AralKeyStage.ks3, AralTrack.basic),
+      'aral.assignTutor': () => aral.assignTutor(1, null),
+      'aral.exit': () => aral.exit(1, AralExitReason.gradeLevelReady),
+      'aral.reactivate': () => aral.reactivate(1),
+      'aral.setNotes': () => aral.setNotes(1, 'x'),
+      'aral.remove': () => aral.remove(1),
+      'aral.applyResults': () => aral.applyResults(sectionId: 1, schoolYear: y),
+      'aral.applySchoolResults': () => aral.applySchoolResults(schoolId: 1, schoolYear: y),
+      'aral.roster': () => aral.roster(sectionId: 1),
+      'aral.schoolRoster': () => aral.schoolRoster(schoolId: 1),
+      'aral.tutorRoster': () => aral.tutorRoster(),
+      'aral.getEnrollment': () => aral.getEnrollment(1),
+      'aral.rosterCsv': () => aral.rosterCsv(schoolId: 1, schoolYear: y),
+      'aral.tutors': () => aral.tutors(schoolId: 1, schoolYear: y),
+      'aral.learnerNames': () => aral.learnerNames(1),
+      'session.logSession': () => ses.logSession(schoolYear: y, minutes: 30, setup: AralSetup.pullOut),
+      'session.editSession': () => ses.editSession(1, minutes: 5),
+      'session.deleteSession': () => ses.deleteSession(1),
+      'session.getSession': () => ses.getSession(1),
+      'session.tutorSessions': () => ses.tutorSessions(),
+      'session.schoolSessions': () => ses.schoolSessions(schoolId: 1),
+      'session.sheet': () => ses.sheet(1),
+      'session.mark': () => ses.mark(1, 1, AralMark.present),
+      'session.markRest': () => ses.markRest(1, AralMark.present),
+      'session.unmark': () => ses.unmark(1, 1),
+      'session.learnerAttendance': () => ses.learnerAttendance(1),
+      'session.tutorSummary': () => ses.tutorSummary(schoolYear: y),
+      'session.setMultipleSessionsPerDay': () => ses.setMultipleSessionsPerDay('t', true),
+      'session.allowsMultipleSessionsPerDay': () => ses.allowsMultipleSessionsPerDay('t'),
+      'session.learnerNames': () => ses.learnerNames(const []),
+      'irip.targets': () => irip.targets(AralIripProgram.basicKs23),
+      'irip.plan': () => irip.plan(1),
+      'irip.startCycle': () => irip.startCycle(1),
+      'irip.rate': () => irip.rate(1, AralIripStatus.observed),
+      'irip.clearRating': () => irip.clearRating(1),
+      'irip.setNotes': () => irip.setNotes(1, 'x'),
+      'irip.changeTarget': () => irip.changeTarget(1, 1),
+      'irip.nextWeek': () => irip.nextWeek(1, strand: AralIripStrand.filipino),
+      'irip.deleteWeek': () => irip.deleteWeek(1),
+      'checkin.tools': () => ck.tools(),
+      'checkin.items': () => ck.items(1),
+      'checkin.learnerCheckins': () => ck.learnerCheckins(1),
+      'checkin.result': () => ck.result(1),
+      'checkin.checkinReport': () => ck.checkinReport(schoolId: 1, schoolYear: y),
+      'checkin.checkinReportCsv': () => ck.checkinReportCsv(schoolId: 1, schoolYear: y),
+      'checkin.startCheckin': () => ck.startCheckin(1, 16),
+      'checkin.editCheckin': () => ck.editCheckin(1, notes: 'x'),
+      'checkin.deleteCheckin': () => ck.deleteCheckin(1),
+      'checkin.answerChoices': () => ck.answerChoices(1, 1, ['a']),
+      'checkin.markOpen': () => ck.markOpen(1, 1, true),
+      'checkin.clearAnswer': () => ck.clearAnswer(1, 1),
+      'checkin.localSettings': () => ck.localSettings(1),
+      'checkin.settingLayers': () => ck.settingLayers(1),
+      'checkin.setPassPct': () => ck.setPassPct(1, 75),
+      'checkin.foundationalProgramLayers': () => ck.foundationalProgramLayers(1),
+      'checkin.setFoundationalProgram': () => ck.setFoundationalProgram(1, true),
+      'checkin.localSessionSettings': () => ck.localSessionSettings(1),
+      'checkin.idleSessionDaysLayers': () => ck.idleSessionDaysLayers(1),
+      'checkin.setIdleSessionDays': () => ck.setIdleSessionDays(1, 7),
+      'checkin.resetSchoolSettings': () => ck.resetSchoolSettings(1),
+      'readability.available': () => read.available(1),
+      'readability.entries': () => read.entries(1),
+      'readability.add': () => read.add(enrollmentId: 1, words: 100, sentences: 8, syllables: 140),
+      'readability.update': () => read.update(1, title: 'x'),
+      'readability.delete': () => read.delete(1),
+      'material.catalog': () => mat.catalog(),
+      'material.material': () => mat.material(1),
+      'material.addMaterial': () => mat.addMaterial(title: 'x', keyStage: AralKeyStage.ks3),
+      'material.updateMaterial': () => mat.updateMaterial(1, title: 'x'),
+      'material.setActive': () => mat.setActive(1, true),
+      'material.deleteMaterial': () => mat.deleteMaterial(1),
+      'material.setSchoolLink': () => mat.setSchoolLink(1, 1, null),
+      'material.recommendations': () => mat.recommendations(1),
+      'material.sectionRecommendations': () => mat.sectionRecommendations(sectionId: 1, schoolYear: y),
+    };
+    final open = <String>[];
+    for (final e in calls.entries) {
+      try {
+        await e.value();
+        open.add('${e.key}: went through');
+      } on ViewModelException catch (x) {
+        if (x.message != notSignedInMessage) open.add('${e.key}: "${x.message}"');
+      } catch (x) {
+        open.add('${e.key}: ${x.runtimeType}');
+      }
+    }
+    expect(open, isEmpty);
   });
 
   test('PhilIriViewModel refuses every call while signed out', () async {

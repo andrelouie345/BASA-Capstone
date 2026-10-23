@@ -33,6 +33,7 @@ import '../core/repositories/aral_setting_repository.dart';
 import '../core/repositories/section_repository.dart';
 import '../core/services/aral_rules.dart' show AralProgramSettings;
 import 'auth_viewmodel.dart';
+import '../core/services/auth_messages.dart';
 import 'viewmodel_exception.dart';
 
 /// One recommended material with the link that applies to the learner's school.
@@ -84,15 +85,24 @@ class AralMaterialViewModel {
         _localSettings = localSettings,
         _log = ScopedLogger(logger, 'AralMaterialViewModel');
 
+  /// Every public method starts here: signed in, online or offline. Screens
+  /// call this ViewModel directly, so the console's own check is not enough.
+  void _requireSignIn() {
+    final error = _auth.requireActiveSession();
+    if (error != null) throw ViewModelException(error);
+  }
+
   // ---- Catalog ----
 
   /// The catalog on this device (region-wide + the user's school; pull-cloud refreshes it).
-  Future<List<AralMaterial>> catalog({bool activeOnly = false}) {
+  Future<List<AralMaterial>> catalog({bool activeOnly = false}) async {
+    _requireSignIn();
     _log('catalog(activeOnly: $activeOnly)');
     return _local.getAll(activeOnly: activeOnly);
   }
 
   Future<AralMaterial> material(int id) async {
+    _requireSignIn();
     final m = await _local.findById(id);
     if (m == null) throw ViewModelException('No ARAL material with id $id on this device (run pull-cloud).');
     return m;
@@ -113,6 +123,7 @@ class AralMaterialViewModel {
     String? fileName,
     String? link,
   }) async {
+    _requireSignIn();
     _log('addMaterial(school: $schoolId, "$title", ${keyStage.name} ${track?.name}, ${kind.name}, $language, '
         'grades $minGrade-$maxGrade)');
     final cloud = _writer(schoolId);
@@ -148,6 +159,7 @@ class AralMaterialViewModel {
     String? Function()? fileName,
     String? Function()? link,
   }) async {
+    _requireSignIn();
     _log('updateMaterial($id)');
     final (cloud, current) = await _writable(id);
     final m = _checked(current.copyWith(
@@ -169,6 +181,7 @@ class AralMaterialViewModel {
 
   /// Retires a material (it stays in the catalog, no longer recommended) or brings it back.
   Future<AralMaterial> setActive(int id, bool active) async {
+    _requireSignIn();
     _log('setActive($id, $active)');
     final (cloud, current) = await _writable(id);
     final saved = await _cloudWrite(() => cloud.update(current.copyWith(isActive: active)));
@@ -178,6 +191,7 @@ class AralMaterialViewModel {
 
   /// Removes a material from the catalog. Online; the local copy goes too.
   Future<void> deleteMaterial(int id) async {
+    _requireSignIn();
     _log('deleteMaterial($id)');
     final (cloud, _) = await _writable(id);
     await _cloudWrite(() => cloud.delete(id));
@@ -189,6 +203,7 @@ class AralMaterialViewModel {
   /// admin/coordinator. Online; mirrored. Recommendations for that school's
   /// learners use it instead of the material's link.
   Future<AralMaterialLink?> setSchoolLink(int materialId, int schoolId, String? link) async {
+    _requireSignIn();
     _log('setSchoolLink($materialId, school: $schoolId, ${link == null ? 'remove' : 'set'})');
     final m = await material(materialId);
     if (m.schoolId != null && m.schoolId != schoolId) {
@@ -212,6 +227,7 @@ class AralMaterialViewModel {
   /// The materials for one ARAL learner: their tutor, or an admin/coordinator
   /// of their school (any school for the superadmin).
   Future<AralRecommendation> recommendations(int enrollmentId) async {
+    _requireSignIn();
     _log('recommendations($enrollmentId)');
     final e = await _requireLearner(enrollmentId);
     return _recommend(e, await _localCatalog());
@@ -219,6 +235,7 @@ class AralMaterialViewModel {
 
   /// Every active ARAL learner of a section (admin/coordinator).
   Future<List<AralRecommendation>> sectionRecommendations({required int sectionId, required String schoolYear}) async {
+    _requireSignIn();
     _log('sectionRecommendations(section: $sectionId, year: $schoolYear)');
     final me = _me();
     if (me.role != UserRole.admin && me.role != UserRole.coordinator) {
@@ -277,7 +294,7 @@ class AralMaterialViewModel {
 
   User _me() {
     final u = _auth.currentUser;
-    if (u == null) throw const ViewModelException('Not signed in.');
+    if (u == null) throw const ViewModelException(notSignedInMessage);
     return u;
   }
 

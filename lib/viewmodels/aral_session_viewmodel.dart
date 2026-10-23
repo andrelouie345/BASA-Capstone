@@ -31,6 +31,7 @@ import '../core/repositories/user_repository.dart';
 import '../core/services/normalizers.dart';
 import '../core/services/sync_upload_rules.dart' show pendingLockMessage;
 import 'auth_viewmodel.dart';
+import '../core/services/auth_messages.dart';
 import 'viewmodel_exception.dart';
 
 /// Check-in assessments come after these session numbers (DepEd: 32 sessions,
@@ -135,6 +136,13 @@ class AralSessionViewModel {
         _students = students,
         _log = ScopedLogger(logger, 'AralSessionViewModel');
 
+  /// Every public method starts here: signed in, online or offline. Screens
+  /// call this ViewModel directly, so the console's own check is not enough.
+  void _requireSignIn() {
+    final error = _auth.requireActiveSession();
+    if (error != null) throw ViewModelException(error);
+  }
+
   // ---- Sessions ----
 
   /// Logs a session. A tutor logs their own ([tutorId] omitted or their id);
@@ -148,6 +156,7 @@ class AralSessionViewModel {
     String? lesson,
     String? remarks,
   }) async {
+    _requireSignIn();
     final me = _me();
     final tid = tutorId ?? me.id;
     _log('logSession(tutor: $tid, year: $schoolYear, on: ${heldOn == null ? 'today' : _date(heldOn)}, '
@@ -187,6 +196,7 @@ class AralSessionViewModel {
     String? Function()? lesson,
     String? Function()? remarks,
   }) async {
+    _requireSignIn();
     _log('editSession($sessionId)');
     lastWarning = null;
     final s = await _requireWritable(sessionId);
@@ -216,15 +226,20 @@ class AralSessionViewModel {
   /// Deletes a session logged by mistake, with its attendance. The session
   /// numbers of later sessions don't change.
   Future<void> deleteSession(int sessionId) async {
+    _requireSignIn();
     _log('deleteSession($sessionId)');
     await _requireWritable(sessionId);
     await _write(() => _sessions.deleteSession(sessionId));
   }
 
-  Future<AralSession> getSession(int sessionId) => _requireReadable(sessionId);
+  Future<AralSession> getSession(int sessionId) async {
+    _requireSignIn();
+    return _requireReadable(sessionId);
+  }
 
   /// The signed-in tutor's sessions (or [tutorId]'s, for a coordinator).
   Future<List<AralSession>> tutorSessions({String? tutorId, String? schoolYear}) async {
+    _requireSignIn();
     final me = _me();
     final id = tutorId ?? me.id;
     _log('tutorSessions(tutor: $id, year: $schoolYear)');
@@ -233,6 +248,7 @@ class AralSessionViewModel {
   }
 
   Future<List<AralSession>> schoolSessions({required int schoolId, String? schoolYear}) async {
+    _requireSignIn();
     _log('schoolSessions(school: $schoolId, year: $schoolYear)');
     final me = _me();
     _requireManager(me);
@@ -247,6 +263,7 @@ class AralSessionViewModel {
   /// The session's sheet: the tutor's learners who were in ARAL on the date
   /// (marked or not), plus anyone else marked at it.
   Future<List<AralSheetLine>> sheet(int sessionId) async {
+    _requireSignIn();
     _log('sheet($sessionId)');
     final s = await _requireReadable(sessionId);
     final marks = {for (final a in await _sessions.getAttendance(sessionId)) a.enrollmentId: a};
@@ -264,6 +281,7 @@ class AralSessionViewModel {
   /// Marks one learner ([enrollmentId] = ARAL enrollment id); marking again
   /// replaces the mark.
   Future<AralAttendance> mark(int sessionId, int enrollmentId, AralMark mark, {String? note}) async {
+    _requireSignIn();
     _log('mark(session: $sessionId, enrollment: $enrollmentId, ${mark.name})');
     final s = await _requireWritable(sessionId);
     final e = await _roster.findById(enrollmentId);
@@ -279,6 +297,7 @@ class AralSessionViewModel {
   /// (e.g. everyone present, then mark the absent ones one by one). Returns
   /// the marks written.
   Future<List<AralAttendance>> markRest(int sessionId, AralMark mark) async {
+    _requireSignIn();
     _log('markRest(session: $sessionId, ${mark.name})');
     final s = await _requireWritable(sessionId);
     final marked = {for (final a in await _sessions.getAttendance(sessionId)) a.enrollmentId};
@@ -293,6 +312,7 @@ class AralSessionViewModel {
 
   /// Removes a learner's mark from the session.
   Future<void> unmark(int sessionId, int enrollmentId) async {
+    _requireSignIn();
     _log('unmark(session: $sessionId, enrollment: $enrollmentId)');
     await _requireWritable(sessionId);
     final a = (await _sessions.getAttendance(sessionId)).where((a) => a.enrollmentId == enrollmentId).firstOrNull;
@@ -302,6 +322,7 @@ class AralSessionViewModel {
 
   /// One ARAL learner's marks across the year, oldest first.
   Future<(AralAttendanceSummary, List<(AralSession, AralAttendance)>)> learnerAttendance(int enrollmentId) async {
+    _requireSignIn();
     _log('learnerAttendance($enrollmentId)');
     final me = _me();
     final e = await _roster.findById(enrollmentId);
@@ -322,6 +343,7 @@ class AralSessionViewModel {
 
   /// A tutor's sessions, minutes, next check-in and attendance for the year.
   Future<AralTutorSummary> tutorSummary({String? tutorId, required String schoolYear}) async {
+    _requireSignIn();
     final me = _me();
     final id = tutorId ?? me.id;
     _log('tutorSummary(tutor: $id, year: $schoolYear)');
@@ -351,6 +373,7 @@ class AralSessionViewModel {
   /// Allows (or stops allowing) [tutorId] to hold several sessions on one
   /// date. Sessions already on the same date stay.
   Future<AralTutorSetting> setMultipleSessionsPerDay(String tutorId, bool allowed) async {
+    _requireSignIn();
     _log('setMultipleSessionsPerDay($tutorId, $allowed)');
     final me = _me();
     _requireManager(me);
@@ -365,11 +388,14 @@ class AralSessionViewModel {
         )));
   }
 
-  Future<bool> allowsMultipleSessionsPerDay(String tutorId) async =>
-      (await _settings.find(tutorId))?.multipleSessionsPerDay ?? false;
+  Future<bool> allowsMultipleSessionsPerDay(String tutorId) async {
+    _requireSignIn();
+    return (await _settings.find(tutorId))?.multipleSessionsPerDay ?? false;
+  }
 
   /// "Last, First" by student id for [enrollments] (for sheets and lists).
   Future<Map<int, String>> learnerNames(Iterable<AralEnrollment> enrollments) async {
+    _requireSignIn();
     final out = <int, String>{};
     for (final section in enrollments.map((e) => e.sectionId).toSet()) {
       for (final s in await _students.getBySection(section)) {
@@ -383,7 +409,7 @@ class AralSessionViewModel {
 
   User _me() {
     final u = _auth.currentUser;
-    if (u == null) throw const ViewModelException('Not signed in.');
+    if (u == null) throw const ViewModelException(notSignedInMessage);
     return u;
   }
 

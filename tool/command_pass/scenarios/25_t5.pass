@@ -1,0 +1,314 @@
+# T5 ARAL as tutor1: roster and settings reads, sessions and attendance,
+# IRIP, check-ins, readability log (SHARP on), materials, recommendations.
+# enr_1 = s_g7_1 KS3 Basic, enr_2 = s_g7_2 KS3 Plus, enr_3 = s_g7_3 KS1.
+
+# SHARP on for the run's school (the readability log is kept only then).
+device coord-pc admin
+as coord
+run aral-sharp-set {school} on
+expect Foundational literacy program (SHARP) on for school {school}.
+
+device t5-phone tutor fresh
+as tutor1
+run pull-cloud yes
+expect users:
+
+# --- Reads -----------------------------------------------------------------
+run aral-roster {sec_g7} {year}
+expect #{enr_1} | ZZTESTA, Learner001 ({s_g7_1}) | KS3 Basic | active
+expect #{enr_3} | ZZTESTC, Learner003 ({s_g7_3}) | KS1 | active
+expect 3 on the roster, 3 active.
+run aral-roster tutor
+expect 3 on the roster, 3 active.
+run aral-sharp {school}
+expect School {school}: on
+expect Applies: on (levels 0-1 go to Foundational / SHARP)
+run aral-idle-days {school}
+expect Applies: 7 days
+run aral-checkin-cutoff {school}
+expect Applies: 75%
+run aral-checkin-tools
+expect #3 KS3 Basic, sessions 1-16 | filipino | 20 items (17 marked by the tutor)
+expect #8 KS3 Plus, sessions 17-32 | english | 20 items
+run aral-irip-targets basic
+expect #3 Filipino 3: Syllable Manipulation
+# No materials in the catalog yet (added by an admin in A4).
+run aral-materials
+expect No ARAL materials on this device
+run aral-recommend {enr_1}
+expect No active KS3 Basic materials for Grade 7 in the catalog on this device
+
+# --- Sessions and attendance --------------------------------------------------------
+# Learners entered ARAL today, so everything is dated today. One session per
+# day until the coordinator allows several (switched off again at the end).
+run aral-log {year} 60 pull_out lesson "ZZ T5 lesson 1"
+expect | session 1 | {today} | 60 min | Pull-out |
+capture ses_1 = Logged: #(-?\d+)
+run aral-log {year} 45 after_class
+refuse already has session 1
+run aral-log {year} 30 weekend 2099-01-01
+refuse The session date 2099-01-01 is in the future.
+run aral-log {year} 30 indoors
+refuse Unknown set-up "indoors".
+
+device coord-pc admin
+run aral-tutor-multi {tutor1_id} on
+expect Tutor {tutor1_id}: several sessions per day allowed.
+run sync-upload yes
+expect~ [Aa]pplied
+
+device t5-phone tutor
+run pull-cloud yes
+expect users:
+run aral-log {year} 45 after_class
+expect | session 2 | {today} | 45 min | After class |
+capture ses_2 = Logged: #(-?\d+)
+run aral-log {year} 30 weekend
+expect | session 3 |
+capture ses_3 = Logged: #(-?\d+)
+
+run aral-sheet {ses_1}
+expect #{enr_2} | ZZTESTB, Learner002 | KS3 Plus | (not marked)
+expect 3 learner(s), 3 not marked.
+run aral-mark {ses_1} {enr_1} present
+expect Marked #{enr_1} present.
+run aral-mark {ses_1} {enr_2} absent "sick"
+expect~ .
+run aral-mark-rest {ses_1} present
+expect Marked 1 learner(s) present.
+run aral-unmark {ses_1} {enr_2}
+expect Mark removed.
+run aral-mark {ses_1} {enr_2} excused
+expect~ .
+run aral-mark-rest {ses_2} absent
+expect~ .
+run aral-session-edit {ses_2} minutes=50 remarks "ZZ edited"
+expect | session 2 | {today} | 50 min | After class |
+run aral-session-delete {ses_3}
+expect Deleted ARAL session {ses_3}.
+run aral-sessions
+expect 2 session(s), 110 minutes.
+# Attendance rate leaves excused out: enr_1 present+absent = 50%,
+# enr_2 excused+absent = 0 of 1, enr_3 present (rest)+absent = 50%.
+run aral-attendance {enr_1}
+expect 1 present, 1 absent, 0 excused (50% attendance)
+run aral-attendance {enr_2}
+expect 0 present, 1 absent, 1 excused (0% attendance)
+run aral-attendance {enr_3}
+expect 1 present, 1 absent, 0 excused (50% attendance)
+
+# --- IRIP ---------------------------------------------------------------------
+run aral-irip-start {enr_1}
+expect Cycle 1 started:
+capture wk_f1 = week 1 Filipino \(#(-?\d+)\)
+capture wk_e1 = week 1 English \(#(-?\d+)\)
+run aral-irip {enr_1}
+expect Filipino next: rate week 1 (#{wk_f1}) first
+run aral-irip-next {enr_1}
+refuse No week added: Filipino: rate week 1 first; English: rate week 1 first.
+run aral-irip-rate {wk_f1} observed
+expect Observed: ready to proceed to the next reading target.
+run aral-irip-notes {wk_f1} ZZ read well
+expect Notes saved for week 1 (#{wk_f1}).
+run aral-irip-next {enr_1} filipino
+expect week 2 Filipino
+capture wk_f2 = \(#(-?\d+)\)
+run aral-irip-target {wk_f2} 3
+expect Filipino 3: Syllable Manipulation
+run aral-irip-rate {wk_f2} partial
+expect~ .
+run aral-irip-unrate {wk_f2}
+expect Week 2 (#{wk_f2}) is not rated now.
+run aral-irip-delete {wk_f2}
+expect Deleted IRIP week {wk_f2}.
+run aral-irip-unrate {wk_f1}
+expect~ .
+run aral-irip-start {enr_3}
+refuse KS1 has no IRIP (only KS2-3 Basic, KS2 Plus and KS3 Plus do).
+
+# --- Check-ins ------------------------------------------------------------------
+run aral-checkin-items 3
+expect 16 [IV.1].
+expect | key B
+expect 20 [IV.5].
+run aral-checkin-start {enr_1} 16 {today} "ZZ first try"
+expect recorded (attempt 1, {today}).
+capture ck_1 = Check-in #(-?\d+)
+# Tool #3: 20 items, 17 open (marked right/wrong), 16-18 multiple choice
+# (keys B B C). Answers b b a = 2 right; open items 1-12, 14, 15, 19 right,
+# 13 and 20 wrong = 15 right. 17/20 = 85% >= 75% cut-off: met.
+run aral-checkin {ck_1}
+expect 0/20
+run aral-checkin-answers {ck_1} 16 bba
+expect~ .
+run aral-checkin-mark {ck_1} 1 right
+expect~ .
+run aral-checkin-mark {ck_1} 2 right
+expect~ .
+run aral-checkin-mark {ck_1} 3 right
+expect~ .
+run aral-checkin-mark {ck_1} 4 right
+expect~ .
+run aral-checkin-mark {ck_1} 5 right
+expect~ .
+run aral-checkin-mark {ck_1} 6 right
+expect~ .
+run aral-checkin-mark {ck_1} 7 right
+expect~ .
+run aral-checkin-mark {ck_1} 8 right
+expect~ .
+run aral-checkin-mark {ck_1} 9 right
+expect~ .
+run aral-checkin-mark {ck_1} 10 right
+expect~ .
+run aral-checkin-mark {ck_1} 11 right
+expect~ .
+run aral-checkin-mark {ck_1} 12 right
+expect~ .
+run aral-checkin-mark {ck_1} 14 right
+expect~ .
+run aral-checkin-mark {ck_1} 15 right
+expect~ .
+run aral-checkin-mark {ck_1} 19 right
+expect~ .
+run aral-checkin-mark {ck_1} 13 wrong "sya"
+expect~ .
+run aral-checkin-mark {ck_1} 20 wrong
+expect~ .
+run aral-checkin {ck_1}
+expect KS3 Basic, sessions 1-16 attempt 1 | {today} | 17/20 85% Met | ZZ first try
+expect I. Paglinang ng Talasalitaan: 5/5 100% Met
+# Clearing an item leaves it unanswered, which counts as wrong: still 17/20.
+run aral-checkin-clear {ck_1} 20
+expect~ .
+run aral-checkin-edit {ck_1} - "ZZ second look"
+expect~ .
+run aral-checkins {enr_1}
+expect 17/20 85% Met (1 not answered) | - ZZ second look
+run aral-checkin-mark {ck_1} 16 right
+refuse Item IV.1 is multiple choice; enter the learner's letter instead.
+run aral-checkin-answers {ck_1} 16 bbz
+refuse Item IV.3: "Z" is not a letter A-E.
+# A second attempt, deleted again.
+run aral-checkin-start {enr_1} 16
+expect (attempt 2, {today}).
+capture ck_2 = Check-in #(-?\d+)
+run aral-checkin-delete {ck_2}
+expect Deleted check-in {ck_2}.
+run aral-checkin-start {enr_1} 20
+refuse A check-in comes after session 16 or 32, not 20.
+run aral-checkin-start {enr_3} 16
+refuse KS1 has no check-in tools (only KS2-3 Basic and Plus do).
+# --- Readability (SHARP on) -----------------------------------------------------
+# 100 words, 8 sentences, 140 syllables:
+#   Flesch reading ease 206.835 - 1.015*12.5 - 84.6*1.4 = 75.7
+#   Flesch-Kincaid grade 0.39*12.5 + 11.8*1.4 - 15.59 = 5.8
+run aral-readability-add {enr_1} 100 8 140 "ZZ T5 text"
+expect | ZZ T5 text | 100 words, 8 sentences, 140 syllables | reading ease 75.71 (7th) | grade level 5.81 |
+capture rl_1 = Logged #(-?\d+)
+run aral-readability {enr_1}
+expect Latest: Fairly easy to read.
+run aral-readability-set {rl_1} title ZZ T5 renamed
+expect Saved #{rl_1} | {today} | ZZ T5 renamed |
+run aral-readability-delete {rl_1}
+expect Deleted readability log entry #{rl_1}.
+# A second entry stays, for the signed-out checks below.
+run aral-readability-add {enr_1} 50 5 70 "ZZ T5 kept"
+expect | ZZ T5 kept |
+capture rl_2 = Logged #(-?\d+)
+
+run aral-tutor-summary {year}
+expect 2 session(s), 110 minutes, last session 2; next check-in after session 16 (14 to go)
+expect marks: 2 present, 3 absent, 1 excused (40% attendance)
+expect Sessions per day: several allowed
+
+# --- Signed out, on a device holding the roster: every ARAL tutor command refuses.
+run sign-out
+expect Signed out.
+run aral-roster {sec_g7} {year}
+refuse Not signed in. Sign in first.
+run aral-sessions
+refuse Not signed in. Sign in first.
+run aral-sheet {ses_1}
+refuse Not signed in. Sign in first.
+run aral-attendance {enr_1}
+refuse Not signed in. Sign in first.
+run aral-log {year} 30 weekend
+refuse Not signed in. Sign in first.
+run aral-mark {ses_1} {enr_1} absent
+refuse Not signed in. Sign in first.
+run aral-mark-rest {ses_2} present
+refuse Not signed in. Sign in first.
+run aral-unmark {ses_1} {enr_1}
+refuse Not signed in. Sign in first.
+run aral-session-edit {ses_2} minutes=5
+refuse Not signed in. Sign in first.
+run aral-session-delete {ses_2}
+refuse Not signed in. Sign in first.
+run aral-irip {enr_1}
+refuse Not signed in. Sign in first.
+run aral-irip-start {enr_2}
+refuse Not signed in. Sign in first.
+run aral-irip-next {enr_1} english
+refuse Not signed in. Sign in first.
+run aral-irip-rate {wk_e1} observed
+refuse Not signed in. Sign in first.
+run aral-irip-unrate {wk_f1}
+refuse Not signed in. Sign in first.
+run aral-irip-notes {wk_f1} x
+refuse Not signed in. Sign in first.
+run aral-irip-target {wk_e1} 5
+refuse Not signed in. Sign in first.
+run aral-irip-delete {wk_e1}
+refuse Not signed in. Sign in first.
+run aral-irip-targets basic
+refuse Not signed in. Sign in first.
+run aral-checkin-tools
+refuse Not signed in. Sign in first.
+run aral-checkin-items 3
+refuse Not signed in. Sign in first.
+run aral-checkins {enr_1}
+refuse Not signed in. Sign in first.
+run aral-checkin {ck_1}
+refuse Not signed in. Sign in first.
+run aral-checkin-start {enr_2} 16
+refuse Not signed in. Sign in first.
+run aral-checkin-answers {ck_1} 16 ccc
+refuse Not signed in. Sign in first.
+run aral-checkin-mark {ck_1} 1 wrong
+refuse Not signed in. Sign in first.
+run aral-checkin-clear {ck_1} 1
+refuse Not signed in. Sign in first.
+run aral-checkin-edit {ck_1} - "x"
+refuse Not signed in. Sign in first.
+run aral-checkin-delete {ck_1}
+refuse Not signed in. Sign in first.
+run aral-readability {enr_1}
+refuse Not signed in. Sign in first.
+run aral-readability-add {enr_1} 50 5 70 "x"
+refuse Not signed in. Sign in first.
+run aral-readability-set {rl_2} title x
+refuse Not signed in. Sign in first.
+run aral-readability-delete {rl_2}
+refuse Not signed in. Sign in first.
+run aral-materials
+refuse Not signed in. Sign in first.
+run aral-recommend {enr_1}
+refuse Not signed in. Sign in first.
+run aral-tutor-summary {year}
+refuse Not signed in. Sign in first.
+run aral-tutors {school} {year}
+refuse Not signed in. Sign in first.
+run aral-sharp {school}
+refuse Not signed in. Sign in first.
+run aral-idle-days {school}
+refuse Not signed in. Sign in first.
+run aral-checkin-cutoff {school}
+refuse Not signed in. Sign in first.
+
+# The coordinator stops allowing several sessions per day again.
+device coord-pc admin
+run aral-tutor-multi {tutor1_id} off
+expect~ .
+run sync-upload yes
+expect~ [Aa]pplied

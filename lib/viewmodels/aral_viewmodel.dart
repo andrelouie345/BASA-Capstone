@@ -42,6 +42,7 @@ import '../core/services/normalizers.dart';
 import '../core/services/sync_upload_rules.dart' show pendingLockMessage;
 import 'auth_viewmodel.dart';
 import 'phil_iri_viewmodel.dart';
+import '../core/services/auth_messages.dart';
 import 'viewmodel_exception.dart';
 
 /// Recommended maximum of active ARAL learners per tutor (DepEd 1:15).
@@ -192,12 +193,20 @@ class AralViewModel {
         _localSettings = localSettings,
         _log = ScopedLogger(logger, 'AralViewModel');
 
+  /// Every public method starts here: signed in, online or offline. Screens
+  /// call this ViewModel directly, so the console's own check is not enough.
+  void _requireSignIn() {
+    final error = _auth.requireActiveSession();
+    if (error != null) throw ViewModelException(error);
+  }
+
   // ---- Proposal ----
 
   /// Every actively enrolled learner of the section with BASA's proposal:
   /// learners below grade level are ranked weakest first, and the section's
   /// free places (15 minus its active ARAL learners) go down the ranking.
   Future<List<AralCandidate>> propose({required int sectionId, required String schoolYear}) async {
+    _requireSignIn();
     _log('propose(sectionId: $sectionId, year: $schoolYear)');
     schoolYear = normalizeSchoolYear(schoolYear);
     final (section, grade) = await _aralSection(sectionId, schoolYear);
@@ -249,6 +258,7 @@ class AralViewModel {
 
   /// The section's free ARAL places in [schoolYear].
   Future<int> freePlaces({required int sectionId, required String schoolYear}) async {
+    _requireSignIn();
     final active = (await _roster.getBySection(sectionId, schoolYear: normalizeSchoolYear(schoolYear)))
         .where((e) => e.isActive)
         .length;
@@ -358,6 +368,7 @@ class AralViewModel {
   /// The school's ARAL program settings on this device: defaults <- region <-
   /// school (the local mirror; pull-cloud refreshes it).
   Future<AralProgramSettings> programSettings(int schoolId) async {
+    _requireSignIn();
     final region = await _localSettings.getRegion();
     final school = await _localSettings.getForSchool(schoolId);
     return AralProgramSettings.fromMap({...?region?.settings, ...?school?.settings});
@@ -390,6 +401,7 @@ class AralViewModel {
     String? notes,
     DateTime? enteredOn,
   }) async {
+    _requireSignIn();
     _log('enroll(student: $studentId, section: $sectionId, year: $schoolYear, ks: ${keyStage?.name}, '
         'track: ${track?.name}, tutor: $tutorId)');
     _requireManager();
@@ -472,6 +484,7 @@ class AralViewModel {
     required String schoolYear,
     String? tutorId,
   }) async {
+    _requireSignIn();
     _log('enrollProposed(section: $sectionId, year: $schoolYear, tutor: $tutorId)');
     _requireManager();
     lastWarning = null;
@@ -499,6 +512,7 @@ class AralViewModel {
   /// one). Foundational only when the school runs a foundational literacy
   /// program (AralProgramSettings).
   Future<AralEnrollment> setPlacement(int enrollmentId, AralKeyStage keyStage, AralTrack? track) async {
+    _requireSignIn();
     _log('setPlacement($enrollmentId, ${keyStage.name}, ${track?.name})');
     _requireManager();
     final e = await _require(enrollmentId);
@@ -509,6 +523,7 @@ class AralViewModel {
 
   /// Assigns (or with null removes) the learner's ARAL tutor.
   Future<AralEnrollment> assignTutor(int enrollmentId, String? tutorId) async {
+    _requireSignIn();
     _log('assignTutor($enrollmentId, $tutorId)');
     _requireManager();
     lastWarning = null;
@@ -523,6 +538,7 @@ class AralViewModel {
   /// (transferred out, dropped out, other). Grade-level-ready exits come from
   /// the learner's results, not from here.
   Future<AralEnrollment> exit(int enrollmentId, AralExitReason reason, {DateTime? on}) async {
+    _requireSignIn();
     _log('exit($enrollmentId, ${reason.value})');
     _requireManager();
     if (reason == AralExitReason.gradeLevelReady) {
@@ -542,6 +558,7 @@ class AralViewModel {
   /// Undoes an administrative exit (e.g. recorded by mistake). A
   /// grade-level-ready exit stands: it follows the results.
   Future<AralEnrollment> reactivate(int enrollmentId) async {
+    _requireSignIn();
     _log('reactivate($enrollmentId)');
     _requireManager();
     final e = await _require(enrollmentId);
@@ -558,6 +575,7 @@ class AralViewModel {
   }
 
   Future<AralEnrollment> setNotes(int enrollmentId, String? notes) async {
+    _requireSignIn();
     _log('setNotes($enrollmentId)');
     _requireManager();
     final e = await _require(enrollmentId);
@@ -566,6 +584,7 @@ class AralViewModel {
 
   /// Removes a learner added by mistake. (Leaving ARAL is an exit instead.)
   Future<void> remove(int enrollmentId) async {
+    _requireSignIn();
     _log('remove($enrollmentId)');
     _requireManager();
     await _require(enrollmentId);
@@ -578,6 +597,7 @@ class AralViewModel {
   /// program changes and grade-level-ready exits. Safe to run any time
   /// (nothing changes when nothing new came in).
   Future<List<AralUpdate>> applyResults({required int sectionId, required String schoolYear}) async {
+    _requireSignIn();
     _log('applyResults(section: $sectionId, year: $schoolYear)');
     _requireManager();
     schoolYear = normalizeSchoolYear(schoolYear);
@@ -599,6 +619,7 @@ class AralViewModel {
 
   /// [applyResults] for every section of the school with active ARAL learners.
   Future<List<AralUpdate>> applySchoolResults({required int schoolId, required String schoolYear}) async {
+    _requireSignIn();
     _log('applySchoolResults(school: $schoolId, year: $schoolYear)');
     _requireManager();
     final school = _auth.currentUser?.schoolId;
@@ -713,28 +734,35 @@ class AralViewModel {
   // ---- Reading the roster ----
 
   Future<List<AralEnrollment>> roster({required int sectionId, String? schoolYear}) async {
+    _requireSignIn();
     _log('roster(section: $sectionId, year: $schoolYear)');
     return _roster.getBySection(sectionId, schoolYear: schoolYear == null ? null : normalizeSchoolYear(schoolYear));
   }
 
   Future<List<AralEnrollment>> schoolRoster({required int schoolId, String? schoolYear}) async {
+    _requireSignIn();
     _log('schoolRoster(school: $schoolId, year: $schoolYear)');
     return _roster.getBySchool(schoolId, schoolYear: schoolYear == null ? null : normalizeSchoolYear(schoolYear));
   }
 
   /// The signed-in tutor's ARAL learners (or [tutorId]'s, for a coordinator).
   Future<List<AralEnrollment>> tutorRoster({String? tutorId, String? schoolYear}) async {
+    _requireSignIn();
     final id = tutorId ?? _auth.currentUser?.id;
     _log('tutorRoster(tutor: $id, year: $schoolYear)');
-    if (id == null) throw const ViewModelException('Not signed in.');
+    if (id == null) throw const ViewModelException(notSignedInMessage);
     return _roster.getByTutor(id, schoolYear: schoolYear == null ? null : normalizeSchoolYear(schoolYear));
   }
 
-  Future<AralEnrollment?> getEnrollment(int id) => _roster.findById(id);
+  Future<AralEnrollment?> getEnrollment(int id) async {
+    _requireSignIn();
+    return _roster.findById(id);
+  }
 
   /// The school's ARAL roster for [schoolYear] as CSV ([sectionId] narrows it
   /// to one section): one line per learner. Admins/coordinators only.
   Future<String> rosterCsv({required int schoolId, required String schoolYear, int? sectionId}) async {
+    _requireSignIn();
     _log('rosterCsv(school: $schoolId, year: $schoolYear, section: $sectionId)');
     _requireManager();
     final mine = _auth.currentUser?.schoolId;
@@ -788,6 +816,7 @@ class AralViewModel {
   /// The school's active tutors (who can be assigned) with how many active
   /// ARAL learners each has in [schoolYear].
   Future<List<(User, int)>> tutors({required int schoolId, required String schoolYear}) async {
+    _requireSignIn();
     _log('tutors(school: $schoolId, year: $schoolYear)');
     schoolYear = normalizeSchoolYear(schoolYear);
     final out = <(User, int)>[];
@@ -801,9 +830,12 @@ class AralViewModel {
   }
 
   /// "Last, First" of the section's actively enrolled learners, by id.
-  Future<Map<int, String>> learnerNames(int sectionId) async => {
-        for (final s in await _students.getBySection(sectionId)) s.id!: '${s.lastName}, ${s.firstName}',
-      };
+  Future<Map<int, String>> learnerNames(int sectionId) async {
+    _requireSignIn();
+    return {
+      for (final s in await _students.getBySection(sectionId)) s.id!: '${s.lastName}, ${s.firstName}',
+    };
+  }
 
   // ---- helpers ----
 

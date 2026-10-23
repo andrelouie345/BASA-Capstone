@@ -36,6 +36,7 @@ import '../core/services/csv.dart';
 import '../core/services/normalizers.dart';
 import '../core/services/sync_upload_rules.dart' show pendingLockMessage;
 import 'auth_viewmodel.dart';
+import '../core/services/auth_messages.dart';
 import 'viewmodel_exception.dart';
 
 /// One check-in with its tool, items, answers and score.
@@ -162,15 +163,29 @@ class AralCheckinViewModel {
         _students = students,
         _log = ScopedLogger(logger, 'AralCheckinViewModel');
 
+  /// Every public method starts here: signed in, online or offline. Screens
+  /// call this ViewModel directly, so the console's own check is not enough.
+  void _requireSignIn() {
+    final error = _auth.requireActiveSession();
+    if (error != null) throw ViewModelException(error);
+  }
+
   // ---- Reading ----
 
-  Future<List<AralCheckinTool>> tools() => _checkins.tools();
+  Future<List<AralCheckinTool>> tools() async {
+    _requireSignIn();
+    return _checkins.tools();
+  }
 
-  Future<List<AralCheckinItem>> items(int toolId) => _checkins.items(toolId);
+  Future<List<AralCheckinItem>> items(int toolId) async {
+    _requireSignIn();
+    return _checkins.items(toolId);
+  }
 
   /// The learner's check-ins ([enrollmentId] = ARAL enrollment id), scored
   /// with today's cut-off for the learner's school.
   Future<AralLearnerCheckins> learnerCheckins(int enrollmentId) async {
+    _requireSignIn();
     _log('learnerCheckins($enrollmentId)');
     final e = await _require(enrollmentId);
     final tools = <int, AralCheckinTool>{};
@@ -190,6 +205,7 @@ class AralCheckinViewModel {
 
   /// One check-in, scored with today's cut-off.
   Future<AralCheckinResult> result(int checkinId) async {
+    _requireSignIn();
     _log('result($checkinId)');
     final (c, e) = await _requireCheckin(checkinId);
     return _result(c, (await localSettings(e.schoolId)).passPct);
@@ -217,6 +233,7 @@ class AralCheckinViewModel {
   /// 16 and 32, judged with today's cut-off, and per-section totals.
   /// Admins/coordinators only (their own school; superadmin any).
   Future<AralCheckinReport> checkinReport({required int schoolId, required String schoolYear, int? sectionId}) async {
+    _requireSignIn();
     _log('checkinReport(school: $schoolId, year: $schoolYear, section: $sectionId)');
     final me = _me();
     if (me.role != UserRole.admin && me.role != UserRole.coordinator) {
@@ -275,6 +292,7 @@ class AralCheckinViewModel {
 
   /// [checkinReport] as CSV: one line per learner.
   Future<String> checkinReportCsv({required int schoolId, required String schoolYear, int? sectionId}) async {
+    _requireSignIn();
     final r = await checkinReport(schoolId: schoolId, schoolYear: schoolYear, sectionId: sectionId);
     List<Object?> cells(AralCheckinResult? x) => x == null
         ? ['', '', '', '', '']
@@ -304,6 +322,7 @@ class AralCheckinViewModel {
   /// Records an attempt at the check-in after session [checkpoint] (16 or 32)
   /// of the learner's current program, taken [on] (default today).
   Future<AralCheckin> startCheckin(int enrollmentId, int checkpoint, {DateTime? on, String? notes}) async {
+    _requireSignIn();
     _log('startCheckin($enrollmentId, $checkpoint)');
     if (!aralCheckinCheckpoints.contains(checkpoint)) {
       throw ViewModelException('A check-in comes after session 16 or 32, not $checkpoint.');
@@ -329,6 +348,7 @@ class AralCheckinViewModel {
 
   /// Changes the date and/or notes ([notes] '' clears them).
   Future<AralCheckin> editCheckin(int checkinId, {DateTime? on, String? notes}) async {
+    _requireSignIn();
     _log('editCheckin($checkinId)');
     final (c, e) = await _requireCheckin(checkinId);
     return _write(() => _checkins.updateCheckin(c.copyWith(
@@ -338,6 +358,7 @@ class AralCheckinViewModel {
   }
 
   Future<void> deleteCheckin(int checkinId) async {
+    _requireSignIn();
     _log('deleteCheckin($checkinId)');
     await _requireCheckin(checkinId);
     await _write(() => _checkins.deleteCheckin(checkinId));
@@ -347,6 +368,7 @@ class AralCheckinViewModel {
   /// item [fromItemNo]; a null letter = left blank. Refused (nothing saved)
   /// when the run reaches an open item or the end of the tool.
   Future<List<AralCheckinAnswer>> answerChoices(int checkinId, int fromItemNo, List<String?> letters) async {
+    _requireSignIn();
     _log('answerChoices($checkinId, $fromItemNo, $letters)');
     final (c, _) = await _requireCheckin(checkinId);
     final byNo = {for (final i in await _checkins.items(c.toolId)) i.itemNo: i};
@@ -373,6 +395,7 @@ class AralCheckinViewModel {
 
   /// The tutor's mark for an open item, with what the learner wrote (optional).
   Future<AralCheckinAnswer> markOpen(int checkinId, int itemNo, bool correct, {String? response}) async {
+    _requireSignIn();
     _log('markOpen($checkinId, $itemNo, $correct)');
     final (c, _) = await _requireCheckin(checkinId);
     final item = await _item(c, itemNo);
@@ -385,6 +408,7 @@ class AralCheckinViewModel {
 
   /// Removes the answer to one item (back to "not answered").
   Future<void> clearAnswer(int checkinId, int itemNo) async {
+    _requireSignIn();
     _log('clearAnswer($checkinId, $itemNo)');
     final (c, _) = await _requireCheckin(checkinId);
     final item = await _item(c, itemNo);
@@ -396,6 +420,7 @@ class AralCheckinViewModel {
   /// The cut-off on this device: defaults <- region <- the school's override
   /// (the local mirror; pull-cloud refreshes it).
   Future<AralCheckinSettings> localSettings(int schoolId) async {
+    _requireSignIn();
     final region = await _localSettings.getRegion();
     final school = await _localSettings.getForSchool(schoolId);
     return AralCheckinSettings.fromMap({...?region?.settings, ...?school?.settings});
@@ -404,6 +429,7 @@ class AralCheckinViewModel {
   /// The stored rows in the cloud (online) and the values that apply to
   /// [schoolId] (null = region only).
   Future<AralCheckinSettingLayers> settingLayers(int? schoolId) async {
+    _requireSignIn();
     _log('settingLayers($schoolId)');
     final cloud = _cloud();
     final region = await cloud.getRegion();
@@ -415,6 +441,7 @@ class AralCheckinViewModel {
   /// Sets the cut-off (1-100) of the region ([schoolId] null, superadmin) or a
   /// school (its admin/coordinator). Online; mirrored to this device.
   Future<AralSetting> setPassPct(int? schoolId, int passPct) async {
+    _requireSignIn();
     _log('setPassPct($schoolId, $passPct)');
     final cloud = _settingsWriter(schoolId);
     if (passPct < 1 || passPct > 100) throw ViewModelException('The cut-off is a percentage 1-100, not $passPct.');
@@ -428,6 +455,7 @@ class AralCheckinViewModel {
   /// The foundational literacy program switch (SHARP) in the cloud: the stored
   /// region/school values (null = not set) and the one that applies.
   Future<({bool? region, bool? school, bool effective})> foundationalProgramLayers(int? schoolId) async {
+    _requireSignIn();
     _log('foundationalProgramLayers($schoolId)');
     final cloud = _cloud();
     final region = await cloud.getRegion();
@@ -446,6 +474,7 @@ class AralCheckinViewModel {
   /// Online; mirrored to this device. Learners already on the roster move at
   /// the next automatic update (applyResults).
   Future<AralSetting> setFoundationalProgram(int? schoolId, bool on) async {
+    _requireSignIn();
     _log('setFoundationalProgram($schoolId, $on)');
     final cloud = _settingsWriter(schoolId);
     final current = schoolId == null ? await cloud.getRegion() : await cloud.getForSchool(schoolId);
@@ -458,6 +487,7 @@ class AralCheckinViewModel {
   /// The session settings on this device (idle_session_days): defaults <-
   /// region <- the school's override (the local mirror).
   Future<AralSessionSettings> localSessionSettings(int schoolId) async {
+    _requireSignIn();
     final region = await _localSettings.getRegion();
     final school = await _localSettings.getForSchool(schoolId);
     return AralSessionSettings.fromMap({...?region?.settings, ...?school?.settings});
@@ -466,6 +496,7 @@ class AralCheckinViewModel {
   /// The "no session lately" reminder's day count in the cloud: the stored
   /// region/school values (null = not set) and the one that applies.
   Future<({int? region, int? school, int effective})> idleSessionDaysLayers(int? schoolId) async {
+    _requireSignIn();
     _log('idleSessionDaysLayers($schoolId)');
     final cloud = _cloud();
     final region = await cloud.getRegion();
@@ -482,6 +513,7 @@ class AralCheckinViewModel {
   /// learners is reminded (1-60), for the region ([schoolId] null,
   /// superadmin) or a school (its admin/coordinator). Online; mirrored.
   Future<AralSetting> setIdleSessionDays(int? schoolId, int days) async {
+    _requireSignIn();
     _log('setIdleSessionDays($schoolId, $days)');
     final cloud = _settingsWriter(schoolId);
     if (days < AralSessionSettings.minIdleSessionDays || days > AralSessionSettings.maxIdleSessionDays) {
@@ -499,6 +531,7 @@ class AralCheckinViewModel {
   /// the foundational program switch and the idle session days) so the region
   /// values apply again.
   Future<void> resetSchoolSettings(int schoolId) async {
+    _requireSignIn();
     _log('resetSchoolSettings($schoolId)');
     final cloud = _settingsWriter(schoolId);
     if (await cloud.getForSchool(schoolId) == null) {
@@ -512,7 +545,7 @@ class AralCheckinViewModel {
 
   User _me() {
     final u = _auth.currentUser;
-    if (u == null) throw const ViewModelException('Not signed in.');
+    if (u == null) throw const ViewModelException(notSignedInMessage);
     return u;
   }
 

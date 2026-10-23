@@ -20,6 +20,7 @@ import '../core/repositories/aral_setting_repository.dart';
 import '../core/services/aral_readability.dart';
 import '../core/services/sync_upload_rules.dart' show pendingLockMessage;
 import '../core/services/aral_rules.dart' show AralProgramSettings;
+import '../core/services/auth_messages.dart';
 import 'viewmodel_exception.dart';
 import 'auth_viewmodel.dart';
 
@@ -62,9 +63,17 @@ class AralReadabilityViewModel {
         _materials = materials,
         _log = ScopedLogger(logger, 'AralReadabilityViewModel');
 
+  /// Every public method starts here: signed in, online or offline. Screens
+  /// call this ViewModel directly, so the console's own check is not enough.
+  void _requireSignIn() {
+    final error = _auth.requireActiveSession();
+    if (error != null) throw ViewModelException(error);
+  }
+
   /// Is the readability log available for [schoolId] (its SHARP switch, on
   /// this device's copy of the settings)?
   Future<bool> available(int schoolId) async {
+    _requireSignIn();
     final region = await _localSettings.getRegion();
     final school = await _localSettings.getForSchool(schoolId);
     return AralProgramSettings.fromMap({...?region?.settings, ...?school?.settings}).foundationalProgram;
@@ -72,6 +81,7 @@ class AralReadabilityViewModel {
 
   /// The learner's entries with their scores, oldest first.
   Future<List<AralReadabilityEntry>> entries(int enrollmentId) async {
+    _requireSignIn();
     _log('entries($enrollmentId)');
     final e = await _require(enrollmentId);
     await _requireAvailable(e);
@@ -93,6 +103,7 @@ class AralReadabilityViewModel {
     String? source,
     int? materialId,
   }) async {
+    _requireSignIn();
     _log('add(enrollment: $enrollmentId, "$title", $words/$sentences/$syllables, material: $materialId)');
     final e = await _require(enrollmentId);
     await _requireAvailable(e);
@@ -129,6 +140,7 @@ class AralReadabilityViewModel {
     DateTime? readOn,
     String? Function()? source,
   }) async {
+    _requireSignIn();
     _log('update($id)');
     final (current, e) = await _requireEntry(id);
     await _requireAvailable(e);
@@ -145,6 +157,7 @@ class AralReadabilityViewModel {
   }
 
   Future<void> delete(int id) async {
+    _requireSignIn();
     _log('delete($id)');
     final (_, e) = await _requireEntry(id);
     await _requireAvailable(e);
@@ -171,7 +184,7 @@ class AralReadabilityViewModel {
 
   User _me() {
     final u = _auth.currentUser;
-    if (u == null) throw const ViewModelException('Not signed in.');
+    if (u == null) throw const ViewModelException(notSignedInMessage);
     return u;
   }
 

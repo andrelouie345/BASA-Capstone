@@ -57,7 +57,7 @@ Nothing in `core/` imports Flutter. Keep it that way.
 
 ## ViewModel sign-in checks (command pass F5, 2026-10-23)
 - Every public ViewModel method checks the sign-in itself, first: `requireActiveSession()` (online or offline sign-in) for work on the device's copy, `requireOnlineSession()` for anything that needs the server. Screens call ViewModels directly, so a check in the console command is not enough (CRLA was guarded only there; Phil-IRI not at all, and a signed-out device could start, score and discard sessions).
-- `PhilIriViewModel` and `CrlaViewModel` use a private `_requireSignIn()`; `test/viewmodels/session_guard_test.dart` calls every public method of both while signed out. Add a new method there when you add one to the ViewModel.
+- `PhilIriViewModel`, `CrlaViewModel` and the six ARAL ViewModels (`Aral`, `AralSession`, `AralIrip`, `AralCheckin`, `AralReadability`, `AralMaterial`) use a private `_requireSignIn()`; `test/viewmodels/session_guard_test.dart` calls every public method of them while signed out and expects exactly `notSignedInMessage`. Add a new method there when you add one to one of these ViewModels.
 
 ## Console commands and the two builds (tutor build split, 2026-10-22)
 - Every command is registered from `wiring/` (`registerSharedCommands`, `registerTutorCommands`, `registerAdminCommands`, `registerDevCommands`); entry points never register commands themselves.

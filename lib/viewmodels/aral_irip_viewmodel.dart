@@ -25,6 +25,7 @@ import '../core/repositories/aral_irip_repository.dart';
 import '../core/services/aral_irip_rules.dart';
 import '../core/services/sync_upload_rules.dart' show pendingLockMessage;
 import 'auth_viewmodel.dart';
+import '../core/services/auth_messages.dart';
 import 'viewmodel_exception.dart';
 
 /// One strand of the current cycle: its latest week and what comes next.
@@ -105,12 +106,23 @@ class AralIripViewModel {
         _roster = roster,
         _log = ScopedLogger(logger, 'AralIripViewModel');
 
+  /// Every public method starts here: signed in, online or offline. Screens
+  /// call this ViewModel directly, so the console's own check is not enough.
+  void _requireSignIn() {
+    final error = _auth.requireActiveSession();
+    if (error != null) throw ViewModelException(error);
+  }
+
   // ---- Reading ----
 
-  Future<List<AralIripTarget>> targets(AralIripProgram program) => _irip.targets(program);
+  Future<List<AralIripTarget>> targets(AralIripProgram program) async {
+    _requireSignIn();
+    return _irip.targets(program);
+  }
 
   /// The learner's IRIP ([enrollmentId] = ARAL enrollment id).
   Future<AralIripPlan> plan(int enrollmentId) async {
+    _requireSignIn();
     _log('plan($enrollmentId)');
     return _plan(await _require(enrollmentId));
   }
@@ -161,6 +173,7 @@ class AralIripViewModel {
   /// Cycle 1 (and a cycle after a program change) starts at the list's first
   /// target; a later cycle continues from where each strand reached.
   Future<List<AralIripWeek>> startCycle(int enrollmentId) async {
+    _requireSignIn();
     _log('startCycle($enrollmentId)');
     final e = await _requireWritable(enrollmentId);
     final p = await _plan(e);
@@ -199,6 +212,7 @@ class AralIripViewModel {
 
   /// Rates a week (status, date, optional notes). Rating again replaces it.
   Future<AralIripWeek> rate(int weekId, AralIripStatus status, {DateTime? on, String? notes}) async {
+    _requireSignIn();
     _log('rate($weekId, ${status.value})');
     final w = await _requireWeek(weekId);
     final date = _date(on ?? DateTime.now());
@@ -213,6 +227,7 @@ class AralIripViewModel {
   /// Removes a week's rating (e.g. rated by mistake); only while the strand
   /// has no later week.
   Future<AralIripWeek> clearRating(int weekId) async {
+    _requireSignIn();
     _log('clearRating($weekId)');
     final w = await _requireWeek(weekId);
     await _requireLast(w, 'clear its rating');
@@ -220,6 +235,7 @@ class AralIripViewModel {
   }
 
   Future<AralIripWeek> setNotes(int weekId, String? notes) async {
+    _requireSignIn();
     _log('setNotes($weekId)');
     final w = await _requireWeek(weekId);
     return _write(() => _irip.updateWeek(w.copyWith(notes: () => _blankToNull(notes))));
@@ -227,6 +243,7 @@ class AralIripViewModel {
 
   /// Picks another target for a week that isn't rated yet.
   Future<AralIripWeek> changeTarget(int weekId, int targetId) async {
+    _requireSignIn();
     _log('changeTarget($weekId, $targetId)');
     final w = await _requireWeek(weekId);
     if (w.isRated) throw const ViewModelException('A rated IRIP week keeps its target.');
@@ -237,6 +254,7 @@ class AralIripViewModel {
   /// Adds the next week of the current cycle for [strand] (every strand that
   /// is ready, when null) with the suggested target, or [targetId].
   Future<List<AralIripWeek>> nextWeek(int enrollmentId, {AralIripStrand? strand, int? targetId}) async {
+    _requireSignIn();
     _log('nextWeek($enrollmentId, strand: ${strand?.name}, target: $targetId)');
     final e = await _requireWritable(enrollmentId);
     if (!e.isActive) throw const ViewModelException('The learner is not active in ARAL.');
@@ -283,6 +301,7 @@ class AralIripViewModel {
 
   /// Deletes a week added by mistake: only the last week of its strand.
   Future<void> deleteWeek(int weekId) async {
+    _requireSignIn();
     _log('deleteWeek($weekId)');
     final w = await _requireWeek(weekId);
     await _requireLast(w, 'be deleted');
@@ -293,7 +312,7 @@ class AralIripViewModel {
 
   User _me() {
     final u = _auth.currentUser;
-    if (u == null) throw const ViewModelException('Not signed in.');
+    if (u == null) throw const ViewModelException(notSignedInMessage);
     return u;
   }
 
