@@ -149,6 +149,51 @@ dart run -DBASA_CLOUD_URL=<url> -DBASA_CLOUD_KEY=<anon-key> lib/console/main.dar
 
 (`BASA_LAN_URL` / `BASA_LAN_KEY` likewise.)
 
+## 4b. Build the two apps (admin and tutor)
+
+BASA ships as two apps from this one codebase. Coordinators and admins use the
+**admin** app; tutors get the **tutor** app, which does not contain the admin
+code at all (user management, imports, the sync approver, reports, settings,
+roster changes, Phil-IRI finalizing). The server's RLS still decides what each
+user may do; the split only keeps admin code off tutors' devices.
+
+| | Admin app | Tutor app |
+|---|---|---|
+| Entry point | `lib/main.dart` | `lib/main_tutor.dart` |
+| Android | flavor `admin`, `enn5.basa.admin`, "BASA" | flavor `tutor`, `enn5.basa.tutor`, "BASA Tutor" |
+| Data folder | `<documents>/BASA/admin/` | `<documents>/BASA/tutor/` |
+| Console (debug only) | `dart run lib/console/main.dart` (`./data`) | `dart run lib/console/main_tutor.dart` (`./data_tutor`) |
+
+Both can be installed on one phone or computer; each keeps its own data. On
+Windows the admin app moves the files an older build left directly in
+`Documents` into `Documents\BASA\admin\` once, the first time it starts.
+
+**Release builds have no console**, so the server must be built in. Build both
+apps, for Android and Windows, with the script (from the repo root):
+
+```
+powershell -ExecutionPolicy Bypass -File tool\build_release.ps1 -CloudUrl <url> -CloudKey <anon-key>
+```
+
+(or `-LanUrl` / `-LanKey` for a school on its own LAN server; it refuses to
+build with no server). It also proves the split: it checks that no admin file is
+reachable from the tutor app, builds two extra "scan" APKs (never shipped), and
+fails if any admin-only string from `tool/admin_markers.txt` is in a tutor
+build, or missing from an admin build. The apps land in `build\dist\`:
+`basa-admin.apk`, `basa-tutor.apk`, `windows-admin\`, `windows-tutor\`.
+
+For development, Android needs the flavor:
+
+```
+flutter run --flavor admin -t lib/main.dart
+flutter run --flavor tutor -t lib/main_tutor.dart
+```
+
+(Windows: `flutter run -d windows -t lib/main_tutor.dart`, no flavor.) Debug
+builds keep the console: tilde three times on a keyboard, or five quick taps in
+the top-left corner on a phone. An older test install named
+`com.example.basa_capstone` is a separate app now; uninstall it.
+
 ## 5. Bootstrap the first (super)admin
 
 ```

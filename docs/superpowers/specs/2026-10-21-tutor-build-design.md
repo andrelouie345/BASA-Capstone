@@ -1,6 +1,6 @@
 # Tutor build variant — design
 
-Date: 2026-10-21. Status: approved in brainstorming (owner), awaiting spec review.
+Date: 2026-10-21. Status: approved 2026-10-22; built 2026-10-22/23 (plan `docs/superpowers/plans/2026-10-22-tutor-build.md`). See *Changes during implementation* at the end: it wins over the sections above where they differ.
 
 ## Goal
 
@@ -129,3 +129,12 @@ Pure Dart. Starts at `lib/main_tutor.dart` and `lib/console/main_tutor.dart`, fo
 - **A marker that also appears in shared code** would fail the tutor scan falsely; markers are picked from admin-only methods and the plan checks each with a grep over the tutor side.
 - **Old Windows data in Documents**: moved once; if both old and new exist, nothing is moved and a warning is logged.
 - **Release tutor build without defines** starts with an empty Supabase config and no console to set it; `build_release.ps1` refuses to build unless at least one server is given (`BASA_CLOUD_URL` + `BASA_CLOUD_KEY`, or `BASA_LAN_URL` + `BASA_LAN_KEY`, for LAN-only schools).
+
+## Changes during implementation (2026-10-22/23, all decided by the owner)
+
+- **D1:** `NlaReportViewModel`, `SrpViewModel` and `ReportSettingsViewModel` are in the tutor build: the tutor's `dashboard`, `reminders-tutor`, `trend-aral-activity` and `srp-classes` need them. Their admin methods are dropped by tree shaking and covered by markers; report text is not a marker. The import-walk list is the one in `tool/check_tutor_imports.dart` (it does not forbid these three).
+- **Scan builds.** Shipped release builds call no ViewModel method yet (no console, placeholder home screen), so the compiler removed every admin method from both builds and the planned scan proved nothing (the admin self-test caught it). `build_release.ps1` now also builds two never-shipped arm64 APKs with `--dart-define=BASA_SCAN_BUILD=true`, which compiles the console (commands **and** overlay; without the overlay nothing calls `session.run` and the handler bodies were dropped too) into the build. `[admin]` markers are checked on the scan builds; the shipped builds are checked with `[admin-release]` (the 7 admin-only ViewModel names) and `[debug]`. The switch is `basaScanBuild` / `basaHasConsole` in `lib/app_shell.dart`.
+- **Three more commands are admin only**, because their ViewModel methods refuse tutors (the brainstorm checked RLS but not these methods): `aral-export-roster` (`AralViewModel.rosterCsv`, found by the marker scan), `list-tutor-sections` (`TutorSectionAssignmentViewModel.loadForTutor`) and `aral-recommend-section` (`AralMaterialViewModel.sectionRecommendations`), both found by running every tutor command as a tutor. `aral_export_commands.dart` and `tutor_section_commands.dart` are wholly admin again (identical to their pre-split versions). Tutor console: **115** commands; admin console: 228.
+- `BasaApp` / `BasaHomeScreen` moved to `lib/app_shell.dart` (with a title) so `main_tutor.dart` doesn't import `main.dart`.
+- Android app names come from `manifestPlaceholders["appName"]` (`resValue` is disabled by default in this Android Gradle version).
+- Found by the T6 score-entry kit, outside this design: the cloud never got ARAL migration A1c (archived `20261015070000`): no section-cap function (server-side reactivation failed), no cap on insert, no `foundational`. Fixed by `supabase/migrations/20261023010000_aral_restore_a1c.sql` (app update required: no), committed separately.
