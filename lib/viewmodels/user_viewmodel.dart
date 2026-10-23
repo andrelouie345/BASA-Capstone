@@ -4,6 +4,7 @@ import '../core/console/logger.dart';
 import '../core/models/user.dart';
 import '../core/models/user_role.dart';
 import '../core/repositories/user_repository.dart';
+import '../core/services/auth_messages.dart';
 import 'auth_viewmodel.dart';
 import 'viewmodel_exception.dart';
 
@@ -101,9 +102,7 @@ class UserViewModel {
         // created_by is taken from the caller's JWT server-side.
       ));
     } on FunctionException catch (e) {
-      final details = e.details;
-      final message = details is Map ? details['error'] : null;
-      throw ViewModelException('${message ?? details ?? e.reasonPhrase ?? e.status}');
+      throw ViewModelException(edgeFunctionErrorMessage(e));
     }
     await _mirror(() async {
       final created = await repo.getByEmail(email.trim());

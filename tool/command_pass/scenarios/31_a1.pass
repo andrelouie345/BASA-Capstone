@@ -1,0 +1,127 @@
+# A1 Users, schools, sections, assignments, SF1 import tools and conflicts,
+# login logs. Admin build. Everything it creates it removes again, so the
+# batch can be rerun on the same run.
+
+device a1-pc admin fresh
+run bootstrap-admin cloud zztest.pass.r{run}.boot@basa.test ZZ Boot
+# F8: the server's own text, not the exception.
+refuse Bootstrap failed: Bootstrap already completed for this project
+as super
+
+# --- Schools ---------------------------------------------------------------------
+run school-create {code_a}C X - ZZTEST PASS r{run} C
+expect OK:
+capture schoolC = OK: (\d+) \|
+run school-update {schoolC} {code_a}C X - ZZTEST PASS r{run} C renamed
+expect Updated: {schoolC} | {code_a}C | ZZTEST PASS r{run} C renamed | Region X
+run school-delete {schoolC}
+expect Deleted school {schoolC}.
+# School B has sections and learners: refused.
+run school-delete {schoolB}
+refuse Delete failed: School is still in use (sections, students, users or assessments). Remove those first.
+run school-list
+expect {name_b}
+
+# --- Accounts -----------------------------------------------------------------------
+run user-set-active {tutor2_id} false
+expect Set {tutor2_id} active=false.
+device a1-phone tutor fresh
+run sign-in cloud {email_tutor2} {pw_tutor2}
+refuse Sign-in failed: account is inactive
+device a1-pc admin
+run user-set-active {tutor2_id} true
+expect Set {tutor2_id} active=true.
+run user-set-active {tutor2_id} maybe
+refuse Invalid value: "maybe" (expected true or false)
+run login-recent {=10}
+expect [local+cloud] zztest.super@basa.test - OK (online)
+run login-history {tutor2_id}
+expect [cloud] {email_tutor2} - FAILED (online) - account inactive
+
+# --- Coordinator: sections and assignments --------------------------------------
+device a1-coord admin fresh
+as coord
+run user-set-active {coord_id} false
+refuse You cannot change your own active status.
+run section-create {school} {year} {=7} ZZTEST-A1
+expect~ OK:|Already exists
+capture sec_a1 = (\d+) \| 7 - ZZTEST-A1
+run section-update {sec_a1} {year} {=7} ZZTEST-A1R
+expect Updated: {sec_a1} | 7 - ZZTEST-A1R ({year})
+run assign-section {tutor2_id} {sec_a1}
+expect Assigned tutor {tutor2_id} to section {sec_a1}
+capture asg_a1 = \(assignment (\d+)\)
+run list-tutor-sections {tutor2_id}
+expect {asg_a1} | 7 - ZZTEST-A1R ({year})
+run unassign-section {asg_a1}
+expect Unassigned assignment {asg_a1}.
+run list-tutor-sections {tutor2_id}
+expect (no assignments found)
+run section-delete {sec_a1}
+expect Deleted section {sec_a1}.
+run section-delete {sec_g7}
+refuse Delete failed: Section is still in use (enrollments, tutor assignments or assessments). Remove those first.
+# School B's section is invisible to this coordinator (RLS).
+run section-update {sec_b7} {year} {=7} ZZTEST-NOPE
+refuse Update failed: No section found with id {sec_b7}.
+run school-update {schoolB} {code_b} X - ZZ hijack
+refuse Update failed: Forbidden: can only update your own school.
+run school-delete {school}
+refuse Delete failed: Forbidden: superadmin only.
+
+# --- SF1 import tools -------------------------------------------------------------
+run column-map-show
+expect lrn: 0
+expect dataStartRow: 6
+# Moving a learner to another section through an SF1 import. The new
+# section keeps the move as history, so it can't be deleted afterwards: each
+# invocation uses its own section name ({stamp}).
+make-sf1 sf1_a1 a 7 ZZTEST-M{stamp} 2
+run import-preview "{sf1_a1}" {=6}
+expect [0] 9990
+expect [2] ZZTESTA
+expect [6] M
+# The two G7 learners in another section: conflicts, not silent moves.
+run import-students "{sf1_a1}"
+expect Inserted: 0, Conflicts: 2, Already enrolled: 0, Skipped: 0
+capture sec_m = resolved section: 7 - ZZTEST-M{stamp} \({year}\) \(id=(\d+)\)
+run list-conflicts
+expect LRN already exists (existing student id {s_g7_1})
+capture cf_1 = (\d+): LRN \d+7001
+run show-conflict {cf_1}
+expect Section: {sec_m} | 7 - ZZTEST-M{stamp} ({year})
+expect Status: pending
+expect "last_name":"ZZTESTA"
+# update = take the incoming row: the learner moves to the new section.
+run resolve-conflict {cf_1} update
+expect Conflict {cf_1}: student {s_g7_1} updated, enrolled into section {sec_m} ({year}).
+run resolve-conflict {cf_1} skip
+refuse Resolve failed: Conflict {cf_1} is already resolved_updated.
+run resolve-conflicts-all skip
+expect resolved (skipped).
+run list-conflicts
+expect (no pending conflicts)
+run student-list-section {sec_m}
+expect 9990
+expect ZZTESTA, Learner001
+# Move them back: the G7 roster again, take the incoming row.
+run import-students "{sf1_g7}"
+expect Inserted: 0, Conflicts: 1, Already enrolled: 3
+run resolve-conflicts-all update
+expect student {s_g7_1} updated, enrolled into section {sec_g7} ({year}).
+run student-list-section {sec_g7}
+expect ZZTESTA, Learner001
+run section-delete {sec_m}
+refuse Delete failed: Section is still in use
+run column-map-set dataStartRow {=7}
+expect dataStartRow set to 7.
+run column-map-show
+expect dataStartRow: 7
+run column-map-set dataStartRow {=6}
+expect dataStartRow set to 6.
+run column-map-set nosuchfield {=1}
+refuse Unknown field "nosuchfield". Valid fields:
+run login-log zz.a1@basa.test false online ZZ test entry
+expect Logged: zz.a1@basa.test success=false method=online
+sql select count(*) from login_logs where email_attempted = 'zz.a1@basa.test' => 1
+

@@ -20,7 +20,10 @@ class RunState {
   final Directory runDir;
   final Map<String, String> captures;
   final Map<String, String> passwords;
-  RunState._(this.runDir, this.captures, this.passwords);
+  /// HHmmss when this invocation loaded the run: {stamp}, for names that must
+  /// differ between reruns of a batch.
+  final String stamp;
+  RunState._(this.runDir, this.captures, this.passwords, this.stamp);
 
   static Future<RunState> load(Directory runDir) async {
     Map<String, String> read(String name) {
@@ -29,7 +32,10 @@ class RunState {
       return (jsonDecode(f.readAsStringSync()) as Map).map((k, v) => MapEntry('$k', '$v'));
     }
 
-    return RunState._(runDir, read('captures.json'), read('accounts.json'));
+    final now = DateTime.now();
+    String two(int n) => n.toString().padLeft(2, '0');
+    return RunState._(runDir, read('captures.json'), read('accounts.json'),
+        '${two(now.hour)}${two(now.minute)}${two(now.second)}');
   }
 
   Future<void> save() async {
@@ -213,7 +219,7 @@ Future<List<StepResult>> runScenario(
               regionLabel: sf1RegionLabel,
               schoolYear: currentSchoolYear(DateTime.now()),
               grade: '${step.grade}',
-              section: step.section,
+              section: substitute(step.section, _vars(accounts, state)),
               learners: sf1Learners(
                   runNumber: accounts.runNumber, grade: step.grade, count: step.count, schoolB: step.schoolB));
         } catch (e) {
@@ -313,7 +319,7 @@ Future<(StepOutcome, String)> _signIn(Device dev, String account, Accounts accou
 
 /// Captures plus the built-in values (which win): {run}, {year}, {code_a},
 /// {code_b}, {name_a}, {name_b}, {today}, {past} (today - 30 days),
-/// {future} (today + 30 days), {rundir}, `{email_<account>}`, `{pw_<account>}`.
+/// {future} (today + 30 days), {rundir}, {stamp}, `{email_<account>}`, `{pw_<account>}`.
 Map<String, String> _vars(Accounts accounts, RunState state) {
   final n = accounts.runNumber;
   final now = DateTime.now();
@@ -330,6 +336,7 @@ Map<String, String> _vars(Accounts accounts, RunState state) {
     'past': day(now.subtract(const Duration(days: 30))),
     'future': day(now.add(const Duration(days: 30))),
     'rundir': state.runDir.path,
+    'stamp': state.stamp,
     // email_* always; pw_* once the first sign-in set it.
     for (final a in Accounts.runAccounts) 'email_$a': accounts.emailOf(a),
     for (final e in state.passwords.entries) 'pw_${e.key}': e.value,

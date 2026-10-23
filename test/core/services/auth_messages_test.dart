@@ -31,6 +31,17 @@ void main() {
     expect(authFailureMessage('plain'), 'plain');
   });
 
+  test('an Edge Function refusal shows the server\'s error text', () {
+    expect(
+        edgeFunctionErrorMessage(const FunctionException(
+            status: 403, details: {'error': 'Bootstrap already completed for this project'}, reasonPhrase: 'Forbidden')),
+        'Bootstrap already completed for this project');
+    expect(edgeFunctionErrorMessage(const FunctionException(status: 500, details: 'boom')), 'boom');
+    expect(edgeFunctionErrorMessage(const FunctionException(status: 502, reasonPhrase: 'Bad Gateway')), 'Bad Gateway');
+    expect(edgeFunctionErrorMessage(const FunctionException(status: 503)), 'server error 503');
+    expect(edgeFunctionErrorMessage(const SocketException('Failed host lookup')), cantReachServerMessage);
+  });
+
   test('session messages name no console command', () {
     for (final m in [notSignedInMessage, needsOnlineSignInMessage, mustChangePasswordMessage]) {
       expect(m, isNot(contains('<')));

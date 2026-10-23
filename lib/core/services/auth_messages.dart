@@ -10,6 +10,16 @@ const needsOnlineSignInMessage = 'This needs an online sign-in. Sign in again wh
 const mustChangePasswordMessage = 'You must change your password first.';
 const cantReachServerMessage = "can't reach the server. Check the connection, or sign in offline on your own device.";
 
+/// The server's own text for a refused Edge Function call (create-user,
+/// bootstrap-admin): its `error` field, else the details or the HTTP reason.
+String edgeFunctionErrorMessage(Object error) {
+  if (error is SocketException) return cantReachServerMessage;
+  if (error is! FunctionException) return authFailureMessage(error);
+  final details = error.details;
+  final message = details is Map ? details['error'] : null;
+  return '${message ?? details ?? error.reasonPhrase ?? 'server error ${error.status}'}';
+}
+
 /// The reason after "Sign-in failed: " / "Password change failed: ". The raw
 /// error belongs in the log, not in the message.
 String authFailureMessage(Object error) {

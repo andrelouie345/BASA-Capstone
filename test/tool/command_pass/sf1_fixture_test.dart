@@ -76,7 +76,7 @@ void main() {
     final devices = DeviceManager(runDir);
     final state = await RunState.load(runDir);
     final results = await runScenario(
-        parseScenario('t', 'device a admin\nmake-sf1 sf1_g2 a 2 ZZTEST-G2 4\nrun get-text\nexpect Text'),
+        parseScenario('t', 'device a admin\nmake-sf1 sf1_g2 a 2 ZZTEST-G2-r{run} 4\nrun get-text\nexpect Text'),
         devices,
         state,
         Accounts(runNumber: 9, superAccount: null, state: state),
@@ -89,5 +89,7 @@ void main() {
     final excel = Excel.decodeBytes(File(path).readAsBytesSync());
     final sheet = excel.tables[excel.tables.keys.first]!;
     expect(sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 9)).value?.toString(), '999000092004');
+    // {..} values are filled into the section name.
+    expect(sheet.cell(CellIndex.indexByColumnRow(columnIndex: 38, rowIndex: 3)).value?.toString(), 'ZZTEST-G2-r9');
   });
 }

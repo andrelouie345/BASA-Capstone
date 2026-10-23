@@ -171,6 +171,12 @@ void main() {
     expect(results[5].outcome.message, contains('missing'));
   });
 
+  test('{stamp} is fixed for one invocation and looks like HHmmss', () async {
+    final results = await run('device a tutor\nrun set-text {stamp}\ncapture s1 = OK: "(\\d+)"\nrun set-text {stamp}\nexpect OK: "{s1}"');
+    expect(results.every((r) => r.outcome.passed), isTrue, reason: results.map((r) => r.outcome.message).join('; '));
+    expect(state.captures['s1'], matches(RegExp(r'^\d{6}$')));
+  });
+
   test('{rundir} is the run folder, for files a command writes', () async {
     final results = await run('device a tutor\nrun set-text {rundir}\nexpect {rundir}');
     expect(results[1].output.split('\n').first, 'OK: "${runDir.path}"');
