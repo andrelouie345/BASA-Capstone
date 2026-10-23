@@ -52,6 +52,56 @@ void main() {
     expect(r.missingInAdmin, ['admin.so: Forbidden: only an admin reviews uploads.']);
   });
 
+  // The scan builds have the console compiled in: the [debug] markers must be
+  // found there, or a misspelled marker would make "no console in release"
+  // pass whatever the shipped builds contain.
+  test('a required marker missing from any binary fails', () {
+    final r = scanMarkers(
+      adminMarkers: const [],
+      debugMarkers: const [],
+      presentMarkers: debug,
+      tutorBinaries: {'tutor.so': bin('BASA Debug Console')},
+      adminBinaries: {'admin.so': bin('no console here')},
+    );
+    expect(r.ok, isFalse);
+    expect(r.missingRequired, ['admin.so: BASA Debug Console']);
+  });
+
+  test('required markers found in every binary pass', () {
+    final r = scanMarkers(
+      adminMarkers: const [],
+      debugMarkers: const [],
+      presentMarkers: debug,
+      tutorBinaries: {'tutor.so': bin('x BASA Debug Console')},
+      adminBinaries: {'admin.so': bin('BASA Debug Console y')},
+    );
+    expect(r.ok, isTrue);
+    expect(r.missingRequired, isEmpty);
+  });
+
+  // Dart stores a string with any character outside Latin-1 (an em dash in a
+  // command description, say) as UTF-16: the scan must find markers there too.
+  List<int> utf16(String text) => [for (final c in text.codeUnits) ...[c & 0xff, c >> 8]];
+
+  test('an admin marker stored as UTF-16 in a tutor binary is a leak', () {
+    final r = scan(
+      tutor: [0, ...utf16('x — create-user — y'), 0],
+      adminBin: bin('Forbidden: only an admin reviews uploads. create-user'),
+    );
+    expect(r.leaks, ['tutor.so: create-user']);
+  });
+
+  test('a required marker stored as UTF-16 counts as present', () {
+    final r = scanMarkers(
+      adminMarkers: const [],
+      debugMarkers: const [],
+      presentMarkers: debug,
+      tutorBinaries: {'tutor.so': [0, ...utf16('— BASA Debug Console'), 0]},
+      adminBinaries: {'admin.so': bin('BASA Debug Console')},
+    );
+    expect(r.missingRequired, isEmpty);
+  });
+
   test('marker file sections are parsed', () {
     final m = parseMarkers('# comment\n[admin]\ncreate-user\n\n[admin-release]\nUserViewModel\n[debug]\nBASA Debug Console\n');
     expect(m['admin'], ['create-user']);

@@ -1,13 +1,14 @@
 // lib/core/wiring/wire_shared.dart
 // Both builds: account, server config, sync (uploader side), the school /
-// section / student / tutor-section lists, and the dev-only commands.
+// section / student lists, and the dev-only commands. The tutor-section
+// assignment ViewModel is admin-only (every method refuses tutors); only its
+// SQLite repository is shared (the dashboard and reminders read it).
 import '../../viewmodels/school_viewmodel.dart';
 import '../../viewmodels/section_viewmodel.dart';
 import '../../viewmodels/student_viewmodel.dart';
 import '../../viewmodels/sync_viewmodel.dart';
 import '../../viewmodels/test_data_viewmodel.dart';
 import '../../viewmodels/text_viewmodel.dart';
-import '../../viewmodels/tutor_section_assignment_viewmodel.dart';
 import '../console/commands/auth_commands.dart';
 import '../console/commands/config_commands.dart';
 import '../console/commands/debug_commands.dart';
@@ -30,7 +31,6 @@ import '../data/remote/section_repository_supabase.dart';
 import '../data/remote/student_repository_supabase.dart';
 import '../data/remote/sync_download_supabase.dart';
 import '../data/remote/sync_remote_supabase.dart';
-import '../data/remote/tutor_section_assignment_repository_supabase.dart';
 import '../services/roster_exporter.dart';
 import 'app_context.dart';
 
@@ -41,7 +41,6 @@ class SharedVms {
   final SchoolViewModel schoolVm;
   final SectionViewModel sectionVm;
   final StudentViewModel studentVm;
-  final TutorSectionAssignmentViewModel tutorSectionVm;
   final TutorSectionAssignmentRepositorySqlite tutorSectionRepo;
   final RosterExporter exporter;
   final SectionRepositorySqlite sectionRepo;
@@ -54,7 +53,6 @@ class SharedVms {
     required this.schoolVm,
     required this.sectionVm,
     required this.studentVm,
-    required this.tutorSectionVm,
     required this.tutorSectionRepo,
     required this.exporter,
     required this.sectionRepo,
@@ -80,13 +78,6 @@ SharedVms wireShared(AppContext ctx) {
   final sectionVm = SectionViewModel(auth: authVm, repoFactory: SectionRepositorySupabase.new, logger: session);
   vms.register('SectionViewModel', sectionVm);
   final tutorSectionRepo = TutorSectionAssignmentRepositorySqlite(db);
-  final tutorSectionVm = TutorSectionAssignmentViewModel(
-    auth: authVm,
-    repoFactory: TutorSectionAssignmentRepositorySupabase.new,
-    local: tutorSectionRepo,
-    logger: session,
-  );
-  vms.register('TutorSectionAssignmentViewModel', tutorSectionVm);
 
   final syncVm = SyncViewModel(
     auth: authVm,
@@ -105,7 +96,6 @@ SharedVms wireShared(AppContext ctx) {
     schoolVm: schoolVm,
     sectionVm: sectionVm,
     studentVm: studentVm,
-    tutorSectionVm: tutorSectionVm,
     tutorSectionRepo: tutorSectionRepo,
     exporter: RosterExporter(),
     sectionRepo: SectionRepositorySqlite(db),

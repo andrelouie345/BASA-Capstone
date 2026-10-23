@@ -34,6 +34,7 @@ const _adminFiles = [
   'viewmodels/crla_import_viewmodel.dart',
   'viewmodels/aral_report_viewmodel.dart',
   'viewmodels/aral_roster_import_viewmodel.dart',
+  'viewmodels/tutor_section_assignment_viewmodel.dart',
   'core/data/local/sync_review_local_sqlite.dart',
   'core/data/remote/import_conflict_repository_supabase.dart',
   'core/services/admin_bootstrap_service.dart',

@@ -37,13 +37,29 @@ function Invoke-Step([string]$what, [scriptblock]$cmd) {
 
 Invoke-Step 'Import walk (tutor entries reach no admin file)' { dart run tool/check_tutor_imports.dart }
 
+$apkOut = 'build\app\outputs\flutter-apk'
+$winOut = 'build\windows\x64\runner\Release'
+$variants = @(@{ Name = 'admin'; Entry = 'lib/main.dart' }, @{ Name = 'tutor'; Entry = 'lib/main_tutor.dart' })
+
+# Scan builds FIRST (never shipped): console commands compiled in, so each
+# build holds every ViewModel method it can call. Android arm64 only: the Dart
+# code is the same on every platform. They share Flutter's output name with the
+# shipped APKs, so the shipped builds below overwrite them there; only
+# build\scan keeps them.
+$scan = 'build\scan'
+if (Test-Path $scan) { Remove-Item -Recurse -Force $scan }
+New-Item -ItemType Directory -Force $scan | Out-Null
+foreach ($v in $variants) {
+    $n = $v.Name
+    Invoke-Step "Scan build $n" { flutter build apk --release --flavor $n -t $v.Entry --target-platform android-arm64 --dart-define=BASA_SCAN_BUILD=true @defines }
+    Copy-Item "$apkOut\app-$n-release.apk" "$scan\basa-$n-scan.apk"
+}
+
+# Shipped builds.
 $dist = 'build\dist'
 if (Test-Path $dist) { Remove-Item -Recurse -Force $dist }
 New-Item -ItemType Directory -Force $dist | Out-Null
-$apkOut = 'build\app\outputs\flutter-apk'
-$winOut = 'build\windows\x64\runner\Release'
-
-foreach ($v in @(@{ Name = 'admin'; Entry = 'lib/main.dart' }, @{ Name = 'tutor'; Entry = 'lib/main_tutor.dart' })) {
+foreach ($v in $variants) {
     $n = $v.Name
     Invoke-Step "Android $n" { flutter build apk --release --flavor $n -t $v.Entry @defines }
     Copy-Item "$apkOut\app-$n-release.apk" "$dist\basa-$n.apk"
@@ -53,25 +69,16 @@ foreach ($v in @(@{ Name = 'admin'; Entry = 'lib/main.dart' }, @{ Name = 'tutor'
     Copy-Item -Recurse $winOut "$dist\windows-$n"
 }
 
-# Scan builds (never shipped): console commands compiled in, so each build
-# holds every ViewModel method it can call. Android arm64 only: the Dart code
-# is the same on every platform.
-$scan = 'build\scan'
-if (Test-Path $scan) { Remove-Item -Recurse -Force $scan }
-New-Item -ItemType Directory -Force $scan | Out-Null
-foreach ($v in @(@{ Name = 'admin'; Entry = 'lib/main.dart' }, @{ Name = 'tutor'; Entry = 'lib/main_tutor.dart' })) {
-    $n = $v.Name
-    Invoke-Step "Scan build $n" { flutter build apk --release --flavor $n -t $v.Entry --target-platform android-arm64 --dart-define=BASA_SCAN_BUILD=true @defines }
-    Copy-Item "$apkOut\app-$n-release.apk" "$scan\basa-$n-scan.apk"
-}
-
 Invoke-Step 'Shipped builds: admin ViewModels only in admin, no debug console anywhere' {
     dart run tool/scan_markers.dart --markers tool/admin_markers.txt --admin-section admin-release --debug-section debug `
         --tutor "$dist\basa-tutor.apk" "$dist\windows-tutor\data\app.so" `
         --admin "$dist\basa-admin.apk" "$dist\windows-admin\data\app.so"
 }
-Invoke-Step 'Scan builds: admin methods only in admin' {
-    dart run tool/scan_markers.dart --markers tool/admin_markers.txt --admin-section admin `
+# The scan builds have the console, so the [debug] markers must be found there:
+# that proves they are spelled right and survive compilation, which the
+# shipped-build check above (absence only) can't.
+Invoke-Step 'Scan builds: admin methods only in admin; console markers present' {
+    dart run tool/scan_markers.dart --markers tool/admin_markers.txt --admin-section admin --present-section debug `
         --tutor "$scan\basa-tutor-scan.apk" --admin "$scan\basa-admin-scan.apk"
 }
 

@@ -8,6 +8,7 @@ import '../../viewmodels/crla_import_viewmodel.dart';
 import '../../viewmodels/import_viewmodel.dart';
 import '../../viewmodels/login_log_viewmodel.dart';
 import '../../viewmodels/sync_review_viewmodel.dart';
+import '../../viewmodels/tutor_section_assignment_viewmodel.dart';
 import '../../viewmodels/user_viewmodel.dart';
 import '../console/commands/admin_bootstrap_commands.dart';
 import '../console/commands/aral_admin_commands.dart';
@@ -47,6 +48,7 @@ import '../data/remote/school_repository_supabase.dart';
 import '../data/remote/section_repository_supabase.dart';
 import '../data/remote/student_repository_supabase.dart';
 import '../data/remote/sync_remote_supabase.dart';
+import '../data/remote/tutor_section_assignment_repository_supabase.dart';
 import '../data/remote/user_repository_supabase.dart';
 import '../services/sf1_column_map.dart';
 import 'app_context.dart';
@@ -61,6 +63,7 @@ class AdminVms {
   final CrlaImportViewModel crlaImportVm;
   final AralReportViewModel aralReportVm;
   final AralRosterImportViewModel aralRosterImportVm;
+  final TutorSectionAssignmentViewModel tutorSectionVm;
 
   AdminVms({
     required this.userVm,
@@ -70,6 +73,7 @@ class AdminVms {
     required this.crlaImportVm,
     required this.aralReportVm,
     required this.aralRosterImportVm,
+    required this.tutorSectionVm,
   });
 }
 
@@ -142,6 +146,14 @@ Future<AdminVms> wireAdmin(AppContext ctx, SharedVms s, TutorVms t) async {
   );
   vms.register('AralRosterImportViewModel', aralRosterImportVm);
 
+  final tutorSectionVm = TutorSectionAssignmentViewModel(
+    auth: authVm,
+    repoFactory: TutorSectionAssignmentRepositorySupabase.new,
+    local: s.tutorSectionRepo,
+    logger: session,
+  );
+  vms.register('TutorSectionAssignmentViewModel', tutorSectionVm);
+
   return AdminVms(
     userVm: userVm,
     importVm: importVm,
@@ -150,6 +162,7 @@ Future<AdminVms> wireAdmin(AppContext ctx, SharedVms s, TutorVms t) async {
     crlaImportVm: crlaImportVm,
     aralReportVm: aralReportVm,
     aralRosterImportVm: aralRosterImportVm,
+    tutorSectionVm: tutorSectionVm,
   );
 }
 
@@ -161,7 +174,7 @@ void registerAdminCommands(AppContext ctx, SharedVms s, TutorVms t, AdminVms a) 
   registerImportCommands(r, a.importVm);
   registerSchoolAdminCommands(r, s.schoolVm);
   registerSectionAdminCommands(r, s.sectionVm);
-  registerTutorSectionCommands(r, s.tutorSectionVm);
+  registerTutorSectionCommands(r, a.tutorSectionVm);
   registerSyncReviewCommands(r, a.syncReviewVm);
   registerLoginCommands(r, a.loginLogVm, authVm);
   registerCrlaImportCommands(r, authVm, a.crlaImportVm);

@@ -60,6 +60,7 @@ Nothing in `core/` imports Flutter. Keep it that way.
 - Which build: a command a tutor can use (RLS lets a tutor do it AND its ViewModel method doesn't refuse tutors) goes in the module's `<x>_commands.dart` and is in both builds. Anything else goes in `<x>_admin_commands.dart` (`register<X>AdminCommands`), or in a wholly admin command file listed in `tool/check_tutor_imports.dart`. Check the ViewModel method, not just RLS: `aral-export-roster`, `list-tutor-sections` and `aral-recommend-section` slipped into the tutor build once because their methods refuse tutors.
 - A helper both halves need goes in `<x>_command_helpers.dart` with a module prefix (`philIriInt`, `PhilIriUsage`); never import an admin file from a tutor-side file.
 - A new admin-only ViewModel, service or repository: add it to the list in `tool/check_tutor_imports.dart`, register it in `wire_admin.dart`, and add its ViewModel name to `[admin-release]` in `tool/admin_markers.txt`. A new admin-only method in a shared ViewModel: add one distinctive string from it (a refusal message or server function name, not a comment) to `[admin]`.
+- `ConsoleRegistry.register` throws on a name registered twice, so a command left in both halves fails at start-up and in the command-set tests.
 - After the change: `flutter test` (command sets pin both builds: update `test/core/wiring/admin_commands.txt` / `tutor_commands.txt` on purpose) and `dart run tool/check_tutor_imports.dart`.
 
 ## Assessment rounds (one list per layer, changed together)

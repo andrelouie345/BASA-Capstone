@@ -41,6 +41,8 @@ Forbidden: only the superadmin manages region-wide materials.
 Forbidden: you can only set the cut-off of your own school.
 Forbidden: only an admin or coordinator of the school manages its SRP classes.
 Forbidden: can only manage sections for your own school.
+Forbidden: can only update your own school.
+Forbidden: only the superadmin can change a school's DepEd school ID or region.
 # One string from each admin-only file without a refusal of its own
 " (expected skip or update).
 LRN registered at another school (transfer) - only the superadmin can resolve
@@ -55,6 +57,7 @@ LoginLogViewModel
 CrlaImportViewModel
 AralReportViewModel
 AralRosterImportViewModel
+TutorSectionAssignmentViewModel
 
 [debug]
 BASA Debug Console

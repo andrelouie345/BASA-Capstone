@@ -4,7 +4,12 @@ import 'console_command.dart';
 class ConsoleRegistry {
   final Map<String, ConsoleCommand> _commands = {};
 
+  /// Refuses a name that is already registered: a command in both the tutor
+  /// and the admin half of a split file must fail loudly, not overwrite.
   void register(ConsoleCommand command) {
+    if (_commands.containsKey(command.name)) {
+      throw StateError('Console command "${command.name}" is registered twice.');
+    }
     _commands[command.name] = command;
   }
 

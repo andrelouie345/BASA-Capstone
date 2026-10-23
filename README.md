@@ -153,9 +153,10 @@ dart run -DBASA_CLOUD_URL=<url> -DBASA_CLOUD_KEY=<anon-key> lib/console/main.dar
 
 BASA ships as two apps from this one codebase. Coordinators and admins use the
 **admin** app; tutors get the **tutor** app, which does not contain the admin
-code at all (user management, imports, the sync approver, reports, settings,
-roster changes, Phil-IRI finalizing). The server's RLS still decides what each
-user may do; the split only keeps admin code off tutors' devices.
+code at all (user management, imports, the sync approver, the report and
+settings commands, roster changes, Phil-IRI finalizing). The server's RLS
+still decides what each user may do; the split only keeps admin code off
+tutors' devices.
 
 | | Admin app | Tutor app |
 |---|---|---|
