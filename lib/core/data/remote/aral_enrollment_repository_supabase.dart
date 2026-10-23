@@ -15,7 +15,7 @@ class AralEnrollmentRepositorySupabase implements AralEnrollmentRepository {
   static AralEnrollment _e(Object? r) => AralEnrollment.fromMap(r as Map<String, Object?>);
 
   static const _changeable = [
-    'section_id', 'key_stage', 'track', 'tutor_id', 'status', 'entered_on', 'exited_on', 'exit_reason', 'notes',
+    'section_id', 'key_stage', 'track', 'class_id', 'status', 'entered_on', 'exited_on', 'exit_reason', 'notes',
     'suggested_key_stage', 'suggested_track', 'suggestion_round', 'suggestion_level', 'suggestion_assessment_id',
     'suggested_on',
   ];
@@ -83,8 +83,26 @@ class AralEnrollmentRepositorySupabase implements AralEnrollmentRepository {
       _where('school_id', schoolId, schoolYear);
 
   @override
-  Future<List<AralEnrollment>> getByTutor(String tutorId, {String? schoolYear}) =>
-      _where('tutor_id', tutorId, schoolYear);
+  Future<List<AralEnrollment>> getByTutor(String tutorId, {String? schoolYear}) async {
+    final classes = await client.from('aral_classes').select('id').eq('tutor_id', tutorId);
+    final ids = [for (final c in classes as List) (c as Map)['id'] as int];
+    if (ids.isEmpty) return const [];
+    var q = client.from('aral_enrollments').select().inFilter('class_id', ids);
+    if (schoolYear != null) q = q.eq('school_year', schoolYear);
+    final rows = await q.order('school_year').order('section_id').order('student_id');
+    return (rows as List).map(_e).toList();
+  }
+
+  @override
+  Future<List<AralEnrollment>> getByClass(int classId) => _where('class_id', classId, null);
+
+  @override
+  Future<String?> classTutorId(int enrollmentId) async {
+    final rows = await client.from('aral_enrollments').select('class_id, aral_classes(tutor_id)').eq('id', enrollmentId);
+    if ((rows as List).isEmpty) return null;
+    final cls = (rows.first as Map)['aral_classes'] as Map?;
+    return cls?['tutor_id'] as String?;
+  }
 
   @override
   Future<AralEnrollment> upsertWithId(AralEnrollment enrollment) =>

@@ -18,6 +18,8 @@ abstract class StudentRepository {
   Future<void> update(Student student);
   Future<List<Student>> getAll(String sort);
   Future<List<Student>> getBySection(int sectionId);
+  /// The section the learner is actively enrolled in for [schoolYear], if any.
+  Future<int?> activeSectionId(int studentId, String schoolYear);
   /// One enrollment per student per school year (re-enrolling moves it).
   /// Returns the enrollment id. [id] is for local mirroring only: it keeps
   /// the cloud's id so pull-cloud's INSERT OR REPLACE lines up; Supabase

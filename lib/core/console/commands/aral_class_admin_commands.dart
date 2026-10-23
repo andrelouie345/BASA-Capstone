@@ -60,7 +60,7 @@ void registerAralClassAdminCommands(ConsoleRegistry registry, AralClassViewModel
       schedule: opts['schedule'],
       notes: opts['notes'],
     );
-    return 'ARAL class added: ${aralClassLine(c)}';
+    return 'ARAL class added: ${aralClassLine(c, active: 0)}';
   });
 
   const editUsage = 'Usage: aral-class-edit <classId> <name|tutor|room|schedule|notes|program|band> <value...> '
@@ -82,7 +82,24 @@ void registerAralClassAdminCommands(ConsoleRegistry registry, AralClassViewModel
       'band' => current.copyWith(gradeBand: band(value)),
       _ => throw const AralUsage(editUsage),
     };
-    return 'ARAL class saved: ${aralClassLine(await vm.editClass(changed))}';
+    final saved = await vm.editClass(changed);
+    return 'ARAL class saved: ${aralClassLine(saved, active: await vm.activeCount(saved.id!))}';
+  });
+
+  add('aral-class-place',
+      'aral-class-place <enrollmentId> <classId> — put an ARAL learner in a class, or move them to another one',
+      (args) async {
+    if (args.length != 2) throw const AralUsage('Usage: aral-class-place <enrollmentId> <classId>');
+    final e = await vm.place(aralInt(args[0], 'enrollmentId'), aralInt(args[1], 'classId'));
+    final c = await vm.getClass(e.classId!);
+    return 'ARAL learner #${e.id} placed in ${aralClassLine(c, active: await vm.activeCount(c.id!))}';
+  });
+
+  add('aral-class-unplace', 'aral-class-unplace <enrollmentId> — take an ARAL learner out of their class',
+      (args) async {
+    if (args.length != 1) throw const AralUsage('Usage: aral-class-unplace <enrollmentId>');
+    final e = await vm.unplace(aralInt(args[0], 'enrollmentId'));
+    return 'ARAL learner #${e.id} now waits for a class.';
   });
 
   add('aral-class-delete', 'aral-class-delete <classId> — delete an ARAL class', (args) async {

@@ -7,6 +7,7 @@
 import 'dart:convert';
 
 import '../data/pull_tables.dart' show syncedTables, syncedParents;
+import '../models/aral_class.dart' show AralClassProgram;
 
 /// Rows this device holds, by table and key (as text).
 class SyncReviewContext {
@@ -220,8 +221,12 @@ class _Describer {
       'crla_assessments' => (_learner(row), 'CRLA ${row['round']} ${row['subject_variant']}'),
       'phil_iri_gst_results' => (_learner(row), 'Phil-IRI GST ${row['total_score']}/${row['max_score']}'),
       'phil_iri_assessments' => (_learner(row), 'Phil-IRI ${row['round']}'),
-      'aral_enrollments' =>
-        (_learner(row), ['ARAL', row['key_stage'], if (row['track'] != null) row['track']].join(' ')),
+      'aral_classes' => (null, 'ARAL class "${row['class_name']}" (G${row['grade_band']}, ${_program(row['program'])}, '
+          'tutor ${row['tutor_id'] == null ? '-' : _user('${row['tutor_id']}')})'),
+      'aral_enrollments' => (
+          _learner(row),
+          ['ARAL', row['key_stage'], if (row['track'] != null) row['track']].join(' ') + _placedIn(row['class_id'])
+        ),
       'aral_sessions' => (
           null,
           row['session_no'] == null
@@ -235,6 +240,21 @@ class _Describer {
       'aral_readability_logs' => (_enrollmentLearner(row), 'readability "${row['title']}"'),
       _ => (null, '$table $key'),
     };
+  }
+
+  /// ' placed in class "7-Rose"' for a roster entry with a class, else ''.
+  String _placedIn(Object? classId) {
+    if (classId == null) return '';
+    final c = _row('aral_classes', classId);
+    return ' placed in class ${c == null ? '#$classId' : '"${c['class_name']}"'}';
+  }
+
+  static String _program(Object? value) {
+    try {
+      return AralClassProgram.fromString('$value').label;
+    } on ArgumentError {
+      return '$value';
+    }
   }
 
   String _enrollmentLearner(Map<String, Object?> row) {

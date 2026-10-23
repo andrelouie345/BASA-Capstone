@@ -207,6 +207,7 @@ TutorVms wireTutor(AppContext ctx, SharedVms s) {
   final aralVm = AralViewModel(
     auth: authVm,
     roster: AralEnrollmentRepositorySqlite(db),
+    classes: AralClassRepositorySqlite(db),
     sections: SectionRepositorySqlite(db),
     students: StudentRepositorySqlite(db),
     users: UserRepositorySqlite(db),
@@ -220,6 +221,9 @@ TutorVms wireTutor(AppContext ctx, SharedVms s) {
   final aralClassVm = AralClassViewModel(
     auth: authVm,
     classes: AralClassRepositorySqlite(db),
+    roster: AralEnrollmentRepositorySqlite(db),
+    sections: SectionRepositorySqlite(db),
+    students: StudentRepositorySqlite(db),
     users: UserRepositorySqlite(db),
     logger: session,
   );
@@ -399,7 +403,7 @@ void registerTutorCommands(AppContext ctx, SharedVms s, TutorVms t) {
   registerPhilIriContentCommands(r, t.philIriContentVm);
   registerPhilIriCommands(r, t.philIriVm);
   registerAralCommands(r, t.aralVm);
-  registerAralClassCommands(r, t.aralClassVm);
+  registerAralClassCommands(r, t.aralClassVm, t.aralVm);
   registerAralSessionCommands(r, t.aralSessionVm);
   registerAralIripCommands(r, t.aralIripVm);
   registerAralCheckinCommands(r, t.aralCheckinVm);

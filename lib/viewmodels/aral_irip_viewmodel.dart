@@ -316,14 +316,16 @@ class AralIripViewModel {
     return u;
   }
 
-  /// Readable and writable alike here: the learner's ARAL tutor, or an
+  /// Readable and writable alike here: the tutor of the learner's class, or an
   /// admin/coordinator of the learner's school (any school for superadmin).
   Future<AralEnrollment> _require(int enrollmentId) async {
     final e = await _roster.findById(enrollmentId);
     if (e == null) throw ViewModelException('No ARAL enrollment with id $enrollmentId.');
     final me = _me();
     if (me.role == UserRole.tutor) {
-      if (e.tutorId != me.id) throw const ViewModelException('Forbidden: not your ARAL learner.');
+      if (await _roster.classTutorId(e.id!) != me.id) {
+        throw const ViewModelException('Forbidden: not your ARAL learner.');
+      }
     } else if (me.role == UserRole.admin || me.role == UserRole.coordinator) {
       if (me.schoolId != null && me.schoolId != e.schoolId) {
         throw const ViewModelException('Forbidden: that learner is in another school.');

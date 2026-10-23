@@ -14,7 +14,7 @@
 // Tutor reminders (D3): per learner, not per section (a tutor is reminded about
 // each learner even when the section passed the done threshold), over the
 // tutor's assigned sections (tutor_section_assignments, mirrored locally) and
-// ARAL roster (aral_enrollments.tutor_id): learners not assessed in open or
+// ARAL learners (those of the classes they teach): learners not assessed in open or
 // closed rounds, check-ins due after the tutor's 16th/32nd session (the tutor's
 // count, also for learners who joined later; owner 2026-10-19), ARAL learners
 // without an IRIP, and no session for more than idle_session_days. Nothing

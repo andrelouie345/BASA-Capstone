@@ -9,10 +9,12 @@
 //    or the school's foundational literacy program; still on the ARAL roster),
 //    KS1, KS2 and KS3; KS2/KS3 have a Basic and a Plus track. Placement rules
 //    are in aral_rules.dart.
-//  * BASA proposes the roster (at most 15 per section) and the program from
-//    CRLA / Phil-IRI results; the coordinator may change the program. What BASA
-//    suggested is kept next to what was chosen (suggested_key_stage /
-//    suggested_track).
+//  * BASA proposes the roster and the program from CRLA / Phil-IRI results;
+//    the coordinator may change the program. What BASA suggested is kept next
+//    to what was chosen (suggested_key_stage / suggested_track). A teacher may
+//    also refer a learner (basis 'referral', with who and why).
+//  * ARAL classes (2026-10-23): a learner sits in at most one class (class_id;
+//    null = waiting for a class); their tutor is the class's tutor.
 //  * One ARAL enrollment per learner per school year; leaving ARAL is a status
 //    change (exited, with a date and a reason). Grade-level-ready exits come
 //    from results, not from the coordinator.
@@ -87,7 +89,9 @@ enum AralExitReason {
 enum AralBasisSource {
   crla,
   philIri('phil_iri'),
-  manual;
+  manual,
+  /// A teacher's referral: referredBy and referralReason say who and why.
+  referral;
 
   final String? _value;
   const AralBasisSource([this._value]);
@@ -107,12 +111,14 @@ class AralEnrollment {
   final String schoolYear;
   final AralKeyStage keyStage;
   final AralTrack? track;          // null for Foundational and KS1
-  final String? tutorId;           // users.id (a tutor of the school); assigned later is fine
+  final int? classId;              // aral_classes.id; null = waiting for a class
   final AralStatus status;
   final String enteredOn;          // YYYY-MM-DD
   final String? exitedOn;          // set with exitReason when status is exited
   final AralExitReason? exitReason;
   final AralBasisSource basisSource;
+  final String? referredBy;        // referral only: who referred the learner
+  final String? referralReason;    // referral only: why
   final String? basisRound;        // CRLA bosy/mosy/eosy or Phil-IRI bosy/mosy1-3/eosy
   final String? basisLevel;        // e.g. 'Low Emerging Reader', 'frustration', 'nonReader'
   /// The CRLA or Phil-IRI assessment the placement came from (no foreign key:
@@ -141,12 +147,14 @@ class AralEnrollment {
     required this.schoolYear,
     required this.keyStage,
     this.track,
-    this.tutorId,
+    this.classId,
     this.status = AralStatus.active,
     required this.enteredOn,
     this.exitedOn,
     this.exitReason,
     required this.basisSource,
+    this.referredBy,
+    this.referralReason,
     this.basisRound,
     this.basisLevel,
     this.basisAssessmentId,
@@ -175,12 +183,14 @@ class AralEnrollment {
         'school_year': schoolYear,
         'key_stage': keyStage.name,
         'track': track?.name,
-        'tutor_id': tutorId,
+        'class_id': classId,
         'status': status.name,
         'entered_on': enteredOn,
         'exited_on': exitedOn,
         'exit_reason': exitReason?.value,
         'basis_source': basisSource.value,
+        'referred_by': referredBy,
+        'referral_reason': referralReason,
         'basis_round': basisRound,
         'basis_level': basisLevel,
         'basis_assessment_id': basisAssessmentId,
@@ -206,12 +216,14 @@ class AralEnrollment {
       schoolYear: m['school_year'] as String,
       keyStage: AralKeyStage.fromString(m['key_stage'] as String),
       track: m['track'] == null ? null : AralTrack.fromString(m['track'] as String),
-      tutorId: m['tutor_id'] as String?,
+      classId: m['class_id'] as int?,
       status: AralStatus.fromString(m['status'] as String),
       enteredOn: s('entered_on')!.substring(0, 10),
       exitedOn: s('exited_on')?.substring(0, 10),
       exitReason: m['exit_reason'] == null ? null : AralExitReason.fromString(m['exit_reason'] as String),
       basisSource: AralBasisSource.fromString(m['basis_source'] as String),
+      referredBy: m['referred_by'] as String?,
+      referralReason: m['referral_reason'] as String?,
       basisRound: m['basis_round'] as String?,
       basisLevel: m['basis_level'] as String?,
       basisAssessmentId: m['basis_assessment_id'] as int?,
@@ -233,7 +245,7 @@ class AralEnrollment {
     int? sectionId,
     AralKeyStage? keyStage,
     AralTrack? Function()? track,
-    String? Function()? tutorId,
+    int? Function()? classId,
     AralStatus? status,
     String? Function()? exitedOn,
     AralExitReason? Function()? exitReason,
@@ -253,12 +265,14 @@ class AralEnrollment {
         schoolYear: schoolYear,
         keyStage: keyStage ?? this.keyStage,
         track: track == null ? this.track : track(),
-        tutorId: tutorId == null ? this.tutorId : tutorId(),
+        classId: classId == null ? this.classId : classId(),
         status: status ?? this.status,
         enteredOn: enteredOn,
         exitedOn: exitedOn == null ? this.exitedOn : exitedOn(),
         exitReason: exitReason == null ? this.exitReason : exitReason(),
         basisSource: basisSource,
+        referredBy: referredBy,
+        referralReason: referralReason,
         basisRound: basisRound,
         basisLevel: basisLevel,
         basisAssessmentId: basisAssessmentId,

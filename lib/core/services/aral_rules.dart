@@ -8,12 +8,13 @@
 //  * ARAL-Reading is remediation: only learners reading BELOW grade level
 //    qualify. Grade-level-ready (enrichment) and advanced (enhancement)
 //    readers are school reading programs, not ARAL.
-//  * A section sends at most 15 learners (aralSectionCap): the lowest
-//    performers. Fewer qualify -> fewer are proposed.
+//  * Every learner below grade level is proposed (the 15-per-section cap went
+//    with the ARAL classes, 2026-10-24: 15 ACTIVE learners per class,
+//    aralClassCap).
 //  * Ranking, weakest first. Grades 4-10 (Phil-IRI): word recognition (word
 //    reading score), then comprehension, then reading speed. Grades 1-3
-//    (CRLA): % of words read correctly, then comprehension, then speed. A tie
-//    left at the 15th place is the coordinator's pick.
+//    (CRLA): % of words read correctly, then comprehension, then speed. A
+//    class filled from the proposal takes the weakest first.
 //  * Grades 1-3 (DepEd Memorandum 064 s. 2025, Encl. 2; owner 2026-10-23):
 //    Grade 1 on the CRLA MOSY result, Grades 2-3 on BOSY, in the grade's
 //    language (G1 Mother Tongue else Filipino, G2 Filipino, G3 English). Low
@@ -34,9 +35,6 @@ import '../models/crla_assessment.dart' show CrlaRound;
 import '../models/crla_result.dart';
 import 'crla_rules.dart';
 import 'phil_iri_results.dart' show PhilIriRoundResult;
-
-/// At most this many learners of one section are in ARAL at a time.
-const aralSectionCap = 15;
 
 /// At most this many ACTIVE learners in one ARAL class (DepEd Memorandum 064
 /// s. 2025, Encl. 2 item 7; hard stop on the device and the cloud). Exited

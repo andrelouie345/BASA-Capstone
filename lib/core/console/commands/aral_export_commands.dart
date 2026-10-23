@@ -123,7 +123,8 @@ String _rosterPreview(AralRosterImportPreview p) {
   for (final r in p.rows) {
     final who = 'row ${r.rowNo} | LRN ${r.lrn ?? '-'} | ${r.name}'
         '${r.section == null ? '' : ' | G${r.section!.gradeLevel} ${r.section!.sectionName}'}';
-    final what = '${r.program} | entered ${r.enteredOn}${r.tutor == null ? '' : ' | tutor ${r.tutor!.email}'}';
+    final what = '${r.program} | entered ${r.enteredOn}${r.aralClass == null ? '' : ' | class "${r.aralClass!.className}"'}'
+        '${r.classFlag == null ? '' : ' | ${r.classFlag}'}';
     lines.add(switch (r.outcome) {
       AralRosterImportOutcome.add => '  add     $who | $what',
       AralRosterImportOutcome.addAndExit =>
@@ -154,7 +155,7 @@ void registerAralRosterImportCommands(ConsoleRegistry registry, AralRosterImport
       name: name,
       description: doIt
           ? '$name <schoolId> <schoolYear> <file.csv|.xlsx> — add an ARAL roster from a spreadsheet (LRN, Program, '
-              'Tutor email, Entered, Notes; Exited + Exit reason optional)'
+              'Class, Entered, Notes; Exited + Exit reason optional)'
           : '$name <schoolId> <schoolYear> <file.csv|.xlsx> — check an ARAL roster file (nothing is written)',
       handler: (args) async {
         try {
@@ -170,6 +171,7 @@ void registerAralRosterImportCommands(ConsoleRegistry registry, AralRosterImport
               'Skipped ${r.preview.count(AralRosterImportOutcome.skipGradeLevelReady)} grade-level-ready exit(s).',
             if (r.preview.count(AralRosterImportOutcome.error) > 0)
               'Skipped ${r.preview.count(AralRosterImportOutcome.error)} row(s) with errors (see aral-import-roster-preview).',
+            ...r.warnings.entries.map((e) => 'Note row ${e.key.rowNo} (${e.key.name}): ${e.value}'),
             ...r.failed.entries.map((e) => 'FAILED row ${e.key.rowNo} (${e.key.name}): ${e.value}'),
           ].join('\n');
         } on _Usage catch (e) {

@@ -1,7 +1,7 @@
 // lib/core/console/commands/aral_commands.dart
 
 /// Commands for the ARAL-Reading roster (local, offline-first): BASA's
-/// proposal, putting learners on the roster, their program, tutor, exit and
+/// proposal, putting learners on the roster, their program, class, exit and
 /// notes. One action per command; the ViewModel does the checks.
 library;
 
@@ -18,6 +18,7 @@ void registerAralCommands(ConsoleRegistry registry, AralViewModel vm) {
       description: description,
       handler: (args) async {
         try {
+          vm.lastWarning = null; // only this command's notice
           final out = await handler(args);
           final warning = vm.lastWarning;
           return warning == null ? out : '$out\nWarning: $warning';
@@ -52,18 +53,20 @@ void registerAralCommands(ConsoleRegistry registry, AralViewModel vm) {
     for (final section in list.map((e) => e.sectionId).toSet()) {
       names.addAll(await vm.learnerNames(section));
     }
+    final classes = await vm.classNames(list.first.schoolId);
     final active = list.where((e) => e.isActive).length;
-    return '${list.map((e) => aralLine(e, names)).join('\n')}\n${list.length} on the roster, $active active.';
+    final waiting = list.where((e) => e.isActive && e.classId == null).length;
+    return '${list.map((e) => aralLine(e, names, classes)).join('\n')}\n'
+        '${list.length} on the roster, $active active, $waiting waiting for a class.';
   });
 
-  add('aral-tutors', 'aral-tutors <schoolId> <schoolYear> — tutors who can be assigned, with their ARAL load',
+  add('aral-tutors', 'aral-tutors <schoolId> <schoolYear> — the school\'s tutors, with their ARAL classes and learners',
       (args) async {
     if (args.length < 2) throw const AralUsage('Usage: aral-tutors <schoolId> <schoolYear>');
     final list = await vm.tutors(schoolId: aralInt(args[0], 'schoolId'), schoolYear: args[1]);
     if (list.isEmpty) return 'No active tutors in that school.';
     return list
-        .map((t) => '${t.$1.id} | ${t.$1.fullName} | ${t.$2} active ARAL learner(s)'
-            '${t.$2 > aralTutorLoad ? ' (over $aralTutorLoad)' : ''}')
+        .map((t) => '${t.$1.id} | ${t.$1.fullName} | ${t.$2} class(es), ${t.$3} active ARAL learner(s)')
         .join('\n');
   });
 }

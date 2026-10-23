@@ -22,7 +22,8 @@ import 'sync_local_writes.dart';
 
 /// Tables with the local-only origin column: mirrored rows are 'cloud'.
 const _originTables = {
-  'crla_assessments', 'phil_iri_gst_results', 'phil_iri_assessments', 'aral_enrollments', 'aral_sessions',
+  'crla_assessments', 'phil_iri_gst_results', 'phil_iri_assessments', 'aral_classes', 'aral_enrollments',
+  'aral_sessions',
   'aral_tutor_settings',
   'aral_irip_weeks',
   'aral_checkins',
@@ -66,7 +67,8 @@ class SyncLocalRepositorySqlite implements SyncLocalRepository {
   }
 
   /// Records entered on this device (new rows), per kind and section: CRLA
-  /// assessments, Phil-IRI sessions and GST results, ARAL enrollments, ARAL
+  /// assessments, Phil-IRI sessions and GST results, ARAL classes (no
+  /// section), ARAL enrollments, ARAL
   /// sessions (with their attendance; no section), ARAL tutor settings (no
   /// section), IRIP weeks, check-ins and readability log entries (by the
   /// learner's section). Children travel with their owner record. Also edits
@@ -86,6 +88,9 @@ class SyncLocalRepositorySqlite implements SyncLocalRepository {
         UNION ALL
         SELECT 'Phil-IRI GST result(s)', section_id FROM phil_iri_gst_results a
         WHERE origin = 'local' AND ${_notPending('phil_iri_gst_results', 'a')}
+        UNION ALL
+        SELECT 'ARAL class(es)', NULL FROM aral_classes a
+        WHERE origin = 'local' AND ${_notPending('aral_classes', 'a')}
         UNION ALL
         SELECT 'ARAL enrollment(s)', section_id FROM aral_enrollments a
         WHERE origin = 'local' AND ${_notPending('aral_enrollments', 'a')}

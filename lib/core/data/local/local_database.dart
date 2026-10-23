@@ -58,7 +58,10 @@ class LocalDatabase {
         // runs last) and the one-time renumber of local rows.
         // v35: aral_enrollments rebuilt so exit_reason takes 'classroom_support'
         // (rebuildAralEnrollmentsForV35; cloud 20261023030000).
-        version: 35,
+        // v36: ARAL classes (cloud 20261023040000): aral_classes (synced) and
+        // aral_enrollments rebuilt with class_id + referral columns, without
+        // tutor_id (rebuildAralEnrollmentsForV36).
+        version: 36,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
@@ -166,6 +169,8 @@ class LocalDatabase {
           // v35. Before every creator below: it drops the triggers and views
           // that mention aral_enrollments, and they recreate them.
           if (oldVersion < 35) await rebuildAralEnrollmentsForV35(db);
+          // v36. Right after v35 (its copy may bring tutor_id back) and before v21.
+          if (oldVersion < 36) await rebuildAralEnrollmentsForV36(db);
           // v15. Must run before createPhilIriLocalSchema, which recreates the
           // triggers this drops.
           if (oldVersion < 15) await rebuildPhilIriPassagesForV15(db);

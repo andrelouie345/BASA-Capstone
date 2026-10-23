@@ -53,6 +53,18 @@ class StudentRepositorySupabase implements StudentRepository {
   }
 
   @override
+  Future<int?> activeSectionId(int studentId, String schoolYear) async {
+    final rows = await client
+        .from('enrollments')
+        .select('section_id')
+        .eq('student_id', studentId)
+        .eq('school_year', schoolYear)
+        .eq('status', 'active')
+        .limit(1);
+    return (rows as List).isEmpty ? null : (rows.first as Map)['section_id'] as int;
+  }
+
+  @override
   Future<int> enroll({required int studentId, required int sectionId, required String schoolYear, int? id}) async {
     final row = await client
         .from('enrollments')

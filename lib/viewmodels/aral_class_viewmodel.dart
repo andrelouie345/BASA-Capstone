@@ -13,35 +13,78 @@
 //    the classes they teach.
 // The device checks here mirror the cloud triggers, so the device refuses
 // first with a readable message.
+//  * Placing a learner (or moving them to another class) checks the class's
+//    school and year, program, grade band and its 15 active places
+//    (aral_rules.dart). A program change by aral-update keeps the learner in
+//    their class (decision 7); new placements must match.
+//  * A class keeps its program and band once it has learners, and is deleted
+//    only when nobody points at it.
 import '../core/console/logger.dart';
 import '../core/models/aral_class.dart';
+import '../core/models/aral_enrollment.dart';
 import '../core/models/user_role.dart';
 import '../core/repositories/aral_class_repository.dart';
+import '../core/repositories/aral_enrollment_repository.dart';
+import '../core/repositories/section_repository.dart';
+import '../core/repositories/student_repository.dart';
 import '../core/repositories/user_repository.dart';
+import '../core/services/aral_rules.dart';
 import '../core/services/normalizers.dart';
 import '../core/services/sync_upload_rules.dart' show pendingLockMessage;
 import 'auth_viewmodel.dart';
 import 'viewmodel_exception.dart';
+
+/// Why [e] (Grade [grade], named [learner]) can't go into [c], as a readable
+/// sentence; null = they can. Counts [c]'s other active learners from
+/// [roster]. Shared by AralClassViewModel and AralViewModel.
+Future<String?> aralPlacementRefusal(AralEnrollmentRepository roster, AralClass c, AralEnrollment e,
+    {required int grade, required String learner}) async {
+  final others = (await roster.getByClass(c.id!)).where((x) => x.isActive && x.id != e.id).length;
+  final program = AralClassProgram.of(e.keyStage, e.track);
+  final problem = aralPlacementProblem(
+      target: c, schoolId: e.schoolId, schoolYear: e.schoolYear, program: program, grade: grade, activeOthersInClass: others);
+  return problem == null ? null : aralPlacementMessage(problem, learner: learner, target: c, grade: grade, program: program);
+}
+
+/// The device and cloud placement refusals (trigger texts), mapped back to
+/// readable sentences by the ViewModels.
+const aralPlacementDbRefusals = [
+  'An ARAL class has at most 15 active learners',
+  "The learner's program does not match the ARAL class",
+  "The learner's grade is outside the ARAL class's grade band",
+  'The ARAL class belongs to another school or school year',
+];
 
 class AralClassViewModel {
   /// The local trigger texts, shown as they are.
   static const _dbRefusals = [
     "The ARAL class tutor must be an active tutor of the class's school",
     'An ARAL class keeps its school and school year',
+    'An ARAL class with learners keeps its program and grade band',
+    ...aralPlacementDbRefusals,
   ];
 
   final ScopedLogger _log;
   final AuthViewModel _auth;
   final AralClassRepository _classes;
+  final AralEnrollmentRepository _roster;
+  final SectionRepository _sections;
+  final StudentRepository _students;
   final UserRepository _users;
 
   AralClassViewModel({
     required AuthViewModel auth,
     required AralClassRepository classes,
+    required AralEnrollmentRepository roster,
+    required SectionRepository sections,
+    required StudentRepository students,
     required UserRepository users,
     Logger? logger,
   })  : _auth = auth,
         _classes = classes,
+        _roster = roster,
+        _sections = sections,
+        _students = students,
         _users = users,
         _log = ScopedLogger(logger, 'AralClassViewModel');
 
@@ -73,6 +116,52 @@ class AralClassViewModel {
     _requireSignIn();
     _log('getClass($classId)');
     return _readable(classId);
+  }
+
+  /// The learners placed in the class (active and exited).
+  Future<List<AralEnrollment>> classRoster(int classId) async {
+    _requireSignIn();
+    _log('classRoster($classId)');
+    await _readable(classId);
+    return _roster.getByClass(classId);
+  }
+
+  /// How many active learners the class holds (at most 15).
+  Future<int> activeCount(int classId) async {
+    _requireSignIn();
+    await _readable(classId);
+    return (await _roster.getByClass(classId)).where((e) => e.isActive).length;
+  }
+
+  // ---- Placing learners (admin / coordinator) ----
+
+  /// Puts an active ARAL learner in a class, or moves them from their class
+  /// to another one. The class must be of the learner's school and year, teach
+  /// their program and take their grade, and have a free place (15 active).
+  Future<AralEnrollment> place(int enrollmentId, int classId) async {
+    _requireSignIn();
+    _log('place($enrollmentId, $classId)');
+    _requireManager();
+    final e = await _requireLearner(enrollmentId);
+    final c = await _require(classId);
+    if (!e.isActive) {
+      throw const ViewModelException('This learner left ARAL; reactivate them before placing them in a class.');
+    }
+    if (e.classId == classId) throw ViewModelException('This learner is already in class "${c.className}".');
+    final (grade, name) = await _gradeAndName(e);
+    final refusal = await aralPlacementRefusal(_roster, c, e, grade: grade, learner: name);
+    if (refusal != null) throw ViewModelException(refusal);
+    return _write(() => _roster.update(e.copyWith(classId: () => classId)));
+  }
+
+  /// Takes the learner out of their class: they wait for a class.
+  Future<AralEnrollment> unplace(int enrollmentId) async {
+    _requireSignIn();
+    _log('unplace($enrollmentId)');
+    _requireManager();
+    final e = await _requireLearner(enrollmentId);
+    if (e.classId == null) throw const ViewModelException('This learner is not in a class.');
+    return _write(() => _roster.update(e.copyWith(classId: () => null)));
   }
 
   // ---- Writing (admin / coordinator) ----
@@ -129,6 +218,10 @@ class AralClassViewModel {
     }
     final tutorId = _blankToNull(changed.tutorId);
     if (tutorId != null && tutorId != current.tutorId) await _checkTutor(tutorId, current.schoolId);
+    if ((changed.program != current.program || changed.gradeBand != current.gradeBand) &&
+        (await _roster.getByClass(current.id!)).isNotEmpty) {
+      throw ViewModelException("Class \"${current.className}\" has learners; its program and grade band can't change.");
+    }
     return _write(() => _classes.update(changed.copyWith(
           className: name,
           tutorId: () => tutorId,
@@ -142,7 +235,10 @@ class AralClassViewModel {
     _requireSignIn();
     _log('deleteClass($classId)');
     _requireManager();
-    await _require(classId);
+    final c = await _require(classId);
+    if ((await _roster.getByClass(classId)).isNotEmpty) {
+      throw ViewModelException("Class \"${c.className}\" still has learners or sessions; it can't be deleted.");
+    }
     await _write(() => _classes.delete(classId));
   }
 
@@ -168,6 +264,22 @@ class AralClassViewModel {
     final mine = _auth.currentUser?.schoolId;
     if (mine != null && mine != c.schoolId) throw const ViewModelException('Forbidden: that class is in another school.');
     return c;
+  }
+
+  Future<AralEnrollment> _requireLearner(int enrollmentId) async {
+    final e = await _roster.findById(enrollmentId);
+    if (e == null) throw ViewModelException('No ARAL enrollment with id $enrollmentId.');
+    final mine = _auth.currentUser?.schoolId;
+    if (mine != null && mine != e.schoolId) throw const ViewModelException('Forbidden: that learner is in another school.');
+    return e;
+  }
+
+  /// The learner's grade (their section's) and "Last, First".
+  Future<(int, String)> _gradeAndName(AralEnrollment e) async {
+    final section = await _sections.getById(e.sectionId);
+    final grade = int.tryParse(section?.gradeLevel ?? '') ?? 0;
+    final s = (await _students.getBySection(e.sectionId)).where((s) => s.id == e.studentId).firstOrNull;
+    return (grade, s == null ? 'Learner ${e.studentId}' : '${s.lastName}, ${s.firstName}');
   }
 
   Future<AralClass> _readable(int classId) async {

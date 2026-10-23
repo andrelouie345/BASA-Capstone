@@ -17,7 +17,9 @@ aral-checkins
 aral-class-add
 aral-class-delete
 aral-class-edit
+aral-class-place
 aral-class-show
+aral-class-unplace
 aral-classes
 aral-enroll
 aral-enroll-proposed
@@ -50,6 +52,7 @@ aral-material-delete
 aral-material-school-link
 aral-material-set
 aral-materials
+aral-move
 aral-notes
 aral-placement
 aral-propose
@@ -60,6 +63,7 @@ aral-readability-delete
 aral-readability-set
 aral-recommend
 aral-recommend-section
+aral-refer
 aral-remove
 aral-report
 aral-roster
@@ -69,7 +73,6 @@ aral-sessions
 aral-sharp
 aral-sharp-set
 aral-sheet
-aral-tutor
 aral-tutor-multi
 aral-tutor-summary
 aral-tutors

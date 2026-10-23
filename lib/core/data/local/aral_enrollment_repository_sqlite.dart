@@ -18,7 +18,7 @@ class AralEnrollmentRepositorySqlite implements AralEnrollmentRepository {
 
   /// The columns an update may change (the rest are fixed at insert).
   static const _changeable = [
-    'section_id', 'key_stage', 'track', 'tutor_id', 'status', 'entered_on', 'exited_on', 'exit_reason', 'notes',
+    'section_id', 'key_stage', 'track', 'class_id', 'status', 'entered_on', 'exited_on', 'exit_reason', 'notes',
     'suggested_key_stage', 'suggested_track', 'suggestion_round', 'suggestion_level', 'suggestion_assessment_id',
     'suggested_on',
   ];
@@ -89,8 +89,26 @@ class AralEnrollmentRepositorySqlite implements AralEnrollmentRepository {
       _where('school_id', schoolId, schoolYear);
 
   @override
-  Future<List<AralEnrollment>> getByTutor(String tutorId, {String? schoolYear}) =>
-      _where('tutor_id', tutorId, schoolYear);
+  Future<List<AralEnrollment>> getByTutor(String tutorId, {String? schoolYear}) async {
+    final rows = await db.rawQuery(
+      'SELECT e.* FROM aral_enrollments e JOIN aral_classes c ON c.id = e.class_id '
+      'WHERE c.tutor_id = ?${schoolYear == null ? '' : ' AND e.school_year = ?'} '
+      'ORDER BY e.school_year, e.section_id, e.student_id',
+      [tutorId, ?schoolYear],
+    );
+    return rows.map(AralEnrollment.fromMap).toList();
+  }
+
+  @override
+  Future<List<AralEnrollment>> getByClass(int classId) => _where('class_id', classId, null);
+
+  @override
+  Future<String?> classTutorId(int enrollmentId) async {
+    final rows = await db.rawQuery(
+        'SELECT c.tutor_id FROM aral_enrollments e JOIN aral_classes c ON c.id = e.class_id WHERE e.id = ?',
+        [enrollmentId]);
+    return rows.isEmpty ? null : rows.first['tutor_id'] as String?;
+  }
 
   @override
   Future<AralEnrollment> upsertWithId(AralEnrollment enrollment) async {

@@ -1,0 +1,144 @@
+// The ARAL roster on classes (spec docs/superpowers/specs/2026-10-23-aral-classes-design.md),
+// signed in offline as a coordinator: placing into a full class, the
+// proposal filling a class, referrals, a section move across the band, and
+// the informational lines of aral-update.
+import 'dart:io';
+
+import 'package:basa_capstone/core/data/local/local_database.dart';
+import 'package:basa_capstone/core/models/aral_class.dart';
+import 'package:basa_capstone/core/models/aral_enrollment.dart';
+import 'package:basa_capstone/core/wiring/app_context.dart';
+import 'package:basa_capstone/core/wiring/wire_shared.dart';
+import 'package:basa_capstone/core/wiring/wire_tutor.dart';
+import 'package:basa_capstone/viewmodels/aral_class_viewmodel.dart';
+import 'package:basa_capstone/viewmodels/aral_viewmodel.dart';
+import 'package:basa_capstone/viewmodels/viewmodel_exception.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+import '../helpers/offline_owner.dart';
+
+const _school = 9501;
+const _year = '2026-2027';
+const _coord = '00000000-0000-0000-0000-0000000095c1';
+const _tutor = '00000000-0000-0000-0000-0000000095a1';
+
+Matcher _refused(String message) =>
+    throwsA(isA<ViewModelException>().having((e) => e.message, 'message', message));
+
+void main() {
+  late Database db;
+  late AralViewModel aral;
+  late AralClassViewModel classes;
+  late AralClass rose, lily, sun;
+
+  setUpAll(() async {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+    final ctx = await AppContext.open(dataDir: Directory.systemTemp.createTempSync('basa_roster_classes_').path);
+    db = ctx.localDb;
+    final t = wireTutor(ctx, wireShared(ctx));
+    aral = t.aralVm;
+    classes = t.aralClassVm;
+
+    await db.insert('schools', {'id': _school, 'school_id': 'ZZR1', 'school_name': 'ZZ Roster Classes'});
+    await db.insert('users', {'id': _tutor, 'email': 'tutor@zz', 'full_name': 'Tutor One', 'role': 'tutor', 'school_id': _school});
+    // A: G7 (16 learners), B: G7 (17), C: G5 (none yet), D: G2 (1).
+    for (final (id, grade) in [(9501, '7'), (9502, '7'), (9503, '5'), (9504, '2')]) {
+      await db.insert('sections', {'id': id, 'school_id': _school, 'school_year': _year, 'grade_level': grade, 'section_name': 'S$id'});
+    }
+    Future<void> learner(int id, int section) async {
+      await db.insert('students', {'id': id, 'lrn': '99999995${id.toString().padLeft(4, '0')}', 'last_name': 'ZZR',
+          'first_name': 'L$id', 'school_id': _school});
+      await db.insert('enrollments', {'student_id': id, 'section_id': section, 'school_year': _year, 'status': 'active'});
+    }
+    for (var i = 1; i <= 16; i++) {
+      await learner(9500 + i, 9501);
+    }
+    for (var i = 21; i <= 37; i++) {
+      await learner(9500 + i, 9502);
+    }
+    await learner(9541, 9504);
+
+    await seedOfflineOwner(db, userId: _coord, email: 'coord@zz', role: 'coordinator', schoolId: _school);
+    expect(await ctx.authVm.signInOffline(email: 'coord@zz', password: 'test-pw'), isNull);
+
+    rose = await classes.createClass(schoolId: _school, schoolYear: _year, className: '7-Rose',
+        program: AralClassProgram.ks3Basic, gradeBand: AralGradeBand.g7to10, tutorId: _tutor);
+    lily = await classes.createClass(schoolId: _school, schoolYear: _year, className: '7-Lily',
+        program: AralClassProgram.ks2Basic, gradeBand: AralGradeBand.g7to10);
+    sun = await classes.createClass(schoolId: _school, schoolYear: _year, className: '2-Sun',
+        program: AralClassProgram.ks1, gradeBand: AralGradeBand.g1to3, tutorId: _tutor);
+  });
+
+  tearDownAll(LocalDatabase.close);
+
+  test('place refuses the 16th learner of a class', () async {
+    final enrolled = [
+      for (var i = 1; i <= 16; i++)
+        await aral.enroll(sectionId: 9501, schoolYear: _year, studentId: 9500 + i,
+            keyStage: AralKeyStage.ks3, track: AralTrack.basic),
+    ];
+    for (final e in enrolled.take(15)) {
+      expect((await classes.place(e.id!, rose.id!)).classId, rose.id);
+    }
+    await expectLater(classes.place(enrolled.last.id!, rose.id!), _refused('Class "7-Rose" already has 15 active ARAL learners.'));
+    expect((await classes.classRoster(rose.id!)).length, 15);
+    // Wrong program or band: refused with the learner's name.
+    await expectLater(classes.place(enrolled.last.id!, lily.id!),
+        _refused('ZZR, L9516 is in KS3 Basic; class "7-Lily" is KS2 Basic.'));
+    await expectLater(classes.place(enrolled.last.id!, sun.id!),
+        _refused('ZZR, L9516 is in KS3 Basic; class "2-Sun" is KS1.'));
+  });
+
+  test('enrollProposed fills the class to 15, weakest first; the rest wait for a class', () async {
+    final created = await aral.enrollProposed(sectionId: 9502, schoolYear: _year, classId: lily.id);
+    expect(created, hasLength(17));
+    expect(created.where((e) => e.classId == lily.id), hasLength(15));
+    final waiting = created.where((e) => e.classId == null).toList();
+    expect(waiting, hasLength(2));
+    for (final e in waiting) {
+      expect(aral.lastWarning, contains('ZZR, L${e.studentId} (${e.studentId})'));
+    }
+  });
+
+  test('a referral needs who and why', () async {
+    await expectLater(
+        aral.refer(sectionId: 9504, schoolYear: _year, studentId: 9541, keyStage: AralKeyStage.ks1,
+            referredBy: 'Ms. Cruz', reason: ' '),
+        _refused('A referral needs who referred the learner and why.'));
+  });
+
+  test('a referred KS1 learner whose latest CRLA is Developing stays in ARAL', () async {
+    final e = await aral.refer(sectionId: 9504, schoolYear: _year, studentId: 9541, keyStage: AralKeyStage.ks1,
+        referredBy: 'Ms. Cruz', reason: 'struggles with decoding', classId: sun.id);
+    expect(e.basisSource, AralBasisSource.referral);
+    expect(e.classId, sun.id);
+    await db.insert('crla_assessments', {
+      'id': 9591, 'student_id': 9541, 'school_id': _school, 'section_id': 9504, 'school_year': _year,
+      'subject_variant': 'fil', 'language': 'Filipino', 'attempt_no': 1, 'assessed_at': '2026-10-20',
+      'round': 'bosy', 'reading_profile': 'Developing Reader', 'origin': 'cloud', 'row_version': 1,
+    });
+    final updates = await aral.applyResults(sectionId: 9504, schoolYear: _year);
+    expect((await aral.getEnrollment(e.id!))!.isActive, isTrue,
+        reason: updates.map((u) => '${u.kind.name}: ${u.reason}').join('; '));
+  });
+
+  test('a section move across the band leaves the class', () async {
+    final e = (await aral.roster(sectionId: 9501, schoolYear: _year)).firstWhere((e) => e.studentId == 9501);
+    expect(e.classId, rose.id);
+    await db.update('enrollments', {'section_id': 9503}, where: 'student_id = 9501');
+    final moved = await aral.moveToSection(e.id!);
+    expect(moved.sectionId, 9503);
+    expect(moved.classId, isNull);
+    expect(aral.lastWarning, 'Grade 5 is outside class "7-Rose" (Grades 7-10); the learner now waits for a class.');
+  });
+
+  test('aral-update lists learners waiting for a class', () async {
+    final unplaced = (await aral.roster(sectionId: 9501, schoolYear: _year)).firstWhere((e) => e.studentId == 9516);
+    final updates = await aral.applyResults(sectionId: 9501, schoolYear: _year);
+    expect(
+        updates.where((u) => u.before.id == unplaced.id && u.kind == AralUpdateKind.unplaced && u.reason == 'waiting for a class'),
+        hasLength(1));
+  });
+}

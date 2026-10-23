@@ -5,12 +5,13 @@
 // ViewModels.
 //
 // Owner decisions (2026-10-15, revised with the reading coordinator):
-//  * BASA proposes who enters ARAL and in which program (aral_rules.dart): the
-//    lowest performers below grade level, at most 15 per section. The
-//    coordinator confirms, picks among learners tied at the cut-off, and may
-//    change a learner's program; the suggestion is stored beside the choice.
-//    Learners with no result yet can be added by hand; learners at or above
-//    grade level, or outranked by weaker readers, cannot.
+//  * BASA proposes who enters ARAL and in which program (aral_rules.dart):
+//    every learner below grade level, weakest first (no cap per section since
+//    the ARAL classes, 2026-10-24). The coordinator confirms and may change a
+//    learner's program; the suggestion is stored beside the choice. Learners
+//    with no result yet can be added by hand; learners at or above grade level
+//    cannot. A teacher may refer a learner (refer: who and why, the program
+//    picked by hand); a referred learner exits only grade-level ready.
 //  * Admins and coordinators manage the roster; tutors only read it.
 //  * Grade-level-ready exits come from results (applyResults), never from
 //    the coordinator; so do KS1 classroom-support exits (DepEd Memorandum 064,
@@ -20,9 +21,13 @@
 //    program when it suggests a different one than the stored suggestion,
 //    and exits a learner who reads at grade level. The UI runs it when an
 //    admin/coordinator opens the roster (owner, 2026-10-16).
-//  * A tutor's "special 15": more than 15 active ARAL learners is allowed but
-//    warned about (lastWarning). A section's 15 is a hard limit.
+//  * ARAL classes (spec docs/superpowers/specs/2026-10-23-aral-classes-design.md):
+//    a learner sits in at most one class; their tutor is the class's tutor.
+//    Enrolling and placing are two steps: a full or unsuitable class never
+//    blocks an enrolment, the learner waits for a class (lastWarning says so).
+//    Placing and moving learners is AralClassViewModel's.
 import '../core/console/logger.dart';
+import '../core/models/aral_class.dart';
 import '../core/models/aral_enrollment.dart';
 import '../core/models/crla_result.dart';
 import '../core/models/phil_iri_assessment.dart' show PhilIriRound;
@@ -30,6 +35,7 @@ import '../core/models/section.dart';
 import '../core/models/student.dart';
 import '../core/models/user.dart';
 import '../core/models/user_role.dart';
+import '../core/repositories/aral_class_repository.dart';
 import '../core/repositories/aral_enrollment_repository.dart';
 import '../core/repositories/aral_setting_repository.dart';
 import '../core/repositories/crla_result_repository.dart';
@@ -42,22 +48,15 @@ import '../core/services/crla_rules.dart' show crlaAtGradeLevel;
 import '../core/services/phil_iri_results.dart' show philIriNotAssessedResult;
 import '../core/services/normalizers.dart';
 import '../core/services/sync_upload_rules.dart' show pendingLockMessage;
+import 'aral_class_viewmodel.dart' show aralPlacementRefusal, aralPlacementDbRefusals;
 import 'auth_viewmodel.dart';
 import 'phil_iri_viewmodel.dart';
 import '../core/services/auth_messages.dart';
 import 'viewmodel_exception.dart';
 
-/// Recommended maximum of active ARAL learners per tutor (DepEd 1:15).
-const aralTutorLoad = 15;
-
 enum AralCandidateStatus {
-  /// Below grade level and within the section's free places: BASA proposes
-  /// it with [AralCandidate.suggestion].
+  /// Below grade level: BASA proposes it with [AralCandidate.suggestion].
   proposed,
-  /// Tied with others for the last free place(s): the coordinator picks.
-  tied,
-  /// Below grade level, but the free places go to weaker readers.
-  overCap,
   /// Reads at or above grade level: not ARAL.
   notQualified,
   /// No usable result in the basis round yet (can be added by hand).
@@ -126,6 +125,15 @@ enum AralUpdateKind {
   unchanged,
   /// No finished result yet.
   noResult,
+  // Notices for the coordinator (no write; before == after):
+  /// The learner's program differs from their class's: move them.
+  programMismatch,
+  /// The learner waits for a class.
+  unplaced,
+  /// The learner's SF1 section changed inside the school: aral-move.
+  otherSection,
+  /// The learner has no active enrollment in the school any more: aral-exit.
+  leftSchool,
 }
 
 /// What applyResults did for one active ARAL learner.
@@ -148,6 +156,10 @@ class _LatestResult {
   final AralPlacement? placement; // null = leaves ARAL (at or above grade level, or KS1 classroom support)
   final String label;
   const _LatestResult(this.round, this.level, this.assessmentId, this.date, this.exitReason, this.placement, this.label);
+
+  /// The same result for a learner who stays in ARAL with [p].
+  _LatestResult staying(AralPlacement p) =>
+      _LatestResult(round, level, assessmentId, date, exitReason, p, '$label; referred, so they stay');
 }
 
 class AralViewModel {
@@ -158,14 +170,14 @@ class AralViewModel {
     'Learner has no active enrollment in this section for that school year',
     'Learner has no enrollment in this section for that school year',
     'A new ARAL enrollment starts active',
-    "The ARAL tutor must be an active tutor of the learner's school",
-    'An ARAL enrollment keeps its learner, school, year and basis; only the placement, tutor, status and notes change',
-    'An ARAL section has at most 15 active learners',
+    'An ARAL enrollment keeps its learner, school, year and basis; only the placement, class, status and notes change',
+    ...aralPlacementDbRefusals,
   ];
 
   final ScopedLogger _log;
   final AuthViewModel _auth;
   final AralEnrollmentRepository _roster;
+  final AralClassRepository _classes;
   final SectionRepository _sections;
   final StudentRepository _students;
   final UserRepository _users;
@@ -173,13 +185,15 @@ class AralViewModel {
   final PhilIriViewModel _philIri;
   final AralSettingRepository _localSettings;
 
-  /// A non-blocking notice from the last write (e.g. a tutor over 15 learners,
-  /// or learners tied at the cut-off).
+  /// A non-blocking notice from the last write (e.g. learners enrolled
+  /// without a class because the class was full). Every roster write clears
+  /// it first; reads leave it alone.
   String? lastWarning;
 
   AralViewModel({
     required AuthViewModel auth,
     required AralEnrollmentRepository roster,
+    required AralClassRepository classes,
     required SectionRepository sections,
     required StudentRepository students,
     required UserRepository users,
@@ -189,6 +203,7 @@ class AralViewModel {
     Logger? logger,
   })  : _auth = auth,
         _roster = roster,
+        _classes = classes,
         _sections = sections,
         _students = students,
         _users = users,
@@ -207,8 +222,7 @@ class AralViewModel {
   // ---- Proposal ----
 
   /// Every actively enrolled learner of the section with BASA's proposal:
-  /// learners below grade level are ranked weakest first, and the section's
-  /// free places (15 minus its active ARAL learners) go down the ranking.
+  /// learners below grade level are proposed, ranked weakest first.
   Future<List<AralCandidate>> propose({required int sectionId, required String schoolYear}) async {
     _requireSignIn();
     _log('propose(sectionId: $sectionId, year: $schoolYear)');
@@ -238,35 +252,16 @@ class AralViewModel {
           : await _philIriCandidate(s, grade, section.id!, schoolYear, program.foundationalProgram));
     }
 
-    // The qualifying learners (drafted as `proposed`) are ranked into the
-    // free places.
-    final seats = aralSectionCap - sectionRoster.where((e) => e.isActive).length;
+    // Every qualifying learner is proposed; the ranking says who is weakest.
     final qualifying = [
       for (var i = 0; i < out.length; i++)
         if (out[i].status == AralCandidateStatus.proposed) i,
     ];
-    final picks = aralPickSeats([for (final i in qualifying) out[i].rankKey!], seats);
+    final picks = aralPickSeats([for (final i in qualifying) out[i].rankKey!], qualifying.length);
     for (var q = 0; q < qualifying.length; q++) {
-      final pick = picks[q];
-      out[qualifying[q]] = out[qualifying[q]]._seated(
-        switch (pick.seat) {
-          AralSeat.inside => AralCandidateStatus.proposed,
-          AralSeat.tie => AralCandidateStatus.tied,
-          AralSeat.out => AralCandidateStatus.overCap,
-        },
-        pick.rank,
-      );
+      out[qualifying[q]] = out[qualifying[q]]._seated(AralCandidateStatus.proposed, picks[q].rank);
     }
     return out;
-  }
-
-  /// The section's free ARAL places in [schoolYear].
-  Future<int> freePlaces({required int sectionId, required String schoolYear}) async {
-    _requireSignIn();
-    final active = (await _roster.getBySection(sectionId, schoolYear: normalizeSchoolYear(schoolYear)))
-        .where((e) => e.isActive)
-        .length;
-    return active >= aralSectionCap ? 0 : aralSectionCap - active;
   }
 
   AralCandidate _crlaCandidate(Student s, int grade, List<CrlaResult> results, bool extended) {
@@ -394,46 +389,49 @@ class AralViewModel {
 
   // ---- Roster changes (admin / coordinator) ----
 
-  /// Puts one learner on the roster: a proposed learner, one tied at the
-  /// cut-off (the coordinator's pick), or one with no result yet (by hand,
-  /// with [keyStage] and, for KS2/KS3, [track]). Without [keyStage]/[track]
-  /// the proposal is used; giving them overrides it (the suggestion is still
-  /// stored).
+  /// Puts one learner on the roster: a proposed learner, or one with no
+  /// result yet (by hand, with [keyStage] and, for KS2/KS3, [track]). Without
+  /// [keyStage]/[track] the proposal is used; giving them overrides it (the
+  /// suggestion is still stored). With [classId] the learner is also placed in
+  /// that class when it fits; otherwise they wait for a class (lastWarning).
   Future<AralEnrollment> enroll({
     required int sectionId,
     required String schoolYear,
     required int studentId,
     AralKeyStage? keyStage,
     AralTrack? track,
-    String? tutorId,
+    int? classId,
     String? notes,
     DateTime? enteredOn,
   }) async {
     _requireSignIn();
     _log('enroll(student: $studentId, section: $sectionId, year: $schoolYear, ks: ${keyStage?.name}, '
-        'track: ${track?.name}, tutor: $tutorId)');
+        'track: ${track?.name}, class: $classId)');
     _requireManager();
     lastWarning = null;
     schoolYear = normalizeSchoolYear(schoolYear);
     final (section, _) = await _aralSection(sectionId, schoolYear);
+    final cls = classId == null ? null : await _classOf(classId);
     final candidate =
         (await propose(sectionId: sectionId, schoolYear: schoolYear)).where((c) => c.student.id == studentId).firstOrNull;
     if (candidate == null) {
       throw ViewModelException('Learner $studentId has no active enrollment in section $sectionId.');
     }
-    final stored = await _enrollCandidate(candidate, section, schoolYear,
-        keyStage: keyStage, track: track, tutorId: tutorId, notes: notes, enteredOn: enteredOn);
-    if (tutorId != null) await _warnTutorLoad(tutorId, schoolYear);
+    final (stored, refusal) = await _enrollCandidate(candidate, section, schoolYear, cls,
+        keyStage: keyStage, track: track, notes: notes, enteredOn: enteredOn);
+    if (refusal != null) _warn('$refusal ${candidate.name} is on the roster without a class.');
     return stored;
   }
 
-  Future<AralEnrollment> _enrollCandidate(
+  /// Stores the candidate; places them in [cls] when it takes them. Returns
+  /// the stored enrollment and, when [cls] did not take them, why.
+  Future<(AralEnrollment, String?)> _enrollCandidate(
     AralCandidate candidate,
     Section section,
-    String schoolYear, {
+    String schoolYear,
+    AralClass? cls, {
     AralKeyStage? keyStage,
     AralTrack? track,
-    String? tutorId,
     String? notes,
     DateTime? enteredOn,
   }) async {
@@ -443,10 +441,7 @@ class AralViewModel {
             '(${candidate.enrollment!.programLabel}).');
       case AralCandidateStatus.notQualified:
         throw ViewModelException('${candidate.name} is not for ARAL-Reading: ${candidate.reason}.');
-      case AralCandidateStatus.overCap:
-        throw ViewModelException("${candidate.name} is ranked #${candidate.rank}; the section's free ARAL places "
-            'go to weaker readers first (at most $aralSectionCap per section).');
-      case AralCandidateStatus.proposed || AralCandidateStatus.tied || AralCandidateStatus.noResult:
+      case AralCandidateStatus.proposed || AralCandidateStatus.noResult:
     }
     final suggestion = candidate.suggestion;
     final ks = keyStage ?? suggestion?.keyStage;
@@ -457,99 +452,181 @@ class AralViewModel {
     final tr = keyStage == null && track == null ? suggestion?.track : track;
     _checkTrack(ks, tr);
     await _checkFoundational(ks, section.schoolId);
-    if (tutorId != null) await _checkTutor(tutorId, section.schoolId);
-    if (await freePlaces(sectionId: section.id!, schoolYear: schoolYear) == 0) {
-      throw ViewModelException('Section ${section.id} already has $aralSectionCap active ARAL learners.');
-    }
 
-    final stored = await _write(() => _roster.insert(AralEnrollment(
-          studentId: candidate.student.id!,
-          schoolId: section.schoolId,
-          sectionId: section.id!,
-          schoolYear: schoolYear,
-          keyStage: ks,
-          track: tr,
-          tutorId: tutorId,
-          enteredOn: _localDate(enteredOn ?? DateTime.now()),
-          basisSource: candidate.basisSource ?? AralBasisSource.manual,
-          basisRound: candidate.basisRound,
-          basisLevel: candidate.basisLevel,
-          basisAssessmentId: candidate.basisAssessmentId,
-          suggestedKeyStage: suggestion?.keyStage,
-          suggestedTrack: suggestion?.track,
-          notes: _blankToNull(notes),
-          createdBy: _auth.currentUser?.id,
-        )));
-    _log('enrolled ${stored.id} (${stored.programLabel})');
-    return stored;
+    final draft = AralEnrollment(
+      studentId: candidate.student.id!,
+      schoolId: section.schoolId,
+      sectionId: section.id!,
+      schoolYear: schoolYear,
+      keyStage: ks,
+      track: tr,
+      enteredOn: _localDate(enteredOn ?? DateTime.now()),
+      basisSource: candidate.basisSource ?? AralBasisSource.manual,
+      basisRound: candidate.basisRound,
+      basisLevel: candidate.basisLevel,
+      basisAssessmentId: candidate.basisAssessmentId,
+      suggestedKeyStage: suggestion?.keyStage,
+      suggestedTrack: suggestion?.track,
+      notes: _blankToNull(notes),
+      createdBy: _auth.currentUser?.id,
+    );
+    return _insertPlaced(draft, cls, grade: candidate.grade, learner: candidate.name);
   }
 
-  /// Confirms every proposal of the section as suggested (optionally with one
-  /// tutor for all of them). Learners tied for the last place(s) are left for
-  /// the coordinator to pick with [enroll] (named in lastWarning).
+  /// Inserts [draft], in [cls] when it takes the learner.
+  Future<(AralEnrollment, String?)> _insertPlaced(AralEnrollment draft, AralClass? cls,
+      {required int grade, required String learner}) async {
+    final refusal = cls == null ? null : await aralPlacementRefusal(_roster, cls, draft, grade: grade, learner: learner);
+    final stored = await _write(() => _roster.insert(
+        cls == null || refusal != null ? draft : draft.copyWith(classId: () => cls.id)));
+    _log('enrolled ${stored.id} (${stored.programLabel}${stored.classId == null ? '' : ', class ${stored.classId}'})');
+    return (stored, refusal);
+  }
+
+  /// Confirms every proposal of the section as suggested. With [classId] the
+  /// weakest are placed in that class while it has room (15 active); the
+  /// rest wait for a class and are named in lastWarning.
   Future<List<AralEnrollment>> enrollProposed({
     required int sectionId,
     required String schoolYear,
-    String? tutorId,
+    int? classId,
   }) async {
     _requireSignIn();
-    _log('enrollProposed(section: $sectionId, year: $schoolYear, tutor: $tutorId)');
+    _log('enrollProposed(section: $sectionId, year: $schoolYear, class: $classId)');
     _requireManager();
     lastWarning = null;
     schoolYear = normalizeSchoolYear(schoolYear);
     final (section, _) = await _aralSection(sectionId, schoolYear);
-    if (tutorId != null) await _checkTutor(tutorId, section.schoolId);
-    final candidates = await propose(sectionId: sectionId, schoolYear: schoolYear);
+    final cls = classId == null ? null : await _classOf(classId);
+    final proposed = (await propose(sectionId: sectionId, schoolYear: schoolYear))
+        .where((c) => c.status == AralCandidateStatus.proposed)
+        .toList()
+      ..sort((a, b) => a.rank!.compareTo(b.rank!)); // weakest first; stable for ties
     final created = <AralEnrollment>[];
-    for (final c in candidates.where((c) => c.status == AralCandidateStatus.proposed)) {
-      created.add(await _enrollCandidate(c, section, schoolYear, tutorId: tutorId));
+    final waiting = <String>[];
+    for (final c in proposed) {
+      final (stored, refusal) = await _enrollCandidate(c, section, schoolYear, cls);
+      created.add(stored);
+      if (refusal != null) waiting.add('${c.name} (${c.student.id}): $refusal');
     }
-    if (tutorId != null && created.isNotEmpty) await _warnTutorLoad(tutorId, schoolYear);
-    final tied = candidates.where((c) => c.status == AralCandidateStatus.tied).toList();
-    if (tied.isNotEmpty) {
-      final free = await freePlaces(sectionId: sectionId, schoolYear: schoolYear);
-      final note = '${tied.length} learners are tied for the last $free place(s): '
-          '${tied.map((c) => '${c.name} (${c.student.id})').join(', ')}. The coordinator picks (enroll).';
-      lastWarning = lastWarning == null ? note : '$lastWarning\n$note';
-      _log(note);
+    if (waiting.isNotEmpty) {
+      _warn('${waiting.length} learner(s) are on the roster without a class; place them with aral-class-place:\n'
+          '${waiting.map((w) => '  $w').join('\n')}');
     }
     return created;
   }
 
+  /// A teacher's referral (spec decision 9): the learner joins ARAL whatever
+  /// their results, in the program picked here, with who referred them and
+  /// why. A referred learner exits only grade-level ready. With [classId]
+  /// they are also placed when the class takes them.
+  Future<AralEnrollment> refer({
+    required int sectionId,
+    required String schoolYear,
+    required int studentId,
+    required AralKeyStage keyStage,
+    AralTrack? track,
+    required String referredBy,
+    required String reason,
+    int? classId,
+    String? notes,
+    DateTime? enteredOn,
+  }) async {
+    _requireSignIn();
+    _log('refer(student: $studentId, section: $sectionId, year: $schoolYear, ks: ${keyStage.name}, class: $classId)');
+    _requireManager();
+    lastWarning = null;
+    final by = _blankToNull(referredBy), why = _blankToNull(reason);
+    if (by == null || why == null) throw const ViewModelException('A referral needs who referred the learner and why.');
+    schoolYear = normalizeSchoolYear(schoolYear);
+    final (section, grade) = await _aralSection(sectionId, schoolYear);
+    final cls = classId == null ? null : await _classOf(classId);
+    final student = (await _students.getBySection(sectionId)).where((s) => s.id == studentId).firstOrNull;
+    if (student == null) throw ViewModelException('Learner $studentId has no active enrollment in section $sectionId.');
+    final name = '${student.lastName}, ${student.firstName}';
+    final existing = await _roster.findForStudent(studentId, schoolYear);
+    if (existing != null) {
+      throw ViewModelException('$name is already on the ARAL roster for $schoolYear (${existing.programLabel}).');
+    }
+    _checkTrack(keyStage, track);
+    await _checkFoundational(keyStage, section.schoolId);
+    final (stored, refusal) = await _insertPlaced(
+        AralEnrollment(
+          studentId: studentId,
+          schoolId: section.schoolId,
+          sectionId: sectionId,
+          schoolYear: schoolYear,
+          keyStage: keyStage,
+          track: track,
+          enteredOn: _localDate(enteredOn ?? DateTime.now()),
+          basisSource: AralBasisSource.referral,
+          referredBy: by,
+          referralReason: why,
+          notes: _blankToNull(notes),
+          createdBy: _auth.currentUser?.id,
+        ),
+        cls,
+        grade: grade,
+        learner: name);
+    if (refusal != null) _warn('$refusal $name is on the roster without a class.');
+    return stored;
+  }
+
   /// Changes the program (Foundational and KS1 have no track; KS2/KS3 need
   /// one). Foundational only when the school runs a foundational literacy
-  /// program (AralProgramSettings).
+  /// program (AralProgramSettings). The learner stays in their class (spec
+  /// decision 7); aral-update then flags a class of another program.
   Future<AralEnrollment> setPlacement(int enrollmentId, AralKeyStage keyStage, AralTrack? track) async {
     _requireSignIn();
     _log('setPlacement($enrollmentId, ${keyStage.name}, ${track?.name})');
     _requireManager();
+    lastWarning = null;
     final e = await _require(enrollmentId);
     _checkTrack(keyStage, track);
     await _checkFoundational(keyStage, e.schoolId);
     return _write(() => _roster.update(e.copyWith(keyStage: keyStage, track: () => track)));
   }
 
-  /// Assigns (or with null removes) the learner's ARAL tutor.
-  Future<AralEnrollment> assignTutor(int enrollmentId, String? tutorId) async {
+  /// Follows an SF1 section move inside the school (F9b): the roster entry
+  /// takes the learner's current section. The class stays when it takes the
+  /// new grade; otherwise the learner waits for a class (lastWarning). A
+  /// learner who left the school is exited as transferred out instead.
+  Future<AralEnrollment> moveToSection(int enrollmentId) async {
     _requireSignIn();
-    _log('assignTutor($enrollmentId, $tutorId)');
+    _log('moveToSection($enrollmentId)');
     _requireManager();
     lastWarning = null;
     final e = await _require(enrollmentId);
-    if (tutorId != null) await _checkTutor(tutorId, e.schoolId);
-    final stored = await _write(() => _roster.update(e.copyWith(tutorId: () => tutorId)));
-    if (tutorId != null) await _warnTutorLoad(tutorId, e.schoolYear);
-    return stored;
+    final name = await _learnerName(e.studentId, e.sectionId);
+    final now = await _students.activeSectionId(e.studentId, e.schoolYear);
+    final section = now == null ? null : await _sections.getById(now);
+    if (section == null || section.schoolId != e.schoolId) {
+      throw ViewModelException('$name has left the school: exit them as transferred out '
+          '(aral-exit ${e.id} transferred_out).');
+    }
+    if (section.id == e.sectionId) throw ViewModelException('$name is already in section ${e.sectionId}.');
+    final (_, grade) = await _aralSection(section.id!, e.schoolYear);
+    var classId = e.classId;
+    if (classId != null) {
+      final cls = await _classes.findById(classId);
+      if (cls != null && !cls.gradeBand.contains(grade)) {
+        classId = null;
+        _warn('Grade $grade is outside class "${cls.className}" (Grades ${cls.gradeBand.value}); '
+            'the learner now waits for a class.');
+      }
+    }
+    return _write(() => _roster.update(e.copyWith(sectionId: section.id, classId: () => classId)));
   }
 
   /// Records that the learner left ARAL for an administrative reason
   /// (transferred out, dropped out, other) or for classroom-based remediation
   /// (classroom support). Grade-level-ready exits come from the learner's
-  /// results, not from here.
+  /// results, not from here. The learner stays linked to their class.
   Future<AralEnrollment> exit(int enrollmentId, AralExitReason reason, {DateTime? on}) async {
     _requireSignIn();
     _log('exit($enrollmentId, ${reason.value})');
     _requireManager();
+    lastWarning = null;
     if (reason == AralExitReason.gradeLevelReady) {
       throw const ViewModelException(
           "A grade-level-ready exit is set by BASA from the learner's assessment results, not by hand.");
@@ -565,28 +642,43 @@ class AralViewModel {
   }
 
   /// Undoes an administrative exit (e.g. recorded by mistake). A
-  /// grade-level-ready exit stands: it follows the results.
+  /// grade-level-ready exit stands: it follows the results. When their class
+  /// can't take them back, the learner returns without a class (lastWarning).
   Future<AralEnrollment> reactivate(int enrollmentId) async {
     _requireSignIn();
     _log('reactivate($enrollmentId)');
     _requireManager();
+    lastWarning = null;
     final e = await _require(enrollmentId);
     if (e.isActive) throw const ViewModelException('This learner is already active in ARAL.');
     if (e.exitReason == AralExitReason.gradeLevelReady) {
       throw const ViewModelException(
           'This learner left ARAL grade-level ready, per their results; that exit is not undone by hand.');
     }
-    if (await freePlaces(sectionId: e.sectionId, schoolYear: e.schoolYear) == 0) {
-      throw ViewModelException('Section ${e.sectionId} already has $aralSectionCap active ARAL learners.');
+    var back = e.copyWith(status: AralStatus.active, exitedOn: () => null, exitReason: () => null);
+    final cls = e.classId == null ? null : await _classes.findById(e.classId!);
+    if (cls != null) {
+      final section = await _sections.getById(e.sectionId);
+      final grade = int.tryParse(section?.gradeLevel ?? '') ?? 0;
+      final refusal = await aralPlacementRefusal(_roster, cls, back,
+          grade: grade, learner: await _learnerName(e.studentId, e.sectionId));
+      if (refusal != null) {
+        back = back.copyWith(classId: () => null);
+        final full = refusal == 'Class "${cls.className}" already has $aralClassCap active ARAL learners.';
+        _warn(full
+            ? 'Class "${cls.className}" is full, so this learner is back without a class. '
+                'Place them in a class (aral-class-place).'
+            : '$refusal This learner is back without a class. Place them in a class (aral-class-place).');
+      }
     }
-    return _write(
-        () => _roster.update(e.copyWith(status: AralStatus.active, exitedOn: () => null, exitReason: () => null)));
+    return _write(() => _roster.update(back));
   }
 
   Future<AralEnrollment> setNotes(int enrollmentId, String? notes) async {
     _requireSignIn();
     _log('setNotes($enrollmentId)');
     _requireManager();
+    lastWarning = null;
     final e = await _require(enrollmentId);
     return _write(() => _roster.update(e.copyWith(notes: () => _blankToNull(notes))));
   }
@@ -596,6 +688,7 @@ class AralViewModel {
     _requireSignIn();
     _log('remove($enrollmentId)');
     _requireManager();
+    lastWarning = null;
     await _require(enrollmentId);
     await _write(() => _roster.delete(enrollmentId));
   }
@@ -609,6 +702,7 @@ class AralViewModel {
     _requireSignIn();
     _log('applyResults(section: $sectionId, year: $schoolYear)');
     _requireManager();
+    lastWarning = null;
     schoolYear = normalizeSchoolYear(schoolYear);
     final (section, grade) = await _aralSection(sectionId, schoolYear);
     final active = (await _roster.getBySection(section.id!, schoolYear: schoolYear)).where((e) => e.isActive).toList();
@@ -616,10 +710,20 @@ class AralViewModel {
     final program = await programSettings(section.schoolId);
     final out = <AralUpdate>[];
     for (final e in active) {
-      final latest = grade <= 3
+      var latest = grade <= 3
           ? _latestCrla(crla.where((r) => r.studentId == e.studentId).toList(), grade, program.ks1Extended)
           : await _latestPhilIri(e, grade);
-      out.add(await _apply(e, latest, program.foundationalProgram));
+      // A referred learner exits only grade-level ready (spec decision 9).
+      if (e.basisSource == AralBasisSource.referral &&
+          latest != null &&
+          latest.placement == null &&
+          latest.exitReason == AralExitReason.classroomSupport) {
+        latest = latest.staying(aralCrlaPlacement);
+      }
+      final update = await _apply(e, latest, program.foundationalProgram);
+      out
+        ..add(update)
+        ..addAll(await _notices(update.after));
     }
     final changed = out.where((u) => u.kind == AralUpdateKind.programChanged || u.kind == AralUpdateKind.exited);
     _log('applyResults: ${changed.length} change(s) in section $sectionId');
@@ -641,6 +745,35 @@ class AralViewModel {
     final out = <AralUpdate>[];
     for (final s in sections) {
       out.addAll(await applyResults(sectionId: s, schoolYear: schoolYear));
+    }
+    return out;
+  }
+
+  /// What the coordinator should look at for an active learner (no write):
+  /// left the school, moved to another section, waiting for a class, or in a
+  /// class of another program.
+  Future<List<AralUpdate>> _notices(AralEnrollment e) async {
+    if (!e.isActive) return const [];
+    AralUpdate notice(AralUpdateKind kind, String reason) => AralUpdate(e, e, kind, reason);
+    final now = await _students.activeSectionId(e.studentId, e.schoolYear);
+    final section = now == null ? null : await _sections.getById(now);
+    final out = <AralUpdate>[];
+    if (section == null || section.schoolId != e.schoolId) {
+      out.add(notice(AralUpdateKind.leftSchool, 'left the school: aral-exit ${e.id} transferred_out'));
+    } else if (section.id != e.sectionId) {
+      out.add(notice(AralUpdateKind.otherSection,
+          'now in section ${section.id} (G${section.gradeLevel} ${section.sectionName}): aral-move ${e.id}'));
+    }
+    if (e.classId == null) {
+      out.add(notice(AralUpdateKind.unplaced, 'waiting for a class'));
+    } else {
+      final cls = await _classes.findById(e.classId!);
+      final program = AralClassProgram.of(e.keyStage, e.track);
+      if (cls != null && cls.program != program) {
+        out.add(notice(AralUpdateKind.programMismatch,
+            'program now ${program.label}: move to a ${program.label} class '
+            '(class "${cls.className}" is ${cls.program.label})'));
+      }
     }
     return out;
   }
@@ -795,7 +928,11 @@ class AralViewModel {
         .toList();
     final sections = <int, Section?>{};
     final students = <int, Student>{};
+    final classes = {for (final c in await _classes.getBySchool(schoolId, schoolYear: schoolYear)) c.id!: c};
     final tutors = <String, User?>{};
+    for (final c in classes.values) {
+      if (c.tutorId != null && !tutors.containsKey(c.tutorId)) tutors[c.tutorId!] = await _users.getById(c.tutorId!);
+    }
     for (final e in roster) {
       if (!sections.containsKey(e.sectionId)) {
         sections[e.sectionId] = await _sections.getById(e.sectionId);
@@ -803,8 +940,8 @@ class AralViewModel {
           students[s.id!] = s;
         }
       }
-      if (e.tutorId != null && !tutors.containsKey(e.tutorId)) tutors[e.tutorId!] = await _users.getById(e.tutorId!);
     }
+    AralClass? cls(AralEnrollment e) => classes[e.classId];
     int grade(AralEnrollment e) => int.tryParse(sections[e.sectionId]?.gradeLevel ?? '') ?? 0;
     String name(AralEnrollment e) {
       final s = students[e.studentId];
@@ -820,13 +957,15 @@ class AralViewModel {
     return csvTable([
       [
         'Grade', 'Section', 'LRN', 'Learner', 'Program', 'Status', 'Entered', 'Exited', 'Exit reason',
-        'Tutor', 'Tutor email', 'Basis', 'Basis round', 'Basis level', 'BASA suggestion', 'Notes', 'ARAL id',
+        'Class', 'Tutor', 'Basis', 'Basis round', 'Basis level', 'Referred by', 'Referral reason', 'BASA suggestion',
+        'Notes', 'ARAL id',
       ],
       for (final e in roster)
         [
           grade(e), sections[e.sectionId]?.sectionName, students[e.studentId]?.lrn, name(e), e.programLabel,
           e.status.name, e.enteredOn, e.exitedOn, e.exitReason?.value,
-          tutors[e.tutorId]?.fullName, tutors[e.tutorId]?.email, e.basisSource.value, e.basisRound, e.basisLevel,
+          cls(e)?.className, tutors[cls(e)?.tutorId]?.fullName, e.basisSource.value, e.basisRound, e.basisLevel,
+          e.referredBy, e.referralReason,
           e.suggestedKeyStage == null
               ? null
               : '${e.suggestedKeyStage!.label}${e.suggestedTrack == null ? '' : ' ${e.suggestedTrack!.label}'}',
@@ -835,20 +974,27 @@ class AralViewModel {
     ]);
   }
 
-  /// The school's active tutors (who can be assigned) with how many active
-  /// ARAL learners each has in [schoolYear].
-  Future<List<(User, int)>> tutors({required int schoolId, required String schoolYear}) async {
+  /// The school's active tutors with how many ARAL classes each teaches in
+  /// [schoolYear] and how many active learners those classes hold.
+  Future<List<(User, int, int)>> tutors({required int schoolId, required String schoolYear}) async {
     _requireSignIn();
     _log('tutors(school: $schoolId, year: $schoolYear)');
     schoolYear = normalizeSchoolYear(schoolYear);
-    final out = <(User, int)>[];
+    final classes = await _classes.getBySchool(schoolId, schoolYear: schoolYear);
+    final out = <(User, int, int)>[];
     for (final u in await _users.getAll()) {
       if (u.role != UserRole.tutor || !u.isActive || u.schoolId != schoolId) continue;
-      final load = (await _roster.getByTutor(u.id, schoolYear: schoolYear)).where((e) => e.isActive).length;
-      out.add((u, load));
+      final learners = (await _roster.getByTutor(u.id, schoolYear: schoolYear)).where((e) => e.isActive).length;
+      out.add((u, classes.where((c) => c.tutorId == u.id).length, learners));
     }
     out.sort((a, b) => a.$1.fullName.compareTo(b.$1.fullName));
     return out;
+  }
+
+  /// The names of the school's ARAL classes on this device (every year), by id.
+  Future<Map<int, String>> classNames(int schoolId) async {
+    _requireSignIn();
+    return {for (final c in await _classes.getBySchool(schoolId)) c.id!: c.className};
   }
 
   /// "Last, First" of the section's actively enrolled learners, by id.
@@ -906,19 +1052,23 @@ class AralViewModel {
     }
   }
 
-  Future<void> _checkTutor(String tutorId, int schoolId) async {
-    final User? u = await _users.getById(tutorId);
-    if (u == null || u.role != UserRole.tutor || !u.isActive || u.schoolId != schoolId) {
-      throw const ViewModelException("The ARAL tutor must be an active tutor of the learner's school.");
-    }
+  /// The class, if it is in the caller's school.
+  Future<AralClass> _classOf(int classId) async {
+    final c = await _classes.findById(classId);
+    if (c == null) throw ViewModelException('No ARAL class with id $classId.');
+    final school = _auth.currentUser?.schoolId;
+    if (school != null && school != c.schoolId) throw const ViewModelException('Forbidden: that class is in another school.');
+    return c;
   }
 
-  Future<void> _warnTutorLoad(String tutorId, String schoolYear) async {
-    final load = (await _roster.getByTutor(tutorId, schoolYear: schoolYear)).where((e) => e.isActive).length;
-    if (load > aralTutorLoad) {
-      lastWarning = 'This tutor now has $load active ARAL learners (recommended: at most $aralTutorLoad).';
-      _log(lastWarning!);
-    }
+  Future<String> _learnerName(int studentId, int sectionId) async {
+    final s = (await _students.getBySection(sectionId)).where((s) => s.id == studentId).firstOrNull;
+    return s == null ? 'Learner $studentId' : '${s.lastName}, ${s.firstName}';
+  }
+
+  void _warn(String note) {
+    lastWarning = lastWarning == null ? note : '$lastWarning\n$note';
+    _log(note);
   }
 
   Future<T> _write<T>(Future<T> Function() write) async {

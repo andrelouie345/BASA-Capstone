@@ -67,12 +67,14 @@ void main() {
     const y = '2026-2027';
     final calls = <String, Future<Object?> Function()>{
       'aral.propose': () => aral.propose(sectionId: 1, schoolYear: y),
-      'aral.freePlaces': () => aral.freePlaces(sectionId: 1, schoolYear: y),
       'aral.programSettings': () => aral.programSettings(1),
       'aral.enroll': () => aral.enroll(sectionId: 1, schoolYear: y, studentId: 1),
       'aral.enrollProposed': () => aral.enrollProposed(sectionId: 1, schoolYear: y),
       'aral.setPlacement': () => aral.setPlacement(1, AralKeyStage.ks3, AralTrack.basic),
-      'aral.assignTutor': () => aral.assignTutor(1, null),
+      'aral.refer': () => aral.refer(
+          sectionId: 1, schoolYear: y, studentId: 1, keyStage: AralKeyStage.ks1, referredBy: 'x', reason: 'y'),
+      'aral.moveToSection': () => aral.moveToSection(1),
+      'aral.classNames': () => aral.classNames(1),
       'aral.exit': () => aral.exit(1, AralExitReason.gradeLevelReady),
       'aral.reactivate': () => aral.reactivate(1),
       'aral.setNotes': () => aral.setNotes(1, 'x'),
@@ -93,6 +95,10 @@ void main() {
       'class.editClass': () => cls.editClass(const AralClass(
           id: 1, schoolId: 1, schoolYear: y, className: 'x', program: AralClassProgram.ks1, gradeBand: AralGradeBand.g1to3)),
       'class.deleteClass': () => cls.deleteClass(1),
+      'class.classRoster': () => cls.classRoster(1),
+      'class.activeCount': () => cls.activeCount(1),
+      'class.place': () => cls.place(1, 1),
+      'class.unplace': () => cls.unplace(1),
       'session.logSession': () => ses.logSession(schoolYear: y, minutes: 30, setup: AralSetup.pullOut),
       'session.editSession': () => ses.editSession(1, minutes: 5),
       'session.deleteSession': () => ses.deleteSession(1),

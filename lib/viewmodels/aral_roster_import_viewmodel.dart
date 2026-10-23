@@ -2,7 +2,7 @@
 //
 // Imports an ARAL roster from a simple spreadsheet (piece IE5), e.g. for a
 // school that started ARAL-Reading before BASA. Owner decision (2026-10-16):
-// columns LRN, Program, Tutor email, Entered (+ Notes); defaults agreed:
+// columns LRN, Program, Class, Entered (+ Notes); defaults agreed:
 //  * .csv or the first sheet of an .xlsx; columns found by header name. The
 //    roster CSV from aral-export-roster is itself a valid import file.
 //  * The learner's section is their active enrollment in the school that
@@ -12,21 +12,24 @@
 //  * Exited rows: a transfer/drop-out/other exit is entered and then exited on
 //    its date; a grade-level-ready exit is skipped (BASA sets those from
 //    results only).
-//  * Every learner goes through AralViewModel.enroll (15 per section, the
-//    tutor must be an active tutor of the school, Grades 1-10, ...), each
-//    section weakest reader first, as enroll gives free places to weaker
-//    readers first.
+//  * Class (ARAL classes, 2026-10-24; replaces "Tutor email"): the class's
+//    name in that school and year; an unknown name is a row error. A class
+//    that is full or teaches another program or grade band doesn't stop the
+//    row: the learner is imported without a class (flagged in the preview).
+//  * Every learner goes through AralViewModel.enroll (Grades 1-10, ...),
+//    each section weakest reader first.
 // Preview first, then import. Admins/coordinators of the school.
 import '../core/console/logger.dart';
+import '../core/models/aral_class.dart';
 import '../core/models/aral_enrollment.dart';
 import '../core/models/section.dart';
 import '../core/models/student.dart';
-import '../core/models/user.dart';
 import '../core/models/user_role.dart';
+import '../core/repositories/aral_class_repository.dart';
 import '../core/repositories/aral_enrollment_repository.dart';
 import '../core/repositories/section_repository.dart';
 import '../core/repositories/student_repository.dart';
-import '../core/repositories/user_repository.dart';
+import '../core/services/aral_rules.dart' show aralClassCap;
 import '../core/services/normalizers.dart';
 import '../core/services/table_reader.dart';
 import 'aral_viewmodel.dart';
@@ -42,7 +45,10 @@ class AralRosterImportRow {
   final Section? section;
   final AralKeyStage? keyStage;      // null = BASA's suggestion
   final AralTrack? track;
-  final User? tutor;
+  final AralClass? aralClass;        // the Class column's class; null = none given
+  /// Why the learner goes in without the class asked for (full, another
+  /// program or grade); null = placed in it.
+  final String? classFlag;
   final String enteredOn;            // YYYY-MM-DD
   final String? exitedOn;
   final AralExitReason? exitReason;
@@ -57,7 +63,8 @@ class AralRosterImportRow {
     this.section,
     this.keyStage,
     this.track,
-    this.tutor,
+    this.aralClass,
+    this.classFlag,
     required this.enteredOn,
     this.exitedOn,
     this.exitReason,
@@ -88,7 +95,9 @@ class AralRosterImportResult {
   final AralRosterImportPreview preview;
   final List<AralEnrollment> added;
   final Map<AralRosterImportRow, String> failed;
-  const AralRosterImportResult(this.preview, this.added, this.failed);
+  /// Rows imported with a notice (e.g. without the class asked for).
+  final Map<AralRosterImportRow, String> warnings;
+  const AralRosterImportResult(this.preview, this.added, this.failed, [this.warnings = const {}]);
 }
 
 class AralRosterImportViewModel {
@@ -96,24 +105,24 @@ class AralRosterImportViewModel {
   final AuthViewModel _auth;
   final AralViewModel _aral;
   final AralEnrollmentRepository _roster;
+  final AralClassRepository _classes;
   final SectionRepository _sections;
   final StudentRepository _students;
-  final UserRepository _users;
 
   AralRosterImportViewModel({
     required AuthViewModel auth,
     required AralViewModel aral,
     required AralEnrollmentRepository roster,
+    required AralClassRepository classes,
     required SectionRepository sections,
     required StudentRepository students,
-    required UserRepository users,
     Logger? logger,
   })  : _auth = auth,
         _aral = aral,
         _roster = roster,
+        _classes = classes,
         _sections = sections,
         _students = students,
-        _users = users,
         _log = ScopedLogger(logger, 'AralRosterImportViewModel');
 
   Future<AralRosterImportPreview> preview(int schoolId, String schoolYear, List<int> bytes, String fileName) async {
@@ -146,6 +155,14 @@ class AralRosterImportViewModel {
         where[st.lrn.trim()] = (st, s);
       }
     }
+    // The school's classes this year, by name (as the cloud compares them),
+    // and the places each still has; rows going in take them in file order.
+    final classes = {
+      for (final c in await _classes.getBySchool(schoolId, schoolYear: schoolYear)) c.className.trim().toLowerCase(): c,
+    };
+    final taken = <int, int>{
+      for (final c in classes.values) c.id!: (await _roster.getByClass(c.id!)).where((e) => e.isActive).length,
+    };
     final today = _date(DateTime.now());
     final seen = <String>{};
     final rows = <AralRosterImportRow>[];
@@ -173,11 +190,11 @@ class AralRosterImportViewModel {
         }
       }
 
-      User? tutor;
-      final email = t.get(const ['Tutor email', 'Tutor e-mail', 'Tutor']);
-      if (email != null) {
-        tutor = await _users.getByEmail(email.trim().toLowerCase()) ?? await _users.getByEmail(email.trim());
-        if (tutor == null) problems.add('no user with email $email on this device (pull-cloud brings the school\'s users)');
+      AralClass? cls;
+      final className = t.get(const ['Class', 'ARAL class']);
+      if (className != null) {
+        cls = classes[className.trim().toLowerCase()];
+        if (cls == null) problems.add('no ARAL class named "$className" in school $schoolId for $schoolYear on this device');
       }
 
       final enteredRaw = t.get(const ['Entered', 'Entered on', 'Date entered']);
@@ -212,6 +229,19 @@ class AralRosterImportViewModel {
       } else if (await _roster.findForStudent(found!.$1.id!, schoolYear) != null) {
         outcome = AralRosterImportOutcome.alreadyOnRoster;
       }
+      String? classFlag;
+      if (cls != null && outcome == AralRosterImportOutcome.add) {
+        final grade = int.tryParse(found!.$2.gradeLevel) ?? 0;
+        if (ks != null && AralClassProgram.of(ks, track) != cls.program) {
+          classFlag = 'class "${cls.className}" is ${cls.program.label}: imported without a class';
+        } else if (!cls.gradeBand.contains(grade)) {
+          classFlag = 'class "${cls.className}" takes Grades ${cls.gradeBand.value}: imported without a class';
+        } else if (taken[cls.id!]! >= aralClassCap) {
+          classFlag = 'class "${cls.className}" is full: imported without a class';
+        } else {
+          taken[cls.id!] = taken[cls.id!]! + 1;
+        }
+      }
       rows.add(AralRosterImportRow(
         rowNo: t.rowNo,
         lrn: lrn,
@@ -219,7 +249,8 @@ class AralRosterImportViewModel {
         section: found?.$2,
         keyStage: ks,
         track: track,
-        tutor: tutor,
+        aralClass: cls,
+        classFlag: classFlag,
         enteredOn: entered ?? today,
         exitedOn: exitedOn,
         exitReason: reason,
@@ -255,6 +286,7 @@ class AralRosterImportViewModel {
 
     final added = <AralEnrollment>[];
     final failed = <AralRosterImportRow, String>{};
+    final warnings = <AralRosterImportRow, String>{};
     for (final r in todo) {
       try {
         var e = await _aral.enroll(
@@ -263,10 +295,13 @@ class AralRosterImportViewModel {
           studentId: r.student!.id!,
           keyStage: r.keyStage,
           track: r.track,
-          tutorId: r.tutor?.id,
+          // An exited row goes in without a class: it would only hold a place.
+          classId: r.classFlag == null && r.outcome == AralRosterImportOutcome.add ? r.aralClass?.id : null,
           notes: r.notes,
           enteredOn: DateTime.parse(r.enteredOn),
         );
+        final warning = _aral.lastWarning ?? r.classFlag;
+        if (warning != null) warnings[r] = warning;
         if (r.outcome == AralRosterImportOutcome.addAndExit) {
           e = await _aral.exit(e.id!, r.exitReason!, on: DateTime.parse(r.exitedOn!));
         }
@@ -275,7 +310,7 @@ class AralRosterImportViewModel {
         failed[r] = '$e';
       }
     }
-    return AralRosterImportResult(p, added, failed);
+    return AralRosterImportResult(p, added, failed, warnings);
   }
 
   /// "KS3 Plus", "ks2 basic", "KS1", "Foundational" -> (key stage, track).

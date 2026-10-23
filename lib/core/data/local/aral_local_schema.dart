@@ -22,10 +22,12 @@ import 'package:sqflite_common/sqflite.dart';
 
 const _gradeLevels = "('1', '2', '3', '4', '5', '6', '7', '8', '9', '10')";
 
-/// Same as the cloud's aral_section_cap (20261015070000).
-const _sectionCap = 15;
+/// Same as the cloud's class cap (aral_check_class_placement, 20261023040000).
+const _classCap = 15;
 
-/// v21: key_stage allows 'foundational' (no track, like KS1).
+/// v21: key_stage allows 'foundational' (no track, like KS1). v36 (ARAL
+/// classes, cloud 20261023040000): class_id (null = waiting for a class)
+/// replaces tutor_id; basis 'referral' with who referred the learner and why.
 String _enrollmentsTableSql(String name) => '''
     CREATE TABLE IF NOT EXISTS $name (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -37,13 +39,15 @@ String _enrollmentsTableSql(String name) => '''
                AND CAST(substr(school_year, 6, 4) AS INTEGER) = CAST(substr(school_year, 1, 4) AS INTEGER) + 1),
       key_stage TEXT NOT NULL CHECK (key_stage IN ('foundational', 'ks1', 'ks2', 'ks3')),
       track TEXT CHECK (track IN ('basic', 'plus')),
-      tutor_id TEXT REFERENCES users(id),
+      class_id INTEGER REFERENCES aral_classes(id),
       status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'exited')),
       entered_on TEXT NOT NULL,
       exited_on TEXT,
       exit_reason TEXT CHECK (exit_reason IN ('grade_level_ready', 'transferred_out', 'dropped_out', 'other',
                                               'classroom_support')),
-      basis_source TEXT NOT NULL CHECK (basis_source IN ('crla', 'phil_iri', 'manual')),
+      basis_source TEXT NOT NULL CHECK (basis_source IN ('crla', 'phil_iri', 'manual', 'referral')),
+      referred_by TEXT,
+      referral_reason TEXT,
       basis_round TEXT CHECK (basis_round IN ('bosy', 'mosy', 'mosy1', 'mosy2', 'mosy3', 'eosy')),
       basis_level TEXT,
       basis_assessment_id INTEGER,   -- crla_assessments or phil_iri_assessments (by basis_source)
@@ -62,11 +66,14 @@ String _enrollmentsTableSql(String name) => '''
       CHECK ((key_stage IN ('foundational', 'ks1')) = (track IS NULL)),
       CHECK ((status = 'exited') = (exited_on IS NOT NULL AND exit_reason IS NOT NULL)),
       CHECK (exited_on IS NULL OR exited_on >= entered_on),
-      CHECK (basis_source = 'manual' OR basis_level IS NOT NULL)
+      CHECK (basis_source IN ('manual', 'referral') OR basis_level IS NOT NULL),
+      CHECK ((basis_source = 'referral') = (referred_by IS NOT NULL AND trim(referred_by) <> ''
+                                            AND referral_reason IS NOT NULL AND trim(referral_reason) <> ''))
     )
   ''';
 
-const _enrollmentColumns = 'id, student_id, school_id, section_id, school_year, key_stage, track, tutor_id, status, '
+// v21's copy list; tutor_id left out since v36, which runs before it.
+const _enrollmentColumns = 'id, student_id, school_id, section_id, school_year, key_stage, track, status, '
     'entered_on, exited_on, exit_reason, basis_source, basis_round, basis_level, basis_assessment_id, '
     'suggested_key_stage, suggested_track, notes, created_by, created_at, updated_at, origin';
 
@@ -130,6 +137,39 @@ Future<void> rebuildAralEnrollmentsForV35(Database db) async {
   });
 }
 
+/// v36: ARAL classes (cloud 20261023040000). Rebuilt like v35 (every column
+/// the old table has, row_version included, ids kept), without tutor_id: a
+/// learner's tutor is their class's tutor, and existing learners wait for a
+/// class (spec decision 11). Drops every trigger and view that mentions the
+/// table; onUpgrade runs this right after v35 and before every creator, which
+/// recreate them. Does nothing when the table already takes classes.
+Future<void> rebuildAralEnrollmentsForV36(Database db) async {
+  final table = await db.rawQuery("SELECT sql FROM sqlite_master WHERE type='table' AND name='aral_enrollments'");
+  if (table.isEmpty) return; // createAralLocalSchema builds it fresh
+  final cols = (await db.rawQuery('PRAGMA table_info(aral_enrollments)')).map((c) => c['name'] as String).toSet();
+  if (cols.contains('class_id') && !cols.contains('tutor_id')) return;
+
+  await db.transaction((txn) async {
+    final dependents = await txn.rawQuery(
+        "SELECT type, name FROM sqlite_master WHERE type IN ('trigger', 'view') AND sql LIKE '%aral_enrollments%'");
+    for (final d in dependents) {
+      await txn.execute('DROP ${d['type'] == 'view' ? 'VIEW' : 'TRIGGER'} IF EXISTS ${d['name']}');
+    }
+    final old = (await txn.rawQuery('PRAGMA table_info(aral_enrollments)')).where((c) => c['name'] != 'tutor_id');
+    await txn.execute(_enrollmentsTableSql('aral_enrollments_v36'));
+    final have = (await txn.rawQuery('PRAGMA table_info(aral_enrollments_v36)')).map((c) => c['name']).toSet();
+    for (final c in old) {
+      final name = c['name'] as String;
+      if (have.contains(name)) continue;
+      await txn.execute('ALTER TABLE aral_enrollments_v36 ADD COLUMN $name ${_suggestionColumns[name] ?? c['type']}');
+    }
+    final columns = old.map((c) => c['name']).join(', ');
+    await txn.execute('INSERT INTO aral_enrollments_v36 ($columns) SELECT $columns FROM aral_enrollments');
+    await txn.execute('DROP TABLE aral_enrollments');
+    await txn.execute('ALTER TABLE aral_enrollments_v36 RENAME TO aral_enrollments');
+  });
+}
+
 /// v24: where BASA's current suggestion came from (A4). Checked by column,
 /// so it runs on every upgrade like the other column adds.
 const _suggestionColumns = {
@@ -171,7 +211,10 @@ Future<void> _createClassTables(Database db) async {
   await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS aral_classes_name_key '
       'ON aral_classes (school_id, school_year, lower(trim(class_name)))');
   await db.execute('CREATE INDEX IF NOT EXISTS aral_classes_tutor ON aral_classes (tutor_id, school_year)');
+}
 
+/// The class triggers; after the roster table, which one of them reads.
+Future<void> _createClassTriggers(Database db) async {
   const tutorOk = '''(SELECT 1 FROM users u WHERE u.id = NEW.tutor_id AND u.role = 'tutor'
                         AND u.is_active = 1 AND u.school_id = NEW.school_id)''';
   const tutorMsg = "The ARAL class tutor must be an active tutor of the class''s school";
@@ -195,6 +238,9 @@ Future<void> _createClassTables(Database db) async {
       WHERE NEW.school_id IS NOT OLD.school_id OR NEW.school_year IS NOT OLD.school_year;
       SELECT RAISE(ABORT, '$tutorMsg')
       WHERE NEW.tutor_id IS NOT NULL AND NEW.tutor_id IS NOT OLD.tutor_id AND NOT EXISTS $tutorOk;
+      SELECT RAISE(ABORT, 'An ARAL class with learners keeps its program and grade band')
+      WHERE (NEW.program IS NOT OLD.program OR NEW.grade_band IS NOT OLD.grade_band)
+        AND EXISTS (SELECT 1 FROM aral_enrollments WHERE class_id = NEW.id);
     END
   ''');
 }
@@ -208,10 +254,30 @@ Future<void> createAralLocalSchema(Database db) async {
   }
   await db.execute('CREATE INDEX IF NOT EXISTS aral_enrollments_section ON aral_enrollments (section_id, school_year)');
   await db.execute('CREATE INDEX IF NOT EXISTS aral_enrollments_school ON aral_enrollments (school_id, school_year)');
-  await db.execute('CREATE INDEX IF NOT EXISTS aral_enrollments_tutor ON aral_enrollments (tutor_id, school_year)');
+  await db.execute('DROP INDEX IF EXISTS aral_enrollments_tutor'); // tutor_id went in v36
+  await db.execute('CREATE INDEX IF NOT EXISTS aral_enrollments_class ON aral_enrollments (class_id)');
+  await _createClassTriggers(db);
 
-  const tutorOk = '''(SELECT 1 FROM users u WHERE u.id = NEW.tutor_id AND u.role = 'tutor'
-                        AND u.is_active = 1 AND u.school_id = NEW.school_id)''';
+  // Placement (v36, same rules as the cloud's aral_check_class_placement): an
+  // active learner going into a class matches its school and year, program
+  // and grade band, and the class has fewer than 15 other active learners.
+  String placement(String applies, String bandToo) => '''
+      SELECT RAISE(ABORT, 'The ARAL class belongs to another school or school year')
+      WHERE $applies AND NOT EXISTS (
+        SELECT 1 FROM aral_classes c
+        WHERE c.id = NEW.class_id AND c.school_id = NEW.school_id AND c.school_year = NEW.school_year);
+      SELECT RAISE(ABORT, 'The learner''s program does not match the ARAL class')
+      WHERE $applies
+        AND (SELECT program FROM aral_classes WHERE id = NEW.class_id) IS NOT (NEW.key_stage || COALESCE('_' || NEW.track, ''));
+      SELECT RAISE(ABORT, 'The learner''s grade is outside the ARAL class''s grade band')
+      WHERE ($applies OR $bandToo) AND (
+        SELECT CAST(s.grade_level AS INTEGER)
+               BETWEEN CAST(substr(c.grade_band, 1, instr(c.grade_band, '-') - 1) AS INTEGER)
+                   AND CAST(substr(c.grade_band, instr(c.grade_band, '-') + 1) AS INTEGER)
+        FROM aral_classes c, sections s WHERE c.id = NEW.class_id AND s.id = NEW.section_id) IS NOT 1;
+      SELECT RAISE(ABORT, 'An ARAL class has at most $_classCap active learners')
+      WHERE $applies AND (SELECT count(*) FROM aral_enrollments
+                          WHERE class_id = NEW.class_id AND status = 'active' AND id IS NOT NEW.id) >= $_classCap;''';
 
   await db.execute('DROP TRIGGER IF EXISTS check_aral_enrollment_ins');
   await db.execute('''
@@ -232,11 +298,7 @@ Future<void> createAralLocalSchema(Database db) async {
           AND school_year = NEW.school_year AND status = 'active');
       SELECT RAISE(ABORT, 'A new ARAL enrollment starts active')
       WHERE NEW.status <> 'active';
-      SELECT RAISE(ABORT, 'The ARAL tutor must be an active tutor of the learner''s school')
-      WHERE NEW.tutor_id IS NOT NULL AND NOT EXISTS $tutorOk;
-      SELECT RAISE(ABORT, 'An ARAL section has at most $_sectionCap active learners')
-      WHERE (SELECT count(*) FROM aral_enrollments
-             WHERE section_id = NEW.section_id AND school_year = NEW.school_year AND status = 'active') >= $_sectionCap;
+${placement("NEW.class_id IS NOT NULL", "0")}
     END
   ''');
 
@@ -246,11 +308,12 @@ Future<void> createAralLocalSchema(Database db) async {
     BEFORE UPDATE ON aral_enrollments
     WHEN OLD.origin = 'local'
     BEGIN
-      SELECT RAISE(ABORT, 'An ARAL enrollment keeps its learner, school, year and basis; only the placement, tutor, status and notes change')
+      SELECT RAISE(ABORT, 'An ARAL enrollment keeps its learner, school, year and basis; only the placement, class, status and notes change')
       WHERE NEW.student_id IS NOT OLD.student_id OR NEW.school_id IS NOT OLD.school_id
          OR NEW.school_year IS NOT OLD.school_year OR NEW.basis_source IS NOT OLD.basis_source
          OR NEW.basis_round IS NOT OLD.basis_round OR NEW.basis_level IS NOT OLD.basis_level
          OR NEW.basis_assessment_id IS NOT OLD.basis_assessment_id
+         OR NEW.referred_by IS NOT OLD.referred_by OR NEW.referral_reason IS NOT OLD.referral_reason
          OR NEW.created_by IS NOT OLD.created_by OR NEW.created_at IS NOT OLD.created_at;
       SELECT RAISE(ABORT, 'Section does not belong to that school')
       WHERE (SELECT school_id FROM sections WHERE id = NEW.section_id) IS NOT NEW.school_id;
@@ -260,15 +323,10 @@ Future<void> createAralLocalSchema(Database db) async {
       WHERE NOT EXISTS (
         SELECT 1 FROM enrollments
         WHERE student_id = NEW.student_id AND section_id = NEW.section_id AND school_year = NEW.school_year);
-      SELECT RAISE(ABORT, 'The ARAL tutor must be an active tutor of the learner''s school')
-      WHERE NEW.tutor_id IS NOT NULL AND NEW.tutor_id IS NOT OLD.tutor_id AND NOT EXISTS $tutorOk;
-      -- Becoming active in a section (reactivation or a move) takes a place.
-      SELECT RAISE(ABORT, 'An ARAL section has at most $_sectionCap active learners')
-      WHERE NEW.status = 'active'
-        AND (OLD.status <> 'active' OR NEW.section_id IS NOT OLD.section_id)
-        AND (SELECT count(*) FROM aral_enrollments
-             WHERE section_id = NEW.section_id AND school_year = NEW.school_year AND status = 'active'
-               AND id <> NEW.id) >= $_sectionCap;
+      -- Going into a class (placement, a move, reactivation) is checked in
+      -- full; a program change that keeps the class is not (decision 7); a
+      -- section move keeps the learner inside the band.
+${placement("NEW.class_id IS NOT NULL AND NEW.status = 'active' AND (NEW.class_id IS NOT OLD.class_id OR OLD.status <> 'active' OR NEW.school_id IS NOT OLD.school_id OR NEW.school_year IS NOT OLD.school_year)", "(NEW.class_id IS NOT NULL AND NEW.status = 'active' AND NEW.section_id IS NOT OLD.section_id)")}
     END
   ''');
 
@@ -312,6 +370,8 @@ Future<void> createAralLocalSchema(Database db) async {
   ''');
 
   // ---- Per-tutor settings (v22): one session per date unless allowed. ----
+  const tutorOk = '''(SELECT 1 FROM users u WHERE u.id = NEW.tutor_id AND u.role = 'tutor'
+                        AND u.is_active = 1 AND u.school_id = NEW.school_id)''';
   await db.execute('''
     CREATE TABLE IF NOT EXISTS aral_tutor_settings (
       tutor_id TEXT PRIMARY KEY REFERENCES users(id),

@@ -35,6 +35,7 @@ import '../console/commands/sync_admin_commands.dart';
 import '../console/commands/trend_admin_commands.dart';
 import '../console/commands/tutor_section_commands.dart';
 import '../console/commands/user_commands.dart';
+import '../data/local/aral_class_repository_sqlite.dart';
 import '../data/local/aral_enrollment_repository_sqlite.dart';
 import '../data/local/crla_assessment_repository_sqlite.dart';
 import '../data/local/crla_result_repository_sqlite.dart';
@@ -141,9 +142,9 @@ Future<AdminVms> wireAdmin(AppContext ctx, SharedVms s, TutorVms t) async {
     auth: authVm,
     aral: t.aralVm,
     roster: AralEnrollmentRepositorySqlite(db),
+    classes: AralClassRepositorySqlite(db),
     sections: SectionRepositorySqlite(db),
     students: StudentRepositorySqlite(db),
-    users: UserRepositorySqlite(db),
     logger: session,
   );
   vms.register('AralRosterImportViewModel', aralRosterImportVm);
