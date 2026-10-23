@@ -1,0 +1,152 @@
+# T1 Session and dev commands, on tutor devices: sign-in (online and
+# offline), sign-out, passwords, version checks, config (throwaway device),
+# text, testTable, log filter, view models.
+
+# --- Signed out ----------------------------------------------------------------
+device t1-phone tutor fresh
+run whoami
+expect Not signed in
+run help
+expect sign-in-offline
+run version-app
+expect 20261023010000
+expect~ \d+ migrations, latest 20261023010000
+run version-check
+refuse Not signed in. Sign in first.
+run offline-status
+expect Offline sign-in: not set up on this device.
+run sign-in-offline {email_tutor1} wrong-password
+refuse not set up
+run sign-in cloud {email_tutor1} wrong-password
+refuse Sign-in failed: Invalid login credentials
+run sign-in moon {email_tutor1} wrong-password
+refuse cloud
+run sign-in cloud {email_tutor1}
+refuse Usage:
+sql select count(*) from login_logs where email_attempted = '{email_tutor1}' and success = 0 => 2
+
+# --- Online, then the device's offline sign-in -------------------------------
+# First sign-in replaces the temporary password.
+as tutor1
+run whoami
+expect {email_tutor1} (tutor)
+run version-check
+expect OK
+run pull-cloud yes
+expect users:
+run offline-status
+expect {email_tutor1}
+run sign-out
+expect Signed out.
+run whoami
+expect Not signed in
+run sign-in-offline {email_tutor1} wrong-password
+refuse password
+run sign-in-offline {email_tutor1} {pw_tutor1}
+expect Signed in offline as {email_tutor1}
+run whoami
+expect {email_tutor1} (tutor)
+# Work that needs the server refuses an offline session.
+run version-check
+refuse This needs an online sign-in. Sign in again while connected.
+run change-password Zz9!never-{run}
+refuse This needs an online sign-in. Sign in again while connected.
+run sign-out
+expect Signed out.
+# Only the device owner (the last user who pulled) signs in offline here.
+run sign-in-offline {email_tutor2} wrong-password
+refuse wrong email or password
+sql select count(*) from login_logs where email_attempted = '{email_tutor1}' and method = 'offline' and success = 1 => 1
+
+# --- Passwords (tutor2, own device) ------------------------------------------
+device t1-phone2 tutor fresh
+as tutor2
+run change-password 12
+refuse Password change failed: Password should be at least 6 characters.
+run change-password Zz9!Pass-{run}-T1
+expect Password changed.
+run sign-out
+expect Signed out.
+run sign-in cloud {email_tutor2} {pw_tutor2}
+refuse Sign-in failed: Invalid login credentials
+run sign-in cloud {email_tutor2} Zz9!Pass-{run}-T1
+expect Signed in as {email_tutor2} (tutor)
+# Back to the runner's password, so later batches can sign in.
+run change-password {pw_tutor2}
+expect Password changed.
+run change-password
+refuse Usage:
+
+# --- Text, testTable, logs, view models ---------------------------------------
+run set-text zz t1
+expect OK: "zz t1"
+run append-text  more
+expect zz t1
+run get-text
+expect zz t1
+expect more
+run clear-text
+expect~ .
+run get-text
+expect Text: ""
+run set-text
+refuse Usage:
+
+run db-use local
+expect Now using local SQLite.
+run db-add zz-t1-row
+expect Added.
+run db-list
+expect zz-t1-row
+capture dbrow = (\d+): zz-t1-row
+run db-delete {dbrow}
+expect~ .
+run db-list
+expect (empty)
+run db-delete abc
+refuse Usage:
+run db-use moon
+refuse Usage:
+
+run list-viewmodels
+expect SyncViewModel
+expect CrlaViewModel
+run log-filter AuthViewModel
+expect Filtering logs to source: AuthViewModel
+run log-filter
+expect AuthViewModel
+run log-filter clear
+expect Filter cleared.
+
+# --- Config, on a throwaway device ------------------------------------------
+device t1-config tutor fresh
+run config-show
+expect cloud.url:
+capture cloud_url = cloud\.url:\s+(\S+)
+run config-set-lan-url http://zz-t1.invalid:54321
+expect lan.url set to http://zz-t1.invalid:54321
+run config-set-lan-key zz-t1-lan-key-0000
+expect lan.anonKey updated.
+run config-show
+expect http://zz-t1.invalid:54321
+expect zz-t...0000
+run sign-in lan {email_tutor1} {pw_tutor1}
+refuse Sign-in failed: can't reach the server.
+run config-set-cloud-url https://zz-t1.invalid
+expect cloud.url set to https://zz-t1.invalid
+run sign-in cloud {email_tutor1} {pw_tutor1}
+refuse Sign-in failed: can't reach the server.
+run config-set-cloud-url {cloud_url}
+expect cloud.url set to {cloud_url}
+run config-set-cloud-key zz-t1-cloud-key-0000
+expect cloud.anonKey updated.
+run config-show
+expect zz-t...0000
+run config-set-cloud-url
+refuse Usage:
+run config-set-cloud-key
+refuse Usage:
+run config-set-lan-url
+refuse Usage:
+run config-set-lan-key
+refuse Usage:

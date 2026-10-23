@@ -11,7 +11,10 @@ sealed class Step {
 class DeviceStep extends Step {
   final String name;
   final String build;
-  const DeviceStep(super.line, this.name, this.build);
+  /// `device <name> <build> fresh`: start from an empty folder each time the
+  /// step runs, so a batch can be rerun on the same run.
+  final bool fresh;
+  const DeviceStep(super.line, this.name, this.build, {this.fresh = false});
 }
 
 /// `as <account>`: sign out, then sign in as that account.
@@ -110,10 +113,13 @@ Scenario parseScenario(String batch, String source) {
     switch (keyword) {
       case 'device':
         final parts = rest.split(RegExp(r'\s+'));
-        if (parts.length != 2 || !const {'tutor', 'admin'}.contains(parts[1])) {
-          fail('expected "device <name> tutor|admin"');
+        if (parts.length < 2 ||
+            parts.length > 3 ||
+            !const {'tutor', 'admin'}.contains(parts[1]) ||
+            (parts.length == 3 && parts[2] != 'fresh')) {
+          fail('expected "device <name> tutor|admin [fresh]"');
         }
-        steps.add(DeviceStep(n, parts[0], parts[1]));
+        steps.add(DeviceStep(n, parts[0], parts[1], fresh: parts.length == 3));
         afterRun = false;
       case 'as':
         if (rest.isEmpty || rest.contains(' ')) fail('expected "as <account>"');

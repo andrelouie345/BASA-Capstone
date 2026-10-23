@@ -43,6 +43,13 @@ expect ZZTEST
     expect(steps.map((e) => e.line), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
   });
 
+  test('parses device ... fresh', () {
+    final s = parseScenario('x', 'device phone tutor fresh\ndevice pc admin');
+    expect((s.steps[0] as DeviceStep).fresh, isTrue);
+    expect((s.steps[1] as DeviceStep).fresh, isFalse);
+    expect(() => parseScenario('x', 'device phone tutor stale'), throwsFormatException);
+  });
+
   test('skips comments and blank lines', () {
     final s = parseScenario('x', '# heading\n\nrun whoami\n   \n# note\nexpect Signed in\n');
     expect(s.steps, hasLength(2));

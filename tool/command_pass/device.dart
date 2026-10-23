@@ -42,8 +42,13 @@ class DeviceManager {
 
   /// Opens [name], closing the device open before it. Switching to the open
   /// device keeps it as it is. A device keeps its build for the whole run.
-  Future<Device> switchTo(String name, String build) async {
+  Future<Device> switchTo(String name, String build, {bool fresh = false}) async {
     final dir = Directory('${runDir.path}/devices/$name');
+    if (fresh) {
+      await close();
+      _lastAccounts.remove(name);
+      if (dir.existsSync()) dir.deleteSync(recursive: true);
+    }
     final buildFile = File('${dir.path}/build.txt');
     if (buildFile.existsSync() && buildFile.readAsStringSync().trim() != build) {
       throw StateError('device "$name" is a ${buildFile.readAsStringSync().trim()} device, not $build');

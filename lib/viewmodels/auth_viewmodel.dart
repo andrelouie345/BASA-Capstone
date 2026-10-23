@@ -20,6 +20,7 @@ import '../core/repositories/offline_credential_repository.dart';
 import '../core/repositories/report_setting_repository.dart';
 import '../core/services/offline_signin_rules.dart';
 import '../core/services/pbkdf2.dart';
+import '../core/services/auth_messages.dart';
 
 
 /// ViewModel for Authentication
@@ -156,7 +157,8 @@ class AuthViewModel {
       return null; // null return = success
     } catch (e) {
       await _recordAttempt(email, success: false, failureReason: e.toString(), client: client);
-      return 'Sign-in failed: $e';
+      _log('sign-in failed: $e');
+      return 'Sign-in failed: ${authFailureMessage(e)}';
     }
   }
 
@@ -306,7 +308,8 @@ class AuthViewModel {
       await _saveOfflineCredential(currentUser!, newPassword);
       return null;
     } catch (e) {
-      return 'Password change failed: $e';
+      _log('password change failed: $e');
+      return 'Password change failed: ${authFailureMessage(e)}';
     }
   }
 
@@ -340,8 +343,8 @@ class AuthViewModel {
   }
 
   String? requireActiveSession() {
-    if (!isSignedIn) return 'Not signed in. Use sign-in <cloud|lan> <email> <password> first.';
-    if (mustChangePassword) return 'You must change your password first. Use change-password <new password...>.';
+    if (!isSignedIn) return notSignedInMessage;
+    if (mustChangePassword) return mustChangePasswordMessage;
     return null;
   }
 
@@ -350,8 +353,8 @@ class AuthViewModel {
   /// imports, pull, sync, user management, version check). Guard every
   /// [client]`!` with this, never with [requireActiveSession] alone.
   String? requireOnlineSession({bool allowPendingPasswordChange = false}) {
-    if (!isSignedIn) return 'Not signed in. Use sign-in <cloud|lan> <email> <password> first.';
-    if (_client == null) return 'This needs an online sign-in. Use sign-in <cloud|lan> <email> <password>.';
+    if (!isSignedIn) return notSignedInMessage;
+    if (_client == null) return needsOnlineSignInMessage;
     if (allowPendingPasswordChange) return null;
     return requireActiveSession();
   }

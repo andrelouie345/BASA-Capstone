@@ -5,7 +5,7 @@ import 'runner.dart';
 import 'scenario.dart';
 
 String describe(Step s) => switch (s) {
-      DeviceStep() => 'device ${s.name} ${s.build}',
+      DeviceStep() => 'device ${s.name} ${s.build}${s.fresh ? ' fresh' : ''}',
       AsStep() => 'as ${s.account}',
       RunStep() => '${s.otherSchool ? 'other-school ' : ''}run ${s.commandLine}',
       ExpectStep() => 'expect ${s.text}',
@@ -50,6 +50,10 @@ String renderReport(List<StepResult> results, CoverageResult? cov, Iterable<Stri
       if (r.output.isNotEmpty) b.write('\n  ```\n${_indent(mask(r.output, secrets))}\n  ```\n');
     } else {
       b.write('\n');
+      // The refusal a user would see, for reviewing the messages.
+      if (mark == 'PASS' && r.step is RefuseStep && r.output.isNotEmpty) {
+        b.write('  > ${mask(r.output.split('\n').first, secrets)}\n');
+      }
     }
   }
   if (cov != null) {

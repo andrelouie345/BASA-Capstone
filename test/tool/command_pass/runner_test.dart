@@ -47,6 +47,24 @@ void main() {
     expect(results, hasLength(20));
   });
 
+  test('device ... fresh starts the device from an empty folder on every invocation', () async {
+    const s = 'device a tutor fresh\nrun sign-in-offline zz.fresh@basa.test x\nrefuse not set up\n'
+        "sql select count(*) from login_logs where email_attempted = 'zz.fresh@basa.test' => 1";
+    final first = await run(s);
+    expect(first.every((r) => r.outcome.passed), isTrue, reason: first.map((r) => r.outcome.message).join('; '));
+    final second = await run('device b tutor\nrun help\nexpect x\n$s'); // switch away, then back
+    expect(second.skip(3).every((r) => r.outcome.passed), isTrue,
+        reason: second.map((r) => r.outcome.message).join('; '));
+  });
+
+  test('a fresh device keeps its data while the scenario stays on it', () async {
+    final r = await run('device a tutor fresh\nrun sign-in-offline zz.keep@basa.test x\nrefuse not set up\n'
+        'device b tutor\nrun help\nexpect x\n'
+        'device a tutor\nrun help\n'
+        "sql select count(*) from login_logs where email_attempted = 'zz.keep@basa.test' => 1");
+    expect(r.last.outcome.passed, isTrue, reason: r.last.outcome.message);
+  });
+
   test('an unknown command fails the run and skips its checks', () async {
     final results = await run('device a tutor\nrun no-such-cmd\nexpect x');
     expect(results[1].outcome.passed, isFalse);
@@ -109,6 +127,12 @@ void main() {
     expect(results[2].outcome.passed, isFalse);
   });
 
+  test('report shows the first output line under a passed refuse step', () async {
+    final results = await run('device a tutor\nrun set-text\nrefuse Usage:');
+    final report = renderReport(results, null, const []);
+    expect(report, contains('- PASS L3 `refuse Usage:`\n  > Usage: set-text <value>\n'));
+  });
+
   test('report marks steps, masks secrets and ends with the summary line', () async {
     final results = await run('device a tutor\nrun set-text hunter2\nexpect OK\nrun get-text\nexpect nothing-here');
     final report = renderReport(results, null, const ['hunter2']);
@@ -145,6 +169,16 @@ void main() {
     expect(state.captures['past'], d(now.subtract(const Duration(days: 30))));
     expect(results[5].outcome.passed, isFalse);
     expect(results[5].outcome.message, contains('missing'));
+  });
+
+  test('run accounts have {email_<name>} and, once known, {pw_<name>}', () async {
+    state.passwords['tutor1'] = 'Zz9!secretpw';
+    final results = await run('device a tutor\nrun set-text {email_tutor1} {pw_tutor1}\n'
+        'expect OK: "zztest.pass.r1.tutor1@basa.test Zz9!secretpw"\nrun set-text {pw_tutor2}\nexpect x');
+    expect(results[2].outcome.passed, isTrue, reason: results[2].outcome.message);
+    expect(results[3].outcome.passed, isFalse);
+    expect(results[3].outcome.message, contains('pw_tutor2'));
+    expect(renderReport(results, null, accounts.secrets), isNot(contains('Zz9!secretpw')));
   });
 
   test('a changed superadmin password is written back to the shared accounts file', () async {
