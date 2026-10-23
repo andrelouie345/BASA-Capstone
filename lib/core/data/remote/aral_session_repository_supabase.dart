@@ -70,6 +70,9 @@ class AralSessionRepositorySupabase implements AralSessionRepository {
       _sessions('school_id', schoolId, schoolYear);
 
   @override
+  Future<List<AralSession>> getByClass(int classId) => _sessions('class_id', classId, null);
+
+  @override
   Future<AralAttendance> saveAttendance(AralAttendance attendance) async {
     final payload = attendance.toMap()
       ..remove('id')

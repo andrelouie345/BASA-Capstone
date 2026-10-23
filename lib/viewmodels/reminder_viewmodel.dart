@@ -11,24 +11,30 @@
 // crla_results row of that round in the section, against the same threshold.
 // The threshold is the saved report setting unless one is passed.
 //
+// ARAL classes (2026-10-24): coordinators also see the school's ARAL learners
+// waiting for a class, learners in a class of another program, and classes
+// without a tutor (SchoolReminders.aral).
+//
 // Tutor reminders (D3): per learner, not per section (a tutor is reminded about
 // each learner even when the section passed the done threshold), over the
 // tutor's assigned sections (tutor_section_assignments, mirrored locally) and
 // ARAL learners (those of the classes they teach): learners not assessed in open or
-// closed rounds, check-ins due after the tutor's 16th/32nd session (the tutor's
-// count, also for learners who joined later; owner 2026-10-19), ARAL learners
-// without an IRIP, and no session for more than idle_session_days. Nothing
-// dated after today counts.
+// closed rounds, check-ins due after a class's 16th/32nd session (the class's
+// count, also for learners who joined later), ARAL learners without an IRIP,
+// and a class with no session for more than idle_session_days. Nothing dated
+// after today counts.
 import '../core/console/logger.dart';
 import '../core/models/assessment_calendar.dart';
 import '../core/models/crla_assessment.dart' show CrlaRound;
 import '../core/models/phil_iri_assessment.dart' show PhilIriRound;
+import '../core/models/aral_class.dart';
 import '../core/models/report_setting.dart';
 import '../core/models/section.dart';
 import '../core/models/user_role.dart';
 import '../core/models/aral_enrollment.dart';
 import '../core/models/student.dart';
 import '../core/repositories/aral_checkin_repository.dart';
+import '../core/repositories/aral_class_repository.dart';
 import '../core/repositories/aral_enrollment_repository.dart';
 import '../core/repositories/aral_irip_repository.dart';
 import '../core/repositories/aral_session_repository.dart';
@@ -112,7 +118,27 @@ class SchoolReminders {
   final double doneThreshold;
   final List<CoordinatorReminder> reminders;
 
-  const SchoolReminders(this.schoolId, this.schoolName, this.doneThreshold, this.reminders);
+  /// ARAL classes: learners waiting for a class, in a class of another
+  /// program, classes without a tutor (empty when all is in order).
+  final List<AralClassNotice> aral;
+
+  const SchoolReminders(this.schoolId, this.schoolName, this.doneThreshold, this.reminders, [this.aral = const []]);
+}
+
+enum AralClassNoticeKind { waiting, programMismatch, noTutor }
+
+/// An ARAL class matter for the coordinator.
+class AralClassNotice {
+  final AralClassNoticeKind kind;
+  final String message;
+
+  /// The roster entries concerned (waiting, mismatch).
+  final List<int> enrollmentIds;
+
+  /// The class concerned (no tutor).
+  final AralClass? aralClass;
+
+  const AralClassNotice(this.kind, this.message, {this.enrollmentIds = const [], this.aralClass});
 }
 
 /// In display order (spec D3): overdue assessments, check-ins due, open-round
@@ -140,6 +166,9 @@ class TutorReminder {
   /// Check-in reminders: 16 or 32.
   final int? checkpoint;
 
+  /// Check-in and no-session reminders: the ARAL class.
+  final AralClass? aralClass;
+
   /// Days since closes_on (overdue), until closes_on (open, 0 = today), or
   /// since the last session (no session lately; null when none this year).
   final int? days;
@@ -148,7 +177,7 @@ class TutorReminder {
   final List<ReminderLearner> learners;
 
   const TutorReminder(this.kind, this.message, this.learners,
-      {this.section, this.instrument, this.window, this.checkpoint, this.days});
+      {this.section, this.instrument, this.window, this.checkpoint, this.days, this.aralClass});
 }
 
 class TutorReminders {
@@ -156,7 +185,7 @@ class TutorReminders {
   final String? tutorName;
   final String schoolYear;
 
-  /// The tutor's ARAL sessions of the year held on or before today.
+  /// The sessions of the tutor's ARAL classes held on or before today.
   final int sessionsHeld;
   final String? lastSession; // YYYY-MM-DD
   final int idleSessionDays;
@@ -183,6 +212,7 @@ class ReminderViewModel {
   final AralIripRepository _irip;
   final AralCheckinRepository _checkins;
   final AralSettingRepository _aralSettings;
+  final AralClassRepository _classes;
 
   ReminderViewModel({
     required AuthViewModel auth,
@@ -200,6 +230,7 @@ class ReminderViewModel {
     required AralIripRepository irip,
     required AralCheckinRepository checkins,
     required AralSettingRepository aralSettings,
+    required AralClassRepository classes,
     Logger? logger,
   })  : _auth = auth,
         _calendar = calendar,
@@ -216,6 +247,7 @@ class ReminderViewModel {
         _irip = irip,
         _checkins = checkins,
         _aralSettings = aralSettings,
+        _classes = classes,
         _log = ScopedLogger(logger, 'ReminderViewModel');
 
   /// Reminders for [schoolId]'s coordinators in [year] as of [today] (default
@@ -307,7 +339,32 @@ class ReminderViewModel {
       final d = a.kind == ReminderKind.overdue ? b.days.compareTo(a.days) : a.days.compareTo(b.days);
       return d != 0 ? d : order(a).compareTo(order(b));
     });
-    return SchoolReminders(schoolId, name, threshold, out);
+    return SchoolReminders(schoolId, name, threshold, out, await _aralNotices(schoolId, year, calendarDate(today)));
+  }
+
+  /// The school's ARAL learners waiting for a class or in a class of another
+  /// program on [day], and its classes without a tutor.
+  Future<List<AralClassNotice>> _aralNotices(int schoolId, String year, String day) async {
+    final classes = {for (final c in await _classes.getBySchool(schoolId, schoolYear: year)) c.id!: c};
+    final active = (await _roster.getBySchool(schoolId, schoolYear: year)).where((e) => aralActiveOn(e, day)).toList();
+    final waiting = [for (final e in active) if (e.classId == null) e.id!];
+    final mismatch = [
+      for (final e in active)
+        if (e.classId != null && classes[e.classId]?.program != null &&
+            classes[e.classId]!.program != AralClassProgram.of(e.keyStage, e.track))
+          e.id!,
+    ];
+    String learners(int n) => n == 1 ? '1 ARAL learner' : '$n ARAL learners';
+    return [
+      if (waiting.isNotEmpty)
+        AralClassNotice(AralClassNoticeKind.waiting, '${learners(waiting.length)} waiting for a class.',
+            enrollmentIds: waiting),
+      if (mismatch.isNotEmpty)
+        AralClassNotice(AralClassNoticeKind.programMismatch,
+            '${learners(mismatch.length)} in a class of another program.', enrollmentIds: mismatch),
+      for (final c in classes.values.where((c) => c.tutorId == null))
+        AralClassNotice(AralClassNoticeKind.noTutor, 'Class "${c.className}" has no tutor.', aralClass: c),
+    ];
   }
 
   /// Reminders for tutor [tutorId] in [year] as of [today] (default now), from
@@ -351,8 +408,14 @@ class ReminderViewModel {
       }
     }
 
-    final held = (await _aralSessions.getByTutor(tutorId, schoolYear: year)).where((s) => byToday(s.heldOn)).toList();
-    final lastSession = held.isEmpty ? null : held.map((s) => s.heldOn).reduce((a, b) => a.compareTo(b) >= 0 ? a : b);
+    // The tutor's classes of the year and their sessions held by today.
+    final classes = await _classes.getByTutor(tutorId, schoolYear: year);
+    final heldIn = {
+      for (final c in classes) c.id!: (await _aralSessions.getByClass(c.id!)).where((s) => byToday(s.heldOn)).toList(),
+    };
+    final held = [for (final list in heldIn.values) ...list];
+    String? latest(Iterable<String> days) => days.isEmpty ? null : days.reduce((a, b) => a.compareTo(b) >= 0 ? a : b);
+    final lastSession = latest(held.map((s) => s.heldOn));
     final schoolId = me.schoolId != null && schools.contains(me.schoolId)
         ? me.schoolId
         : (schools.isEmpty ? null : (schools.toList()..sort()).first);
@@ -428,32 +491,37 @@ class ReminderViewModel {
       }
     }
 
-    // 2. Check-ins due: after the tutor's 16th / 32nd session, active learners
-    // whose program has a tool at that checkpoint and no attempt at one by today.
-    for (final checkpoint in aralCheckinCheckpoints) {
-      if (held.length < checkpoint) continue;
-      final due = <ReminderLearner>[];
-      for (final e in roster) {
-        if (e.track == null || await _checkins.toolFor(e.keyStage, e.track!, checkpoint) == null) continue;
-        var took = false;
-        for (final c in await _checkins.checkins(e.id!)) {
-          if (!byToday(c.takenOn)) continue;
-          if ((await _checkins.findTool(c.toolId))?.checkpoint == checkpoint) {
-            took = true;
-            break;
+    // 2. Check-ins due, per class: after the class's 16th / 32nd session,
+    // active learners whose program has a tool at that checkpoint and no
+    // attempt at one by today.
+    for (final cls in classes) {
+      for (final checkpoint in aralCheckinCheckpoints) {
+        final classHeld = heldIn[cls.id]!.length;
+        if (classHeld < checkpoint) continue;
+        final due = <ReminderLearner>[];
+        for (final e in roster.where((e) => e.classId == cls.id)) {
+          if (e.track == null || await _checkins.toolFor(e.keyStage, e.track!, checkpoint) == null) continue;
+          var took = false;
+          for (final c in await _checkins.checkins(e.id!)) {
+            if (!byToday(c.takenOn)) continue;
+            if ((await _checkins.findTool(c.toolId))?.checkpoint == checkpoint) {
+              took = true;
+              break;
+            }
           }
+          if (!took) due.add(await rosterLearner(e));
         }
-        if (!took) due.add(await rosterLearner(e));
+        if (due.isEmpty) continue;
+        due.sort(_byName);
+        out.add(TutorReminder(
+          TutorReminderKind.checkinDue,
+          'Class "${cls.className}": check-in due (session $checkpoint done; $classHeld held): ${due.length} '
+          'learner${due.length == 1 ? '' : 's'} without one.',
+          due,
+          checkpoint: checkpoint,
+          aralClass: cls,
+        ));
       }
-      if (due.isEmpty) continue;
-      due.sort(_byName);
-      out.add(TutorReminder(
-        TutorReminderKind.checkinDue,
-        'Check-in after session $checkpoint due (${held.length} sessions held): ${due.length} '
-        'learner${due.length == 1 ? '' : 's'} without one.',
-        due,
-        checkpoint: checkpoint,
-      ));
     }
 
     // 3. Active ARAL learners without an IRIP.
@@ -470,16 +538,19 @@ class ReminderViewModel {
           '${noIrip.length} ARAL learner${noIrip.length == 1 ? ' has' : 's have'} no IRIP.', noIrip));
     }
 
-    // 4. No session lately (only with active ARAL learners).
-    if (roster.isNotEmpty) {
-      if (lastSession == null) {
-        out.add(const TutorReminder(TutorReminderKind.noSessionLately, 'No ARAL session yet this school year.', []));
+    // 4. No session lately, per class with active ARAL learners.
+    for (final c in classes) {
+      if (!roster.any((e) => e.classId == c.id)) continue;
+      final last = latest(heldIn[c.id]!.map((s) => s.heldOn));
+      if (last == null) {
+        out.add(TutorReminder(TutorReminderKind.noSessionLately,
+            'Class "${c.className}": no session yet this school year.', const [], aralClass: c));
       } else {
-        final since = _daysBetween(lastSession, day);
+        final since = _daysBetween(last, day);
         if (since > idleDays) {
           out.add(TutorReminder(TutorReminderKind.noSessionLately,
-              'Last ARAL session ${_n(since)} ago ($lastSession); reminded after ${_n(idleDays)}.', const [],
-              days: since));
+              'Class "${c.className}": no session since $last (${_n(since)}; reminded after ${_n(idleDays)}).',
+              const [], days: since, aralClass: c));
         }
       }
     }
@@ -503,7 +574,9 @@ class ReminderViewModel {
       if (c != 0) return c;
       final ra = a.window == null ? 0 : calendarRounds[a.instrument]!.indexOf(a.window!.round);
       final rb = b.window == null ? 0 : calendarRounds[b.instrument]!.indexOf(b.window!.round);
-      return ra != rb ? ra.compareTo(rb) : (a.checkpoint ?? 0).compareTo(b.checkpoint ?? 0);
+      if (ra != rb) return ra.compareTo(rb);
+      c = (a.aralClass?.className ?? '').compareTo(b.aralClass?.className ?? '');
+      return c != 0 ? c : (a.checkpoint ?? 0).compareTo(b.checkpoint ?? 0);
     });
     return TutorReminders(tutorId, tutor?.fullName ?? (tutorId == me.id ? me.fullName : null), year, held.length,
         lastSession, idleDays, out);

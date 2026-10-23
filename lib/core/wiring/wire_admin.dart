@@ -16,7 +16,6 @@ import '../console/commands/aral_checkin_admin_commands.dart';
 import '../console/commands/aral_class_admin_commands.dart';
 import '../console/commands/aral_export_commands.dart';
 import '../console/commands/aral_material_admin_commands.dart';
-import '../console/commands/aral_session_admin_commands.dart';
 import '../console/commands/aral_report_commands.dart';
 import '../console/commands/calendar_admin_commands.dart';
 import '../console/commands/crla_import_admin_commands.dart';
@@ -186,7 +185,6 @@ void registerAdminCommands(AppContext ctx, SharedVms s, TutorVms t, AdminVms a) 
   registerPhilIriAdminCommands(r, t.philIriVm);
   registerAralAdminCommands(r, t.aralVm);
   registerAralClassAdminCommands(r, t.aralClassVm);
-  registerAralSessionAdminCommands(r, t.aralSessionVm);
   registerAralCheckinAdminCommands(r, t.aralCheckinVm);
   registerAralMaterialAdminCommands(r, t.aralMaterialVm);
   registerCalendarAdminCommands(r, t.calendarVm);

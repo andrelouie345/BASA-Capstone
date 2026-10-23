@@ -20,6 +20,9 @@ abstract class AralSessionRepository {
 
   Future<List<AralSession>> getBySchool(int schoolId, {String? schoolYear});
 
+  /// The class's sessions, by date.
+  Future<List<AralSession>> getByClass(int classId);
+
   /// Records or replaces a learner's mark for the session (one per learner).
   Future<AralAttendance> saveAttendance(AralAttendance attendance);
 

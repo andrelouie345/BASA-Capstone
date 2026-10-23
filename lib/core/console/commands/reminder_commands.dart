@@ -17,7 +17,7 @@ String coordinatorRemindersText(List<SchoolReminders> schools) {
   for (final s in schools) {
     if (out.isNotEmpty) out.write('\n');
     out.write('School ${s.schoolName} (#${s.schoolId}) — done at ${thresholdPercent(s.doneThreshold)}');
-    if (s.reminders.isEmpty) out.write('\n  No reminders.');
+    if (s.reminders.isEmpty && s.aral.isEmpty) out.write('\n  No reminders.');
     for (final r in s.reminders) {
       final tag = switch (r.kind) {
         ReminderKind.overdue => 'OVERDUE',
@@ -30,6 +30,10 @@ String coordinatorRemindersText(List<SchoolReminders> schools) {
             '${c.assessed}/${c.enrolled} (${(c.share * 100).toStringAsFixed(1)}%)');
       }
     }
+    for (final n in s.aral) {
+      out.write('\n  [ARAL] ${n.message}');
+      if (n.enrollmentIds.isNotEmpty) out.write('\n      ARAL #${n.enrollmentIds.join(', #')}');
+    }
   }
   return out.toString();
 }
@@ -37,7 +41,7 @@ String coordinatorRemindersText(List<SchoolReminders> schools) {
 /// Tutor reminders as console text (also used by `dashboard`).
 String tutorRemindersText(TutorReminders t) {
   final out = StringBuffer('Tutor ${t.tutorName == null ? t.tutorId : '${t.tutorName} (${t.tutorId})'} — ${t.schoolYear}: '
-      '${t.sessionsHeld} ARAL session${t.sessionsHeld == 1 ? '' : 's'} held, last ${t.lastSession ?? 'none'}; '
+      '${t.sessionsHeld} session${t.sessionsHeld == 1 ? '' : 's'} held in their ARAL classes, last ${t.lastSession ?? 'none'}; '
       'no-session reminder after ${t.idleSessionDays} days');
   if (t.reminders.isEmpty) out.write('\n  No reminders.');
   for (final r in t.reminders) {

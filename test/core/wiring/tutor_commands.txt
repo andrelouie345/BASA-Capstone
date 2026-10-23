@@ -11,7 +11,9 @@ aral-checkin-mark
 aral-checkin-start
 aral-checkin-tools
 aral-checkins
+aral-class-sessions
 aral-class-show
+aral-class-summary
 aral-classes
 aral-idle-days
 aral-irip

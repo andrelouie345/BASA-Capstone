@@ -199,14 +199,15 @@ Future<void> createSyncLocalSchema(Database db) async {
   for (final c in ['basis_assessment_id', 'suggestion_assessment_id']) {
     await refLock('aral_enrollments', c, "'crla_assessments', 'phil_iri_assessments'");
   }
-  // v36: a placement in a new class that waits in an upload.
+  // v36/v37: a placement in, or a session of, a new class that waits in an upload.
   await refLock('aral_enrollments', 'class_id', "'aral_classes'");
+  await refLock('aral_sessions', 'class_id', "'aral_classes'");
 }
 
 /// Owner tables with the local-only origin column ('cloud' = pulled).
 const _originTables = [
   'crla_assessments', 'phil_iri_gst_results', 'phil_iri_assessments', 'aral_classes', 'aral_enrollments',
-  'aral_sessions', 'aral_tutor_settings', 'aral_irip_weeks', 'aral_checkins', 'aral_readability_logs',
+  'aral_sessions', 'aral_irip_weeks', 'aral_checkins', 'aral_readability_logs',
 ];
 
 /// Rows pointing at an ARAL enrollment (besides syncedParents).

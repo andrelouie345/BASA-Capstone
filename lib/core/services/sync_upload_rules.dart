@@ -21,7 +21,6 @@ const serverBoolColumns = <String, Set<String>>{
   },
   'phil_iri_miscues': {'self_corrected'},
   'phil_iri_answers': {'is_correct', 'looked_back'},
-  'aral_tutor_settings': {'multiple_sessions_per_day'},
   'aral_checkin_answers': {'is_correct'},
 };
 

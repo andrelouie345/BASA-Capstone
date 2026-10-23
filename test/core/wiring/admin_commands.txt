@@ -18,7 +18,9 @@ aral-class-add
 aral-class-delete
 aral-class-edit
 aral-class-place
+aral-class-sessions
 aral-class-show
+aral-class-summary
 aral-class-unplace
 aral-classes
 aral-enroll
@@ -73,7 +75,6 @@ aral-sessions
 aral-sharp
 aral-sharp-set
 aral-sheet
-aral-tutor-multi
 aral-tutor-summary
 aral-tutors
 aral-unmark

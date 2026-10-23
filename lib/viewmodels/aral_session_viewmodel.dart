@@ -3,29 +3,32 @@
 // ARAL-Reading session log and attendance (piece A2b). Offline-first: reads
 // and writes the local copy, like the roster (AralViewModel).
 //
-// Owner decisions (2026-10-15):
-//  * A session is one tutor's meeting on one date; its learners may come from
-//    several sections. The log keeps minutes, set-up, the session number
-//    (assigned by the database), lesson and remarks.
-//  * Tutors log and edit their own sessions; admins/coordinators any session
-//    of their school (for a tutor of that school).
+// Owner decisions (2026-10-15; ARAL classes 2026-10-23, spec
+// docs/superpowers/specs/2026-10-23-aral-classes-design.md decisions 6 and 8):
+//  * A session is one ARAL class's meeting on one date; its learners may come
+//    from several sections. The log keeps minutes, set-up, the session number
+//    (assigned by the database, per class), lesson and remarks, and who held
+//    it (the class tutor, or a substitute an admin/coordinator names).
+//  * Tutors log sessions for the classes they teach; admins/coordinators for
+//    any class of their school. Sessions from before classes keep no class.
 //  * Marks are present / absent / excused. The default list for a session is
-//    the tutor's ARAL learners who were in ARAL on that date; a substitute's
-//    session may mark other learners of the school (enrollment ids).
-//  * One session per tutor per date, unless an admin/coordinator allows
-//    several for that tutor (aral_tutor_settings, owner 2026-10-15).
+//    the class's learners who were in ARAL on that date; only an
+//    admin/coordinator marks a learner of another class.
+//  * One session per class per date (replaces the per-tutor setting).
 //  * DepEd: at most 1 hour on weekdays (longer is warned about, lastWarning)
-//    and 2 hours on weekends (refused). Check-in assessments are due after
-//    sessions 16 and 32 (noticed in lastWarning).
+//    and 2 hours on weekends (refused). Check-in assessments are due after a
+//    class's sessions 16 and 32 (noticed in lastWarning).
+//  * After a move, a learner's marks in their earlier class stay with them
+//    (learnerAttendance reads every mark this device holds).
 import '../core/console/logger.dart';
+import '../core/models/aral_class.dart';
 import '../core/models/aral_enrollment.dart';
 import '../core/models/aral_session.dart';
-import '../core/models/aral_tutor_setting.dart';
 import '../core/models/user.dart';
 import '../core/models/user_role.dart';
+import '../core/repositories/aral_class_repository.dart';
 import '../core/repositories/aral_enrollment_repository.dart';
 import '../core/repositories/aral_session_repository.dart';
-import '../core/repositories/aral_tutor_setting_repository.dart';
 import '../core/repositories/student_repository.dart';
 import '../core/repositories/user_repository.dart';
 import '../core/services/normalizers.dart';
@@ -42,8 +45,8 @@ const aralCheckInAfter = [16, 32];
 class AralSheetLine {
   final AralEnrollment enrollment;
   final AralAttendance? attendance; // null = not marked yet
-  /// The session tutor's learner (on the default list); false for a learner
-  /// marked from another tutor's group.
+  /// On the session's default list (the class's learners); false for a
+  /// learner of another class marked at it.
   final bool expected;
 
   const AralSheetLine(this.enrollment, this.attendance, {required this.expected});
@@ -76,16 +79,16 @@ class AralAttendanceSummary {
       );
 }
 
-/// A tutor's year at a glance.
+/// A tutor's year at a glance, over the classes they teach.
 class AralTutorSummary {
   final User tutor;
   final int sessions;
   final int totalMinutes;
-  final int? lastSessionNo;
-  final int? nextCheckInAfter; // the next check-in's session number; null when both are past
+  final int? lastSessionNo;    // the highest session number among their classes
+  final int? nextCheckInAfter; // the check-in (16 or 32) of the class closest to one; null when all are past
+  final int? sessionsToNextCheckIn; // that class's sessions to go
   final int activeLearners;
   final AralAttendanceSummary attendance;
-  final bool multipleSessionsPerDay;
 
   const AralTutorSummary({
     required this.tutor,
@@ -93,9 +96,30 @@ class AralTutorSummary {
     required this.totalMinutes,
     required this.lastSessionNo,
     required this.nextCheckInAfter,
+    required this.sessionsToNextCheckIn,
     required this.activeLearners,
     required this.attendance,
-    required this.multipleSessionsPerDay,
+  });
+}
+
+/// One ARAL class's year at a glance.
+class AralClassSummary {
+  final AralClass aralClass;
+  final int sessions;
+  final int totalMinutes;
+  final int? lastSessionNo;
+  final int? nextCheckInAfter; // the next check-in's session number; null when both are past
+  final int activeLearners;
+  final AralAttendanceSummary attendance;
+
+  const AralClassSummary({
+    required this.aralClass,
+    required this.sessions,
+    required this.totalMinutes,
+    required this.lastSessionNo,
+    required this.nextCheckInAfter,
+    required this.activeLearners,
+    required this.attendance,
   });
 }
 
@@ -103,9 +127,11 @@ class AralSessionViewModel {
   static const _dbRefusals = [
     'The session tutor must be an active tutor of the school',
     'That learner was not in ARAL in this school on the session date',
-    'An ARAL session keeps its tutor, school, year and number; only the date, minutes, set-up, lesson and remarks change',
+    'An ARAL session keeps its tutor, class, school, year and number; only the date, minutes, set-up, lesson and remarks change',
     'An attendance mark keeps its session and learner; delete it and add a new one instead',
-    'This tutor already has an ARAL session on that date (a coordinator can allow several per day)',
+    'An ARAL class already has a session on that date',
+    'A new ARAL session needs a class',
+    'The ARAL class belongs to another school or school year',
   ];
 
   final ScopedLogger _log;
@@ -114,7 +140,7 @@ class AralSessionViewModel {
   final AralEnrollmentRepository _roster;
   final UserRepository _users;
   final StudentRepository _students;
-  final AralTutorSettingRepository _settings;
+  final AralClassRepository _classes;
 
   /// A non-blocking notice from the last write (a long weekday session, a
   /// check-in that is due).
@@ -126,10 +152,10 @@ class AralSessionViewModel {
     required AralEnrollmentRepository roster,
     required UserRepository users,
     required StudentRepository students,
-    required AralTutorSettingRepository settings,
+    required AralClassRepository classes,
     Logger? logger,
   })  : _auth = auth,
-        _settings = settings,
+        _classes = classes,
         _sessions = sessions,
         _roster = roster,
         _users = users,
@@ -145,35 +171,55 @@ class AralSessionViewModel {
 
   // ---- Sessions ----
 
-  /// Logs a session. A tutor logs their own ([tutorId] omitted or their id);
-  /// an admin/coordinator names the tutor. [heldOn] defaults to today.
+  /// Logs a session of the class. A tutor logs for a class they teach, as
+  /// themselves; an admin/coordinator for any class of their school, held by
+  /// [tutorId] (a substitute) or else the class tutor. The school year is the
+  /// class's. [heldOn] defaults to today.
   Future<AralSession> logSession({
-    String? tutorId,
-    required String schoolYear,
+    required int classId,
     DateTime? heldOn,
     required int minutes,
     required AralSetup setup,
     String? lesson,
     String? remarks,
+    String? tutorId,
   }) async {
     _requireSignIn();
     final me = _me();
-    final tid = tutorId ?? me.id;
-    _log('logSession(tutor: $tid, year: $schoolYear, on: ${heldOn == null ? 'today' : _date(heldOn)}, '
-        'minutes: $minutes, setup: ${setup.value})');
+    _log('logSession(class: $classId, tutor: ${tutorId ?? 'class tutor'}, '
+        'on: ${heldOn == null ? 'today' : _date(heldOn)}, minutes: $minutes, setup: ${setup.value})');
     lastWarning = null;
-    schoolYear = normalizeSchoolYear(schoolYear);
+    final cls = await _class(classId);
+    final String tid;
+    if (me.role == UserRole.tutor) {
+      if (cls.tutorId != me.id || (tutorId != null && tutorId != me.id)) {
+        throw const ViewModelException('Forbidden: you can only log sessions for your own classes.');
+      }
+      tid = me.id;
+    } else {
+      _requireManager(me);
+      if (me.schoolId != null && me.schoolId != cls.schoolId) {
+        throw const ViewModelException('Forbidden: that class is in another school.');
+      }
+      tid = tutorId ??
+          cls.tutorId ??
+          (throw ViewModelException(
+              'Class "${cls.className}" has no tutor yet; set one or name the tutor who held the session.'));
+    }
     final tutor = await _tutor(tid);
-    _canWriteFor(me, tutor);
+    if (tutor.schoolId != cls.schoolId) {
+      throw const ViewModelException('The session tutor must be an active tutor of the school.');
+    }
     final date = _date(heldOn ?? DateTime.now());
-    _checkDate(date, schoolYear);
+    _checkDate(date, cls.schoolYear);
     _checkMinutes(date, minutes);
-    await _checkDay(tutor.id, schoolYear, date);
+    await _checkDay(cls, date);
 
     final stored = await _write(() => _sessions.insertSession(AralSession(
           tutorId: tutor.id,
-          schoolId: tutor.schoolId!,
-          schoolYear: schoolYear,
+          schoolId: cls.schoolId,
+          schoolYear: cls.schoolYear,
+          classId: cls.id,
           heldOn: date,
           minutes: minutes,
           setup: setup,
@@ -181,8 +227,8 @@ class AralSessionViewModel {
           remarks: _blankToNull(remarks),
           createdBy: me.id,
         )));
-    _log('logged session ${stored.id} (#${stored.sessionNo})');
-    _noteCheckIn(stored);
+    _log('logged session ${stored.id} (class ${cls.id} #${stored.sessionNo})');
+    _noteCheckIn(stored, cls);
     return stored;
   }
 
@@ -210,7 +256,7 @@ class AralSessionViewModel {
               'remove their mark first or keep the date.');
         }
       }
-      await _checkDay(s.tutorId, s.schoolYear, date, exceptId: s.id);
+      if (s.classId != null) await _checkDay(await _class(s.classId!), date, exceptId: s.id);
     }
     final mins = minutes ?? s.minutes;
     _checkMinutes(date, mins);
@@ -247,6 +293,14 @@ class AralSessionViewModel {
     return _sessions.getByTutor(id, schoolYear: schoolYear == null ? null : normalizeSchoolYear(schoolYear));
   }
 
+  /// The class's sessions, by date (a tutor: the classes they teach).
+  Future<List<AralSession>> classSessions(int classId) async {
+    _requireSignIn();
+    _log('classSessions($classId)');
+    await _readableClass(classId);
+    return _sessions.getByClass(classId);
+  }
+
   Future<List<AralSession>> schoolSessions({required int schoolId, String? schoolYear}) async {
     _requireSignIn();
     _log('schoolSessions(school: $schoolId, year: $schoolYear)');
@@ -260,7 +314,7 @@ class AralSessionViewModel {
 
   // ---- Attendance ----
 
-  /// The session's sheet: the tutor's learners who were in ARAL on the date
+  /// The session's sheet: the class's learners who were in ARAL on the date
   /// (marked or not), plus anyone else marked at it.
   Future<List<AralSheetLine>> sheet(int sessionId) async {
     _requireSignIn();
@@ -288,6 +342,9 @@ class AralSessionViewModel {
     if (e == null) throw ViewModelException('No ARAL enrollment with id $enrollmentId.');
     if (e.schoolId != s.schoolId || e.schoolYear != s.schoolYear || !_inAralOn(e, s.heldOn)) {
       throw ViewModelException('That learner was not in ARAL in this school on ${s.heldOn}.');
+    }
+    if (_me().role == UserRole.tutor && s.classId != null && e.classId != s.classId) {
+      throw const ViewModelException('Only an admin or coordinator can mark a learner of another class.');
     }
     return _write(() => _sessions.saveAttendance(
         AralAttendance(sessionId: sessionId, enrollmentId: enrollmentId, mark: mark, note: _blankToNull(note))));
@@ -320,7 +377,8 @@ class AralSessionViewModel {
     await _write(() => _sessions.deleteAttendance(a.id!));
   }
 
-  /// One ARAL learner's marks across the year, oldest first.
+  /// One ARAL learner's marks across the year, oldest first, in every class
+  /// they were in (the marks this device holds).
   Future<(AralAttendanceSummary, List<(AralSession, AralAttendance)>)> learnerAttendance(int enrollmentId) async {
     _requireSignIn();
     _log('learnerAttendance($enrollmentId)');
@@ -343,7 +401,8 @@ class AralSessionViewModel {
     return (AralAttendanceSummary.of(marks), rows);
   }
 
-  /// A tutor's sessions, minutes, next check-in and attendance for the year.
+  /// A tutor's sessions, minutes, next check-in and attendance for the year,
+  /// over the classes they teach.
   Future<AralTutorSummary> tutorSummary({String? tutorId, required String schoolYear}) async {
     _requireSignIn();
     final me = _me();
@@ -352,47 +411,63 @@ class AralSessionViewModel {
     schoolYear = normalizeSchoolYear(schoolYear);
     final tutor = await _tutor(id, mustBeActive: false);
     if (id != me.id) _canReadTutor(me, tutor);
-    final list = await _sessions.getByTutor(id, schoolYear: schoolYear);
+    final perClass = [
+      for (final c in await _classes.getByTutor(id, schoolYear: schoolYear)) await _classSummary(c),
+    ];
+    final marks = <AralAttendance>[];
+    var sessions = 0, minutes = 0;
+    for (final c in perClass) {
+      sessions += c.sessions;
+      minutes += c.totalMinutes;
+    }
+    for (final c in perClass) {
+      for (final s in await _sessions.getByClass(c.aralClass.id!)) {
+        marks.addAll(await _sessions.getAttendance(s.id!));
+      }
+    }
+    final lasts = perClass.map((c) => c.lastSessionNo).whereType<int>();
+    // The class closest to its next check-in.
+    AralClassSummary? soonest;
+    for (final c in perClass.where((c) => c.nextCheckInAfter != null)) {
+      int toGo(AralClassSummary x) => x.nextCheckInAfter! - (x.lastSessionNo ?? 0);
+      if (soonest == null || toGo(c) < toGo(soonest)) soonest = c;
+    }
+    return AralTutorSummary(
+      tutor: tutor,
+      sessions: sessions,
+      totalMinutes: minutes,
+      lastSessionNo: lasts.isEmpty ? null : lasts.reduce((a, b) => a > b ? a : b),
+      nextCheckInAfter: soonest?.nextCheckInAfter,
+      sessionsToNextCheckIn: soonest == null ? null : soonest.nextCheckInAfter! - (soonest.lastSessionNo ?? 0),
+      activeLearners: perClass.fold(0, (sum, c) => sum + c.activeLearners),
+      attendance: AralAttendanceSummary.of(marks),
+    );
+  }
+
+  /// One class's sessions, minutes, next check-in, active learners and
+  /// attendance (excused marks don't count against the rate).
+  Future<AralClassSummary> classSummary(int classId) async {
+    _requireSignIn();
+    _log('classSummary($classId)');
+    return _classSummary(await _readableClass(classId));
+  }
+
+  Future<AralClassSummary> _classSummary(AralClass c) async {
+    final list = await _sessions.getByClass(c.id!);
     final marks = <AralAttendance>[];
     for (final s in list) {
       marks.addAll(await _sessions.getAttendance(s.id!));
     }
     final last = list.isEmpty ? null : list.map((s) => s.sessionNo ?? 0).reduce((a, b) => a > b ? a : b);
-    return AralTutorSummary(
-      tutor: tutor,
+    return AralClassSummary(
+      aralClass: c,
       sessions: list.length,
       totalMinutes: list.fold(0, (sum, s) => sum + s.minutes),
       lastSessionNo: last,
       nextCheckInAfter: aralCheckInAfter.where((n) => n > (last ?? 0)).firstOrNull,
-      activeLearners: (await _roster.getByTutor(id, schoolYear: schoolYear)).where((e) => e.isActive).length,
+      activeLearners: (await _roster.getByClass(c.id!)).where((e) => e.isActive).length,
       attendance: AralAttendanceSummary.of(marks),
-      multipleSessionsPerDay: (await _settings.find(id))?.multipleSessionsPerDay ?? false,
     );
-  }
-
-  // ---- Per-tutor settings (admin / coordinator) ----
-
-  /// Allows (or stops allowing) [tutorId] to hold several sessions on one
-  /// date. Sessions already on the same date stay.
-  Future<AralTutorSetting> setMultipleSessionsPerDay(String tutorId, bool allowed) async {
-    _requireSignIn();
-    _log('setMultipleSessionsPerDay($tutorId, $allowed)');
-    final me = _me();
-    _requireManager(me);
-    final tutor = await _tutor(tutorId);
-    _canReadTutor(me, tutor);
-    final current = await _settings.find(tutorId);
-    return _write(() => _settings.save(AralTutorSetting(
-          tutorId: tutorId,
-          schoolId: current?.schoolId ?? tutor.schoolId!,
-          multipleSessionsPerDay: allowed,
-          updatedBy: me.id,
-        )));
-  }
-
-  Future<bool> allowsMultipleSessionsPerDay(String tutorId) async {
-    _requireSignIn();
-    return (await _settings.find(tutorId))?.multipleSessionsPerDay ?? false;
   }
 
   /// "Last, First" by student id for [enrollments] (for sheets and lists).
@@ -452,12 +527,34 @@ class AralSessionViewModel {
     }
   }
 
+  /// The class, if it exists.
+  Future<AralClass> _class(int classId) async =>
+      await _classes.findById(classId) ?? (throw ViewModelException('No ARAL class with id $classId.'));
+
+  /// The class, if the caller may read it: a tutor the classes they teach; an
+  /// admin/coordinator their school's.
+  Future<AralClass> _readableClass(int classId) async {
+    final c = await _class(classId);
+    final me = _me();
+    if (me.role == UserRole.tutor) {
+      if (c.tutorId != me.id) throw ViewModelException('No ARAL class with id $classId among your classes.');
+    } else {
+      _requireManager(me);
+      if (me.schoolId != null && me.schoolId != c.schoolId) {
+        throw const ViewModelException('Forbidden: that class is in another school.');
+      }
+    }
+    return c;
+  }
+
   Future<AralSession> _requireReadable(int sessionId) async {
     final s = await _sessions.findSession(sessionId);
     if (s == null) throw ViewModelException('No ARAL session with id $sessionId.');
     final me = _me();
     if (me.role == UserRole.tutor) {
-      if (s.tutorId != me.id) throw const ViewModelException("Forbidden: another tutor's session.");
+      // Held by me, or a session of a class I teach.
+      final mine = s.tutorId == me.id || (s.classId != null && (await _classes.findById(s.classId!))?.tutorId == me.id);
+      if (!mine) throw const ViewModelException("Forbidden: another tutor's session.");
     } else {
       _requireManager(me);
       if (me.schoolId != null && me.schoolId != s.schoolId) {
@@ -467,12 +564,15 @@ class AralSessionViewModel {
     return s;
   }
 
-  // Same scope as reading (own session, or the school's for a manager).
+  // Same scope as reading (held by me or of my class, or the school's for a manager).
   Future<AralSession> _requireWritable(int sessionId) => _requireReadable(sessionId);
 
-  /// The session tutor's learners who were in ARAL on the session date.
+  /// The class's learners who were in ARAL on the session date (for a session
+  /// without a class: the learners of the classes its tutor teaches).
   Future<List<AralEnrollment>> _expected(AralSession s) async =>
-      (await _roster.getByTutor(s.tutorId, schoolYear: s.schoolYear))
+      (s.classId != null
+              ? await _roster.getByClass(s.classId!)
+              : await _roster.getByTutor(s.tutorId, schoolYear: s.schoolYear))
           .where((e) => e.schoolId == s.schoolId && _inAralOn(e, s.heldOn))
           .toList();
 
@@ -503,21 +603,17 @@ class AralSessionViewModel {
     }
   }
 
-  /// One session per tutor per date unless the tutor is allowed several.
-  Future<void> _checkDay(String tutorId, String schoolYear, String date, {int? exceptId}) async {
-    if (await allowsMultipleSessionsPerDay(tutorId)) return;
-    final same = (await _sessions.getByTutor(tutorId, schoolYear: schoolYear))
-        .where((s) => s.heldOn == date && s.id != exceptId)
-        .firstOrNull;
+  /// One session per class per date.
+  Future<void> _checkDay(AralClass c, String date, {int? exceptId}) async {
+    final same = (await _sessions.getByClass(c.id!)).where((s) => s.heldOn == date && s.id != exceptId).firstOrNull;
     if (same != null) {
-      throw ViewModelException('This tutor already has session ${same.sessionNo} (#${same.id}) on $date. '
-          'One session per day; an admin/coordinator can allow several for this tutor.');
+      throw ViewModelException('Class "${c.className}" already has session ${same.sessionNo} (#${same.id}) on $date.');
     }
   }
 
-  void _noteCheckIn(AralSession s) {
+  void _noteCheckIn(AralSession s, AralClass c) {
     if (!aralCheckInAfter.contains(s.sessionNo)) return;
-    final note = 'Session ${s.sessionNo} done: the check-in assessment is due.';
+    final note = 'Class "${c.className}": session ${s.sessionNo} done: the check-in assessment is due.';
     lastWarning = lastWarning == null ? note : '$lastWarning\n$note';
     _log(note);
   }

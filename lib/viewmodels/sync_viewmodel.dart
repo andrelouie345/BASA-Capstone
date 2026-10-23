@@ -10,9 +10,8 @@
 // local" deletes that work first.
 //
 // S5, the upload: preview (what would go, and what stops it: records the
-// server changed or deleted since the pull, a new tutor setting the server
-// already has), resolve (keep mine / take the server's), upload, refresh
-// (take in the server's decisions), withdraw.
+// server changed or deleted since the pull), resolve (keep mine / take the
+// server's), upload, refresh (take in the server's decisions), withdraw.
 import 'dart:convert';
 
 import 'package:supabase/supabase.dart' show PostgrestException, SupabaseClient;
@@ -137,8 +136,7 @@ class SyncViewModel {
     if (await _uploadLocal.isPending(table, key)) throw ViewModelException(pendingLockMessage);
     final package = await _uploadLocal.buildPackage(release: release);
     final r = package.records
-        .where((r) =>
-            r.table == table && r.rowKey == key && !r.isFollowUp && (r.op != 'insert' || table == 'aral_tutor_settings'))
+        .where((r) => r.table == table && r.rowKey == key && !r.isFollowUp && r.op != 'insert')
         .firstOrNull;
     if (r == null) throw ViewModelException('Nothing to resolve for $table $key.');
     final remote = _remote;
@@ -146,31 +144,21 @@ class SyncViewModel {
         () async => (await remote.rowsWhere(table, r.keyColumn, [r.key])).firstOrNull);
     final version = (server?['row_version'] as num?)?.toInt();
 
-    if (r.op == 'insert') {
-      // A new tutor setting: only a problem when the server has one.
-      if (version == null) throw ViewModelException('Nothing to resolve for $table $key.');
-      if (choice == SyncChoice.mine) {
-        await _uploadLocal.adoptServerSetting(key, version);
+    if (version == r.baseVersion) throw ViewModelException('Nothing to resolve for $table $key.');
+    if (choice == SyncChoice.mine) {
+      if (version != null) {
+        await _uploadLocal.setBaseVersion(table, key, version);
+      } else if (r.op == 'delete') {
+        await _uploadLocal.dropJournalLine(table, key);
       } else {
-        await _uploadLocal.restoreServerCopy(table, key, {table: [server!]});
+        throw ViewModelException('The server no longer has $table $key for you, so your change cannot be kept. '
+            'Use "server" to drop it.');
       }
     } else {
-      if (version == r.baseVersion) throw ViewModelException('Nothing to resolve for $table $key.');
-      if (choice == SyncChoice.mine) {
-        if (version != null) {
-          await _uploadLocal.setBaseVersion(table, key, version);
-        } else if (r.op == 'delete') {
-          await _uploadLocal.dropJournalLine(table, key);
-        } else {
-          throw ViewModelException('The server no longer has $table $key for you, so your change cannot be kept. '
-              'Use "server" to drop it.');
-        }
-      } else {
-        final rows = server == null
-            ? const <String, List<Map<String, dynamic>>>{}
-            : await _server('read $table $key from the server', () => _serverTree(remote, table, server));
-        await _uploadLocal.restoreServerCopy(table, key, rows);
-      }
+      final rows = server == null
+          ? const <String, List<Map<String, dynamic>>>{}
+          : await _server('read $table $key from the server', () => _serverTree(remote, table, server));
+      await _uploadLocal.restoreServerCopy(table, key, rows);
     }
     return SyncResolution(table: table, key: key, choice: choice, serverVersion: version);
   }
@@ -407,13 +395,13 @@ class SyncViewModel {
   /// The server's own message where there is one.
   String _plain(Object e) => e is PostgrestException ? e.message : '$e';
 
-  /// Version conflicts, records the server no longer gives this user, and
-  /// new tutor settings the server already has (spec 5.1, plan decision 4).
+  /// Version conflicts and records the server no longer gives this user
+  /// (spec 5.1).
   Future<List<SyncProblem>> _problems(SyncPackage p) async {
     final byTable = <String, List<SyncRecord>>{};
     for (final r in p.records) {
       if (r.isFollowUp) continue; // checked through the record it follows
-      if (r.op != 'insert' || r.table == 'aral_tutor_settings') byTable.putIfAbsent(r.table, () => []).add(r);
+      if (r.op != 'insert') byTable.putIfAbsent(r.table, () => []).add(r);
     }
     final remote = _remote;
     final out = <SyncProblem>[];
@@ -424,9 +412,7 @@ class SyncViewModel {
       final server = {for (final row in rows) '${row[keyColumn]}': (row['row_version'] as num).toInt()};
       for (final r in e.value) {
         final v = server[r.rowKey];
-        if (r.op == 'insert') {
-          if (v != null) out.add(SyncProblem(table: r.table, key: r.rowKey, kind: 'clash', serverVersion: v));
-        } else if (v == null) {
+        if (v == null) {
           out.add(SyncProblem(table: r.table, key: r.rowKey, kind: 'server_deleted', baseVersion: r.baseVersion));
         } else if (v != r.baseVersion) {
           out.add(SyncProblem(

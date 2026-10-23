@@ -48,7 +48,6 @@ import '../data/local/aral_material_repository_sqlite.dart';
 import '../data/local/aral_readability_repository_sqlite.dart';
 import '../data/local/aral_session_repository_sqlite.dart';
 import '../data/local/aral_setting_repository_sqlite.dart';
-import '../data/local/aral_tutor_setting_repository_sqlite.dart';
 import '../data/local/assessment_calendar_repository_sqlite.dart';
 import '../data/local/crla_assessment_repository_sqlite.dart';
 import '../data/local/crla_part1_english_repository_sqlite.dart';
@@ -235,7 +234,7 @@ TutorVms wireTutor(AppContext ctx, SharedVms s) {
     roster: AralEnrollmentRepositorySqlite(db),
     users: UserRepositorySqlite(db),
     students: StudentRepositorySqlite(db),
-    settings: AralTutorSettingRepositorySqlite(db),
+    classes: AralClassRepositorySqlite(db),
     logger: session,
   );
   vms.register('AralSessionViewModel', aralSessionVm);
@@ -325,6 +324,7 @@ TutorVms wireTutor(AppContext ctx, SharedVms s) {
     irip: AralIripRepositorySqlite(db),
     checkins: AralCheckinRepositorySqlite(db),
     aralSettings: AralSettingRepositorySqlite(db),
+    classes: AralClassRepositorySqlite(db),
     logger: session,
   );
   vms.register('ReminderViewModel', reminderVm);

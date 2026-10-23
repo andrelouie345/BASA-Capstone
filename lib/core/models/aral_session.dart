@@ -34,8 +34,12 @@ class AralSession {
   final String tutorId;        // users.id
   final int schoolId;
   final String schoolYear;
-  /// The tutor's nth session of the school year; assigned by the database
-  /// (0 / null before insert). The check-ins come after sessions 16 and 32.
+  /// The ARAL class this session is a meeting of (v37); null for sessions
+  /// from before classes.
+  final int? classId;
+  /// The class's nth session (the tutor's nth of the school year for a
+  /// session without a class); assigned by the database (0 / null before
+  /// insert). The check-ins come after sessions 16 and 32.
   final int? sessionNo;
   final String heldOn;         // YYYY-MM-DD
   final int minutes;
@@ -51,6 +55,7 @@ class AralSession {
     required this.tutorId,
     required this.schoolId,
     required this.schoolYear,
+    this.classId,
     this.sessionNo,
     required this.heldOn,
     required this.minutes,
@@ -67,6 +72,7 @@ class AralSession {
         'tutor_id': tutorId,
         'school_id': schoolId,
         'school_year': schoolYear,
+        'class_id': classId,
         if (sessionNo != null) 'session_no': sessionNo,
         'held_on': heldOn,
         'minutes': minutes,
@@ -83,6 +89,7 @@ class AralSession {
         tutorId: m['tutor_id'] as String,
         schoolId: m['school_id'] as int,
         schoolYear: m['school_year'] as String,
+        classId: m['class_id'] as int?,
         sessionNo: m['session_no'] as int?,
         heldOn: m['held_on'].toString().substring(0, 10),
         minutes: m['minutes'] as int,
@@ -106,6 +113,7 @@ class AralSession {
         tutorId: tutorId,
         schoolId: schoolId,
         schoolYear: schoolYear,
+        classId: classId,
         sessionNo: sessionNo,
         heldOn: heldOn ?? this.heldOn,
         minutes: minutes ?? this.minutes,

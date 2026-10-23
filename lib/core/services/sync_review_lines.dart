@@ -233,7 +233,6 @@ class _Describer {
               ? 'ARAL session (id $key)'
               : 'ARAL session ${row['session_no']} (${row['held_on'] ?? '?'})'
         ),
-      'aral_tutor_settings' => (null, 'ARAL tutor setting (${_user(key)})'),
       'aral_irip_weeks' =>
         (_enrollmentLearner(row), 'IRIP cycle ${row['cycle_no']} week ${row['week_no']} ${row['strand']}'),
       'aral_checkins' => (_enrollmentLearner(row), 'ARAL check-in attempt ${row['attempt_no']}'),

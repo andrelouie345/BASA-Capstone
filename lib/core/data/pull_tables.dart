@@ -41,7 +41,6 @@ const pullOrder = <String, String>{
   'aral_enrollments': 'id',
   'aral_sessions': 'id',
   'aral_attendance': 'id',
-  'aral_tutor_settings': 'tutor_id',
   'aral_irip_targets': 'id',
   'aral_irip_weeks': 'id',
   'aral_settings': 'id',
@@ -73,7 +72,6 @@ const pullClearOrder = [
   'aral_settings',
   'aral_irip_weeks',
   'aral_irip_targets',
-  'aral_tutor_settings',
   'aral_attendance',
   'aral_sessions',
   'aral_enrollments',
@@ -106,7 +104,7 @@ const pullClearOrder = [
   'schools',
 ];
 
-/// The 19 synced tables (parents before children, as pull-cloud's order) and
+/// The 18 synced tables (parents before children, as pull-cloud's order) and
 /// the column that keys a record.
 const syncedTables = <String, String>{
   'crla_assessments': 'id',
@@ -123,7 +121,6 @@ const syncedTables = <String, String>{
   'aral_enrollments': 'id',
   'aral_sessions': 'id',
   'aral_attendance': 'id',
-  'aral_tutor_settings': 'tutor_id',
   'aral_irip_weeks': 'id',
   'aral_checkins': 'id',
   'aral_checkin_answers': 'id',

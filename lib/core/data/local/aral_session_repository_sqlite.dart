@@ -75,6 +75,9 @@ class AralSessionRepositorySqlite implements AralSessionRepository {
   Future<List<AralSession>> getBySchool(int schoolId, {String? schoolYear}) =>
       _sessions('school_id', schoolId, schoolYear);
 
+  @override
+  Future<List<AralSession>> getByClass(int classId) => _sessions('class_id', classId, null);
+
   // ---- Attendance ----
 
   @override

@@ -143,16 +143,6 @@ class SyncUploadLocalSqlite implements SyncUploadLocalRepository {
       db.delete('sync_changes', where: 'table_name = ? AND row_key = ?', whereArgs: [table, key]);
 
   @override
-  Future<void> adoptServerSetting(String tutorId, int serverVersion) =>
-      db.transaction((txn) => withSyncBypass(txn, () async {
-            await txn.update('aral_tutor_settings', {'row_version': serverVersion}, where: 'tutor_id = ?', whereArgs: [tutorId]);
-            await txn.insert(
-                'sync_changes',
-                {'table_name': 'aral_tutor_settings', 'row_key': tutorId, 'op': 'update', 'base_version': serverVersion},
-                conflictAlgorithm: ConflictAlgorithm.replace);
-          }));
-
-  @override
   Future<void> restoreServerCopy(String table, String key, Map<String, List<Map<String, dynamic>>> serverRows) =>
       db.transaction((txn) => withSyncBypass(txn, () async {
             final serverHasIt = (serverRows[table] ?? const []).isNotEmpty;

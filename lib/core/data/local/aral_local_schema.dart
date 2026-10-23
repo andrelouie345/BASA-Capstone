@@ -2,7 +2,8 @@
 //
 // ARAL-Reading tables in the local SQLite DB (v19 roster, v20 sessions and
 // attendance, v21 Foundational program + 15 per section, v22 per-tutor
-// settings + one session per tutor per date, v23 IRIP targets + weeks, v24
+// settings + one session per tutor per date (both replaced by ARAL classes:
+// v36 roster, v37 sessions), v23 IRIP targets + weeks, v24
 // suggestion source columns; the suggestion may change, v25 check-in
 // assessments + aral_settings, v35 exit reason classroom_support). Same table and column names as
 // Postgres (migrations 20261015050000_aral_enrollments.sql,
@@ -170,6 +171,23 @@ Future<void> rebuildAralEnrollmentsForV36(Database db) async {
   });
 }
 
+/// v37: a session belongs to an ARAL class (cloud 20261023040000).
+/// aral_sessions gains class_id, a declared reference (ALTER TABLE keeps every
+/// row, row_version and session number; sessions from before keep none), and
+/// the per-tutor settings go (several sessions a day is replaced by one
+/// session per class per date). Before createAralLocalSchema, whose session
+/// triggers read class_id. Running it again changes nothing.
+Future<void> upgradeAralSessionsForV37(Database db) async {
+  final table = await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='aral_sessions'");
+  if (table.isNotEmpty) {
+    final cols = (await db.rawQuery('PRAGMA table_info(aral_sessions)')).map((c) => c['name']).toSet();
+    if (!cols.contains('class_id')) {
+      await db.execute('ALTER TABLE aral_sessions ADD COLUMN class_id INTEGER REFERENCES aral_classes(id)');
+    }
+  }
+  await db.execute('DROP TABLE IF EXISTS aral_tutor_settings'); // its triggers go with it
+}
+
 /// v24: where BASA's current suggestion came from (A4). Checked by column,
 /// so it runs on every upgrade like the other column adds.
 const _suggestionColumns = {
@@ -330,7 +348,9 @@ ${placement("NEW.class_id IS NOT NULL AND NEW.status = 'active' AND (NEW.class_i
     END
   ''');
 
-  // ---- Sessions (v20): the lesson log. origin like aral_enrollments. ----
+  // ---- Sessions (v20): the lesson log. origin like aral_enrollments. v37: a
+  // session is one ARAL class's meeting (class_id; sessions from before keep
+  // none). ----
   await db.execute('''
     CREATE TABLE IF NOT EXISTS aral_sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -348,13 +368,16 @@ ${placement("NEW.class_id IS NOT NULL AND NEW.status = 'active' AND (NEW.class_i
       created_by TEXT REFERENCES users(id),
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-      origin TEXT NOT NULL DEFAULT 'local' CHECK (origin IN ('local', 'cloud'))
+      origin TEXT NOT NULL DEFAULT 'local' CHECK (origin IN ('local', 'cloud')),
+      class_id INTEGER REFERENCES aral_classes(id)
     )
   ''');
   await db.execute('CREATE INDEX IF NOT EXISTS aral_sessions_tutor ON aral_sessions (tutor_id, school_year, held_on)');
   await db.execute('CREATE INDEX IF NOT EXISTS aral_sessions_school ON aral_sessions (school_id, school_year, held_on)');
+  await db.execute('CREATE INDEX IF NOT EXISTS aral_sessions_class ON aral_sessions (class_id, held_on)');
 
-  // session_no = 0 means "assign the next number"; mirrored rows arrive with the real one.
+  // session_no = 0 means "assign the next number" (per class; per tutor for a
+  // session without one); mirrored rows arrive with the real one.
   await db.execute('DROP TRIGGER IF EXISTS set_aral_session_no');
   await db.execute('''
     CREATE TRIGGER set_aral_session_no
@@ -364,50 +387,17 @@ ${placement("NEW.class_id IS NOT NULL AND NEW.status = 'active' AND (NEW.class_i
       UPDATE aral_sessions
       SET session_no = COALESCE((
         SELECT MAX(session_no) FROM aral_sessions
-        WHERE tutor_id = NEW.tutor_id AND school_year = NEW.school_year AND id <> NEW.id), 0) + 1
+        WHERE id <> NEW.id
+          AND CASE WHEN NEW.class_id IS NULL
+                   THEN tutor_id = NEW.tutor_id AND school_year = NEW.school_year
+                   ELSE class_id = NEW.class_id END), 0) + 1
       WHERE id = NEW.id;
-    END
-  ''');
-
-  // ---- Per-tutor settings (v22): one session per date unless allowed. ----
-  const tutorOk = '''(SELECT 1 FROM users u WHERE u.id = NEW.tutor_id AND u.role = 'tutor'
-                        AND u.is_active = 1 AND u.school_id = NEW.school_id)''';
-  await db.execute('''
-    CREATE TABLE IF NOT EXISTS aral_tutor_settings (
-      tutor_id TEXT PRIMARY KEY REFERENCES users(id),
-      school_id INTEGER NOT NULL REFERENCES schools(id),
-      multiple_sessions_per_day INTEGER NOT NULL DEFAULT 0 CHECK (multiple_sessions_per_day IN (0, 1)),
-      updated_by TEXT REFERENCES users(id),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-      origin TEXT NOT NULL DEFAULT 'local' CHECK (origin IN ('local', 'cloud'))
-    )
-  ''');
-  await db.execute('DROP TRIGGER IF EXISTS check_aral_tutor_setting_ins');
-  await db.execute('''
-    CREATE TRIGGER check_aral_tutor_setting_ins
-    BEFORE INSERT ON aral_tutor_settings
-    WHEN NEW.origin = 'local'
-    BEGIN
-      SELECT RAISE(ABORT, 'The session tutor must be an active tutor of the school')
-      WHERE NOT EXISTS $tutorOk;
-    END
-  ''');
-  await db.execute('DROP TRIGGER IF EXISTS check_aral_tutor_setting_upd');
-  await db.execute('''
-    CREATE TRIGGER check_aral_tutor_setting_upd
-    BEFORE UPDATE ON aral_tutor_settings
-    WHEN NEW.origin = 'local'
-    BEGIN
-      SELECT RAISE(ABORT, 'An ARAL tutor setting keeps its tutor and school')
-      WHERE NEW.tutor_id IS NOT OLD.tutor_id OR NEW.school_id IS NOT OLD.school_id;
     END
   ''');
 
   const sessionTutorOk = '''(SELECT 1 FROM users u WHERE u.id = NEW.tutor_id AND u.role = 'tutor'
                         AND u.is_active = 1 AND u.school_id = NEW.school_id)''';
-  const oneDayOnly = '''NOT COALESCE((SELECT multiple_sessions_per_day FROM aral_tutor_settings
-                                      WHERE tutor_id = NEW.tutor_id), 0)''';
-  const dayTaken = 'This tutor already has an ARAL session on that date (a coordinator can allow several per day)';
+  const dayTaken = 'An ARAL class already has a session on that date';
   await db.execute('DROP TRIGGER IF EXISTS check_aral_session_ins');
   await db.execute('''
     CREATE TRIGGER check_aral_session_ins
@@ -416,9 +406,13 @@ ${placement("NEW.class_id IS NOT NULL AND NEW.status = 'active' AND (NEW.class_i
     BEGIN
       SELECT RAISE(ABORT, 'The session tutor must be an active tutor of the school')
       WHERE NOT EXISTS $sessionTutorOk;
+      SELECT RAISE(ABORT, 'A new ARAL session needs a class')
+      WHERE NEW.class_id IS NULL;
+      SELECT RAISE(ABORT, 'The ARAL class belongs to another school or school year')
+      WHERE NOT EXISTS (SELECT 1 FROM aral_classes c WHERE c.id = NEW.class_id
+                          AND c.school_id = NEW.school_id AND c.school_year = NEW.school_year);
       SELECT RAISE(ABORT, '$dayTaken')
-      WHERE $oneDayOnly
-        AND EXISTS (SELECT 1 FROM aral_sessions WHERE tutor_id = NEW.tutor_id AND held_on = NEW.held_on);
+      WHERE EXISTS (SELECT 1 FROM aral_sessions WHERE class_id = NEW.class_id AND held_on = NEW.held_on);
     END
   ''');
   await db.execute('DROP TRIGGER IF EXISTS check_aral_session_upd');
@@ -427,15 +421,15 @@ ${placement("NEW.class_id IS NOT NULL AND NEW.status = 'active' AND (NEW.class_i
     BEFORE UPDATE ON aral_sessions
     WHEN OLD.origin = 'local'
     BEGIN
-      SELECT RAISE(ABORT, 'An ARAL session keeps its tutor, school, year and number; only the date, minutes, set-up, lesson and remarks change')
-      WHERE NEW.tutor_id IS NOT OLD.tutor_id OR NEW.school_id IS NOT OLD.school_id
+      SELECT RAISE(ABORT, 'An ARAL session keeps its tutor, class, school, year and number; only the date, minutes, set-up, lesson and remarks change')
+      WHERE NEW.tutor_id IS NOT OLD.tutor_id OR NEW.class_id IS NOT OLD.class_id OR NEW.school_id IS NOT OLD.school_id
          OR NEW.school_year IS NOT OLD.school_year
          OR (NEW.session_no IS NOT OLD.session_no AND OLD.session_no <> 0)
          OR NEW.created_by IS NOT OLD.created_by OR NEW.created_at IS NOT OLD.created_at;
       SELECT RAISE(ABORT, '$dayTaken')
-      WHERE NEW.held_on IS NOT OLD.held_on AND $oneDayOnly
+      WHERE NEW.held_on IS NOT OLD.held_on AND NEW.class_id IS NOT NULL
         AND EXISTS (SELECT 1 FROM aral_sessions
-                    WHERE tutor_id = NEW.tutor_id AND held_on = NEW.held_on AND id <> NEW.id);
+                    WHERE class_id = NEW.class_id AND held_on = NEW.held_on AND id <> NEW.id);
     END
   ''');
 

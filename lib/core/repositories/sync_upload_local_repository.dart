@@ -16,10 +16,6 @@ abstract class SyncUploadLocalRepository {
   /// sync-resolve mine on a delete the server already made: nothing to send.
   Future<void> dropJournalLine(String table, String key);
 
-  /// sync-resolve mine on a new tutor setting the server already has: it
-  /// becomes a change to the server's row (version [serverVersion]).
-  Future<void> adoptServerSetting(String tutorId, int serverVersion);
-
   /// sync-resolve server: the record and its items become the server's copy
   /// in [serverRows] (per table; empty = the server has none, so they are
   /// removed here). Their journal lines go. New items under a record the

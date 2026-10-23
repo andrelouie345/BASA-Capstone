@@ -4,7 +4,9 @@ aral-checkin-items
 aral-checkin-report
 aral-checkin-tools
 aral-checkins
+aral-class-sessions
 aral-class-show
+aral-class-summary
 aral-classes
 aral-export-checkins
 aral-export-report

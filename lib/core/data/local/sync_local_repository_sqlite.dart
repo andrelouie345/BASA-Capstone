@@ -24,7 +24,6 @@ import 'sync_local_writes.dart';
 const _originTables = {
   'crla_assessments', 'phil_iri_gst_results', 'phil_iri_assessments', 'aral_classes', 'aral_enrollments',
   'aral_sessions',
-  'aral_tutor_settings',
   'aral_irip_weeks',
   'aral_checkins',
   'aral_readability_logs',
@@ -69,8 +68,7 @@ class SyncLocalRepositorySqlite implements SyncLocalRepository {
   /// Records entered on this device (new rows), per kind and section: CRLA
   /// assessments, Phil-IRI sessions and GST results, ARAL classes (no
   /// section), ARAL enrollments, ARAL
-  /// sessions (with their attendance; no section), ARAL tutor settings (no
-  /// section), IRIP weeks, check-ins and readability log entries (by the
+  /// sessions (with their attendance; no section), IRIP weeks, check-ins and readability log entries (by the
   /// learner's section). Children travel with their owner record. Also edits
   /// of server records (sync_changes), new items added under server records,
   /// and records waiting in an upload (one line per upload, not counted again
@@ -97,10 +95,7 @@ class SyncLocalRepositorySqlite implements SyncLocalRepository {
         UNION ALL
         SELECT 'ARAL session(s)', NULL FROM aral_sessions a
         WHERE origin = 'local' AND ${_notPending('aral_sessions', 'a')}
-        UNION ALL
-        SELECT 'ARAL tutor setting(s)', NULL FROM aral_tutor_settings a
-        -- an edited pulled setting is also 'local' (save()); it counts as a change below
-        WHERE origin = 'local' AND row_version IS NULL AND ${_notPending('aral_tutor_settings', 'a')}
+
         UNION ALL
         SELECT 'ARAL IRIP week(s)', e.section_id FROM aral_irip_weeks w
         LEFT JOIN aral_enrollments e ON e.id = w.enrollment_id

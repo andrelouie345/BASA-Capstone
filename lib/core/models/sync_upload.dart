@@ -12,7 +12,7 @@ class SyncRecord {
   final String table;
   final String op; // insert | update | delete
   final String keyColumn;
-  final Object key; // int, or the tutor's uuid for aral_tutor_settings
+  final Object key; // the record's key (an int for every synced table since v37)
   final int? baseVersion;
   final Map<String, Object?>? row;
 
@@ -91,8 +91,8 @@ class SyncProblem {
   final String table;
   final String key;
 
-  /// 'conflict' (server version moved on), 'server_deleted' (the server no
-  /// longer gives this record), 'clash' (new tutor setting, server has one).
+  /// 'conflict' (server version moved on) or 'server_deleted' (the server no
+  /// longer gives this record).
   final String kind;
   final int? baseVersion;
   final int? serverVersion;
@@ -103,7 +103,6 @@ class SyncProblem {
   String toString() => switch (kind) {
         'conflict' => '$table $key: changed on the server (yours from version $baseVersion, server now $serverVersion)',
         'server_deleted' => '$table $key: no longer on the server for you (deleted, or out of your sections)',
-        'clash' => '$table $key: the server already has one (version $serverVersion)',
         _ => '$table $key: $kind',
       };
 }

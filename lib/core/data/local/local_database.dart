@@ -61,7 +61,9 @@ class LocalDatabase {
         // v36: ARAL classes (cloud 20261023040000): aral_classes (synced) and
         // aral_enrollments rebuilt with class_id + referral columns, without
         // tutor_id (rebuildAralEnrollmentsForV36).
-        version: 36,
+        // v37: ARAL sessions belong to a class (aral_sessions.class_id), and
+        // aral_tutor_settings is dropped (upgradeAralSessionsForV37).
+        version: 37,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
@@ -171,6 +173,8 @@ class LocalDatabase {
           if (oldVersion < 35) await rebuildAralEnrollmentsForV35(db);
           // v36. Right after v35 (its copy may bring tutor_id back) and before v21.
           if (oldVersion < 36) await rebuildAralEnrollmentsForV36(db);
+          // v37. Before createAralLocalSchema, whose session triggers read class_id.
+          if (oldVersion < 37) await upgradeAralSessionsForV37(db);
           // v15. Must run before createPhilIriLocalSchema, which recreates the
           // triggers this drops.
           if (oldVersion < 15) await rebuildPhilIriPassagesForV15(db);
