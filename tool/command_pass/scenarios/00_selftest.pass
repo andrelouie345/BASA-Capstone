@@ -1,0 +1,24 @@
+# Offline self-test of the runner: two devices with separate databases, and a
+# device keeps its database when the runner switches back to it.
+device a tutor
+run sign-in-offline zz.selftest.a@basa.test wrong-password
+refuse not set up
+sql select count(*) from login_logs where email_attempted = 'zz.selftest.a@basa.test' => 1
+run set-text hello pass
+expect OK: "hello pass"
+run get-text
+expect hello pass
+run help
+expect sign-in-offline
+
+device b admin
+run whoami
+expect Not signed in
+sql select count(*) from login_logs where email_attempted = 'zz.selftest.a@basa.test' => 0
+run help
+expect user-create
+
+device a tutor
+run whoami
+expect Not signed in
+sql select count(*) from login_logs where email_attempted = 'zz.selftest.a@basa.test' => 1
