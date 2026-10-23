@@ -1,0 +1,324 @@
+# A3 Phil-IRI admin: content (collections, criteria, passages, questions),
+# thresholds, finalize, finalize-round. Coordinator device; the superadmin
+# promotes a throwaway collection and deletes it again (owner 2026-10-23:
+# nothing region-wide is left behind; region thresholds are refusal only,
+# since a region row can't be removed).
+#
+# Each run makes a new school collection "ZZ A3 {stamp}" with a passage whose
+# text holds {stamp} (write-file), so the no-repeat rule (same text = same
+# passage) never blocks a rerun. That passage gets read, so it and its
+# collection stay on the server (school-owned, run school only).
+#
+# Passage pa: 18 words, Grade 7, two questions (keys a, b). Learners s_g7_3
+# (pi_g) and s_g7_4 (pi_f), MOSY 1, whole text in 9 s, no miscues, both
+# answers right:
+#   word reading 18/18 = 100% Independent, 18 words / 9 s = 120 wpm,
+#   comprehension 2/2 = 100% Independent.
+#   Default speed_slow_max 120 -> 120 wpm is Slow; with the school's
+#   speed_slow_max 100 it is Average (Fast starts at 151). Either way the
+#   word reading profile is Instructional (Independent needs Fast, as in T4)
+#   and the profile Independent.
+# pi_g is finalized while the school override is on (snapshot = Average);
+# the override is then removed and pi_f is finalized by finalize-round
+# (snapshot = defaults = Slow).
+
+device a3-pc admin fresh
+as coord
+run pull-cloud yes
+expect users:
+
+# --- Collections -----------------------------------------------------------------
+run phil-iri-collection-add {school} "ZZ A3 {stamp}" order=2,1
+expect ZZ A3 {stamp} · school {school} · graded · comprehension · order 2,1
+capture col = Created collection (\d+):
+run phil-iri-collection-add {school} "ZZ A3 {stamp}"
+refuse A collection named "ZZ A3 {stamp}" already exists there.
+run phil-iri-collection-add region "ZZ A3 region {stamp}"
+refuse Forbidden: only the superadmin manages region-wide collections.
+run phil-iri-collection-add {schoolB} "ZZ A3 B {stamp}"
+refuse Forbidden: you can only manage collections of your own school.
+run phil-iri-collection-add {school} "ZZ A3 p {stamp}" prescribed
+refuse Only region-wide collections can be prescribed.
+run phil-iri-collection-add {school} "ZZ A3 x {stamp}" loud
+refuse Unknown option "loud".
+run phil-iri-collection-add {school} "ZZ A3 o {stamp}" order={=0}
+refuse A reading order lists selection numbers 1 and up (or leave it out).
+run phil-iri-collection-edit {col} description Made by batch A3
+expect Updated: [{col}] ZZ A3 {stamp} · school {school} · graded · comprehension · order 2,1
+run phil-iri-collection-edit {col} order -
+expect Updated: [{col}] ZZ A3 {stamp} · school {school} · graded · comprehension
+run phil-iri-collection-edit {col} graded maybe
+refuse Expected yes or no (got "maybe")
+run phil-iri-collection-edit {col} prescribed yes
+refuse Only region-wide collections can be prescribed.
+run phil-iri-collection-activate {col} off
+expect Updated: [{col}] ZZ A3 {stamp} · school {school} · graded · comprehension · INACTIVE
+run phil-iri-collection-activate {col} on
+expect~ Updated: \[{col}\] ZZ A3 {stamp} · school {school} · graded · comprehension(\r?\n|$)
+run phil-iri-collection-promote {col}
+refuse Forbidden: superadmin only.
+run phil-iri-collections
+expect [32] Phil-IRI Graded Passages (Level 2-10) · region-wide · prescribed · graded · comprehension
+expect [{col}] ZZ A3 {stamp} · school {school} · graded · comprehension
+
+# --- Rubric criteria -------------------------------------------------------------
+run phil-iri-criterion-add {col} {=1} {=4} Expression
+expect #1 Expression (1..4).
+capture crit = Added criterion (\d+):
+run phil-iri-criterion-add {col} {=1} {=4} expression
+refuse This collection already has a criterion named "Expression" (#1).
+run phil-iri-criterion-add {col} {=3} {=3} Pace
+refuse The scale must go up (got 3..3).
+run phil-iri-criterion-update {col} {crit} {=1} {=1} {=5} Phrasing
+expect Updated criterion {crit}: #1 Phrasing (1..5).
+run phil-iri-criteria {col}
+expect [{crit}] #1 Phrasing (1..5)
+run phil-iri-criterion-delete {col} {crit}
+expect Deleted criterion {crit}.
+run phil-iri-criterion-delete {col} {crit}
+refuse Collection {col} has no rubric criterion with id {crit}.
+
+# --- Passages --------------------------------------------------------------------
+# 18 words each; a3_text2 is a different text of the same length.
+write-file a3_text Passage {stamp} of run {run}. The small cat sat on the warm mat and looked at the sun.
+write-file a3_text2 Passage {stamp} of run {run}. The small dog sat on the cold mat and looked at the moon.
+run phil-iri-passage-add {col} {=7} {=18} "{a3_text}" Cat on the Mat {stamp}
+expect Cat on the Mat {stamp} · collection {col} · Grade 7 · 18 words
+capture pa = Added passage (\d+):
+run phil-iri-passage-add {col} {=7} {=17} "{a3_text}" Wrong count
+refuse The text has 18 words but the word count says 17.
+# Levels go to 12 on purpose (adjusted levels cap at 12; cloud check 1..12).
+run phil-iri-passage-add {col} {=13} {=18} "{a3_text}" Too high
+refuse Level must be a grade from 1 to 12.
+run phil-iri-passage-add {col} - {=18} "{a3_text}" No level
+refuse is grade-leveled: give the grade that reads this passage.
+run phil-iri-passage-add {col} {=7} {=18} "{rundir}/nosuchfile.txt" Missing
+refuse No such file:
+# A second passage (same text: content may repeat a text, the no-repeat rule
+# treats them as one) to edit and delete.
+run phil-iri-passage-add {col} {=7} {=18} "{a3_text}" Second {stamp}
+expect Second {stamp} · collection {col} · Grade 7 · 18 words
+capture pb = Added passage (\d+):
+run phil-iri-passage-edit {pb} title Second, renamed
+expect Updated: [{pb}] Second, renamed · collection {col} · Grade 7 · 18 words
+run phil-iri-passage-edit {pb} motivation Look at the picture.
+expect~ .
+run phil-iri-passage-edit {pb} test pre
+expect Updated: [{pb}] Second, renamed · collection {col} · Grade 7 · pre · 18 words
+run phil-iri-passage-edit {pb} test later
+refuse Test type is "pre" (BOSY), "mosy" (MOSY), "post" (EOSY) or none.
+run phil-iri-passage-edit {pb} set A
+expect · pre · set A · 18 words
+run phil-iri-passage-edit {pb} selection {=2}
+expect · pre · set A · selection 2 · 18 words
+run phil-iri-passage-edit {pb} level {=8}
+expect Updated: [{pb}] Second, renamed · collection {col} · Grade 8 · pre · set A · selection 2 · 18 words
+run phil-iri-passage-edit {pb} text {=18} "{a3_text2}"
+expect Updated: [{pb}] Second, renamed · collection {col} · Grade 8
+run phil-iri-passage-activate {pb} off
+expect · selection 2 · 18 words · INACTIVE
+run phil-iri-passage-activate {pb} on
+expect~ · selection 2 · 18 words(\r?\n|$)
+run phil-iri-passage-show {pb}
+expect Motivation: Look at the picture.
+expect Words (18):
+expect the cold mat and looked at the moon.
+
+# --- Questions -------------------------------------------------------------------
+run phil-iri-question-add {pa} a L "What sat on the mat?" "A cat" "A dog" "A bird"
+expect : Q1, 3 choices, key a.
+capture q1 = Added question (\d+):
+run phil-iri-question-add {pa} b I "Was it warm?" "No" "Yes"
+expect : Q2, 2 choices, key b.
+capture q2 = Added question (\d+):
+run phil-iri-question-add {pa} c L "Only two?" "One" "Two"
+refuse The answer key must be one of a, b (got "c").
+run phil-iri-question-add {pa} a Q "Bad type?" "One" "Two"
+refuse Question type is L, I, C or - (got "Q")
+run phil-iri-question-add {pb} a - "To be deleted?" "One" "Two"
+capture qx = Added question (\d+):
+run phil-iri-question-update {pb} {qx} {=1} b C "Changed?" "One" "Two" "Three"
+expect Updated question {qx}: Q1, 3 choices, key b.
+run phil-iri-question-update {pa} {qx} {=1} b C "Wrong passage?" "One" "Two"
+refuse Passage {pa} has no question with id {qx}.
+run phil-iri-question-delete {pb} {qx}
+expect Deleted question {qx}.
+run phil-iri-passage-delete {pb}
+expect Deleted passage {pb}.
+run phil-iri-passage-delete {pb}
+refuse No passage with id {pb}.
+
+# --- Thresholds (school layer; the region layer is refusal only) -----------------
+run phil-iri-threshold-set region speed_slow_max {=100}
+refuse Forbidden: only the superadmin manages region-wide thresholds.
+run phil-iri-threshold-set {schoolB} speed_slow_max {=100}
+refuse Forbidden: you can only manage thresholds of your own school.
+run phil-iri-threshold-set {school} speed_slow_max {=200}
+refuse Speed boundaries must increase
+run phil-iri-threshold-set {school} speed_slowest {=100}
+refuse Unknown threshold "speed_slowest".
+run phil-iri-threshold-set {school} group_levels_down {=3}
+refuse Threshold "group_levels_down" must be true or false (got 3).
+run phil-iri-threshold-set {school} levels_down_groups 2,3
+expect Saved school {school} thresholds: {levels_down_groups: [2, 3]}
+run phil-iri-threshold-set {school} levels_down_groups clear
+expect Saved school {school} thresholds: {}
+run phil-iri-threshold-set {school} speed_slow_max {=100}
+expect Saved school {school} thresholds: {speed_slow_max: 100}
+run phil-iri-thresholds {school}
+expect Region row: none (defaults); school {school} override: 1 key(s)
+expect~ speed_slow_max\s+100
+
+# --- Two learners read pa (MOSY 1) -----------------------------------------------
+run pull-cloud yes
+expect users:
+run phil-iri-start {s_g7_3} {sec_g7} {year} mosy1
+expect student {s_g7_3} · section {sec_g7} · {year} · MOSY #1 attempt
+capture pi_g = Started session (-?\d+)
+run phil-iri-passages-for {pi_g}
+expect [{pa}] Cat on the Mat {stamp}
+run phil-iri-read {pi_g} {pa} whole {=9}
+expect of passage {pa} · whole text, 9 s.
+capture rd_g = reading (-?\d+)
+run phil-iri-answer {rd_g} {q1} a
+expect~ .
+run phil-iri-answer {rd_g} {q2} b
+expect~ .
+run phil-iri-complete {pi_g}
+expect Session {pi_g} is completed.
+run phil-iri-start {s_g7_4} {sec_g7} {year} mosy1
+capture pi_f = Started session (-?\d+)
+run phil-iri-read {pi_f} {pa} whole {=9}
+capture rd_f = reading (-?\d+)
+run phil-iri-answer {rd_f} {q1} a
+expect~ .
+run phil-iri-answer {rd_f} {q2} b
+expect~ .
+run phil-iri-complete {pi_f}
+expect Session {pi_f} is completed.
+# One left in progress.
+run phil-iri-start {s_g7_2} {sec_g7} {year} mosy1
+capture pi_h = Started session (-?\d+)
+# Live score with the school's override: Average.
+run phil-iri-score {rd_g}
+expect word reading 100% (Independent), 120 wpm (Average) -> Instructional; comprehension 100% (Independent); profile Independent
+
+# --- Finalize --------------------------------------------------------------------
+run phil-iri-finalize {pi_h}
+refuse Only a completed session can be finalized (this one is in_progress).
+run phil-iri-finalize {pi_g}
+expect Session {pi_g} is finalized (
+run phil-iri-finalize {pi_g}
+refuse Only a completed session can be finalized (this one is finalized).
+run phil-iri-threshold-reset {school}
+expect School {school} now uses the region thresholds.
+run phil-iri-threshold-reset {school}
+refuse School {school} has no threshold override.
+run phil-iri-threshold-reset {schoolB}
+refuse Forbidden: you can only manage thresholds of your own school.
+run phil-iri-finalize-round {sec_g7} {year} mosy1
+expect Finalized: {pi_f} (student {s_g7_4})
+expect Still in progress: {pi_h} (student {s_g7_2})
+expect Already finalized: {pi_g} (student {s_g7_3})
+run phil-iri-finalize-round {sec_g7} {year} mosy9
+refuse Round is bosy, mosy1, mosy2, mosy3 or eosy (got "mosy9")
+# The snapshot keeps the thresholds of the day it was finalized: pi_g Average
+# (override), pi_f Slow (defaults).
+run phil-iri-score {rd_g}
+expect word reading 100% (Independent), 120 wpm (Average) -> Instructional; comprehension 100% (Independent); profile Independent
+run phil-iri-score {rd_f}
+expect word reading 100% (Independent), 120 wpm (Slow) -> Instructional; comprehension 100% (Independent); profile Independent
+# The lock: a finalized session can't change.
+run phil-iri-miscue {rd_g} {=3} omission
+refuse This Phil-IRI session is finalized and cannot be changed.
+run phil-iri-answer {rd_g} {q1} b
+refuse This Phil-IRI session is finalized and cannot be changed.
+run phil-iri-reopen {pi_g}
+refuse This Phil-IRI session is finalized and cannot be changed.
+run phil-iri-discard {pi_h}
+expect Discarded session {pi_h}.
+run sync-upload yes
+expect~ [Aa]pplied
+run pull-cloud yes
+expect users:
+run phil-iri-sessions {sec_g7} {year} mosy1
+expect~ student {s_g7_3} · section {sec_g7} · {year} · MOSY #1 attempt \d+ · finalized
+expect~ student {s_g7_4} · section {sec_g7} · {year} · MOSY #1 attempt \d+ · finalized
+# This device holds the synced readings of pa: the local check gives the
+# cloud's reason, not "sync them" (F11, owner (a)).
+run phil-iri-passage-delete {pa}
+refuse This passage has been read; deactivate it instead.
+run phil-iri-question-delete {pa} {q1}
+refuse Answers were recorded for this question; it cannot be deleted.
+# Text, word count and level of a read passage are locked by the cloud;
+# the title can still change.
+run phil-iri-passage-edit {pa} text {=18} "{a3_text2}"
+refuse This passage has already been read; its text, word count, level and collection are locked (add a new passage instead)
+run phil-iri-passage-edit {pa} title Cat on the Mat (read) {stamp}
+expect Updated: [{pa}] Cat on the Mat (read) {stamp} · collection {col} · Grade 7 · 18 words
+run phil-iri-collection-delete {col}
+refuse This collection still has passages, or rubric scores use its criteria. Deactivate it instead, or remove those first.
+run phil-iri-collection-add {school} "ZZ A3 promo {stamp}" nocomp
+capture col_p = Created collection (\d+):
+
+# --- Superadmin: the cloud's refusals (this device holds no readings), then ------
+# --- promote + prescribe the throwaway collection and delete it ------------------
+device a3-super admin fresh
+as super
+run phil-iri-passage-delete {pa}
+refuse This passage has been read; deactivate it instead.
+run phil-iri-question-delete {pa} {q1}
+refuse Answers were recorded for this question; it cannot be deleted.
+run phil-iri-collection-delete {col}
+refuse This collection still has passages, or rubric scores use its criteria. Deactivate it instead, or remove those first.
+run phil-iri-collection-promote {col_p}
+expect Promoted: [{col_p}] ZZ A3 promo {stamp} · region-wide · graded · no comprehension
+run phil-iri-collection-promote {col_p}
+refuse This collection is already region-wide.
+run phil-iri-collection-edit {col_p} prescribed yes
+expect Updated: [{col_p}] ZZ A3 promo {stamp} · region-wide · prescribed · graded · no comprehension
+run phil-iri-collection-delete {col_p}
+expect Deleted collection {col_p}.
+
+# --- Signed out ------------------------------------------------------------------
+device a3-pc admin
+run sign-out
+expect Signed out.
+run phil-iri-collection-add {school} "ZZ A3 out {stamp}"
+refuse Not signed in. Sign in first.
+run phil-iri-collection-edit {col} name Out
+refuse Not signed in. Sign in first.
+run phil-iri-collection-activate {col} off
+refuse Not signed in. Sign in first.
+run phil-iri-collection-promote {col}
+refuse Not signed in. Sign in first.
+run phil-iri-collection-delete {col}
+refuse Not signed in. Sign in first.
+run phil-iri-criterion-add {col} {=1} {=4} Out
+refuse Not signed in. Sign in first.
+run phil-iri-criterion-update {col} {=1} {=1} {=1} {=4} Out
+refuse Not signed in. Sign in first.
+run phil-iri-criterion-delete {col} {=1}
+refuse Not signed in. Sign in first.
+run phil-iri-passage-add {col} {=7} {=18} "{a3_text}" Out
+refuse Not signed in. Sign in first.
+run phil-iri-passage-edit {pa} title Out
+refuse Not signed in. Sign in first.
+run phil-iri-passage-activate {pa} off
+refuse Not signed in. Sign in first.
+run phil-iri-passage-delete {pa}
+refuse Not signed in. Sign in first.
+run phil-iri-question-add {pa} a L "Out?" "One" "Two"
+refuse Not signed in. Sign in first.
+run phil-iri-question-update {pa} {q1} {=1} a L "Out?" "One" "Two"
+refuse Not signed in. Sign in first.
+run phil-iri-question-delete {pa} {q1}
+refuse Not signed in. Sign in first.
+run phil-iri-threshold-set {school} speed_slow_max {=100}
+refuse Not signed in. Sign in first.
+run phil-iri-threshold-reset {school}
+refuse Not signed in. Sign in first.
+run phil-iri-finalize {pi_g}
+refuse Not signed in. Sign in first.
+run phil-iri-finalize-round {sec_g7} {year} mosy1
+refuse Not signed in. Sign in first.

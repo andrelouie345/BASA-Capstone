@@ -38,8 +38,15 @@ abstract class PhilIriPassageRepository {
 
   /// Local-mirroring only: drops the local copy of a passage (and its
   /// questions) or of one question. No-op when there is none. Throws
-  /// StateError while readings / answers on this device use it. Supabase
-  /// impl throws UnimplementedError.
+  /// StateError while unsent readings / answers on this device use it
+  /// (sync first), [UsedOnServerError] when only rows already on the server
+  /// do. Supabase impl throws UnimplementedError.
   Future<void> removeMirrored(int id);
   Future<void> removeMirroredQuestion(int id);
+}
+
+/// Only rows that are already on the server use the record, so the cloud
+/// refuses the delete too: syncing won't help.
+class UsedOnServerError extends StateError {
+  UsedOnServerError(super.message);
 }

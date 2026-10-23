@@ -410,12 +410,12 @@ class PhilIriContentViewModel {
     final collection = await cloud.collections.findById(existing.collectionId);
     _checkCanManageSchool(collection?.schoolId, 'passages');
 
+    const read = 'This passage has been read; deactivate it instead.';
     final localCopy = await _localPassages.findById(id);
     final localQuestions = localCopy == null ? <PhilIriQuestion>[] : await _localPassages.getQuestions(id);
-    await _removeLocalFirst(() => _localPassages.removeMirrored(id));
+    await _removeLocalFirst(() => _localPassages.removeMirrored(id), usedOnServer: read);
     try {
-      await _cloudWrite(() => cloud.passages.delete(id),
-          inUse: 'This passage has been read; deactivate it instead.');
+      await _cloudWrite(() => cloud.passages.delete(id), inUse: read);
     } catch (_) {
       if (localCopy != null) {
         await _mirror('Passage', () async {
@@ -515,11 +515,11 @@ class PhilIriContentViewModel {
     final cloud = _writer();
     await _questionPassage(cloud, passageId, questionId);
 
+    const answered = 'Answers were recorded for this question; it cannot be deleted.';
     final localCopy = (await _localPassages.getQuestions(passageId)).where((q) => q.id == questionId).firstOrNull;
-    await _removeLocalFirst(() => _localPassages.removeMirroredQuestion(questionId));
+    await _removeLocalFirst(() => _localPassages.removeMirroredQuestion(questionId), usedOnServer: answered);
     try {
-      await _cloudWrite(() => cloud.passages.deleteQuestion(questionId),
-          inUse: 'Answers were recorded for this question; it cannot be deleted.');
+      await _cloudWrite(() => cloud.passages.deleteQuestion(questionId), inUse: answered);
     } catch (_) {
       if (localCopy != null) await _mirror('Question', () => _localPassages.upsertQuestionWithId(localCopy));
       rethrow;
@@ -664,11 +664,13 @@ class PhilIriContentViewModel {
 
   /// Drops the local copy before the cloud delete. The local repo refuses
   /// while assessments on this device still use the row: deleting it in the
-  /// cloud would leave those unsyncable.
-  Future<void> _removeLocalFirst(Future<void> Function() remove) async {
+  /// cloud would leave those unsyncable. [usedOnServer] is the cloud's own
+  /// refusal, given when only synced rows use it (syncing won't help).
+  Future<void> _removeLocalFirst(Future<void> Function() remove, {String? usedOnServer}) async {
     try {
       await remove();
     } on StateError catch (e) {
+      if (e is UsedOnServerError && usedOnServer != null) throw ViewModelException(usedOnServer);
       throw ViewModelException('${e.message}; sync them before deleting it.');
     }
   }

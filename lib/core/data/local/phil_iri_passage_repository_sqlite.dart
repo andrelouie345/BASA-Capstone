@@ -78,12 +78,13 @@ class PhilIriPassageRepositorySqlite implements PhilIriPassageRepository {
     return PhilIriQuestion.fromMap(rows.first);
   }
 
-  // Local foreign keys are off, so these look for users themselves.
+  // Local foreign keys are off, so these look for users themselves. A
+  // negative id is a row not uploaded yet (sync); positive ones are on the
+  // server, where the cloud refuses the delete as well.
   @override
   Future<void> removeMirrored(int id) async {
     await db.transaction((txn) async {
-      final used = await txn.query('phil_iri_readings', where: 'passage_id = ?', whereArgs: [id], limit: 1);
-      if (used.isNotEmpty) throw StateError('Readings on this device use this passage');
+      await _checkUnused(txn, 'phil_iri_readings', 'passage_id', id, 'Readings', 'passage');
       await txn.delete('phil_iri_questions', where: 'passage_id = ?', whereArgs: [id]);
       await txn.delete('phil_iri_passages', where: 'id = ?', whereArgs: [id]);
     });
@@ -92,9 +93,15 @@ class PhilIriPassageRepositorySqlite implements PhilIriPassageRepository {
   @override
   Future<void> removeMirroredQuestion(int id) async {
     await db.transaction((txn) async {
-      final used = await txn.query('phil_iri_answers', where: 'question_id = ?', whereArgs: [id], limit: 1);
-      if (used.isNotEmpty) throw StateError('Answers on this device use this question');
+      await _checkUnused(txn, 'phil_iri_answers', 'question_id', id, 'Answers', 'question');
       await txn.delete('phil_iri_questions', where: 'id = ?', whereArgs: [id]);
     });
+  }
+
+  Future<void> _checkUnused(Transaction txn, String table, String column, int id, String users, String what) async {
+    final unsent = await txn.query(table, where: '$column = ? AND id < 0', whereArgs: [id], limit: 1);
+    if (unsent.isNotEmpty) throw StateError('$users on this device use this $what');
+    final synced = await txn.query(table, where: '$column = ?', whereArgs: [id], limit: 1);
+    if (synced.isNotEmpty) throw UsedOnServerError('$users on the server use this $what');
   }
 }

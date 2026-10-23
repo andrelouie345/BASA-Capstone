@@ -76,6 +76,15 @@ class MakeSf1Step extends Step {
   const MakeSf1Step(super.line, this.name, this.schoolB, this.grade, this.section, this.count);
 }
 
+/// `write-file <capture> <text...>`: write the text ({..} values filled in)
+/// to `<run folder>/<capture>.txt` and capture its path, e.g. a passage text
+/// that must differ on every run. Not a run: checks cannot follow it.
+class WriteFileStep extends Step {
+  final String name;
+  final String text;
+  const WriteFileStep(super.line, this.name, this.text);
+}
+
 class Scenario {
   final String batch;
   final List<Step> steps;
@@ -165,6 +174,14 @@ Scenario parseScenario(String batch, String source) {
           fail('expected "make-sf1 <capture> a|b <grade> <section> <count>"');
         }
         steps.add(MakeSf1Step(n, p[0], p[1] == 'b', grade, p[3], count));
+        afterRun = false;
+      case 'write-file':
+        final sp = rest.indexOf(' ');
+        final name = sp < 0 ? '' : rest.substring(0, sp);
+        if (!RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$').hasMatch(name) || rest.substring(sp + 1).trim().isEmpty) {
+          fail('expected "write-file <capture> <text...>"');
+        }
+        steps.add(WriteFileStep(n, name, rest.substring(sp + 1).trim()));
         afterRun = false;
       default:
         fail('unknown keyword "$keyword"');

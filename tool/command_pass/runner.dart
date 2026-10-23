@@ -230,6 +230,19 @@ Future<List<StepResult>> runScenario(
         await state.save();
         add(step, const StepOutcome(true), output: '${step.name} = $path');
 
+      case WriteFileStep():
+        lastRunOk = false;
+        final path = '${devices.runDir.path}/${step.name}.txt';
+        try {
+          File(path).writeAsStringSync(substitute(step.text, _vars(accounts, state)));
+        } catch (e) {
+          add(step, StepOutcome(false, 'cannot write the file: $e'));
+          continue;
+        }
+        state.captures[step.name] = path;
+        await state.save();
+        add(step, const StepOutcome(true), output: '${step.name} = $path');
+
       case ExpectStep() || ExpectRegexStep() || RefuseStep() || CaptureStep() || SqlStep():
         final o = last;
         if (!lastRunOk || o == null || dev == null) {

@@ -92,4 +92,23 @@ void main() {
     // {..} values are filled into the section name.
     expect(sheet.cell(CellIndex.indexByColumnRow(columnIndex: 38, rowIndex: 3)).value?.toString(), 'ZZTEST-G2-r9');
   });
+
+  test('write-file step writes the substituted text into the run folder and captures its path', () async {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+    final runDir = Directory.systemTemp.createTempSync('basa_pass_wf_');
+    final devices = DeviceManager(runDir);
+    final state = await RunState.load(runDir);
+    final results = await runScenario(
+        parseScenario('t', 'device a admin\nwrite-file a3_text Run {run} at {stamp}.\nrun get-text\nexpect Text'),
+        devices,
+        state,
+        Accounts(runNumber: 9, superAccount: null, state: state),
+        readOnlyCommands: const {});
+    await devices.close();
+    expect(results.every((r) => r.outcome.passed), isTrue, reason: results.map((r) => r.outcome.message).join('; '));
+    final path = state.captures['a3_text']!;
+    expect(path, '${runDir.path}/a3_text.txt');
+    expect(File(path).readAsStringSync(), 'Run 9 at ${state.stamp}.');
+  });
 }

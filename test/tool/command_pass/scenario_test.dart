@@ -103,4 +103,15 @@ expect ZZTEST
     expect(() => parseScenario('x', 'make-sf1 f a seven S 4'), throwsFormatException);
     expect(() => parseScenario('x', 'make-sf1 f a 7 S'), throwsFormatException);
   });
+
+  test('parses write-file', () {
+    final s = parseScenario('x', 'device pc admin\nwrite-file a3_text The cat  sat {stamp}.');
+    final w = s.steps[1] as WriteFileStep;
+    expect(w.name, 'a3_text');
+    expect(w.text, 'The cat  sat {stamp}.');
+    expect(() => parseScenario('x', 'write-file a3_text'), throwsFormatException);
+    expect(() => parseScenario('x', 'write-file 3x some text'), throwsFormatException);
+    // Not a run: checks can't follow it.
+    expect(() => parseScenario('x', 'run whoami\nwrite-file t text\nexpect x'), throwsFormatException);
+  });
 }
