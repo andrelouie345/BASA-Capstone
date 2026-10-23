@@ -61,6 +61,18 @@ class SqlStep extends Step {
   const SqlStep(super.line, this.query, this.expected);
 }
 
+/// `make-sf1 <capture> a|b <grade> <section> <count>`: write an SF1 workbook
+/// for school a (the run's school) or b into the run folder and capture its
+/// path. Not a run: checks cannot follow it.
+class MakeSf1Step extends Step {
+  final String name;
+  final bool schoolB;
+  final int grade;
+  final String section;
+  final int count;
+  const MakeSf1Step(super.line, this.name, this.schoolB, this.grade, this.section, this.count);
+}
+
 class Scenario {
   final String batch;
   final List<Step> steps;
@@ -139,6 +151,15 @@ Scenario parseScenario(String batch, String source) {
         final arrow = rest.lastIndexOf(' => ');
         if (arrow <= 0) fail('expected "sql <query> => <value>"');
         steps.add(SqlStep(n, rest.substring(0, arrow).trim(), rest.substring(arrow + 4).trim()));
+      case 'make-sf1':
+        final p = rest.split(RegExp(r'\s+'));
+        final grade = p.length == 5 ? int.tryParse(p[2]) : null;
+        final count = p.length == 5 ? int.tryParse(p[4]) : null;
+        if (p.length != 5 || !const {'a', 'b'}.contains(p[1]) || grade == null || count == null || count < 1) {
+          fail('expected "make-sf1 <capture> a|b <grade> <section> <count>"');
+        }
+        steps.add(MakeSf1Step(n, p[0], p[1] == 'b', grade, p[3], count));
+        afterRun = false;
       default:
         fail('unknown keyword "$keyword"');
     }

@@ -7,9 +7,12 @@ import 'package:basa_capstone/core/console/console_registry.dart';
 import 'package:basa_capstone/core/console/console_session.dart';
 import 'package:basa_capstone/viewmodels/viewmodel_exception.dart';
 
+import 'package:basa_capstone/core/services/sf1_column_map.dart';
+
 import 'checks.dart';
 import 'device.dart';
 import 'scenario.dart';
+import 'sf1_fixture.dart';
 
 /// Captures and the run accounts' passwords, saved after every change so an
 /// interrupted run can be resumed with `--run r<N>`.
@@ -180,6 +183,32 @@ Future<List<StepResult>> runScenario(
         lastRunOk = out.crashType == null;
         add(step, lastRunOk ? const StepOutcome(true) : StepOutcome(false, 'command crashed (${out.crashType})'),
             output: out.text);
+
+      case MakeSf1Step():
+        lastRunOk = false;
+        if (dev == null) {
+          add(step, const StepOutcome(false, 'no device: start the scenario with a device step'));
+          continue;
+        }
+        final path = '${devices.runDir.path}/${step.name}.xlsx';
+        try {
+          writeSf1(path,
+              map: await Sf1ColumnMap.load(dev.dir.path), // what this device's import reads
+              schoolCode: sf1SchoolCode(accounts.runNumber, schoolB: step.schoolB),
+              schoolName: sf1SchoolName(accounts.runNumber, schoolB: step.schoolB),
+              regionLabel: sf1RegionLabel,
+              schoolYear: currentSchoolYear(DateTime.now()),
+              grade: '${step.grade}',
+              section: step.section,
+              learners: sf1Learners(
+                  runNumber: accounts.runNumber, grade: step.grade, count: step.count, schoolB: step.schoolB));
+        } catch (e) {
+          add(step, StepOutcome(false, 'cannot write the SF1 workbook: $e'));
+          continue;
+        }
+        state.captures[step.name] = path;
+        await state.save();
+        add(step, const StepOutcome(true), output: '${step.name} = $path');
 
       case ExpectStep() || ExpectRegexStep() || RefuseStep() || CaptureStep() || SqlStep():
         final o = last;

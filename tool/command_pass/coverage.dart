@@ -45,6 +45,8 @@ CoverageResult computeCoverage(
           if (pending != null) (pendingBuild == 'tutor' ? onTutor : onAdmin).add(pending);
         case CaptureStep():
           break;
+        case MakeSf1Step():
+          pending = null;
       }
     }
   }

@@ -83,4 +83,17 @@ expect ZZTEST
     expect(() => parseScenario('x', 'run whoami\nsql select 1'), throwsFormatException);
     expect(() => parseScenario('x', 'run'), throwsFormatException);
   });
+
+  test('parses make-sf1', () {
+    final s = parseScenario('x', 'device pc admin\nmake-sf1 sf1_g7 b 7 ZZTEST-G7 4');
+    final m = s.steps[1] as MakeSf1Step;
+    expect(m.name, 'sf1_g7');
+    expect(m.schoolB, isTrue);
+    expect(m.grade, 7);
+    expect(m.section, 'ZZTEST-G7');
+    expect(m.count, 4);
+    expect(() => parseScenario('x', 'make-sf1 f c 7 S 4'), throwsFormatException);
+    expect(() => parseScenario('x', 'make-sf1 f a seven S 4'), throwsFormatException);
+    expect(() => parseScenario('x', 'make-sf1 f a 7 S'), throwsFormatException);
+  });
 }
