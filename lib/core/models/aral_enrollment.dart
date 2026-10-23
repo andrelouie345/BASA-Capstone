@@ -63,13 +63,16 @@ enum AralStatus {
       );
 }
 
-/// Why a learner left ARAL. Grade-level ready is the program's goal; the rest
-/// are administrative.
+/// Why a learner left ARAL. Grade-level ready is the program's goal;
+/// classroom support = left for classroom-based remediation (DepEd Memorandum
+/// 064 s. 2025: "exit with classroom support"; KS1 Developing/Transitioning
+/// learners outside the extended program); the rest are administrative.
 enum AralExitReason {
   gradeLevelReady('grade_level_ready'),
   transferredOut('transferred_out'),
   droppedOut('dropped_out'),
-  other('other');
+  other('other'),
+  classroomSupport('classroom_support');
 
   final String value;
   const AralExitReason(this.value);

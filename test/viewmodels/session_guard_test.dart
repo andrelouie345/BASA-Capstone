@@ -125,6 +125,8 @@ void main() {
       'checkin.setPassPct': () => ck.setPassPct(1, 75),
       'checkin.foundationalProgramLayers': () => ck.foundationalProgramLayers(1),
       'checkin.setFoundationalProgram': () => ck.setFoundationalProgram(1, true),
+      'checkin.ks1ExtendedLayers': () => ck.ks1ExtendedLayers(1),
+      'checkin.setKs1Extended': () => ck.setKs1Extended(1, true),
       'checkin.localSessionSettings': () => ck.localSessionSettings(1),
       'checkin.idleSessionDaysLayers': () => ck.idleSessionDaysLayers(1),
       'checkin.setIdleSessionDays': () => ck.setIdleSessionDays(1, 7),

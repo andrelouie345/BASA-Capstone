@@ -56,7 +56,9 @@ class LocalDatabase {
         // v34: sync bookkeeping (row_version, negative local ids, sync_changes
         // journal, sync_pending lock, offline_credentials; createSyncLocalSchema,
         // runs last) and the one-time renumber of local rows.
-        version: 34,
+        // v35: aral_enrollments rebuilt so exit_reason takes 'classroom_support'
+        // (rebuildAralEnrollmentsForV35; cloud 20261023030000).
+        version: 35,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
@@ -161,6 +163,9 @@ class LocalDatabase {
                 "CHECK (origin IN ('local', 'cloud'))");
           }
           await _createSyncTables(db);
+          // v35. Before every creator below: it drops the triggers and views
+          // that mention aral_enrollments, and they recreate them.
+          if (oldVersion < 35) await rebuildAralEnrollmentsForV35(db);
           // v15. Must run before createPhilIriLocalSchema, which recreates the
           // triggers this drops.
           if (oldVersion < 15) await rebuildPhilIriPassagesForV15(db);

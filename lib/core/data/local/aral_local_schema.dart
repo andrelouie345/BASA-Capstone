@@ -4,7 +4,7 @@
 // attendance, v21 Foundational program + 15 per section, v22 per-tutor
 // settings + one session per tutor per date, v23 IRIP targets + weeks, v24
 // suggestion source columns; the suggestion may change, v25 check-in
-// assessments + aral_settings). Same table and column names as
+// assessments + aral_settings, v35 exit reason classroom_support). Same table and column names as
 // Postgres (migrations 20261015050000_aral_enrollments.sql,
 // 20261015060000_aral_sessions.sql, 20261015070000_aral_foundational_section_cap.sql,
 // 20261015080000_aral_tutor_settings.sql, 20261016010000_aral_irip.sql,
@@ -41,7 +41,8 @@ String _enrollmentsTableSql(String name) => '''
       status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'exited')),
       entered_on TEXT NOT NULL,
       exited_on TEXT,
-      exit_reason TEXT CHECK (exit_reason IN ('grade_level_ready', 'transferred_out', 'dropped_out', 'other')),
+      exit_reason TEXT CHECK (exit_reason IN ('grade_level_ready', 'transferred_out', 'dropped_out', 'other',
+                                              'classroom_support')),
       basis_source TEXT NOT NULL CHECK (basis_source IN ('crla', 'phil_iri', 'manual')),
       basis_round TEXT CHECK (basis_round IN ('bosy', 'mosy', 'mosy1', 'mosy2', 'mosy3', 'eosy')),
       basis_level TEXT,
@@ -92,6 +93,40 @@ Future<void> rebuildAralEnrollmentsForV21(Database db) async {
         'SELECT $_enrollmentColumns FROM aral_enrollments');
     await txn.execute('DROP TABLE aral_enrollments');
     await txn.execute('ALTER TABLE aral_enrollments_v21 RENAME TO aral_enrollments');
+  });
+}
+
+/// v35: exit_reason gains 'classroom_support' (DepEd Memorandum 064 s. 2025,
+/// cloud 20261023030000). SQLite can't alter a CHECK, so the table is rebuilt
+/// like v21, but copying EVERY column the old table has (later column adds
+/// such as the v24 suggestion columns and the v34 row_version, which sync
+/// needs), keeping ids. Drops every trigger and view that mentions the table
+/// (SQLite checks them on the rename); onUpgrade runs this before all the
+/// creators, which recreate them. Does nothing when the table already takes
+/// the new reason.
+Future<void> rebuildAralEnrollmentsForV35(Database db) async {
+  final table = await db.rawQuery("SELECT sql FROM sqlite_master WHERE type='table' AND name='aral_enrollments'");
+  if (table.isEmpty) return; // createAralLocalSchema builds it fresh
+  if ((table.single['sql'] as String).contains("'classroom_support'")) return;
+
+  await db.transaction((txn) async {
+    final dependents = await txn.rawQuery(
+        "SELECT type, name FROM sqlite_master WHERE type IN ('trigger', 'view') AND sql LIKE '%aral_enrollments%'");
+    for (final d in dependents) {
+      await txn.execute('DROP ${d['type'] == 'view' ? 'VIEW' : 'TRIGGER'} IF EXISTS ${d['name']}');
+    }
+    final old = await txn.rawQuery('PRAGMA table_info(aral_enrollments)');
+    await txn.execute(_enrollmentsTableSql('aral_enrollments_v35'));
+    final have = (await txn.rawQuery('PRAGMA table_info(aral_enrollments_v35)')).map((c) => c['name']).toSet();
+    for (final c in old) {
+      final name = c['name'] as String;
+      if (have.contains(name)) continue;
+      await txn.execute('ALTER TABLE aral_enrollments_v35 ADD COLUMN $name ${_suggestionColumns[name] ?? c['type']}');
+    }
+    final columns = old.map((c) => c['name']).join(', ');
+    await txn.execute('INSERT INTO aral_enrollments_v35 ($columns) SELECT $columns FROM aral_enrollments');
+    await txn.execute('DROP TABLE aral_enrollments');
+    await txn.execute('ALTER TABLE aral_enrollments_v35 RENAME TO aral_enrollments');
   });
 }
 

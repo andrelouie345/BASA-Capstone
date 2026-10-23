@@ -312,3 +312,6 @@ run aral-tutor-multi {tutor1_id} off
 expect~ .
 run sync-upload yes
 expect~ [Aa]pplied
+# SHARP back off (the default), so later batches and reruns start from it.
+run aral-sharp-set {school} off
+expect~ off

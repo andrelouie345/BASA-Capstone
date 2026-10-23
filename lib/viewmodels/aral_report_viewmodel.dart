@@ -63,7 +63,7 @@ class AralSectionReportRow {
   final Map<String, int> bosy;
   final Map<String, int> mosy;
   final int exitedGradeLevelReady;
-  final int exitedOther;          // transferred out, dropped out, other
+  final int exitedOther;          // transferred out, dropped out, other, classroom support
 
   const AralSectionReportRow({
     required this.section,
@@ -282,8 +282,10 @@ class AralReportViewModel {
       final results = await _crlaResults.getBySection(s.id!, schoolYear: year);
       for (final e in roster) {
         final mine = results.where((r) => r.studentId == e.studentId).toList();
-        add(bosy, aralCrlaLearnerProfile(mine, CrlaRound.bosy, asOf) ?? aralReportNoResult);
-        if (inAralOn(e)) add(mosy, aralCrlaLearnerProfile(mine, CrlaRound.mosy, asOf) ?? aralReportNoResult);
+        add(bosy, aralCrlaLearnerProfile(mine, CrlaRound.bosy, asOf, grade: grade) ?? aralReportNoResult);
+        if (inAralOn(e)) {
+          add(mosy, aralCrlaLearnerProfile(mine, CrlaRound.mosy, asOf, grade: grade) ?? aralReportNoResult);
+        }
       }
     } else {
       for (final e in roster) {

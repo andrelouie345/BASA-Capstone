@@ -60,7 +60,10 @@ section, which reactivation needed, and the Foundational program; app update
 required: no) and `20261023020000` (CRLA Part 2 words read follow the CRLA2
 scoresheet, story words - miscues, when the story is known; app update
 required: **yes**, apply only when every device has synced and every upload is
-decided). Each is idempotent. Do **not** run
+decided) and `20261023030000` (ARAL Key Stage 1 follows DepEd Memorandum 064
+s. 2025: the new exit reason "classroom support" and the school switch
+`ks1_extended`; app update required: **yes**, same rule). Each is idempotent.
+Do **not** run
 `supabase/migrations_archive/`.
 
 **Rule for every new migration:** its header says `App update required on all

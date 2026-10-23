@@ -19,9 +19,11 @@
 // D5 (owner 2026-10-20):
 //  * CRLA profiles: Grade 1-3 learners per reading profile per CRLA round. One
 //    learner counts once per round, by the ARAL implementation report's rule
-//    (aralCrlaLearnerProfile: latest attempt per variant, the weakest); a
-//    variant filter counts only that variant. Assessed without a profile (no
-//    story match) = "No profile". Profile names come from the data; the known
+//    (aralCrlaLearnerProfile: the latest attempt in the grade's CRLA language,
+//    G1 Mother Tongue else Filipino, G2 Filipino, G3 English; owner
+//    2026-10-23); a variant filter counts only that variant. Assessed without
+//    a profile in that language (no story match, or only other languages) =
+//    "No profile". Profile names come from the data; the known
 //    ones only set the order. One chart; the region one sums the schools.
 //  * ARAL exits: the Division ARAL report's count from NlaReportViewModel
 //    (Phil-IRI Grade 4-10): ARAL = 3-LD + 2-LD, exited = at grade level in
@@ -173,6 +175,7 @@ class TrendViewModel {
           (target.sectionIds == null || target.sectionIds!.contains(s.id));
     });
     for (final s in sections) {
+      final grade = int.parse(s.gradeLevel);
       final learners = {for (final st in await _students.getBySection(s.id!)) st.id!};
       if (learners.isEmpty) continue;
       final byLearner = <int, List<CrlaResult>>{};
@@ -186,7 +189,7 @@ class TrendViewModel {
               (variant == null || r.subjectVariant == variant) &&
               r.assessedAt.substring(0, 10).compareTo(day) <= 0);
           if (!took) continue;
-          final p = aralCrlaLearnerProfile(mine, round, day, variant: variant) ?? trendNoCrlaProfile;
+          final p = aralCrlaLearnerProfile(mine, round, day, grade: grade, variant: variant) ?? trendNoCrlaProfile;
           counts[round]![p] = (counts[round]![p] ?? 0) + 1;
         }
       }

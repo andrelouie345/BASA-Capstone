@@ -14,8 +14,13 @@
 //    reading score), then comprehension, then reading speed. Grades 1-3
 //    (CRLA): % of words read correctly, then comprehension, then speed. A tie
 //    left at the 15th place is the coordinator's pick.
-//  * Grades 1-3: Grade 1 on the CRLA MOSY result, Grades 2-3 on BOSY; every
-//    profile below "Reading At Grade Level" qualifies; the program is KS1.
+//  * Grades 1-3 (DepEd Memorandum 064 s. 2025, Encl. 2; owner 2026-10-23):
+//    Grade 1 on the CRLA MOSY result, Grades 2-3 on BOSY, in the grade's
+//    language (G1 Mother Tongue else Filipino, G2 Filipino, G3 English). Low
+//    and High Emerging qualify; Developing and Transitioning only when the
+//    school runs the extended program (AralProgramSettings.ks1Extended).
+//    Otherwise they stay in the regular class, and an ARAL learner who
+//    reaches them exits with classroom support. The program is KS1.
 //  * Grades 4-10: the Phil-IRI BOSY result; the program follows the ADJUSTED
 //    (reading) level only (bands of 2026-10-18, aralPhilIriPlacement): 0-1
 //    Foundational if the school runs a foundational literacy program
@@ -40,8 +45,7 @@ const aralNotAssessedLevel = 'not_assessed';
 /// The CRLA round a Grade 1-3 learner's ARAL placement comes from.
 CrlaRound aralCrlaBasisRound(int grade) => grade == 1 ? CrlaRound.mosy : CrlaRound.bosy;
 
-/// CRLA reading profiles from weakest to strongest (for choosing between
-/// variants and for the qualification rule).
+/// CRLA reading profiles from weakest to strongest (chart order).
 const aralCrlaProfileOrder = [
   crlaLowEmerging,
   crlaHighEmerging,
@@ -50,34 +54,23 @@ const aralCrlaProfileOrder = [
   crlaAtGradeLevel,
 ];
 
-/// The weaker of two CRLA profiles (a learner assessed in two variants is
-/// placed on the one that shows more need). Unknown profiles lose.
-String? aralWeakerCrlaProfile(String? a, String? b) {
-  int rank(String? p) {
-    if (p == null) return 99;
-    return aralCrlaProfileOrder.contains(p) ? aralCrlaProfileOrder.indexOf(p) : 98;
+/// One Grade [grade] learner's CRLA profile in [round], from their [results]
+/// assessed on or before [asOf] (YYYY-MM-DD): the latest attempt with a
+/// profile in the grade's language (aralCrlaBasisVariant, the rule the ARAL
+/// proposal uses; owner 2026-10-23), or in [variant] (`mt`, `fil`, `eng`) when
+/// given. Null = no profile in that language and round. Shared by the ARAL
+/// implementation report and the dashboard CRLA trend.
+String? aralCrlaLearnerProfile(Iterable<CrlaResult> results, CrlaRound round, String asOf,
+    {required int grade, String? variant}) {
+  final scored = results
+      .where((r) => r.round == round && r.readingProfile != null && r.assessedAt.substring(0, 10).compareTo(asOf) <= 0)
+      .toList();
+  final v = variant ?? aralCrlaBasisVariant(grade, scored.map((r) => r.subjectVariant).toSet());
+  CrlaResult? latest;
+  for (final r in scored.where((r) => r.subjectVariant == v)) {
+    if (latest == null || r.attemptNo > latest.attemptNo) latest = r;
   }
-  return rank(a) <= rank(b) ? a : b;
-}
-
-/// One learner's CRLA profile in [round], from their [results] assessed on or
-/// before [asOf] (YYYY-MM-DD): the latest attempt with a profile per variant,
-/// then the weakest of those. [variant] (`mt`, `fil`, `eng`) keeps only that
-/// variant's latest attempt. Null = no profile in that round. Shared by the
-/// ARAL implementation report and the dashboard CRLA trend.
-String? aralCrlaLearnerProfile(Iterable<CrlaResult> results, CrlaRound round, String asOf, {String? variant}) {
-  final latest = <String, CrlaResult>{};
-  for (final r in results) {
-    if (r.round != round || r.readingProfile == null || r.assessedAt.substring(0, 10).compareTo(asOf) > 0) continue;
-    if (variant != null && r.subjectVariant != variant) continue;
-    final prev = latest[r.subjectVariant];
-    if (prev == null || r.attemptNo > prev.attemptNo) latest[r.subjectVariant] = r;
-  }
-  String? weakest;
-  for (final r in latest.values) {
-    weakest = weakest == null ? r.readingProfile : aralWeakerCrlaProfile(r.readingProfile, weakest);
-  }
-  return weakest;
+  return latest?.readingProfile;
 }
 
 /// Whether [e] is on the ARAL roster on [day] (YYYY-MM-DD): entered by then
@@ -91,9 +84,23 @@ bool aralExitedBy(AralEnrollment e, String day) => e.exitedOn != null && _byDay(
 bool _byDay(String date, String day) =>
     (date.length >= 10 ? date.substring(0, 10) : date).compareTo(day) <= 0;
 
-/// Every CRLA profile below "Reading At Grade Level" qualifies.
-bool aralCrlaQualifies(String profile) =>
-    aralCrlaProfileOrder.contains(profile) && profile != crlaAtGradeLevel;
+/// Low and High Emerging qualify; with [extended] (the school's extended
+/// KS1 program) Developing and Transitioning too. Never Reading At Grade
+/// Level.
+bool aralCrlaQualifies(String profile, {bool extended = false}) =>
+    profile == crlaLowEmerging ||
+    profile == crlaHighEmerging ||
+    (extended && (profile == crlaDeveloping || profile == crlaTransitioning));
+
+/// The CRLA variant (`mt`, `fil`, `eng`) whose result places a Grade 1-3
+/// learner (Encl. 2 Table 2): Grade 1 Mother Tongue when the learner has an
+/// MT result ([variants] = the variants they have results in), else Filipino;
+/// Grade 2 Filipino; Grade 3 English. Results in other variants don't count.
+String aralCrlaBasisVariant(int grade, Set<String> variants) => switch (grade) {
+      1 => variants.contains('mt') ? 'mt' : 'fil',
+      2 => 'fil',
+      _ => 'eng',
+    };
 
 class AralPlacement {
   final AralKeyStage keyStage;
@@ -143,18 +150,26 @@ AralPlacement? aralPhilIriPlacement({
 /// at levels 0-1 (and keeps a readability log of the materials used). Off by
 /// default, which follows the current ARAL program guidelines (those learners
 /// go to KS1). The coordinator switches it (reading coordinator 2026-10-18).
+/// ks1_extended: the school extends KS1 to Developing and Transitioning
+/// learners (DepEd Memorandum 064 s. 2025, Encl. 1 item 7: schools with the
+/// needed personnel). Off by default (owner 2026-10-23).
 class AralProgramSettings {
   static const foundationalProgramKey = 'foundational_program';
+  static const ks1ExtendedKey = 'ks1_extended';
   static const defaults = AralProgramSettings(foundationalProgram: false);
 
   final bool foundationalProgram;
+  final bool ks1Extended;
 
-  const AralProgramSettings({required this.foundationalProgram});
+  const AralProgramSettings({required this.foundationalProgram, this.ks1Extended = false});
 
   /// Defaults, then [m]'s keys (unknown keys and bad values are ignored).
   factory AralProgramSettings.fromMap(Map<String, Object?> m) {
     final v = m[foundationalProgramKey];
-    return AralProgramSettings(foundationalProgram: v is bool ? v : defaults.foundationalProgram);
+    final k = m[ks1ExtendedKey];
+    return AralProgramSettings(
+        foundationalProgram: v is bool ? v : defaults.foundationalProgram,
+        ks1Extended: k is bool ? k : defaults.ks1Extended);
   }
 }
 
@@ -198,9 +213,10 @@ class AralRankKey implements Comparable<AralRankKey> {
   factory AralRankKey.philIri(PhilIriRoundResult r) =>
       AralRankKey(r.wordReadingScore ?? 0, r.comprehensionScore ?? 0, r.wordsPerMinute ?? 0);
 
-  /// CRLA's pct_correct_words_read is a percent (0-100).
+  /// CRLA's pct_correct_words_read is already a fraction (words_read /
+  /// word_count, 0-1), like the Phil-IRI word reading score.
   factory AralRankKey.crla({double? pctCorrectWordsRead, int? comprehensionCorrect, double? wpm}) =>
-      AralRankKey((pctCorrectWordsRead ?? 0) / 100, (comprehensionCorrect ?? 0).toDouble(), wpm ?? 0);
+      AralRankKey(pctCorrectWordsRead ?? 0, (comprehensionCorrect ?? 0).toDouble(), wpm ?? 0);
 
   @override
   int compareTo(AralRankKey o) {

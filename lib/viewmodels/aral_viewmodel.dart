@@ -13,7 +13,9 @@
 //    grade level, or outranked by weaker readers, cannot.
 //  * Admins and coordinators manage the roster; tutors only read it.
 //  * Grade-level-ready exits come from results (applyResults), never from
-//    the coordinator; transfers and drop-outs are recorded by hand.
+//    the coordinator; so do KS1 classroom-support exits (DepEd Memorandum 064,
+//    owner 2026-10-23); transfers, drop-outs and classroom support are also
+//    recorded by hand.
 //  * applyResults (A4): a learner's latest finished result updates the
 //    program when it suggests a different one than the stored suggestion,
 //    and exits a learner who reads at grade level. The UI runs it when an
@@ -141,9 +143,11 @@ class _LatestResult {
   final String level;             // e.g. 'frustration', 'Low Emerging Reader'
   final int? assessmentId;
   final String date;              // YYYY-MM-DD
-  final AralPlacement? placement; // null = at or above grade level
+  /// Why the learner leaves when [placement] is null.
+  final AralExitReason exitReason;
+  final AralPlacement? placement; // null = leaves ARAL (at or above grade level, or KS1 classroom support)
   final String label;
-  const _LatestResult(this.round, this.level, this.assessmentId, this.date, this.placement, this.label);
+  const _LatestResult(this.round, this.level, this.assessmentId, this.date, this.exitReason, this.placement, this.label);
 }
 
 class AralViewModel {
@@ -230,7 +234,7 @@ class AralViewModel {
         continue;
       }
       out.add(grade <= 3
-          ? _crlaCandidate(s, grade, crla.where((r) => r.studentId == s.id).toList())
+          ? _crlaCandidate(s, grade, crla.where((r) => r.studentId == s.id).toList(), program.ks1Extended)
           : await _philIriCandidate(s, grade, section.id!, schoolYear, program.foundationalProgram));
     }
 
@@ -265,29 +269,28 @@ class AralViewModel {
     return active >= aralSectionCap ? 0 : aralSectionCap - active;
   }
 
-  AralCandidate _crlaCandidate(Student s, int grade, List<CrlaResult> results) {
+  AralCandidate _crlaCandidate(Student s, int grade, List<CrlaResult> results, bool extended) {
     final round = aralCrlaBasisRound(grade);
-    // Latest attempt per variant in the basis round, then the weakest profile.
-    final latest = <String, CrlaResult>{};
-    for (final r in results.where((r) => r.round == round && r.readingProfile != null)) {
-      final prev = latest[r.subjectVariant];
-      if (prev == null || r.attemptNo > prev.attemptNo) latest[r.subjectVariant] = r;
+    // The grade's CRLA language only (G1 MT else Filipino, G2 Filipino, G3
+    // English), its latest attempt with a profile in the basis round.
+    final scored = results.where((r) => r.round == round && r.readingProfile != null).toList();
+    final variant = aralCrlaBasisVariant(grade, scored.map((r) => r.subjectVariant).toSet());
+    CrlaResult? basis;
+    for (final r in scored.where((r) => r.subjectVariant == variant)) {
+      if (basis == null || r.attemptNo > basis.attemptNo) basis = r;
     }
-    if (latest.isEmpty) {
+    if (basis == null) {
       final other = results.any((r) => r.readingProfile != null);
       return AralCandidate(
         student: s,
         grade: grade,
         status: AralCandidateStatus.noResult,
-        reason: 'No CRLA ${round.label} result yet${other ? ' (has results in another round)' : ''}',
+        reason: 'No CRLA ${round.label} result in ${_crlaVariantLabel(variant)} yet'
+            '${other ? ' (has results in another round or language)' : ''}',
       );
     }
-    CrlaResult? basis;
-    for (final r in latest.values) {
-      if (basis == null || aralWeakerCrlaProfile(r.readingProfile, basis.readingProfile) == r.readingProfile) basis = r;
-    }
-    final profile = basis!.readingProfile!;
-    final qualifies = aralCrlaQualifies(profile);
+    final profile = basis.readingProfile!;
+    final qualifies = aralCrlaQualifies(profile, extended: extended);
     final key = AralRankKey.crla(
       pctCorrectWordsRead: basis.pctCorrectWordsRead,
       comprehensionCorrect: basis.comprehensionCorrect,
@@ -297,7 +300,7 @@ class AralViewModel {
       student: s,
       grade: grade,
       status: qualifies ? AralCandidateStatus.proposed : AralCandidateStatus.notQualified,
-      reason: 'CRLA ${round.label}: $profile${qualifies ? '' : ' (not ARAL)'} '
+      reason: 'CRLA ${round.label} ${_crlaVariantLabel(variant)}: $profile${qualifies ? '' : _notAralCrla(profile)} '
           '(${_pct(key.wordRecognition)} words correct, comprehension ${basis.comprehensionCorrect ?? '-'}, '
           '${_wpm(basis.wpm)})',
       suggestion: qualifies ? aralCrlaPlacement : null,
@@ -382,6 +385,11 @@ class AralViewModel {
   }
 
   static String _pct(double fraction) => '${(fraction * 100).round()}%';
+  static String _crlaVariantLabel(String variant) =>
+      switch (variant) { 'mt' => 'Mother Tongue', 'fil' => 'Filipino', 'eng' => 'English', _ => variant };
+  static String _notAralCrla(String profile) => profile == crlaAtGradeLevel
+      ? ' (not ARAL)'
+      : ' (not ARAL: regular class; the school\'s extended KS1 program is off)';
   static String _wpm(double? wpm) => wpm == null ? '- wpm' : '${wpm.round()} wpm';
 
   // ---- Roster changes (admin / coordinator) ----
@@ -535,8 +543,9 @@ class AralViewModel {
   }
 
   /// Records that the learner left ARAL for an administrative reason
-  /// (transferred out, dropped out, other). Grade-level-ready exits come from
-  /// the learner's results, not from here.
+  /// (transferred out, dropped out, other) or for classroom-based remediation
+  /// (classroom support). Grade-level-ready exits come from the learner's
+  /// results, not from here.
   Future<AralEnrollment> exit(int enrollmentId, AralExitReason reason, {DateTime? on}) async {
     _requireSignIn();
     _log('exit($enrollmentId, ${reason.value})');
@@ -604,13 +613,13 @@ class AralViewModel {
     final (section, grade) = await _aralSection(sectionId, schoolYear);
     final active = (await _roster.getBySection(section.id!, schoolYear: schoolYear)).where((e) => e.isActive).toList();
     final crla = grade <= 3 ? await _crlaResults.getBySection(section.id!, schoolYear: schoolYear) : const <CrlaResult>[];
-    final foundationalOn = (await programSettings(section.schoolId)).foundationalProgram;
+    final program = await programSettings(section.schoolId);
     final out = <AralUpdate>[];
     for (final e in active) {
       final latest = grade <= 3
-          ? _latestCrla(crla.where((r) => r.studentId == e.studentId).toList())
+          ? _latestCrla(crla.where((r) => r.studentId == e.studentId).toList(), grade, program.ks1Extended)
           : await _latestPhilIri(e, grade);
-      out.add(await _apply(e, latest, foundationalOn));
+      out.add(await _apply(e, latest, program.foundationalProgram));
     }
     final changed = out.where((u) => u.kind == AralUpdateKind.programChanged || u.kind == AralUpdateKind.exited);
     _log('applyResults: ${changed.length} change(s) in section $sectionId');
@@ -660,11 +669,16 @@ class AralViewModel {
 
     final p = latest.placement;
     if (p == null) {
-      // Exit on the result's date (not before the learner entered).
+      // Exit on the result's date (not before the learner entered): grade-level
+      // ready, or (KS1 outside the extended program) with classroom support.
       final date = latest.date.compareTo(e.enteredOn) < 0 ? e.enteredOn : latest.date;
+      final reason = latest.exitReason;
       final after = await _write(() => _roster.update(withSource(e).copyWith(
-          status: AralStatus.exited, exitedOn: () => date, exitReason: () => AralExitReason.gradeLevelReady)));
-      return AralUpdate(e, after, AralUpdateKind.exited, '${latest.label}: grade-level ready, exited on $date');
+          status: AralStatus.exited, exitedOn: () => date, exitReason: () => reason)));
+      final why = reason == AralExitReason.classroomSupport
+          ? 'leaves ARAL with classroom support (the extended KS1 program is off)'
+          : 'grade-level ready';
+      return AralUpdate(e, after, AralUpdateKind.exited, '${latest.label}: $why, exited on $date');
     }
     final sameAsNow = p.keyStage == e.keyStage && p.track == e.track;
     if (!sameAsNow && (p.keyStage != e.suggestedKeyStage || p.track != e.suggestedTrack)) {
@@ -704,6 +718,7 @@ class AralViewModel {
     final adjusted = r.adjustedLevel!;
     final level = adjusted == 0 ? 'non-reader' : 'reads at Grade $adjusted';
     return _LatestResult(r.round.name, r.profile!.name, session?.id, date,
+        AralExitReason.gradeLevelReady,
         aralPhilIriPlacement(
             adjustedLevel: adjusted,
             grade: grade,
@@ -711,24 +726,31 @@ class AralViewModel {
         'Phil-IRI ${r.round.label}${session == null ? ' (GST)' : ''} ($level)');
   }
 
-  /// The latest CRLA round with a profile; within it the latest attempt per
-  /// variant, then the weakest profile.
-  _LatestResult? _latestCrla(List<CrlaResult> results) {
+  /// The latest CRLA round with a profile in the grade's language
+  /// (aralCrlaBasisVariant); within it the latest attempt. At grade level:
+  /// exit grade-level ready. Developing/Transitioning outside the school's
+  /// extended KS1 program: exit with classroom support (DepEd Memorandum 064,
+  /// any round after entry, owner 2026-10-23). Otherwise KS1.
+  _LatestResult? _latestCrla(List<CrlaResult> results, int grade, bool extended) {
     final scored = results.where((r) => r.readingProfile != null).toList();
-    if (scored.isEmpty) return null;
-    final round = scored.map((r) => r.round).reduce((a, b) => a.index >= b.index ? a : b);
-    final latest = <String, CrlaResult>{};
-    for (final r in scored.where((r) => r.round == round)) {
-      final prev = latest[r.subjectVariant];
-      if (prev == null || r.attemptNo > prev.attemptNo) latest[r.subjectVariant] = r;
-    }
+    final variant = aralCrlaBasisVariant(grade, scored.map((r) => r.subjectVariant).toSet());
+    final inLanguage = scored.where((r) => r.subjectVariant == variant).toList();
+    if (inLanguage.isEmpty) return null;
+    final round = inLanguage.map((r) => r.round).reduce((a, b) => a.index >= b.index ? a : b);
     CrlaResult? basis;
-    for (final r in latest.values) {
-      if (basis == null || aralWeakerCrlaProfile(r.readingProfile, basis.readingProfile) == r.readingProfile) basis = r;
+    for (final r in inLanguage.where((r) => r.round == round)) {
+      if (basis == null || r.attemptNo > basis.attemptNo) basis = r;
     }
     final profile = basis!.readingProfile!;
-    return _LatestResult(round.name, profile, basis.assessmentId, basis.assessedAt.substring(0, 10),
-        profile == crlaAtGradeLevel ? null : aralCrlaPlacement, 'CRLA ${round.label} ($profile)');
+    final stays = aralCrlaQualifies(profile, extended: extended);
+    return _LatestResult(
+        round.name,
+        profile,
+        basis.assessmentId,
+        basis.assessedAt.substring(0, 10),
+        profile == crlaAtGradeLevel ? AralExitReason.gradeLevelReady : AralExitReason.classroomSupport,
+        stays ? aralCrlaPlacement : null,
+        'CRLA ${round.label} ${_crlaVariantLabel(variant)} ($profile)');
   }
 
   // ---- Reading the roster ----

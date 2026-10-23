@@ -11,6 +11,7 @@ aral-export-roster
 aral-idle-days
 aral-irip
 aral-irip-targets
+aral-ks1-extended
 aral-materials
 aral-readability
 aral-recommend

@@ -83,14 +83,28 @@ void registerAralCheckinAdminCommands(ConsoleRegistry registry, AralCheckinViewM
         'aral-update.${warn == null ? '' : '\n$warn'}';
   });
 
+  add('aral-ks1-extended-set',
+      'aral-ks1-extended-set <region|schoolId> <on|off> — KS1 Developing/Transitioning learners join ARAL too '
+          '(extended program; off = DepEd memo default) (online)', (args) async {
+    const usage = 'Usage: aral-ks1-extended-set <region|schoolId> <on|off>';
+    if (args.length != 2 || (args[1] != 'on' && args[1] != 'off')) throw const AralCheckinUsage(usage);
+    final schoolId = args[0] == 'region' ? null : aralCheckinInt(args[0], 'schoolId');
+    await vm.setKs1Extended(schoolId, args[1] == 'on');
+    final warn = vm.lastMirrorWarning;
+    return 'Extended KS1 program ${args[1]} for ${schoolId == null ? 'the region' : 'school $schoolId'}. '
+        '${args[1] == 'on' ? 'Developing/Transitioning learners are proposed for ARAL from now on.' : 'Developing/Transitioning ARAL learners leave with classroom support at the next aral-update.'}'
+        '${warn == null ? '' : '\n$warn'}';
+  });
+
   add('aral-checkin-cutoff-reset',
       'aral-checkin-cutoff-reset <schoolId> — remove a school\'s ARAL settings override: cut-off, SHARP switch, '
-          'idle session days (online)', (args) async {
+          'idle session days, extended KS1 (online)', (args) async {
     if (args.isEmpty) throw const AralCheckinUsage('Usage: aral-checkin-cutoff-reset <schoolId>');
     final schoolId = aralCheckinInt(args[0], 'schoolId');
     await vm.resetSchoolSettings(schoolId);
     final warn = vm.lastMirrorWarning;
-    return 'School $schoolId uses the region ARAL settings again (cut-off, SHARP, idle session days).'
+    return 'School $schoolId uses the region ARAL settings again (cut-off, SHARP, idle session days, '
+        'extended KS1).'
         '${warn == null ? '' : '\n$warn'}';
   });
 

@@ -201,6 +201,18 @@ void registerAralCheckinCommands(ConsoleRegistry registry, AralCheckinViewModel 
         'Applies: ${l.effective ? 'on (levels 0-1 go to Foundational / SHARP)' : 'off (levels 0-1 go to KS1)'}';
   });
 
+  add('aral-ks1-extended',
+      'aral-ks1-extended [schoolId] — do KS1 Developing/Transitioning learners join ARAL (extended program)? (online)',
+      (args) async {
+    final schoolId = args.isEmpty ? null : aralCheckinInt(args[0], 'schoolId');
+    final l = await vm.ks1ExtendedLayers(schoolId);
+    String row(bool? v) => v == null ? '(not set)' : (v ? 'on' : 'off');
+    return 'Default: off (KS1 takes Low/High Emerging learners)\n'
+        'Region: ${row(l.region)}\n'
+        '${schoolId == null ? '' : 'School $schoolId: ${row(l.school)}\n'}'
+        'Applies: ${l.effective ? 'on (Developing/Transitioning join KS1 too)' : 'off (KS1 takes Low/High Emerging learners)'}';
+  });
+
   add('aral-idle-days',
       'aral-idle-days [schoolId] — after how many days without a session a tutor is reminded (online)',
       (args) async {

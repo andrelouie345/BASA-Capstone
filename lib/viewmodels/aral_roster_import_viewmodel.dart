@@ -197,7 +197,8 @@ class AralRosterImportViewModel {
         if (reason == null) {
           problems.add(reasonRaw == null
               ? 'exited without an exit reason'
-              : 'exit reason "$reasonRaw" is not grade-level ready, transferred out, dropped out or other');
+              : 'exit reason "$reasonRaw" is not grade-level ready, transferred out, dropped out, other or '
+                  'classroom support');
         }
         final from = entered ?? today;
         if (exitedOn != null && exitedOn.compareTo(from) < 0) problems.add('exit date $exitedOn is before entry $from');
@@ -307,6 +308,7 @@ class AralRosterImportViewModel {
       'transferredout' || 'transferred' || 'transfer' => AralExitReason.transferredOut,
       'droppedout' || 'dropped' || 'dropout' => AralExitReason.droppedOut,
       'other' || 'others' => AralExitReason.other,
+      'classroomsupport' || 'exitwithclassroomsupport' || 'classroom' => AralExitReason.classroomSupport,
       _ => null,
     };
   }

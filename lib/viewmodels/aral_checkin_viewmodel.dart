@@ -484,6 +484,39 @@ class AralCheckinViewModel {
     return saved;
   }
 
+  /// The extended KS1 program switch in the cloud (DepEd Memorandum 064:
+  /// KS1 Developing/Transitioning learners join too): the stored region/school
+  /// values (null = not set) and the one that applies.
+  Future<({bool? region, bool? school, bool effective})> ks1ExtendedLayers(int? schoolId) async {
+    _requireSignIn();
+    _log('ks1ExtendedLayers($schoolId)');
+    final cloud = _cloud();
+    final region = await cloud.getRegion();
+    final school = schoolId == null ? null : await cloud.getForSchool(schoolId);
+    bool? read(AralSetting? s) => s?.settings[AralProgramSettings.ks1ExtendedKey] as bool?;
+    return (
+      region: read(region),
+      school: read(school),
+      effective: AralProgramSettings.fromMap({...?region?.settings, ...?school?.settings}).ks1Extended,
+    );
+  }
+
+  /// Switches the extended KS1 program on or off for the region ([schoolId]
+  /// null, superadmin) or a school (its admin/coordinator). Off (the default)
+  /// = the memo: only Low/High Emerging learners join, and Developing or
+  /// Transitioning ARAL learners leave with classroom support at the next
+  /// automatic update. Online; mirrored to this device.
+  Future<AralSetting> setKs1Extended(int? schoolId, bool on) async {
+    _requireSignIn();
+    _log('setKs1Extended($schoolId, $on)');
+    final cloud = _settingsWriter(schoolId);
+    final current = schoolId == null ? await cloud.getRegion() : await cloud.getForSchool(schoolId);
+    final saved = await _cloudWrite(() => cloud.save(
+        schoolId, {...?current?.settings, AralProgramSettings.ks1ExtendedKey: on}));
+    await _mirror(() => _localSettings.upsertWithId(saved));
+    return saved;
+  }
+
   /// The session settings on this device (idle_session_days): defaults <-
   /// region <- the school's override (the local mirror).
   Future<AralSessionSettings> localSessionSettings(int schoolId) async {
@@ -608,7 +641,7 @@ class AralCheckinViewModel {
         throw const ViewModelException('Forbidden: only the superadmin sets the region-wide ARAL settings.');
       }
       if (me.schoolId != schoolId) {
-        throw const ViewModelException('Forbidden: you can only set the cut-off of your own school.');
+        throw const ViewModelException("Forbidden: you can only change your own school's ARAL settings.");
       }
     }
     lastMirrorWarning = null;

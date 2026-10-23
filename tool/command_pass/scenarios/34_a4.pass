@@ -1,0 +1,128 @@
+# A4 ARAL admin. Part 1 (2026-10-23): Key Stage 1 follows DepEd Memorandum
+# 064 s. 2025 (migration 20261023030000): Low/High Emerging join; Developing
+# and Transitioning only with the school's extended program (ks1_extended,
+# off by default) and otherwise leave with classroom support; the CRLA in the
+# grade's language counts (Grade 2: Filipino). The rest of A4 (roster admin,
+# transfers, classes) follows the ARAL classes design.
+#
+# Grade 2 learners and their latest Filipino BOSY CRLA (T3's results, imported
+# onto the server by A2):
+#   s_g2_1 Reading At Grade Level, s_g2_2 Low Emerging, s_g2_3 High Emerging,
+#   s_g2_4 Transitioning.
+# The batch removes the roster entries it makes (synced), so it reruns.
+
+device a4-pc admin fresh
+as coord
+run pull-cloud yes
+expect users:
+
+# --- The switch ----------------------------------------------------------------
+run aral-ks1-extended {school}
+expect Applies: off (KS1 takes Low/High Emerging learners)
+run aral-ks1-extended-set region on
+refuse Forbidden: only the superadmin sets the region-wide ARAL settings.
+run aral-ks1-extended-set {schoolB} on
+refuse Forbidden: you can only change your own school's ARAL settings.
+run aral-ks1-extended-set {school} maybe
+refuse Usage: aral-ks1-extended-set <region|schoolId> <on|off>
+
+# --- Proposal, switch off ---------------------------------------------------------
+run aral-propose {sec_g2} {year}
+# Low and High Emerging only; Transitioning stays in the regular class.
+expect | {s_g2_2} | ZZTESTB, Learner002 | proposed -> KS1 | CRLA BOSY Filipino: Low Emerging Reader
+# F12: 36/96 = 37.5% and 60/96 = 62.5% of the words (round half up).
+expect | {s_g2_3} | ZZTESTC, Learner003 | proposed -> KS1 | CRLA BOSY Filipino: High Emerging Reader (38% words correct, comprehension 0, 27 wpm)
+expect | {s_g2_1} | ZZTESTA, Learner001 | notQualified | CRLA BOSY Filipino: Reading At Grade Level (not ARAL)
+expect | {s_g2_4} | ZZTESTD, Learner004 | notQualified | CRLA BOSY Filipino: Transitioning Reader (not ARAL: regular class; the school's extended KS1 program is off) (63% words correct, comprehension 4, 40 wpm)
+
+# --- Switch on: Transitioning is proposed too ---------------------------------------
+run aral-ks1-extended-set {school} on
+expect Extended KS1 program on for school {school}. Developing/Transitioning learners are proposed for ARAL from now on.
+run aral-ks1-extended {school}
+expect School {school}: on
+expect Applies: on (Developing/Transitioning join KS1 too)
+run pull-cloud yes
+expect users:
+run aral-propose {sec_g2} {year}
+expect~ \| {s_g2_4} \| ZZTESTD, Learner004 \| proposed -> KS1 \| CRLA BOSY Filipino: Transitioning Reader
+run aral-enroll {sec_g2} {year} {s_g2_4}
+expect ZZTESTD, Learner004 ({s_g2_4}) | KS1 | active | tutor - | basis: crla bosy Transitioning Reader
+capture e_g2_4 = On the ARAL roster: #(-?\d+)
+run aral-enroll {sec_g2} {year} {s_g2_3}
+expect ZZTESTC, Learner003 ({s_g2_3}) | KS1 | active | tutor - | basis: crla bosy High Emerging Reader
+capture e_g2_3 = On the ARAL roster: #(-?\d+)
+run aral-enroll {sec_g2} {year} {s_g2_2}
+expect ZZTESTB, Learner002 ({s_g2_2}) | KS1 | active | tutor - | basis: crla bosy Low Emerging Reader
+capture e_g2_2 = On the ARAL roster: #(-?\d+)
+
+# --- A MOSY result for s_g2_3: High Emerging -> Developing ---------------------------
+run crla-start {s_g2_3} {sec_g2} {year} fil mosy Tagalog
+capture a4_mosy = Started assessment (-?\d+)
+run crla-part1 {a4_mosy} {=8} {=5}
+expect total 23, level Light Refresher.
+# Story 1 (96 words), 36 miscues = 60 words read in 1:30 = 40.0 wpm, 62.5%;
+# comprehension 2 -> Developing (T3's s_g2_4: same reading, comprehension 4
+# -> Transitioning).
+run crla-part2 {a4_mosy} {=1} {=36} {=1} {=30} {=2}
+expect 60 words read, wpm 40.0.
+expect | P2 story 1 wpm 40.0 comp 2 words 62.5% | Developing Reader
+
+# --- Switch off again: Developing/Transitioning leave with classroom support ---------
+# (any round: s_g2_4 on its BOSY, s_g2_3 on its MOSY; Low Emerging stays).
+run aral-ks1-extended-set {school} off
+expect Extended KS1 program off for school {school}. Developing/Transitioning ARAL learners leave with classroom support at the next aral-update.
+run pull-cloud yes
+expect users:
+run aral-enroll {sec_g2} {year} {s_g2_1}
+refuse ZZTESTA, Learner001 is not for ARAL-Reading: CRLA BOSY Filipino: Reading At Grade Level (not ARAL)
+run aral-update {sec_g2} {year}
+expect | ZZTESTB, Learner002 | unchanged | CRLA BOSY Filipino (Low Emerging Reader): nothing new
+expect | ZZTESTC, Learner003 | exited | CRLA MOSY Filipino (Developing Reader): leaves ARAL with classroom support (the extended KS1 program is off), exited on {today}
+expect | ZZTESTD, Learner004 | exited | CRLA BOSY Filipino (Transitioning Reader): leaves ARAL with classroom support (the extended KS1 program is off), exited on {today}
+
+# --- By hand: reactivate, exit with classroom support -------------------------------
+run aral-reactivate {e_g2_4}
+expect | ZZTESTD, Learner004 ({s_g2_4}) | KS1 | active |
+run aral-exit {e_g2_4} classroom_support
+expect | ZZTESTD, Learner004 ({s_g2_4}) | KS1 | exited {today} (classroom_support) |
+run aral-exit {e_g2_3} graduated
+refuse Usage: aral-exit <enrollmentId> <transferred_out|dropped_out|other|classroom_support> [YYYY-MM-DD]
+
+# --- The server takes the new exit reason --------------------------------------------
+run sync-upload yes
+expect~ [Aa]pplied
+run pull-cloud yes
+expect users:
+run aral-roster {sec_g2} {year}
+expect~ \| ZZTESTC, Learner003 \({s_g2_3}\) \| KS1 \| exited {today} \(classroom_support\)
+expect~ \| ZZTESTD, Learner004 \({s_g2_4}\) \| KS1 \| exited {today} \(classroom_support\)
+expect 3 on the roster, 1 active.
+run aral-report {school} {year} {sec_g2}
+expect | exited 2 (grade-level ready 0, other 2) |
+
+# --- Clean up (synced), so the batch reruns ------------------------------------------
+run aral-roster {sec_g2} {year}
+capture e_g2_4s = #(\d+) \| [^\n]*\({s_g2_4}\)
+capture e_g2_3s = #(\d+) \| [^\n]*\({s_g2_3}\)
+capture e_g2_2s = #(\d+) \| [^\n]*\({s_g2_2}\)
+run aral-remove {e_g2_2s}
+expect Removed ARAL enrollment {e_g2_2s}.
+run aral-remove {e_g2_4s}
+expect Removed ARAL enrollment {e_g2_4s}.
+run aral-remove {e_g2_3s}
+expect Removed ARAL enrollment {e_g2_3s}.
+run sync-upload yes
+expect~ [Aa]pplied
+
+# --- Tutors can read the switch; signed out nothing works ------------------------------
+device a4-phone tutor fresh
+as tutor1
+run aral-ks1-extended {school}
+expect Applies: off (KS1 takes Low/High Emerging learners)
+device a4-pc admin
+run sign-out
+expect Signed out.
+run aral-ks1-extended {school}
+refuse Not signed in. Sign in first.
+run aral-ks1-extended-set {school} on
+refuse Not signed in. Sign in first.

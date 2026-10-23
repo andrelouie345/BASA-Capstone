@@ -149,9 +149,9 @@ void registerAralAdminCommands(ConsoleRegistry registry, AralViewModel vm) {
   });
 
   add('aral-exit',
-      'aral-exit <enrollmentId> <transferred_out|dropped_out|other> [YYYY-MM-DD] — record that the learner left '
+      'aral-exit <enrollmentId> <transferred_out|dropped_out|other|classroom_support> [YYYY-MM-DD] — record that the learner left '
           'ARAL (date defaults to today; grade-level-ready exits come from results)', (args) async {
-    const usage = 'Usage: aral-exit <enrollmentId> <transferred_out|dropped_out|other> [YYYY-MM-DD]';
+    const usage = 'Usage: aral-exit <enrollmentId> <transferred_out|dropped_out|other|classroom_support> [YYYY-MM-DD]';
     if (args.length < 2) throw const AralUsage(usage);
     final reason = AralExitReason.values.where((r) => r.value == args[1]).firstOrNull ?? (throw const AralUsage(usage));
     final date = args.length > 2 ? (DateTime.tryParse(args[2]) ?? (throw const AralUsage(usage))) : null;
@@ -159,7 +159,7 @@ void registerAralAdminCommands(ConsoleRegistry registry, AralViewModel vm) {
     return 'Updated: ${aralLine(e, await vm.learnerNames(e.sectionId))}';
   });
 
-  add('aral-reactivate', 'aral-reactivate <enrollmentId> — undo a transfer/drop-out/other exit', (args) async {
+  add('aral-reactivate', 'aral-reactivate <enrollmentId> — undo a transfer/drop-out/other/classroom-support exit', (args) async {
     if (args.isEmpty) throw const AralUsage('Usage: aral-reactivate <enrollmentId>');
     final e = await vm.reactivate(aralInt(args[0], 'enrollmentId'));
     return 'Updated: ${aralLine(e, await vm.learnerNames(e.sectionId))}';
