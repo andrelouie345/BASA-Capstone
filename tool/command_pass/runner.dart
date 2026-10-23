@@ -313,7 +313,7 @@ Future<(StepOutcome, String)> _signIn(Device dev, String account, Accounts accou
 
 /// Captures plus the built-in values (which win): {run}, {year}, {code_a},
 /// {code_b}, {name_a}, {name_b}, {today}, {past} (today - 30 days),
-/// {future} (today + 30 days), `{email_<account>}`, `{pw_<account>}`.
+/// {future} (today + 30 days), {rundir}, `{email_<account>}`, `{pw_<account>}`.
 Map<String, String> _vars(Accounts accounts, RunState state) {
   final n = accounts.runNumber;
   final now = DateTime.now();
@@ -329,6 +329,7 @@ Map<String, String> _vars(Accounts accounts, RunState state) {
     'today': day(now),
     'past': day(now.subtract(const Duration(days: 30))),
     'future': day(now.add(const Duration(days: 30))),
+    'rundir': state.runDir.path,
     // email_* always; pw_* once the first sign-in set it.
     for (final a in Accounts.runAccounts) 'email_$a': accounts.emailOf(a),
     for (final e in state.passwords.entries) 'pw_${e.key}': e.value,

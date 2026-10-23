@@ -1,9 +1,10 @@
 // lib/core/services/roster_exporter.dart
-import 'dart:io';
 import '../models/student.dart';
 
+/// A roster as CSV text (one row per learner, SF1 fields). Writing the file
+/// is the caller's job (the console writes a path; screens use a save dialog).
 class RosterExporter {
-  Future<String> exportToCsv(List<Student> students, String outputPath) async {
+  String toCsv(List<Student> students) {
     final headers = [
       'LRN', 'Last Name', 'First Name', 'Middle Name', 'Sex', 'Birth Date',
       'Mother Tongue', 'IP Group', 'Religion', 'Address', 'Barangay',
@@ -27,9 +28,7 @@ class RosterExporter {
       buffer.writeln(row.map(_csvEscape).join(','));
     }
 
-    final file = File(outputPath);
-    await file.writeAsString(buffer.toString());
-    return outputPath;
+    return buffer.toString();
   }
 
   String _csvEscape(String value) {

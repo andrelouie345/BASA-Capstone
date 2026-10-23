@@ -1,10 +1,10 @@
 // lib/core/console/commands/srp_admin_commands.dart
 // Admin build only: the admin half of srp_commands.dart (tutor build split, 2026-10-22).
 
-import 'dart:io';
 
 import '../console_command.dart';
 import '../console_registry.dart';
+import '../file_output.dart';
 import '../../../viewmodels/nla_report_viewmodel.dart' show progressPercent;
 import '../../../viewmodels/srp_viewmodel.dart';
 import '../../services/srp_rules.dart';
@@ -65,8 +65,9 @@ void registerSrpAdminCommands(ConsoleRegistry registry, SrpViewModel vm) {
   add('srp-classes-csv', 'srp-classes-csv <schoolId> <schoolYear> <out.csv> — the SRP masterlist as CSV', (args) async {
     if (args.length != 3) throw const SrpUsage('Usage: srp-classes-csv <schoolId> <schoolYear> <out.csv>');
     final classes = await vm.classes(schoolId: srpInt(args[0], 'schoolId'), schoolYear: args[1]);
-    await File(args[2]).writeAsString(srpClassesCsv(classes));
-    return 'Wrote ${args[2]} (${classes.length} class(es), '
+    final error = await writeOutputFile(args[2], text: srpClassesCsv(classes));
+    if (error != null) return error;
+    return 'Wrote ${outputPath(args[2])} (${classes.length} class(es), '
         '${classes.fold<int>(0, (n, c) => n + c.learners.length)} learner(s)).';
   });
 
@@ -146,10 +147,11 @@ void registerSrpAdminCommands(ConsoleRegistry registry, SrpViewModel vm) {
     final list = await vm.candidates(
         schoolId: srpInt(args[0], 'schoolId'), schoolYear: args[1], sectionIds: o.sections, perSection: o.per,
         asOf: o.asOf);
-    await File(args[2]).writeAsString(srpListCsv(list, recommendedOnly: o.recommendedOnly));
+    final error = await writeOutputFile(args[2], text: srpListCsv(list, recommendedOnly: o.recommendedOnly));
+    if (error != null) return error;
     final n = list.sections.fold<int>(
         0, (n, s) => n + (o.recommendedOnly ? s.recommendedCount : s.candidates.length));
-    return 'Wrote ${args[2]} ($n learner(s)).';
+    return 'Wrote ${outputPath(args[2])} ($n learner(s)).';
   });
 }
 

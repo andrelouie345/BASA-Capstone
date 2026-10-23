@@ -18,10 +18,10 @@
 /// not grade level ready at BOSY, with sections= and asof=.
 library;
 
-import 'dart:io';
 
 import '../console_command.dart';
 import '../console_registry.dart';
+import '../file_output.dart';
 import '../../../viewmodels/nla_report_viewmodel.dart';
 import '../../models/phil_iri_assessment.dart' show PhilIriRound;
 import '../../services/nla_form2b.dart';
@@ -299,9 +299,10 @@ void registerNlaReportCommands(ConsoleRegistry registry, NlaReportViewModel vm) 
     final report = await vm.progress(
         schoolId: _int(args[0], 'schoolId'), schoolYear: args[1], sectionIds: o.sections,
         doneThreshold: o.done, asOf: o.asOf);
-    await File(args[2]).writeAsString(
-        progressReportCsv(report, sectionRows: o.sectionRows, schoolTotal: o.schoolTotal));
-    return 'Wrote ${args[2]} (${report.sections.length} section(s)).';
+    final error = await writeOutputFile(args[2],
+        text: progressReportCsv(report, sectionRows: o.sectionRows, schoolTotal: o.schoolTotal));
+    if (error != null) return error;
+    return 'Wrote ${outputPath(args[2])} (${report.sections.length} section(s)).';
   });
 
   add('bosy-masterlist', 'bosy-masterlist <schoolId> <schoolYear> $_masterlistOptions — learners not grade level '
@@ -322,8 +323,9 @@ void registerNlaReportCommands(ConsoleRegistry registry, NlaReportViewModel vm) 
     final o = _masterlistFilter(args.sublist(3));
     final list = await vm.bosyMasterlist(
         schoolId: _int(args[0], 'schoolId'), schoolYear: args[1], sectionIds: o.sections, asOf: o.asOf);
-    await File(args[2]).writeAsString(bosyMasterlistCsv(list));
-    return 'Wrote ${args[2]} (${list.sections.fold<int>(0, (n, s) => n + s.learners.length)} learner(s)).';
+    final error = await writeOutputFile(args[2], text: bosyMasterlistCsv(list));
+    if (error != null) return error;
+    return 'Wrote ${outputPath(args[2])} (${list.sections.fold<int>(0, (n, s) => n + s.learners.length)} learner(s)).';
   });
 
   add('nla-report-csv','nla-report-csv <schoolId> <schoolYear> <out.csv> $_options — the same as CSV', (args) async {
@@ -331,7 +333,8 @@ void registerNlaReportCommands(ConsoleRegistry registry, NlaReportViewModel vm) 
     final (filter, sections, asOf) = _filter(args.sublist(3));
     final report = await vm.report(
         schoolId: _int(args[0], 'schoolId'), schoolYear: args[1], sectionIds: sections, asOf: asOf);
-    await File(args[2]).writeAsString(nlaReportCsv(report, filter));
-    return 'Wrote ${args[2]} (${report.sections.length} section(s)).';
+    final error = await writeOutputFile(args[2], text: nlaReportCsv(report, filter));
+    if (error != null) return error;
+    return 'Wrote ${outputPath(args[2])} (${report.sections.length} section(s)).';
   });
 }

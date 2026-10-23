@@ -10,6 +10,7 @@ import 'dart:io';
 
 import '../console_command.dart';
 import '../console_registry.dart';
+import '../file_output.dart';
 import '../../../viewmodels/aral_checkin_viewmodel.dart';
 import '../../../viewmodels/aral_report_viewmodel.dart';
 import '../../../viewmodels/aral_roster_import_viewmodel.dart';
@@ -39,11 +40,9 @@ int _int(String raw, String what) =>
   return (sectionId, asOf);
 }
 
-Future<String> _write(String path, List<int> bytes) async {
-  final f = File(path);
-  await f.writeAsBytes(bytes);
-  return f.path;
-}
+/// `Wrote <path>.` or `Couldn't write <path>: <reason>`.
+Future<String> _write(String path, List<int> bytes) async =>
+    await writeOutputFile(path, bytes: bytes) ?? 'Wrote ${outputPath(path)}.';
 
 void registerAralExportCommands(
     ConsoleRegistry registry, AralViewModel aral, AralReportViewModel report, AralCheckinViewModel checkins) {
@@ -78,7 +77,7 @@ void registerAralExportCommands(
         schoolYear: args[1],
         sectionId: sectionId,
         asOf: asOf);
-    return ['Wrote ${await _write(args[3], bytes)}.', ...notes.map((n) => 'Note: $n')].join('\n');
+    return [await _write(args[3], bytes), ...notes.map((n) => 'Note: $n')].join('\n');
   });
 
   add('aral-export-report-csv',
@@ -89,7 +88,7 @@ void registerAralExportCommands(
     final (sectionId, asOf) = _options(args.skip(3), usage);
     final csv = await report.implementationReportCsv(
         schoolId: _int(args[0], 'schoolId'), schoolYear: args[1], sectionId: sectionId, asOf: asOf);
-    return 'Wrote ${await _write(args[2], _utf8(csv))}.';
+    return _write(args[2], _utf8(csv));
   });
 
   add('aral-export-roster',
@@ -99,7 +98,7 @@ void registerAralExportCommands(
     final (sectionId, asOf) = _options(args.skip(3), usage);
     if (asOf != null) throw const _Usage(usage);
     final csv = await aral.rosterCsv(schoolId: _int(args[0], 'schoolId'), schoolYear: args[1], sectionId: sectionId);
-    return 'Wrote ${await _write(args[2], _utf8(csv))}.';
+    return _write(args[2], _utf8(csv));
   });
 
   add('aral-export-checkins',
@@ -110,7 +109,7 @@ void registerAralExportCommands(
     if (asOf != null) throw const _Usage(usage);
     final csv =
         await checkins.checkinReportCsv(schoolId: _int(args[0], 'schoolId'), schoolYear: args[1], sectionId: sectionId);
-    return 'Wrote ${await _write(args[2], _utf8(csv))}.';
+    return _write(args[2], _utf8(csv));
   });
 }
 

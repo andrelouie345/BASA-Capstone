@@ -1,19 +1,16 @@
 // lib/core/console/commands/student_commands.dart
 import '../console_command.dart';
 import '../console_registry.dart';
-import '../../services/roster_exporter.dart';
-import '../../repositories/section_repository.dart';
-import '../../repositories/student_repository.dart';
+import '../file_output.dart';
+import '../../../viewmodels/section_viewmodel.dart';
 import '../../../viewmodels/student_viewmodel.dart';
 
 /// Cloud learner lists (signed in, RLS-scoped) through [vm]; the
-/// list-sections / list-students / export-section commands read the local
-/// SQLite cache.
+/// list-sections / list-students / export-section commands read this
+/// device's copy through [sectionVm] / [vm] (signed in, online or offline).
 void registerStudentCommands(
   ConsoleRegistry registry,
-  RosterExporter exporter,
-  SectionRepository sectionRepo,
-  StudentRepository studentRepo,
+  SectionViewModel sectionVm,
   StudentViewModel vm,
 ) {
   registry.register(ConsoleCommand(
@@ -50,9 +47,13 @@ void registerStudentCommands(
     name: 'list-sections',
     description: 'list-sections — show all locally cached sections',
     handler: (_) async {
-      final sections = await sectionRepo.getAll();
-      if (sections.isEmpty) return '(no sections yet)';
-      return sections.map((s) => '${s.id}: $s').join('\n');
+      try {
+        final sections = await sectionVm.localSections();
+        if (sections.isEmpty) return '(no sections yet)';
+        return sections.map((s) => '${s.id}: $s').join('\n');
+      } catch (e) {
+        return 'List failed: $e';
+      }
     },
   ));
 
@@ -62,9 +63,13 @@ void registerStudentCommands(
     handler: (args) async {
       final id = int.tryParse(args.isNotEmpty ? args[0] : '');
       if (id == null) return 'Usage: list-students <sectionId>';
-      final students = await studentRepo.getBySection(id);
-      if (students.isEmpty) return '(no students in this section)';
-      return students.map((s) => '${s.lrn}: ${s.lastName}, ${s.firstName}').join('\n');
+      try {
+        final students = await vm.localStudents(id);
+        if (students.isEmpty) return '(no students in this section)';
+        return students.map((s) => '${s.lrn}: ${s.lastName}, ${s.firstName}').join('\n');
+      } catch (e) {
+        return 'List failed: $e';
+      }
     },
   ));
 
@@ -75,10 +80,14 @@ void registerStudentCommands(
       if (args.length < 2) return 'Usage: export-section <sectionId> <outputPath.csv>';
       final id = int.tryParse(args[0]);
       if (id == null) return 'sectionId must be a number';
-      final students = await studentRepo.getBySection(id);
-      if (students.isEmpty) return 'No students found in section $id';
-      final path = await exporter.exportToCsv(students, args[1]);
-      return 'Exported ${students.length} students to $path';
+      try {
+        final students = await vm.localStudents(id);
+        if (students.isEmpty) return 'No students found in section $id';
+        final error = await writeOutputFile(args[1], text: await vm.rosterCsv(id));
+        return error ?? 'Exported ${students.length} students to ${outputPath(args[1])}';
+      } catch (e) {
+        return 'Export failed: $e';
+      }
     },
   ));
 }

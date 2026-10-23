@@ -12,19 +12,35 @@ import 'viewmodel_exception.dart';
 /// applies). Writes: superadmin any school, admin/coordinator their own.
 /// School year and grade level are normalized here, so every caller stores
 /// the same canonical values (see normalizers.dart).
+///
+/// [localSections] reads this device's copy instead (works offline).
 class SectionViewModel {
   final ScopedLogger _log;
   final AuthViewModel _auth;
   final SectionRepository Function(SupabaseClient client) _repoFor;
+  final SectionRepository? _local;
   List<Section> items = [];
 
   SectionViewModel({
     required AuthViewModel auth,
     required SectionRepository Function(SupabaseClient client) repoFactory,
+    SectionRepository? local,
     Logger? logger,
   })  : _auth = auth,
         _repoFor = repoFactory,
+        _local = local,
         _log = ScopedLogger(logger, 'SectionViewModel');
+
+  /// The sections on this device (what the last pull gave the device owner,
+  /// plus sections created here). Online or offline sign-in.
+  Future<List<Section>> localSections() async {
+    _log('localSections()');
+    final sessionError = _auth.requireActiveSession();
+    if (sessionError != null) throw ViewModelException(sessionError);
+    final local = _local;
+    if (local == null) throw const ViewModelException('No local copy on this device.');
+    return local.getAll();
+  }
 
   SectionRepository _repo() {
     final sessionError = _auth.requireOnlineSession();

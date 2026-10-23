@@ -8,6 +8,7 @@ import 'dart:io';
 
 import '../console_command.dart';
 import '../console_registry.dart';
+import '../file_output.dart';
 import '../../../viewmodels/auth_viewmodel.dart';
 import '../../../viewmodels/crla_export_viewmodel.dart';
 import '../../models/crla_assessment.dart' show CrlaRound;
@@ -34,9 +35,10 @@ void registerCrlaExportCommands(ConsoleRegistry registry, AuthViewModel authVm, 
       try {
         final x = await vm.exportScoresheet(sectionId, await template.readAsBytes(),
             round: CrlaRound.fromString(r), teacher: args.length > 4 ? args.sublist(4).join(' ') : null);
-        await out.writeAsBytes(x.bytes);
+        final error = await writeOutputFile(out.path, bytes: x.bytes);
+        if (error != null) return error;
         return [
-          'Wrote ${out.path}: Grade ${x.section.gradeLevel} ${x.section.sectionName}, ${x.round.label}, '
+          'Wrote ${outputPath(out.path)}: Grade ${x.section.gradeLevel} ${x.section.sectionName}, ${x.round.label}, '
               '${x.learners} learner(s); results: '
               '${x.resultsByVariant.isEmpty ? 'none' : x.resultsByVariant.entries.map((e) => '${e.key} ${e.value}').join(', ')}.',
           ...x.notes.map((n) => 'Note: $n'),

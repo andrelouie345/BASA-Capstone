@@ -31,7 +31,6 @@ import '../data/remote/section_repository_supabase.dart';
 import '../data/remote/student_repository_supabase.dart';
 import '../data/remote/sync_download_supabase.dart';
 import '../data/remote/sync_remote_supabase.dart';
-import '../services/roster_exporter.dart';
 import 'app_context.dart';
 
 class SharedVms {
@@ -42,7 +41,6 @@ class SharedVms {
   final SectionViewModel sectionVm;
   final StudentViewModel studentVm;
   final TutorSectionAssignmentRepositorySqlite tutorSectionRepo;
-  final RosterExporter exporter;
   final SectionRepositorySqlite sectionRepo;
   final StudentRepositorySqlite studentRepo;
 
@@ -54,7 +52,6 @@ class SharedVms {
     required this.sectionVm,
     required this.studentVm,
     required this.tutorSectionRepo,
-    required this.exporter,
     required this.sectionRepo,
     required this.studentRepo,
   });
@@ -71,11 +68,15 @@ SharedVms wireShared(AppContext ctx) {
   final testDataVm = TestDataViewModel(repo: TestRepositorySqlite(db), logger: session);
   vms.register('TestDataViewModel', testDataVm);
 
-  final studentVm = StudentViewModel(auth: authVm, repoFactory: StudentRepositorySupabase.new, logger: session);
+  final sectionRepo = SectionRepositorySqlite(db);
+  final studentRepo = StudentRepositorySqlite(db);
+  final studentVm = StudentViewModel(
+      auth: authVm, repoFactory: StudentRepositorySupabase.new, local: studentRepo, logger: session);
   vms.register('StudentViewModel', studentVm);
   final schoolVm = SchoolViewModel(auth: authVm, repoFactory: SchoolRepositorySupabase.new, logger: session);
   vms.register('SchoolViewModel', schoolVm);
-  final sectionVm = SectionViewModel(auth: authVm, repoFactory: SectionRepositorySupabase.new, logger: session);
+  final sectionVm = SectionViewModel(
+      auth: authVm, repoFactory: SectionRepositorySupabase.new, local: sectionRepo, logger: session);
   vms.register('SectionViewModel', sectionVm);
   final tutorSectionRepo = TutorSectionAssignmentRepositorySqlite(db);
 
@@ -97,9 +98,8 @@ SharedVms wireShared(AppContext ctx) {
     sectionVm: sectionVm,
     studentVm: studentVm,
     tutorSectionRepo: tutorSectionRepo,
-    exporter: RosterExporter(),
-    sectionRepo: SectionRepositorySqlite(db),
-    studentRepo: StudentRepositorySqlite(db),
+    sectionRepo: sectionRepo,
+    studentRepo: studentRepo,
   );
 }
 
@@ -108,7 +108,7 @@ void registerSharedCommands(AppContext ctx, SharedVms s) {
   registerConfigCommands(r, ctx.config);
   registerAuthCommands(r, ctx.authVm);
   registerVersionCommands(r, ctx.authVm);
-  registerStudentCommands(r, s.exporter, s.sectionRepo, s.studentRepo, s.studentVm);
+  registerStudentCommands(r, s.sectionVm, s.studentVm);
   registerSchoolCommands(r, s.schoolVm);
   registerSectionCommands(r, s.sectionVm);
   registerPullCommands(r, s.syncVm);

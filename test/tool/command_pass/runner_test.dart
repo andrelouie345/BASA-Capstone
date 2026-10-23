@@ -171,6 +171,12 @@ void main() {
     expect(results[5].outcome.message, contains('missing'));
   });
 
+  test('{rundir} is the run folder, for files a command writes', () async {
+    final results = await run('device a tutor\nrun set-text {rundir}\nexpect {rundir}');
+    expect(results[1].output.split('\n').first, 'OK: "${runDir.path}"');
+    expect(results[2].outcome.passed, isTrue);
+  });
+
   test('run accounts have {email_<name>} and, once known, {pw_<name>}', () async {
     state.passwords['tutor1'] = 'Zz9!secretpw';
     final results = await run('device a tutor\nrun set-text {email_tutor1} {pw_tutor1}\n'
