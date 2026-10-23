@@ -93,7 +93,7 @@ Future<void> main(List<String> args) async {
   }
 
   final state = await RunState.load(runDir);
-  final accounts = Accounts(runNumber: n, superAccount: superAccount, state: state);
+  final accounts = Accounts(runNumber: n, superAccount: superAccount, state: state, superFile: accountsFile);
   final devices = DeviceManager(runDir, configSource: _configSource);
   final readOnly = loadReadOnlyCommands();
 

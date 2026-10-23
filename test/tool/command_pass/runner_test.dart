@@ -127,4 +127,38 @@ void main() {
     expect(summaryLine(results, cov), '342/343 covered, 5 steps, 1 failed');
     expect(renderReport(results, cov, const []), contains('UNCOVERED (tutor): whoami'));
   });
+
+  test('built-in values fill run lines, expect texts and capture patterns', () async {
+    String d(DateTime t) => t.toIso8601String().substring(0, 10);
+    final now = DateTime.now();
+    final year = now.month >= 6 ? '${now.year}-${now.year + 1}' : '${now.year - 1}-${now.year}';
+    final results = await run('device a tutor\n'
+        'run set-text r{run} {year} {code_a} {code_b} {name_a}|{name_b} {today} {past} {future}\n'
+        'expect OK: "r{run} {year} {code_a} {code_b} {name_a}|{name_b} {today} {past} {future}"\n'
+        'capture past = r{run} .* {today} (\\S+)\n'
+        'run get-text\n'
+        'refuse {missing}');
+    expect(results[1].output.split('\n').first,
+        'OK: "r1 $year ZZPASS0001 ZZPASS0001B ZZTEST PASS r1|ZZTEST PASS r1 B ${d(now)} ${d(now.subtract(const Duration(days: 30)))} ${d(now.add(const Duration(days: 30)))}"');
+    expect(results[2].outcome.passed, isTrue, reason: results[2].outcome.message);
+    expect(results[3].outcome.passed, isTrue, reason: results[3].outcome.message);
+    expect(state.captures['past'], d(now.subtract(const Duration(days: 30))));
+    expect(results[5].outcome.passed, isFalse);
+    expect(results[5].outcome.message, contains('missing'));
+  });
+
+  test('a changed superadmin password is written back to the shared accounts file', () async {
+    final file = File('${runDir.path}/root_accounts.json')
+      ..writeAsStringSync('{"super": {"email": "zztest.super@basa.test", "password": "temp123"}}');
+    final a = Accounts(
+        runNumber: 1,
+        superAccount: (email: 'zztest.super@basa.test', password: 'temp123'),
+        state: state,
+        superFile: file);
+    await a.storeSuperPassword('Zz9!newpass');
+    expect(file.readAsStringSync(), contains('"password": "Zz9!newpass"'));
+    expect(file.readAsStringSync(), contains('zztest.super@basa.test'));
+    expect(a.resolve('super').password, 'Zz9!newpass');
+    expect(a.secrets, contains('Zz9!newpass'));
+  });
 }

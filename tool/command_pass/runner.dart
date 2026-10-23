@@ -45,9 +45,23 @@ class RunState {
 class Accounts {
   static const runAccounts = {'coord', 'tutor1', 'tutor2'};
   final int runNumber;
-  final ({String email, String password})? superAccount;
+  ({String email, String password})? superAccount;
   final RunState state;
-  Accounts({required this.runNumber, required this.superAccount, required this.state});
+  /// D:\0_CAPSTONE\verify\pass\accounts.json: gets the superadmin's new
+  /// password when the first sign-in replaces a temporary one.
+  final File? superFile;
+  Accounts({required this.runNumber, required this.superAccount, required this.state, this.superFile});
+
+  Future<void> storeSuperPassword(String password) async {
+    final s = superAccount;
+    if (s == null) return;
+    superAccount = (email: s.email, password: password);
+    final f = superFile;
+    if (f == null) return;
+    final data = f.existsSync() ? jsonDecode(f.readAsStringSync()) as Map<String, dynamic> : <String, dynamic>{};
+    data['super'] = {'email': s.email, 'password': password};
+    await f.writeAsString(const JsonEncoder.withIndent('  ').convert(data));
+  }
 
   ({String email, String password}) resolve(String name) {
     if (name == 'super') {
@@ -151,7 +165,7 @@ Future<List<StepResult>> runScenario(
         }
         final String line;
         try {
-          line = substitute(step.commandLine, state.captures);
+          line = substitute(step.commandLine, _vars(accounts, state));
         } on MissingCaptureException catch (e) {
           add(step, StepOutcome(false, 'missing capture "${e.name}"'));
           continue;
@@ -216,15 +230,40 @@ Future<List<StepResult>> runScenario(
           add(step, const StepOutcome(false, 'skipped: the run before it failed'), skipped: true);
           continue;
         }
+        // Checks may use {captures} and the built-in values too.
+        String fill(String t) => substitute(t, _vars(accounts, state));
+        RegExp fillRegex(RegExp r) => RegExp(fill(r.pattern));
+        try {
+          switch (step) {
+            case ExpectStep():
+              add(step, checkExpect(ExpectStep(step.line, fill(step.text)), o), output: o.text);
+            case ExpectRegexStep():
+              add(step, checkExpectRegex(ExpectRegexStep(step.line, fillRegex(step.pattern)), o), output: o.text);
+            case RefuseStep():
+              add(step, checkRefuse(RefuseStep(step.line, fill(step.text)), o), output: o.text);
+            default:
+              break;
+          }
+        } on MissingCaptureException catch (e) {
+          add(step, StepOutcome(false, 'missing capture "${e.name}"'), output: o.text);
+          continue;
+        } on FormatException catch (e) {
+          add(step, StepOutcome(false, 'bad regex after substitution: ${e.message}'), output: o.text);
+          continue;
+        }
         switch (step) {
-          case ExpectStep():
-            add(step, checkExpect(step, o), output: o.text);
-          case ExpectRegexStep():
-            add(step, checkExpectRegex(step, o), output: o.text);
-          case RefuseStep():
-            add(step, checkRefuse(step, o), output: o.text);
           case CaptureStep():
-            final v = capture(step, o);
+            final CaptureStep filled;
+            try {
+              filled = CaptureStep(step.line, step.name, fillRegex(step.pattern));
+            } on MissingCaptureException catch (e) {
+              add(step, StepOutcome(false, 'missing capture "${e.name}"'), output: o.text);
+              continue;
+            } on FormatException catch (e) {
+              add(step, StepOutcome(false, 'bad regex after substitution: ${e.message}'), output: o.text);
+              continue;
+            }
+            final v = capture(filled, o);
             if (v == null) {
               add(step, StepOutcome(false, 'capture "${step.name}": /${step.pattern.pattern}/ matched nothing'),
                   output: o.text);
@@ -234,7 +273,7 @@ Future<List<StepResult>> runScenario(
               add(step, const StepOutcome(true), output: '${step.name} = $v');
             }
           case SqlStep():
-            final r = await _sql(step, dev, state);
+            final r = await _sql(step, dev, _vars(accounts, state));
             add(step, r.$1, output: r.$2);
           default:
             break;
@@ -261,17 +300,42 @@ Future<(StepOutcome, String)> _signIn(Device dev, String account, Accounts accou
     final changed = await dev.command('change-password')!.handler([fresh]);
     shown = '$out\n$changed';
     if (changed != 'Password changed.') return (StepOutcome(false, 'changing the temporary password failed'), shown);
-    state.passwords[account] = fresh;
-    await state.save();
+    if (account == 'super') {
+      await accounts.storeSuperPassword(fresh);
+    } else {
+      state.passwords[account] = fresh;
+      await state.save();
+    }
   }
   dev.lastAccount = account;
   return (const StepOutcome(true), shown);
 }
 
-Future<(StepOutcome, String)> _sql(SqlStep step, Device dev, RunState state) async {
+/// Captures plus the built-in values (which win): {run}, {year}, {code_a},
+/// {code_b}, {name_a}, {name_b}, {today}, {past} (today - 30 days),
+/// {future} (today + 30 days).
+Map<String, String> _vars(Accounts accounts, RunState state) {
+  final n = accounts.runNumber;
+  final now = DateTime.now();
+  String day(DateTime d) => d.toIso8601String().substring(0, 10);
+  return {
+    ...state.captures,
+    'run': '$n',
+    'year': currentSchoolYear(now),
+    'code_a': sf1SchoolCode(n),
+    'code_b': sf1SchoolCode(n, schoolB: true),
+    'name_a': sf1SchoolName(n),
+    'name_b': sf1SchoolName(n, schoolB: true),
+    'today': day(now),
+    'past': day(now.subtract(const Duration(days: 30))),
+    'future': day(now.add(const Duration(days: 30))),
+  };
+}
+
+Future<(StepOutcome, String)> _sql(SqlStep step, Device dev, Map<String, String> vars) async {
   final String query;
   try {
-    query = substitute(step.query, state.captures);
+    query = substitute(step.query, vars);
   } on MissingCaptureException catch (e) {
     return (StepOutcome(false, 'missing capture "${e.name}"'), '');
   }

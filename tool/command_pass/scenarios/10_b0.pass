@@ -1,0 +1,146 @@
+# B0 Setup: the run's two schools, accounts, sections, learners, tutor
+# assignments, calendar windows, settings and a few ARAL learners.
+# Every later batch builds on what this one captures.
+
+# --- Superadmin: schools and the coordinator ---------------------------------
+device setup-pc admin
+as super
+run whoami
+expect zztest.super@basa.test (admin)
+
+run school-create {code_a} X - {name_a}
+expect OK:
+capture school = OK: (\d+) \|
+run school-create {code_b} X - {name_b}
+expect OK:
+capture schoolB = OK: (\d+) \|
+# Creating the same school again leaves it as it is.
+run school-create {code_a} X - {name_a}
+expect Already exists (unchanged): {school} |
+
+run user-create zztest.pass.r{run}.coord@basa.test coordinator {school} ZZTEST Pass Coord r{run}
+expect Created: zztest.pass.r{run}.coord@basa.test as coordinator at school {school}.
+capture temp_coord = Temporary password: (\S+)
+# A coordinator can never be regional.
+run user-create zztest.pass.r{run}.nobody@basa.test coordinator - ZZTEST Nobody
+refuse Only a superadmin can create an admin with no school.
+
+# --- Coordinator: tutors, learners, sections, assignments --------------------
+device coord-pc admin
+as coord
+run whoami
+expect zztest.pass.r{run}.coord@basa.test (coordinator)
+
+run user-create zztest.pass.r{run}.tutor1@basa.test tutor {school} ZZTEST Pass Tutor1 r{run}
+expect Created: zztest.pass.r{run}.tutor1@basa.test as tutor at school {school}.
+capture temp_tutor1 = Temporary password: (\S+)
+run user-create zztest.pass.r{run}.tutor2@basa.test tutor {school} ZZTEST Pass Tutor2 r{run}
+expect Created: zztest.pass.r{run}.tutor2@basa.test as tutor at school {school}.
+capture temp_tutor2 = Temporary password: (\S+)
+# A coordinator creates accounts for their own school only.
+run user-create zztest.pass.r{run}.other@basa.test tutor {schoolB} ZZTEST Other
+refuse own school
+
+# The coordinator sees their school's accounts only.
+run user-list
+expect zztest.pass.r{run}.tutor2@basa.test
+capture coord_id = ([0-9a-f-]{36}) \| zztest\.pass\.r{run}\.coord@
+capture tutor1_id = ([0-9a-f-]{36}) \| zztest\.pass\.r{run}\.tutor1@
+capture tutor2_id = ([0-9a-f-]{36}) \| zztest\.pass\.r{run}\.tutor2@
+
+make-sf1 sf1_g2 a 2 ZZTEST-G2 4
+make-sf1 sf1_g7 a 7 ZZTEST-G7 4
+make-sf1 sf1_b7 b 7 ZZTEST-B7 2
+
+run import-trial "{sf1_g2}"
+expect School: {code_a} | {name_a}
+expect Section: 2 - ZZTEST-G2 ({year})
+expect Would insert: 4, would conflict: 0, already enrolled: 0, would skip: 0
+run import-students "{sf1_g2}"
+expect Inserted: 4, Conflicts: 0, Already enrolled: 0
+run import-students "{sf1_g7}"
+expect Inserted: 4, Conflicts: 0, Already enrolled: 0
+# Importing the same roster again changes nothing.
+run import-students "{sf1_g2}"
+expect Inserted: 0, Conflicts: 0, Already enrolled: 4
+# School B's roster is not the coordinator's.
+run import-students "{sf1_b7}"
+refuse Import failed
+
+run section-list
+capture sec_g2 = (\d+) \| 2 - ZZTEST-G2 \({year}\)
+capture sec_g7 = (\d+) \| 7 - ZZTEST-G7 \({year}\)
+run section-create {school} {year} {=7} ZZTEST-G7X
+expect OK:
+capture sec_g7x = OK: (\d+) \|
+run section-create {schoolB} {year} {=7} ZZTEST-NOPE
+refuse Create failed
+
+run student-list-section {sec_g2}
+capture s_g2_1 = (\d+) \| 9990\d{4}2001
+capture s_g2_2 = (\d+) \| 9990\d{4}2002
+capture s_g2_3 = (\d+) \| 9990\d{4}2003
+capture s_g2_4 = (\d+) \| 9990\d{4}2004
+run student-list-section {sec_g7}
+capture s_g7_1 = (\d+) \| 9990\d{4}7001
+capture s_g7_2 = (\d+) \| 9990\d{4}7002
+capture s_g7_3 = (\d+) \| 9990\d{4}7003
+capture s_g7_4 = (\d+) \| 9990\d{4}7004
+capture lrn_g7_1 = \d+ \| (9990\d{4}7001)
+
+# tutor1 teaches both sections; tutor2 none (for refusals).
+run assign-section {tutor1_id} {sec_g2}
+expect Assigned tutor {tutor1_id} to section {sec_g2}
+run assign-section {tutor1_id} {sec_g7}
+expect Assigned tutor {tutor1_id} to section {sec_g7}
+run list-section-tutors {sec_g7}
+expect zztest.pass.r{run}.tutor1@basa.test
+
+# Rounds open now, closing in 30 days.
+run calendar-set {school} {year} crla bosy {past} {future}
+expect for school {school}
+run calendar-set {school} {year} phil_iri bosy {past} {future}
+expect for school {school}
+run report-settings-set {school} {=85}
+expect Done threshold for
+expect 85
+
+# Work on a device starts from a pull: the ARAL tutor check reads the local
+# users table, which user-create does not fill (finding F1, run r2).
+run pull-cloud yes
+expect users:
+sql select count(*) from users where id = '{tutor1_id}' and is_active = 1 => 1
+
+# Three ARAL learners in G7 with tutor1; the fourth stays off the roster.
+# New rows get negative (device) ids until they are uploaded.
+run aral-enroll {sec_g7} {year} {s_g7_1} ks3 basic tutor={tutor1_id}
+expect On the ARAL roster: #-
+run aral-enroll {sec_g7} {year} {s_g7_2} ks3 plus tutor={tutor1_id}
+expect On the ARAL roster: #-
+run aral-enroll {sec_g7} {year} {s_g7_3} ks1 tutor={tutor1_id}
+expect On the ARAL roster: #-
+# Foundational needs SHARP switched on (an A4 setting), so not here.
+run aral-enroll {sec_g7} {year} {s_g7_4} foundational tutor={tutor1_id}
+refuse SHARP
+
+# A coordinator's upload is applied at once; afterwards the rows have
+# server ids and tutor1 can pull them.
+run sync-upload yes
+expect~ [Aa]pplied
+run sync-status
+expect applied
+sql select count(*) from aral_enrollments where section_id = {sec_g7} and id > 0 => 3
+sql select count(*) from aral_enrollments where id < 0 => 0
+run aral-roster {sec_g7} {year}
+capture enr_1 = #(\d+) \| ZZTESTA, Learner001
+capture enr_2 = #(\d+) \| ZZTESTB, Learner002
+capture enr_3 = #(\d+) \| ZZTESTC, Learner003
+
+# --- Superadmin again: school B's learners ------------------------------------
+device setup-pc admin
+run import-students "{sf1_b7}"
+expect Inserted: 2, Conflicts: 0
+run section-list
+capture sec_b7 = (\d+) \| 7 - ZZTEST-B7 \({year}\)
+run student-list-section {sec_b7}
+capture s_b7_1 = (\d+) \| 9990\d{4}7501
