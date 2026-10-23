@@ -1,0 +1,61 @@
+# Strings the release binaries are scanned for (tool/scan_markers.dart, run by
+# tool/build_release.ps1).
+#
+# [admin]          Strings from admin-only METHODS. Checked on the scan builds
+#                  (BASA_SCAN_BUILD: console commands compiled in, so every method
+#                  a build can call is in it): each must be in the admin scan
+#                  build (proves it is spelled right and survives compilation)
+#                  and NOT in the tutor scan build. When you add an admin-only
+#                  method or file, add one string from it: a refusal message or a
+#                  server function name, never text in a comment (comments are
+#                  not compiled).
+# [admin-release]  Names of the admin-only ViewModels. Checked on the shipped
+#                  builds: in the admin build, not in the tutor build. (Shipped
+#                  builds call no ViewModel method until the screens exist, so
+#                  method strings can't be checked there yet.)
+# [debug]          Only the debug console has these. Checked on the shipped
+#                  builds: in neither.
+#
+# Not markers on purpose (owner decision D1/D2, 2026-10-22): report text of the
+# NLA report / SRP / report-settings ViewModels (the tutor dashboard needs them)
+# and sync_apply (the uploader calls it too).
+
+[admin]
+# Server calls only admins make
+create-user
+bootstrap-admin
+sync_reject
+crla_regenerate_results
+# Refusals in admin-only methods
+Forbidden: only an admin or coordinator reviews uploads.
+Forbidden: you can only create users for your own school.
+Forbidden: only an admin or coordinator can import an ARAL roster.
+Forbidden: only an admin or coordinator can generate ARAL reports.
+Forbidden: only an admin or coordinator can finalize Phil-IRI sessions.
+Forbidden: only an admin or coordinator can change the ARAL roster.
+Forbidden: only an admin or coordinator sets the assessment calendar.
+Forbidden: only an admin or coordinator sets the report settings.
+Forbidden: you can only manage the CRLA thresholds of your own school.
+Forbidden: only the superadmin marks a collection as prescribed.
+Forbidden: only the superadmin manages region-wide materials.
+Forbidden: you can only set the cut-off of your own school.
+Forbidden: only an admin or coordinator of the school manages its SRP classes.
+Forbidden: can only manage sections for your own school.
+# One string from each admin-only file without a refusal of its own
+" (expected skip or update).
+LRN registered at another school (transfer) - only the superadmin can resolve
+The scoresheet has no assessment type (C3); give the round (bosy, mosy or eosy).
+cloud login-log read failed:
+
+[admin-release]
+UserViewModel
+ImportViewModel
+SyncReviewViewModel
+LoginLogViewModel
+CrlaImportViewModel
+AralReportViewModel
+AralRosterImportViewModel
+
+[debug]
+BASA Debug Console
+mark a session done (needs the timed reading)

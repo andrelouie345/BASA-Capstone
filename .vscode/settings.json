@@ -21,5 +21,6 @@
   ],
   "[typescript]": {
     "editor.defaultFormatter": "denoland.vscode-deno"
-  }
+  },
+  "java.configuration.updateBuildConfiguration": "interactive"
 }

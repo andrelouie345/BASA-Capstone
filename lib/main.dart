@@ -5,7 +5,6 @@ library;
 
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -52,9 +51,10 @@ Future <void> main() async{
   final shared = wireShared(ctx);
   final tutor = wireTutor(ctx, shared);
   final admin = await wireAdmin(ctx, shared, tutor);
-  // Console commands exist in debug builds only (written here, at the call
-  // site, so the constant drops every command file from release builds).
-  if (kDebugMode) {
+  // Console commands exist in debug (and scan) builds only: basaHasConsole is
+  // a constant written here, at the call site, so the compiler drops every
+  // command file from shipped release builds.
+  if (basaHasConsole) {
     registerSharedCommands(ctx, shared);
     registerTutorCommands(ctx, shared, tutor);
     registerAdminCommands(ctx, shared, tutor, admin);

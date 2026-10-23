@@ -3,7 +3,7 @@
          only add it for development tooling). -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="basa_capstone"
+        android:label="${appName}"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

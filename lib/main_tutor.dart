@@ -4,7 +4,6 @@
 /// (dart run tool/check_tutor_imports.dart).
 library;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -40,8 +39,8 @@ Future<void> main() async {
   final ctx = await AppContext.open(dataDir: dataDir);
   final shared = wireShared(ctx);
   final tutor = wireTutor(ctx, shared);
-  // Debug builds only, written at the call site (see lib/main.dart).
-  if (kDebugMode) {
+  // Debug (and scan) builds only, written at the call site (see lib/main.dart).
+  if (basaHasConsole) {
     registerSharedCommands(ctx, shared);
     registerTutorCommands(ctx, shared, tutor);
     registerDevCommands(ctx, shared);

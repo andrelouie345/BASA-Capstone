@@ -9,6 +9,15 @@ import 'core/console/console_session.dart';
 import 'ui/debug/debug_overlay.dart';
 import 'viewmodels/text_viewmodel.dart';
 
+/// Set only by tool/build_release.ps1 for its scan builds (never shipped). A
+/// scan build has the console (commands + overlay) compiled in, so every
+/// ViewModel method the build can call is in the binary and the admin-marker
+/// scan means something. Shipped release builds have no console.
+const basaScanBuild = bool.fromEnvironment('BASA_SCAN_BUILD');
+
+/// Whether this build has the debug console.
+const basaHasConsole = kDebugMode || basaScanBuild;
+
 class BasaApp extends StatefulWidget {
   final String title;
   final ConsoleSession session;
@@ -26,9 +35,9 @@ class _BasaAppState extends State<BasaApp> {
     return MaterialApp(
       title: widget.title,
       debugShowCheckedModeBanner: false,
-      // No console in release builds: kDebugMode is a constant, so the
-      // compiler drops the console from them.
-      home: kDebugMode
+      // No console in shipped release builds: basaHasConsole is a constant, so
+      // the compiler drops the console from them.
+      home: basaHasConsole
           ? DebugConsoleShell(
               session: widget.session,
               onCommandRun: () => setState(() {}), // rebuilds everything below
