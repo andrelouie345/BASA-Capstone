@@ -1,0 +1,273 @@
+# T4 Phil-IRI as tutor1 on the G7 section (BOSY, passage 110 "Lili the Lizard
+# and Koko the Gecko", Grade 7, 357 words, 10 questions, keys
+# d c b b a b c d c a = questions 903-912). Default thresholds.
+#
+#   session  reading                                  word recognition       speed                    comprehension   profile
+#   A s_g7_1 whole 357 w, 150 s, 5 miscues + 1 sc     352/357 = 98.6 -> 99%  142.8 wpm Average        8/10 = 80%      Independent
+#            -> word reading profile Instructional (Independent needs Fast)
+#   B s_g7_2 one minute, 60 words, 7 miscues          53/60 = 88.3 -> 88%    60 wpm Struggling       3/10 = 30%      Frustration
+#            -> Frustration + Struggling -> "Struggling Reader"
+#   GST: s_g7_1 30/40 = 75% passed (>= 28); s_g7_2 20/40 = 50% not passed.
+
+device t4-phone tutor fresh
+# (A fresh device has no sections yet; the signed-out checks are at the end.)
+as tutor1
+run pull-cloud yes
+expect users:
+
+# --- Content ------------------------------------------------------------------
+run phil-iri-collections
+expect [32] Phil-IRI Graded Passages (Level 2-10)
+run phil-iri-collections active
+expect [32] Phil-IRI Graded Passages (Level 2-10)
+run phil-iri-passages 32
+expect [110] Lili the Lizard and Koko the Gecko
+expect [119] The Jeepney: A Filipino Tradition
+run phil-iri-passage-show 110
+expect [110] Lili the Lizard and Koko the Gecko
+expect Words (357):
+expect [912] Q10 Which type of text is similar to the selection?
+run phil-iri-criteria 32
+expect No rubric criteria.
+run phil-iri-thresholds {school}
+expect Region row: none (defaults); school {school} override: none
+expect~ gst_jhs_pass_min\s+28
+
+# --- GST ----------------------------------------------------------------------
+run phil-iri-gst {s_g7_1} {sec_g7} {year} 30 10 12 8
+expect 30/40 (75%, passed).
+run phil-iri-gst {s_g7_2} {sec_g7} {year} 20
+expect 20/40 (50%
+run phil-iri-gst {s_g7_3} {sec_g7} {year} 41
+refuse totalScore must be between 0 and 40 (got 41).
+run phil-iri-gst-list {sec_g7} {year}
+expect 30/40 (L 10, I 12, C 8)
+expect 20/40
+
+# --- Session A: whole text aloud ---------------------------------------------------
+run phil-iri-start {s_g7_1} {sec_g7} {year} bosy
+expect BOSY attempt 1
+capture pi_a = Started session (-?\d+)
+run phil-iri-passages-for {pi_a}
+expect [110] Lili the Lizard and Koko the Gecko
+run phil-iri-read {pi_a} 110 whole
+expect of passage 110
+capture rd_a = reading (-?\d+)
+# Not timed yet: it can't be completed.
+run phil-iri-complete {pi_a}
+refuse Record the reading time before completing the session.
+run phil-iri-time {rd_a} seconds 150
+expect Reading {rd_a}: whole text, 150 s.
+run phil-iri-miscue {rd_a} 10 mispronunciation
+expect Mispronunciation.
+capture mc_a1 = miscue (-?\d+)
+run phil-iri-miscue {rd_a} 20 omission
+expect~ .
+run phil-iri-miscue {rd_a} 30 substitution the
+expect~ .
+run phil-iri-miscue {rd_a} 40 insertion very
+expect~ .
+run phil-iri-miscue {rd_a} 50 reversal
+expect~ .
+run phil-iri-miscue {rd_a} 60 repetition sc
+expect~ .
+# Change one, then put it back: still 5 counted.
+run phil-iri-miscue-update {rd_a} {mc_a1} 11 transposition
+expect Updated miscue {mc_a1}: word 11
+run phil-iri-miscue-update {rd_a} {mc_a1} 10 mispronunciation
+expect~ .
+run phil-iri-miscue {rd_a} 400 omission
+refuse Word position must be 0..356
+run phil-iri-miscue {rd_a} 70 shouting
+refuse Miscue type is one of mispronunciation, omission, substitution, insertion, repetition, transposition, reversal
+run phil-iri-observe {rd_a} wordbyword pointing other "lost place once"
+expect observation: word-by-word reading, points to each word, other: lost place once.
+# 8 of 10 right: Q2 and Q7 wrong, Q5 looked back.
+run phil-iri-answer {rd_a} 903 d
+expect Answer to question 903: d
+run phil-iri-answer {rd_a} 904 a
+expect~ .
+run phil-iri-answer {rd_a} 905 b
+expect~ .
+run phil-iri-answer {rd_a} 906 b
+expect~ .
+run phil-iri-answer {rd_a} 907 a lb
+expect~ .
+run phil-iri-answer {rd_a} 908 b
+expect~ .
+run phil-iri-answer {rd_a} 909 x
+expect~ .
+run phil-iri-answer {rd_a} 910 d
+expect~ .
+run phil-iri-answer {rd_a} 911 c
+expect~ .
+run phil-iri-answer {rd_a} 912 a
+expect~ .
+run phil-iri-answer {rd_a} 912 z
+refuse Choose one of a, b, c, d (got "z").
+run phil-iri-rubric {pi_a} 1 3
+refuse No rubric criterion with id 1.
+run phil-iri-score {rd_a}
+expect word reading 99% (Independent), 143 wpm (Average) -> Instructional; comprehension 80% (Independent); profile Independent
+run phil-iri-complete {pi_a}
+expect Session {pi_a} is completed.
+run phil-iri-reopen {pi_a}
+expect Session {pi_a} is in_progress.
+run phil-iri-complete {pi_a}
+expect~ .
+run phil-iri-session {pi_a}
+expect Miscues: 5 counted, 1 self-corrected
+expect Answers: 8 of 10 correct
+expect Q5 [907] a
+
+# --- Session B: one minute ---------------------------------------------------------
+run phil-iri-start {s_g7_2} {sec_g7} {year} bosy
+capture pi_b = Started session (-?\d+)
+run phil-iri-read {pi_b} 110 minute 60
+expect~ .
+capture rd_b = reading (-?\d+)
+run phil-iri-miscue {rd_b} 1 omission
+expect~ .
+run phil-iri-miscue {rd_b} 5 mispronunciation
+expect~ .
+run phil-iri-miscue {rd_b} 9 substitution was
+expect~ .
+run phil-iri-miscue {rd_b} 14 reversal
+expect~ .
+run phil-iri-miscue {rd_b} 22 omission
+expect~ .
+run phil-iri-miscue {rd_b} 33 transposition
+expect~ .
+run phil-iri-miscue {rd_b} 45 mispronunciation
+expect~ .
+# 3 of 10 right; two "does not know".
+run phil-iri-answer {rd_b} 903 d
+expect~ .
+run phil-iri-answer {rd_b} 904 c
+expect~ .
+run phil-iri-answer {rd_b} 905 b
+expect~ .
+run phil-iri-answer {rd_b} 906 a
+expect~ .
+run phil-iri-answer {rd_b} 907 b
+expect~ .
+run phil-iri-answer {rd_b} 908 c
+expect~ .
+run phil-iri-answer {rd_b} 909 a
+expect~ .
+run phil-iri-answer {rd_b} 910 a
+expect~ .
+run phil-iri-answer {rd_b} 911 x
+expect~ .
+run phil-iri-answer {rd_b} 912 x
+expect~ .
+run phil-iri-score {rd_b}
+expect word reading 88% (Frustration), 60 wpm (Struggling) -> Frustration; comprehension 30% (Frustration); profile Frustration
+run phil-iri-complete {pi_b}
+expect~ .
+
+run phil-iri-sessions {sec_g7} {year} bosy
+expect [{pi_a}] student {s_g7_1}
+expect [{pi_b}] student {s_g7_2}
+run phil-iri-results {s_g7_1} {sec_g7} {year}
+expect GST: 30/40 (75%, attempt 1)
+expect WR 99% Instructional, 143 wpm Average, comp 80% Independent -> Independent
+# The year's comprehension starts at the GST and keeps the highest (ma's
+# workbook): GST 50% > the session's 30%. The true score keeps 30%.
+run phil-iri-results {s_g7_2} {sec_g7} {year} current
+expect regenerated with today's thresholds
+expect WR 88% Frustration, 60 wpm Struggling, comp 50% Frustration -> Frustration
+expect comprehension 30% (Frustration)
+
+# --- Delete a reading, discard a session ------------------------------------------
+run phil-iri-start {s_g7_3} {sec_g7} {year} bosy
+capture pi_c = Started session (-?\d+)
+run phil-iri-read {pi_c} 110 silent 120
+expect silent, whole text, 120 s (no miscues).
+capture rd_c = reading (-?\d+)
+# A completed session stays editable until finalized (an admin step, A3).
+run phil-iri-miscue-remove {mc_a1}
+expect Removed miscue {mc_a1}.
+run phil-iri-reading-delete {rd_c}
+expect Deleted reading {rd_c}.
+run phil-iri-discard {pi_c}
+expect Discarded session {pi_c}.
+run phil-iri-discard {pi_a}
+refuse Only an in-progress session can be discarded (this one is completed).
+
+# --- Grade rules ---------------------------------------------------------------
+run phil-iri-start {s_g2_1} {sec_g2} {year} bosy
+refuse Phil-IRI is for Grade 4-10 sections only (section {sec_g2} is Grade 2).
+run phil-iri-gst {s_g2_1} {sec_g2} {year} 10
+refuse Phil-IRI is for Grade 4-10 sections only (section {sec_g2} is Grade 2).
+run phil-iri-start {s_g7_4} {sec_g7} {year} mosy9
+refuse Round is bosy, mosy1, mosy2, mosy3 or eosy (got "mosy9")
+
+# --- Signed out, on a device holding learners --------------------------------
+# Every Phil-IRI and CRLA command a tutor has must refuse (F5).
+run sign-out
+expect Signed out.
+run phil-iri-start {s_g7_4} {sec_g7} {year} bosy
+refuse Not signed in. Sign in first.
+run phil-iri-gst {s_g7_4} {sec_g7} {year} 25
+refuse Not signed in. Sign in first.
+run phil-iri-gst-list {sec_g7} {year}
+refuse Not signed in. Sign in first.
+run phil-iri-sessions {sec_g7} {year} bosy
+refuse Not signed in. Sign in first.
+run phil-iri-session {pi_a}
+refuse Not signed in. Sign in first.
+run phil-iri-passages-for {pi_b}
+refuse Not signed in. Sign in first.
+run phil-iri-read {pi_b} 110 whole
+refuse Not signed in. Sign in first.
+run phil-iri-time {rd_b} words 61
+refuse Not signed in. Sign in first.
+run phil-iri-miscue {rd_b} 50 omission
+refuse Not signed in. Sign in first.
+run phil-iri-miscue-update {rd_b} {mc_a1} 12 omission
+refuse Not signed in. Sign in first.
+run phil-iri-miscue-remove {mc_a1}
+refuse Not signed in. Sign in first.
+run phil-iri-observe {rd_b} pointing
+refuse Not signed in. Sign in first.
+run phil-iri-answer {rd_b} 903 a
+refuse Not signed in. Sign in first.
+run phil-iri-rubric {pi_b} 1 3
+refuse Not signed in. Sign in first.
+run phil-iri-score {rd_b}
+refuse Not signed in. Sign in first.
+run phil-iri-complete {pi_b}
+refuse Not signed in. Sign in first.
+run phil-iri-reopen {pi_b}
+refuse Not signed in. Sign in first.
+run phil-iri-discard {pi_b}
+refuse Not signed in. Sign in first.
+run phil-iri-reading-delete {rd_b}
+refuse Not signed in. Sign in first.
+run phil-iri-results {s_g7_1} {sec_g7} {year}
+refuse Not signed in. Sign in first.
+run phil-iri-collections
+refuse Not signed in. Sign in first.
+run phil-iri-criteria 32
+refuse Not signed in. Sign in first.
+run phil-iri-passages 32
+refuse Not signed in. Sign in first.
+run phil-iri-passage-show 110
+refuse Not signed in. Sign in first.
+run phil-iri-thresholds {school}
+refuse Not signed in. Sign in first.
+run crla-start {s_g2_3} {sec_g2} {year} fil bosy Tagalog
+refuse Not signed in. Sign in first.
+run crla-part1 -1 8 9
+refuse Not signed in. Sign in first.
+run crla-part2 -1 1 2 90 1 0 6
+refuse Not signed in. Sign in first.
+run crla-results section {sec_g2} {year}
+refuse Not signed in. Sign in first.
+run crla-stories 13
+refuse Not signed in. Sign in first.
+run crla-thresholds {school}
+refuse Not signed in. Sign in first.
+run crla-export {sec_g2} sample-files/crla/CRLA2_Grade2Scoresheet_v1.xlsx "{rundir}/t4_signed_out.xlsx" bosy
+refuse Not signed in. Sign in first.

@@ -18,6 +18,7 @@ import '../core/repositories/section_repository.dart';
 import '../core/services/crla_rules.dart';
 import '../core/services/normalizers.dart';
 import '../core/services/sync_upload_rules.dart' show pendingLockMessage;
+import 'auth_viewmodel.dart';
 import 'viewmodel_exception.dart';
 
 /// CRLA assessments, offline-first (local database).
@@ -45,6 +46,7 @@ class CrlaViewModel {
   ];
 
   final ScopedLogger _log;
+  final AuthViewModel _auth;
   final CrlaAssessmentRepository _assessments;
   final CrlaPart1StandardRepository _part1Standard;
   final CrlaPart1EnglishRepository _part1English;
@@ -72,8 +74,10 @@ class CrlaViewModel {
     required SectionRepository sections,
     required SchoolRepository schools,
     required CrlaThresholdRepository thresholds,
+    required AuthViewModel auth,
     Logger? logger,
-  })  : _assessments = assessments,
+  })  : _auth = auth,
+        _assessments = assessments,
         _part1Standard = part1Standard,
         _part1English = part1English,
         _part2Fluency = part2Fluency,
@@ -84,7 +88,15 @@ class CrlaViewModel {
         _thresholds = thresholds,
         _log = ScopedLogger(logger, 'CrlaViewModel');
 
+  /// Every public method starts here: signed in, online or offline. Screens
+  /// call this ViewModel directly, so the console's own check is not enough.
+  void _requireSignIn() {
+    final error = _auth.requireActiveSession();
+    if (error != null) throw ViewModelException(error);
+  }
+
   Future<void> loadForSection(int sectionId, {String? schoolYear}) async {
+    _requireSignIn();
     _log('loadForSection(sectionId: $sectionId, schoolYear: $schoolYear)');
     if (schoolYear != null) schoolYear = normalizeSchoolYear(schoolYear);
     _lastSectionId = sectionId;
@@ -93,6 +105,7 @@ class CrlaViewModel {
   }
 
   Future<void> refresh() async {
+    _requireSignIn();
     if (_lastSectionId != null) {
       await loadForSection(_lastSectionId!, schoolYear: _lastSchoolYear);
     }
@@ -102,6 +115,7 @@ class CrlaViewModel {
   /// The thresholds a new assessment in [schoolId] is scored with: the
   /// built-in defaults, then the region row, then the school's override.
   Future<CrlaThresholds> effectiveThresholds(int schoolId) async {
+    _requireSignIn();
     final region = await _thresholds.getRegion();
     final school = await _thresholds.getForSchool(schoolId);
     return CrlaThresholds.fromMap({...?region?.settings, ...?school?.settings});
@@ -125,6 +139,7 @@ class CrlaViewModel {
     String? administeredBy,
     DateTime? assessedAt,
   }) async {
+    _requireSignIn();
     _log('startAssessment(studentId: $studentId, sectionId: $sectionId, '
         'variant: $subjectVariant, year: $schoolYear, round: ${round.name})');
     schoolYear = normalizeSchoolYear(schoolYear);
@@ -167,6 +182,7 @@ class CrlaViewModel {
     int? task2LowScore,
     int? task2HighScore,
   }) async {
+    _requireSignIn();
     _log('savePart1Standard(assessmentId: $assessmentId, task1: $task1Score, '
         'low: $task2LowScore, high: $task2HighScore)');
 
@@ -212,6 +228,7 @@ class CrlaViewModel {
     required int task1Score,
     int? task2Score,
   }) async {
+    _requireSignIn();
     _log('savePart1English(assessmentId: $assessmentId, task1: $task1Score, task2: $task2Score)');
 
     final assessment = await _requireVariant(assessmentId, {'eng'}, 'English Part 1');
@@ -256,6 +273,7 @@ class CrlaViewModel {
     int? observationLevel,
     String? remarks,
   }) async {
+    _requireSignIn();
     _log('savePart2Fluency(assessmentId: $assessmentId, story: $storyNo, '
         'words: $wordsRead, miscues: $miscues, time: $timeMinutes:$timeSeconds)');
 
@@ -314,12 +332,14 @@ class CrlaViewModel {
   /// The reading profile stays null until Part 1 is saved. If Part 2 is saved
   /// but pctCorrectWordsRead is null, no crla_stories row matched this
   /// school's region, language, grade and story number.
-  Future<CrlaResult?> getResult(int assessmentId) {
+  Future<CrlaResult?> getResult(int assessmentId) async {
+    _requireSignIn();
     _log('getResult(assessmentId: $assessmentId)');
     return _results.findByAssessmentId(assessmentId);
   }
 
-  Future<CrlaAssessment?> getAssessment(int assessmentId) {
+  Future<CrlaAssessment?> getAssessment(int assessmentId) async {
+    _requireSignIn();
     _log('getAssessment(assessmentId: $assessmentId)');
     return _assessments.findById(assessmentId);
   }
@@ -327,6 +347,7 @@ class CrlaViewModel {
   /// Loads every attempt in a section (Part 1 + Part 2 + reading profile),
   /// ordered by student, variant, then attempt.
   Future<void> loadResultsForSection(int sectionId, {String? schoolYear}) async {
+    _requireSignIn();
     _log('loadResultsForSection(sectionId: $sectionId, schoolYear: $schoolYear)');
     if (schoolYear != null) schoolYear = normalizeSchoolYear(schoolYear);
     results = await _results.getBySection(sectionId, schoolYear: schoolYear);
@@ -334,12 +355,14 @@ class CrlaViewModel {
 
   /// Loads every attempt for one student, newest first.
   Future<void> loadResultsForStudent(int studentId) async {
+    _requireSignIn();
     _log('loadResultsForStudent(studentId: $studentId)');
     results = await _results.getByStudent(studentId);
   }
 
   /// Loads stories for a region, optionally narrowed by language and/or grade.
   Future<void> loadStories(int regionId, {String? language, int? grade}) async {
+    _requireSignIn();
     _log('loadStories(regionId: $regionId, language: $language, grade: $grade)');
     stories = await _stories.getByRegion(regionId, language: language, grade: grade);
   }

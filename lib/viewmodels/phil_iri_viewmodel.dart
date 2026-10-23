@@ -168,9 +168,17 @@ class PhilIriViewModel {
         _sections = sections,
         _log = ScopedLogger(logger, 'PhilIriViewModel');
 
+  /// Every public method starts here: signed in, online or offline. Screens
+  /// call this ViewModel directly, so the console's own check is not enough.
+  void _requireSignIn() {
+    final error = _auth.requireActiveSession();
+    if (error != null) throw ViewModelException(error);
+  }
+
   // ---- Lists ----
 
   Future<void> loadForSection(int sectionId, {String? schoolYear, PhilIriRound? round}) async {
+    _requireSignIn();
     _log('loadForSection(sectionId: $sectionId, schoolYear: $schoolYear, round: ${round?.name})');
     if (schoolYear != null) schoolYear = normalizeSchoolYear(schoolYear);
     _lastSectionId = sectionId;
@@ -179,6 +187,7 @@ class PhilIriViewModel {
   }
 
   Future<void> refresh() async {
+    _requireSignIn();
     if (_lastSectionId != null) await loadForSection(_lastSectionId!, schoolYear: _lastSchoolYear);
   }
 
@@ -187,6 +196,7 @@ class PhilIriViewModel {
   /// The values in force for a school: built-in defaults, then the region
   /// row, then the school's override, key by key.
   Future<PhilIriThresholds> effectiveThresholds(int schoolId) async {
+    _requireSignIn();
     final region = await _thresholds.getRegion();
     final school = await _thresholds.getForSchool(schoolId);
     return PhilIriThresholds.fromMap({...?region?.settings, ...?school?.settings});
@@ -206,6 +216,7 @@ class PhilIriViewModel {
     int? criticalCorrect,
     DateTime? takenAt,
   }) async {
+    _requireSignIn();
     _log('recordGst(studentId: $studentId, sectionId: $sectionId, year: $schoolYear, total: $totalScore)');
     schoolYear = normalizeSchoolYear(schoolYear);
     final (section, grade) = await _philIriSection(sectionId);
@@ -236,7 +247,8 @@ class PhilIriViewModel {
     return stored;
   }
 
-  Future<List<PhilIriGstResult>> gstForSection(int sectionId, {String? schoolYear}) {
+  Future<List<PhilIriGstResult>> gstForSection(int sectionId, {String? schoolYear}) async {
+    _requireSignIn();
     _log('gstForSection(sectionId: $sectionId, schoolYear: $schoolYear)');
     return _gst.getBySection(sectionId, schoolYear: schoolYear == null ? null : normalizeSchoolYear(schoolYear));
   }
@@ -252,6 +264,7 @@ class PhilIriViewModel {
     required PhilIriRound round,
     DateTime? assessedAt,
   }) async {
+    _requireSignIn();
     _log('startSession(studentId: $studentId, sectionId: $sectionId, year: $schoolYear, round: ${round.name})');
     schoolYear = normalizeSchoolYear(schoolYear);
     final (section, _) = await _philIriSection(sectionId);
@@ -269,7 +282,8 @@ class PhilIriViewModel {
     return stored;
   }
 
-  Future<PhilIriAssessment?> getSession(int assessmentId) {
+  Future<PhilIriAssessment?> getSession(int assessmentId) async {
+    _requireSignIn();
     _log('getSession($assessmentId)');
     return _sessions.findAssessment(assessmentId);
   }
@@ -286,6 +300,7 @@ class PhilIriViewModel {
   /// An empty list means the coordinator has to add passages.
   Future<List<PhilIriPassage>> availablePassages(int assessmentId,
       {PhilIriReadingMethod method = PhilIriReadingMethod.wholeText}) async {
+    _requireSignIn();
     _log('availablePassages($assessmentId, method: ${method.value})');
     final session = await _requireSession(assessmentId);
     final grade = (await _philIriSection(session.sectionId)).$2;
@@ -314,6 +329,7 @@ class PhilIriViewModel {
     int? readingSeconds,
     int? wordsRead,
   }) async {
+    _requireSignIn();
     _log('startReading(assessmentId: $assessmentId, passageId: $passageId, method: ${method.value})');
     final session = await _requireOpenSession(assessmentId);
     if ((await _sessions.getReadings(assessmentId)).isNotEmpty) {
@@ -354,6 +370,7 @@ class PhilIriViewModel {
 
   /// The time taken (whole-text) or words read in the minute (one-minute).
   Future<PhilIriReading> saveTiming(int readingId, {int? readingSeconds, int? wordsRead}) async {
+    _requireSignIn();
     _log('saveTiming(readingId: $readingId, seconds: $readingSeconds, wordsRead: $wordsRead)');
     final r = await _requireOpenReading(readingId);
     _checkTiming(r.reading.method, readingSeconds, wordsRead, required: true);
@@ -371,6 +388,7 @@ class PhilIriViewModel {
 
   /// Form 4 Oral Reading Observation Checklist for the reading.
   Future<PhilIriReading> saveObservation(int readingId, PhilIriObservation observation) async {
+    _requireSignIn();
     _log('saveObservation(readingId: $readingId)');
     final r = await _requireOpenReading(readingId);
     return _write(() => _sessions.updateReading(PhilIriReading(
@@ -387,6 +405,7 @@ class PhilIriViewModel {
 
   /// Removes the reading with its miscues and answers (to pick another passage).
   Future<void> deleteReading(int readingId) async {
+    _requireSignIn();
     _log('deleteReading($readingId)');
     await _requireOpenReading(readingId);
     await _write(() => _sessions.deleteReading(readingId));
@@ -403,6 +422,7 @@ class PhilIriViewModel {
     String? spokenText,
     bool selfCorrected = false,
   }) async {
+    _requireSignIn();
     _log('markMiscue(readingId: $readingId, word: $wordIndex, type: ${type.name}, sc: $selfCorrected)');
     final r = await _requireOpenReading(readingId);
     _requireOral(r.reading);
@@ -418,6 +438,7 @@ class PhilIriViewModel {
 
   /// Changes a miscue's type, text or self-correction flag (same word).
   Future<PhilIriMiscue> updateMiscue(PhilIriMiscue miscue) async {
+    _requireSignIn();
     _log('updateMiscue(${miscue.id})');
     if (miscue.id == null) throw const ViewModelException('Miscue has no id.');
     final r = await _requireOpenReading(miscue.readingId);
@@ -427,11 +448,15 @@ class PhilIriViewModel {
   }
 
   Future<void> removeMiscue(int miscueId) async {
+    _requireSignIn();
     _log('removeMiscue($miscueId)');
     await _write(() => _sessions.deleteMiscue(miscueId));
   }
 
-  Future<List<PhilIriMiscue>> miscues(int readingId) => _sessions.getMiscues(readingId);
+  Future<List<PhilIriMiscue>> miscues(int readingId) async {
+    _requireSignIn();
+    return _sessions.getMiscues(readingId);
+  }
 
   // ---- Comprehension ----
 
@@ -443,6 +468,7 @@ class PhilIriViewModel {
     String? chosen,
     bool lookedBack = false,
   }) async {
+    _requireSignIn();
     _log('answer(readingId: $readingId, questionId: $questionId, chosen: $chosen, lb: $lookedBack)');
     final r = await _requireOpenReading(readingId);
     final questions = await _passages.getQuestions(r.passage.id!);
@@ -466,26 +492,47 @@ class PhilIriViewModel {
         )));
   }
 
-  Future<List<PhilIriAnswer>> answers(int readingId) => _sessions.getAnswers(readingId);
+  Future<List<PhilIriAnswer>> answers(int readingId) async {
+    _requireSignIn();
+    return _sessions.getAnswers(readingId);
+  }
 
   // ---- Reads for showing a session (local data) ----
 
   /// The session's readings (one per session today), by sequence_no.
-  Future<List<PhilIriReading>> readings(int assessmentId) => _sessions.getReadings(assessmentId);
+  Future<List<PhilIriReading>> readings(int assessmentId) async {
+    _requireSignIn();
+    return _sessions.getReadings(assessmentId);
+  }
 
   /// A passage from the local mirror, or null when it isn't there.
-  Future<PhilIriPassage?> passage(int passageId) => _passages.findById(passageId);
+  Future<PhilIriPassage?> passage(int passageId) async {
+    _requireSignIn();
+    return _passages.findById(passageId);
+  }
 
   /// A passage's comprehension questions, by question_no.
-  Future<List<PhilIriQuestion>> questions(int passageId) => _passages.getQuestions(passageId);
+  Future<List<PhilIriQuestion>> questions(int passageId) async {
+    _requireSignIn();
+    return _passages.getQuestions(passageId);
+  }
 
   /// A collection from the local mirror, or null when it isn't there.
-  Future<PhilIriCollection?> collection(int collectionId) => _collections.findById(collectionId);
+  Future<PhilIriCollection?> collection(int collectionId) async {
+    _requireSignIn();
+    return _collections.findById(collectionId);
+  }
 
   /// A collection's rubric criteria, by criterion_no.
-  Future<List<PhilIriRubricCriterion>> rubricCriteria(int collectionId) => _collections.getCriteria(collectionId);
+  Future<List<PhilIriRubricCriterion>> rubricCriteria(int collectionId) async {
+    _requireSignIn();
+    return _collections.getCriteria(collectionId);
+  }
 
-  Future<List<PhilIriRubricScore>> rubricScores(int assessmentId) => _sessions.getRubricScores(assessmentId);
+  Future<List<PhilIriRubricScore>> rubricScores(int assessmentId) async {
+    _requireSignIn();
+    return _sessions.getRubricScores(assessmentId);
+  }
 
   // ---- Rubric ----
 
@@ -494,6 +541,7 @@ class PhilIriViewModel {
     required int criterionId,
     required int score,
   }) async {
+    _requireSignIn();
     _log('scoreRubric(assessmentId: $assessmentId, criterionId: $criterionId, score: $score)');
     await _requireOpenSession(assessmentId);
     PhilIriRubricCriterion? criterion;
@@ -510,6 +558,7 @@ class PhilIriViewModel {
 
   /// Tutor/coordinator: the session is done. Needs the reading, timed.
   Future<PhilIriAssessment> complete(int assessmentId) async {
+    _requireSignIn();
     _log('complete($assessmentId)');
     await _requireOpenSession(assessmentId);
     final readings = await _sessions.getReadings(assessmentId);
@@ -528,6 +577,7 @@ class PhilIriViewModel {
 
   /// Back to in progress (not once finalized).
   Future<PhilIriAssessment> reopen(int assessmentId) async {
+    _requireSignIn();
     _log('reopen($assessmentId)');
     await _requireOpenSession(assessmentId);
     final stored = await _write(() => _sessions.setStatus(assessmentId, PhilIriStatus.inProgress));
@@ -537,6 +587,7 @@ class PhilIriViewModel {
 
   /// Discards an in-progress session and everything under it.
   Future<void> discard(int assessmentId) async {
+    _requireSignIn();
     _log('discard($assessmentId)');
     final s = await _requireSession(assessmentId);
     if (s.status != PhilIriStatus.inProgress) {
@@ -549,6 +600,7 @@ class PhilIriViewModel {
   /// Admin/coordinator (or superadmin): freezes a completed session with the
   /// school's current thresholds. A finalized session never changes.
   Future<PhilIriAssessment> finalize(int assessmentId) async {
+    _requireSignIn();
     _log('finalize($assessmentId)');
     _requireFinalizer();
     final s = await _requireSession(assessmentId);
@@ -590,6 +642,7 @@ class PhilIriViewModel {
     required String schoolYear,
     required PhilIriRound round,
   }) async {
+    _requireSignIn();
     _log('finalizeRound(sectionId: $sectionId, year: $schoolYear, round: ${round.name})');
     _requireFinalizer();
     schoolYear = normalizeSchoolYear(schoolYear);
@@ -621,12 +674,14 @@ class PhilIriViewModel {
   /// year and text, another session), or null. Its answers count when the
   /// follow-up records none.
   Future<PhilIriReading?> silentReadingFollowedUp(int readingId) async {
+    _requireSignIn();
     final r = await _findReading(readingId);
     if (!r.method.isOral) return null;
     return _silentReadingFollowedUp(r, await _requirePassage(r.passageId));
   }
 
   Future<PhilIriPassageResult> scoreReading(int readingId, {PhilIriThresholds? thresholds}) async {
+    _requireSignIn();
     _log('scoreReading($readingId)');
     final r = await _findReading(readingId);
     final session = (await _sessions.findAssessment(r.assessmentId))!;
@@ -643,6 +698,7 @@ class PhilIriViewModel {
     required String schoolYear,
     bool useCurrentThresholds = false,
   }) async {
+    _requireSignIn();
     _log('learnerResults(studentId: $studentId, sectionId: $sectionId, year: $schoolYear, current: $useCurrentThresholds)');
     schoolYear = normalizeSchoolYear(schoolYear);
     final (section, grade) = await _philIriSection(sectionId);
@@ -701,6 +757,7 @@ class PhilIriViewModel {
     required String schoolYear,
     String? asOf,
   }) async {
+    _requireSignIn();
     final res = await learnerResults(studentId: studentId, sectionId: sectionId, schoolYear: schoolYear);
     bool byDate(String date) => asOf == null || date.substring(0, 10).compareTo(asOf) <= 0;
     final readings = <PhilIriRound, PhilIriPassageResult>{};

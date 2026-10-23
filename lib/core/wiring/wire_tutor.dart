@@ -138,6 +138,7 @@ TutorVms wireTutor(AppContext ctx, SharedVms s) {
     sections: SectionRepositorySqlite(db),
     schools: SchoolRepositorySqlite(db),
     thresholds: CrlaThresholdRepositorySqlite(db),
+    auth: authVm,
     logger: session,
   );
   vms.register('CrlaViewModel', crlaVm);
