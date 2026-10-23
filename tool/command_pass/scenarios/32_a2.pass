@@ -1,0 +1,92 @@
+# A2 CRLA admin: thresholds only change new assessments, regenerate
+# re-scores, scoresheet import. Coordinator device.
+
+device a2-pc admin fresh
+as coord
+run pull-cloud yes
+expect users:
+run crla-thresholds {school}
+expect Region row: none (defaults); school {school} override: none
+
+# A scored assessment on the server (default thresholds): s_g2_1, fil,
+# 90 words in 60 s of a 96-word story, comprehension 6 -> At Grade Level.
+run crla-start {s_g2_1} {sec_g2} {year} fil bosy Tagalog
+expect (BOSY, attempt
+capture a2_crla = Started assessment (-?\d+)
+run crla-part1 {a2_crla} {=8} {=9}
+expect total 27, level Grade Ready.
+run crla-part2 {a2_crla} {=1} {=2} {=90} {=1} {=0} {=6}
+expect wpm 90.0.
+run sync-upload yes
+expect~ [Aa]pplied
+run crla-results student {s_g2_1}
+expect | P1 27 Grade Ready | P2 story 1 wpm 90.0 comp 6 words 93.8% | Reading At Grade Level
+capture a2_srv = #(\d+) \| student {s_g2_1} \| fil Tagalog BOSY attempt \d+ \| P1 27 Grade Ready \| P2 story 1 wpm 90.0 comp 6
+
+# The G2 maximum is 6, so the comprehension cut-off can't go above it.
+run crla-threshold-set {school} g2_g {=7}
+refuse Comprehension cut-offs (g2) must be within 0..6
+# Move the fluency bands up instead: above 94% for At Grade Level (93.75%
+# no longer is), 51-94% Transitioning. Only NEW assessments use it.
+run crla-threshold-set {school} pct_mid_band_below {=95}
+expect pct_mid_band_below
+run crla-threshold-set {school} pct_top_band_above {=94}
+expect pct_top_band_above
+run crla-thresholds {school}
+expect~ pct_top_band_above\s+94
+expect~ pct_mid_band_below\s+95
+run pull-cloud yes
+expect users:
+# The stored result keeps the thresholds it was scored with.
+run crla-results assessment {a2_srv}
+expect | Reading At Grade Level
+# Re-score explicitly with today's thresholds: 93.75%, comprehension 6 = Transitioning.
+run crla-regenerate {a2_srv}
+expect Re-scored 1 CRLA assessment(s) with today's thresholds.
+run pull-cloud yes
+expect users:
+run crla-results assessment {a2_srv}
+expect | Transitioning Reader
+run crla-threshold-set {school} g2_g {=99}
+refuse Comprehension cut-offs (g2) must be within 0..6
+run crla-threshold-set {school} nosuchkey {=1}
+refuse Unknown CRLA threshold "nosuchkey".
+run crla-threshold-reset {school}
+expect School {school} now uses the region CRLA thresholds.
+run crla-threshold-reset {school}
+refuse School {school} has no CRLA threshold override.
+run crla-thresholds {school}
+expect Region row: none (defaults); school {school} override: none
+
+# Scoresheet import (T3's export of four fil results).
+run crla-import-preview {sec_g2} "{rundir}/t3_crla_g2.xlsx" bosy again
+expect Grade 2 scoresheet -> section {sec_g2} (Grade 2 ZZTEST-G2, {year}), BOSY
+# F10: the sheet's words read is a formula (story words - miscues): 96-2 = 94,
+# not the 90 entered in T3.
+expect | ZZTESTA, Learner001 | {today} | Part 1 8+H9 | story 1, 94 words, 1:00, comp 6
+expect 4 to import, 0 already assessed, 0 with errors.
+run crla-import {sec_g2} "{rundir}/t3_crla_g2.xlsx" bosy again
+expect Imported 4 assessment(s) (BOSY): ids
+run crla-import {sec_g7} "{rundir}/t3_crla_g2.xlsx" bosy
+refuse CRLA is for Grade 1-3 sections only (section {sec_g7} is Grade 7).
+run sync-upload yes
+expect~ [Aa]pplied
+
+# --- Not for tutors, and not signed out --------------------------------------
+device a2-phone tutor fresh
+as tutor1
+run crla-thresholds {school}
+expect Region row: none (defaults); school {school} override: none
+device a2-pc admin
+run sign-out
+expect Signed out.
+run crla-import-preview {sec_g2} "{rundir}/t3_crla_g2.xlsx" bosy
+refuse Not signed in. Sign in first.
+run crla-import {sec_g2} "{rundir}/t3_crla_g2.xlsx" bosy again
+refuse Not signed in. Sign in first.
+run crla-threshold-set {school} g2_g {=5}
+refuse Not signed in. Sign in first.
+run crla-threshold-reset {school}
+refuse Not signed in. Sign in first.
+run crla-regenerate {a2_srv}
+refuse Not signed in. Sign in first.
