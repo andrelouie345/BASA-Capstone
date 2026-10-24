@@ -31,25 +31,45 @@ class MissingCaptureException implements Exception {
 bool _isUsage(String text) => text.trimLeft().startsWith('Usage:');
 
 /// A crash a command file's catch-all printed as text ('<name> failed: <e>',
-/// F21): "failed: " followed on the same line by an exception type name.
-final _printedCrash = RegExp(r'failed: [^\n]*?\b([A-Z]\w*(?:Exception|Error))\b');
+/// F21): "failed: " followed on the same line by an exception type name, or
+/// anywhere the text of a Dart error that prints no type name (review P1:
+/// StateError "Bad state: ", casts, null checks, ArgumentError, a plain
+/// Exception, a thrown non-exception object). Label null = group 1.
+final _printedCrashes = <(RegExp, String?)>[
+  (RegExp(r'failed: [^\n]*?\b([A-Z]\w*(?:Exception|Error))\b'), null),
+  (RegExp(r'\b(RangeError|NoSuchMethodError|LateInitializationError|ConcurrentModificationError)\b'), null),
+  (RegExp(r'Bad state: '), 'StateError'),
+  (RegExp(r'Null check operator used on a null value'), 'TypeError (null check)'),
+  (RegExp(r"is not a subtype of type '"), 'TypeError (cast)'),
+  (RegExp(r'Invalid argument(\(s\)| \([^)]*\)): '), 'ArgumentError'),
+  (RegExp(r'Unsupported operation: '), 'UnsupportedError'),
+  (RegExp(r'(^|[\s:])Exception: '), 'Exception'),
+  (RegExp(r"Instance of '"), 'thrown object'),
+];
 
 final _logLine = RegExp(r'^\s*\[[A-Za-z]+\]');
 
-/// [expected]: the step's text or pattern; a step that names the type
-/// expects that crash text on purpose.
+/// [expected]: the step's text or pattern; a step that names the type or
+/// the crash text expects that crash on purpose.
 StepOutcome? _crashed(CommandOutput o, String expected) {
   if (o.crashType != null) return StepOutcome(false, 'command crashed (${o.crashType})');
   // Log lines ("[AuthViewModel] ...") carry exception names on purpose; only
   // the answer counts.
-  final type = o.text
-      .split('\n')
-      .where((l) => !_logLine.hasMatch(l))
-      .map((l) => _printedCrash.firstMatch(l)?.group(1))
-      .firstWhere((t) => t != null, orElse: () => null);
-  if (type == null || expected.contains(type)) return null;
-  return StepOutcome(false, 'command crashed (printed as text: $type)');
+  for (final line in o.text.split('\n').where((l) => !_logLine.hasMatch(l))) {
+    for (final (pattern, label) in _printedCrashes) {
+      final m = pattern.firstMatch(line);
+      if (m == null) continue;
+      final type = label ?? m.group(1)!;
+      if (expected.contains(type) || expected.contains(m.group(0)!.trim())) continue;
+      return StepOutcome(false, 'command crashed (printed as text: $type)');
+    }
+  }
+  return null;
 }
+
+/// The crash check alone, for steps that read the output without checking
+/// its text (capture, sql).
+StepOutcome? crashOutcome(CommandOutput o, [String expected = '']) => _crashed(o, expected);
 
 StepOutcome? _notASuccess(CommandOutput o) {
   if (o.refused) return const StepOutcome(false, 'command was refused');
@@ -68,9 +88,11 @@ StepOutcome checkExpectRegex(ExpectRegexStep s, CommandOutput o) =>
     (s.pattern.hasMatch(o.text) ? const StepOutcome(true) : StepOutcome(false, 'expected /${s.pattern.pattern}/'));
 
 /// Many commands return refusals as text, so a plain answer with the text
-/// passes too.
+/// passes too. A usage answer passes only a step that expects it (review
+/// P3: `refuse cloud` must not pass on `Usage: sign-in <cloud|lan> ...`).
 StepOutcome checkRefuse(RefuseStep s, CommandOutput o) =>
     _crashed(o, s.text) ??
+    (_isUsage(o.text) && !s.text.startsWith('Usage:') ? const StepOutcome(false, 'usage answer') : null) ??
     (o.text.contains(s.text) ? const StepOutcome(true) : StepOutcome(false, 'expected a refusal with "${s.text}"'));
 
 /// Group 1 of the match, or null when nothing (or nothing usable) matched.
@@ -85,12 +107,18 @@ String? capture(CaptureStep s, CommandOutput o) {
 final _placeholder = RegExp(r'\{(=[^}]*|[A-Za-z_][A-Za-z0-9_]*)\}');
 
 /// Replaces `{name}` with its capture and `{=literal}` with the literal.
-String substitute(String line, Map<String, String> captures) => line.replaceAllMapped(_placeholder, (m) {
+/// [regex]: the line is a pattern, so the values are escaped (a Windows
+/// path in {rundir} matches itself).
+String substitute(String line, Map<String, String> captures, {bool regex = false}) =>
+    line.replaceAllMapped(_placeholder, (m) {
       final key = m.group(1)!;
-      if (key.startsWith('=')) return key.substring(1);
-      final v = captures[key];
-      if (v == null) throw MissingCaptureException(key);
-      return v;
+      final String v;
+      if (key.startsWith('=')) {
+        v = key.substring(1);
+      } else {
+        v = captures[key] ?? (throw MissingCaptureException(key));
+      }
+      return regex ? RegExp.escape(v) : v;
     });
 
 final _tempPassword = RegExp(r'(Temporary password: )\S+');
@@ -120,7 +148,9 @@ String? guardIds(RunStep s, {required bool privileged, required Set<String> read
         : 'other-school is for read-only commands; "$command" is not in tool/command_pass/readonly_commands.txt';
   }
   if (!privileged) return null;
-  final bare = tokens.skip(1).where((t) => RegExp(r'^\d+$').hasMatch(t)).toList();
+  // A bare number, or one passed as key=<n> / key:<n> (review P4); a key
+  // starts with a letter, so a time like 08:00 is not an id.
+  final bare = tokens.skip(1).where((t) => RegExp(r'^(\d+|[A-Za-z][\w-]*[=:]\d+)$').hasMatch(t)).toList();
   if (bare.isEmpty) return null;
   return 'bare number(s) ${bare.join(', ')} in a privileged step: use a capture {name} or a literal {=n}';
 }

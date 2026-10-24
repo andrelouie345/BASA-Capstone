@@ -161,6 +161,8 @@ void main() {
       StepResult('t', step, const StepOutcome(false, 'sign-in as tutor1 failed'), setup: true),
     ];
     expect(summaryLine(results, null), '2 steps, 1 failed');
+    // The exit code uses the same rule (review P2).
+    expect(results.where(isFailed), hasLength(1));
   });
 
   test('built-in values fill run lines, expect texts and capture patterns', () async {

@@ -25,10 +25,16 @@ void main() {
     expect(cantReachServerMessage, "can't reach the server. Check the connection, or sign in offline on your own device.");
   });
 
-  test('anything else keeps its text, without the exception type', () {
+  test("BASA's own Exception keeps its text, without the type", () {
     expect(authFailureMessage(Exception('boom')), 'boom');
-    expect(authFailureMessage(StateError('odd')), 'Bad state: odd');
-    expect(authFailureMessage('plain'), 'plain');
+  });
+
+  test('any other error (database, programming) shows a plain message, never its raw text (L1)', () {
+    const db = PostgrestException(message: 'permission denied for table users', code: '42501');
+    for (final e in <Object>[db, StateError('odd'), 'plain']) {
+      expect(authFailureMessage(e), unexpectedErrorMessage, reason: '$e');
+    }
+    expect(unexpectedErrorMessage, isNot(contains('Exception')));
   });
 
   test('an Edge Function refusal shows the server\'s error text', () {

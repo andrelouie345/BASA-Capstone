@@ -380,9 +380,6 @@ class CrlaViewModel {
   CrlaThresholds _thresholdsOf(CrlaAssessment a) =>
       CrlaThresholds.fromMap(a.thresholdsSnapshot ?? const {});
 
-  /// Re-scores the stored reading profile from Part 1 + Part 2 and the
-  /// story's exact word count (same match as crla_results: the school's
-  /// region, the assessment's language, the section's grade, the story no).
   /// The story an assessment's Part 2 was read from (school's region, the
   /// assessment's language, the section's grade, the story number), or null
   /// when the region has no such story.
@@ -394,6 +391,9 @@ class CrlaViewModel {
         .firstOrNull;
   }
 
+  /// Re-scores the stored reading profile from Part 1 + Part 2 and the
+  /// story's exact word count (same match as crla_results: the school's
+  /// region, the assessment's language, the section's grade, the story no).
   Future<void> _refreshProfile(CrlaAssessment a) async {
     final section = await _sections.getById(a.sectionId);
     final grade = section == null ? null : crlaGradeOf(section.gradeLevel);

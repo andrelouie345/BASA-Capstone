@@ -19,12 +19,13 @@ String describe(Step s) => switch (s) {
 
 // A failed sign-in after a device switch stops the batch: it counts (R1).
 bool _counted(StepResult r) => !r.setup || !r.outcome.passed;
-bool _failed(StepResult r) => _counted(r) && !r.skipped && !r.outcome.passed;
+/// A failed step, for the report and the exit code alike.
+bool isFailed(StepResult r) => _counted(r) && !r.skipped && !r.outcome.passed;
 
 /// `[<covered>/<total> covered, ]<steps> steps, <failed> failed`.
 String summaryLine(List<StepResult> results, CoverageResult? cov) {
   final steps = results.where(_counted).length;
-  final failed = results.where(_failed).length;
+  final failed = results.where(isFailed).length;
   final coverage =
       cov == null ? '' : '${cov.coveredTutor + cov.coveredAdmin}/${cov.totalTutor + cov.totalAdmin} covered, ';
   return '$coverage$steps steps, $failed failed';

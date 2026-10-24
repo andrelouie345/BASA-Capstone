@@ -91,6 +91,7 @@ class AuthViewModel {
     if (profile.url.isEmpty) return '$target.url not set.';
 
     final client = SupabaseClient(profile.url, profile.anonKey);
+    var kept = false; // the client became the session
     try {
       final res = await client.auth.signInWithPassword(email: email, password: password);
       final authUser = res.user;
@@ -140,6 +141,7 @@ class AuthViewModel {
       if (previous != null && previous != client) await _abandon(previous);
 
       _client = client;
+      kept = true;
       _offline = false;
       currentUser = profileRow;
       mustChangePassword = authUser.userMetadata?['must_change_password'] == true;
@@ -158,6 +160,9 @@ class AuthViewModel {
     } catch (e) {
       await _recordAttempt(email, success: false, failureReason: e.toString(), client: client);
       _log('sign-in failed: $e');
+      // A failure after authenticating (e.g. reading the profile row) must
+      // not leave a signed-in client behind (L1).
+      if (!kept) await _abandon(client);
       return 'Sign-in failed: ${authFailureMessage(e)}';
     }
   }

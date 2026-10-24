@@ -39,6 +39,41 @@ void main() {
           isTrue);
     });
 
+    // Review P1: the commonest Dart errors print no type name.
+    String textOf(void Function() f) {
+      try {
+        f();
+      } catch (e) {
+        return '$e';
+      }
+      throw StateError('no error');
+    }
+
+    test('real error texts without a type name fail every check (P1)', () {
+      String? nothing;
+      final texts = [
+        'aral-update failed: ${StateError('No element')}',
+        'aral-update failed: ${textOf(() => (nothing as dynamic) as int)}',
+        'aral-update failed: ${textOf(() => nothing!.length)}',
+        'aral-update failed: ${ArgumentError.value(3, 'id')}',
+        'aral-update failed: ${Exception('boom')}',
+        'Could not read the file: ${StateError('closed')}',
+      ];
+      for (final t in texts) {
+        expect(checkExpect(const ExpectStep(1, 'aral-update'), out(t)).passed, isFalse, reason: t);
+        expect(checkRefuse(const RefuseStep(1, 'failed'), out(t)).passed, isFalse, reason: t);
+        expect(crashOutcome(out(t)), isNotNull, reason: t);
+      }
+    });
+
+    test('a step that names the crash text expects it on purpose', () {
+      expect(checkRefuse(const RefuseStep(1, 'Bad state: closed'), out('x failed: Bad state: closed')).passed, isTrue);
+    });
+
+    test('an ordinary answer is not a crash', () {
+      expect(crashOutcome(out('Exited: 3 learners. Invalid rows: 0. State: done')), isNull);
+    });
+
     test('a ViewModel log line naming the type is not the answer', () {
       final logged = out('Sign-in failed: Invalid login credentials\n'
           '[AuthViewModel] sign-in failed: AuthApiException(message: Invalid login credentials)');
@@ -84,6 +119,14 @@ void main() {
       expect(checkRefuse(const RefuseStep(1, 'Usage:'), out('Usage: crla-start <sectionId>')).passed, isTrue);
     });
 
+    test('fails on a usage answer unless the step expects the usage line (P3)', () {
+      final usage = out('Usage: sign-in <cloud|lan> <email> <password>');
+      final r = checkRefuse(const RefuseStep(1, 'cloud'), usage);
+      expect(r.passed, isFalse);
+      expect(r.message, contains('usage answer'));
+      expect(checkRefuse(const RefuseStep(1, 'Usage: sign-in'), usage).passed, isTrue);
+    });
+
     test('fails when the text is absent', () {
       expect(checkRefuse(const RefuseStep(1, 'Forbidden'), out('Created school 5', refused: false)).passed, isFalse);
       expect(checkRefuse(const RefuseStep(1, 'Forbidden'), out('Not allowed', refused: true)).passed, isFalse);
@@ -121,6 +164,12 @@ void main() {
           throwsA(isA<MissingCaptureException>().having((e) => e.name, 'name', 'lrn')));
     });
 
+    test('regex mode escapes the filled values, not the pattern', () {
+      final pattern = substitute(r'saved to {dir}\\\S+ \((\d+) rows\)', {'dir': r'D:\x\r7 (b)'}, regex: true);
+      final m = RegExp(pattern).firstMatch(r'saved to D:\x\r7 (b)\out.csv (12 rows)');
+      expect(m?.group(1), '12');
+    });
+
     test('keeps quoted Windows paths as one argument', () {
       final line = substitute(r'import-students "{dir}\sf1 g2.xlsx"', {'dir': r'D:\x\r7'});
       expect(line, r'import-students "D:\x\r7\sf1 g2.xlsx"');
@@ -156,6 +205,15 @@ void main() {
           guardIds(const RunStep(1, 'calendar-set {school} 2026-10-23 0.85 r7 "Grade 7"'),
               privileged: true, readOnlyCommands: reads),
           isNull);
+    });
+
+    test('refuses an id passed as key=<n> or key:<n> (P4)', () {
+      for (final line in ['aral-enroll {s} class=123', 'aral-material-set material=7 x', 'dashboard school:6']) {
+        expect(guardIds(RunStep(1, line), privileged: true, readOnlyCommands: reads), isNotNull, reason: line);
+      }
+      for (final line in ['aral-enroll {s} class={c}', 'srp-add x time=08:00', 'progress done={=0.9} asof=2026-10-23']) {
+        expect(guardIds(RunStep(1, line), privileged: true, readOnlyCommands: reads), isNull, reason: line);
+      }
     });
 
     test('does not guard non-privileged steps', () {

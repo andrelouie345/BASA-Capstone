@@ -85,12 +85,12 @@ expect [IN PROGRESS] Phil-IRI BOSY closes in 30 days: 2 of 2 sections below 85%.
 expect Grade 7 ZZTEST-G7C (#{sec_g7c})  1/16 (6.3%)
 expect [IN PROGRESS] CRLA BOSY closes in 30 days: the 1 section done.
 # As of 30 days ago nothing was assessed yet (results are dated by the runs).
-run reminders-coordinator {school} {year} today={past} done=50
+run reminders-coordinator {school} {year} today={past} done={=50}
 expect done at 50%
 expect [IN PROGRESS] Phil-IRI BOSY closes in 60 days: 2 of 2 sections below 50%.
 expect [IN PROGRESS] CRLA BOSY closes in 60 days: 1 of 1 section below 50%.
 expect Grade 2 ZZTEST-G2 (#{sec_g2})  0/4 (0.0%)
-run reminders-coordinator {school} {year} soon=1
+run reminders-coordinator {school} {year} soon={=1}
 refuse Unknown option "soon". [today=YYYY-MM-DD] [done=<percent>]
 run reminders-coordinator {school} {year} today=2026-02-30
 refuse today must be a real YYYY-MM-DD date (got "2026-02-30")
@@ -245,7 +245,7 @@ expect [IN PROGRESS] Phil-IRI BOSY closes in 30 days: 2 of 2 sections below 85%.
 run dashboard {year} today={past}
 expect Dashboard {year} — {past}
 expect [OPEN] CRLA BOSY {past} .. {future}: 0/4 (0.0%), 0/1 section done at 85%
-run dashboard {year} soon=1
+run dashboard {year} soon={=1}
 refuse Unknown option "soon=1". Usage: dashboard <year> [today=YYYY-MM-DD]
 run dashboard
 refuse Usage: dashboard <year> [today=YYYY-MM-DD]
@@ -295,9 +295,9 @@ expect G7 ZZTEST-G7X (#{sec_g7x})
 expect Enrolment: M 0 F 0 T 0 | GST takers: M 0 F 0 T 0 (-)
 expect~ SCHOOL TOTAL \(\d+ section\(s\)\)
 expect BOSY 1 (5.0%) NO IRA | MOSY #1 2 (10.0%) NOT SCHEDULED
-run progress-report {school} {year} done=50 rows=total
+run progress-report {school} {year} done={=50} rows=total
 expect~ done at 50\.0%\nSCHOOL TOTAL \(\d+ section\(s\)\)\n  Enrolment: M 10 F 10 T 20 \| GST takers: M 0 F 1 T 1 \(5\.0%\)\n
-run progress-report {school} {year} done=0
+run progress-report {school} {year} done={=0}
 refuse done is a percent above 0 and up to 100 (got "0")
 run progress-report {school} {year} asof=2026-02-30
 refuse asof must be a real YYYY-MM-DD date (got "2026-02-30")
@@ -319,7 +319,7 @@ expect G7 ZZTEST-G7C (#{sec_g7c}): 16 of 16 listed
 expect~ 16\. ZZTESTZ, Learner104 \(9990\d{4}7104, F\) · adjusted grade 1 · 3-LD, 6 down · Frustration · comprehension 25\.0%
 run bosy-masterlist {school} {year} sections={sec_g7c}
 expect~ \| as of {today}\nG7 ZZTEST-G7C \(#{sec_g7c}\): 16 of 16 listed\n
-run bosy-masterlist {school} {year} asof=20261024
+run bosy-masterlist {school} {year} asof={=20261024}
 refuse asof must be a real YYYY-MM-DD date (got "20261024")
 run bosy-masterlist {school} {year} rows=total
 refuse Unknown option "rows". [sections=<id,...>] [asof=YYYY-MM-DD]
@@ -339,10 +339,10 @@ expect #1 * ZZTESTA, Learner001 ({lrn_g7_1}, M) · adjusted grade 4, 3 down · F
 expect G7 ZZTEST-G7C (#{sec_g7c}): 16 of 16 not grade level ready, 15 recommended
 expect~ #16   ZZTESTZ, Learner104 \(9990\d{4}7104, F\) · adjusted grade 1, 6 down · Frustration · comprehension 25\.0%, words 0\.0%, 0 wpm \(BOSY\)
 # per=3: a tie at the cut brings everyone tied in (15 at rank 1).
-run srp-list {school} {year} sections={sec_g7c} per=3 show=recommended
+run srp-list {school} {year} sections={sec_g7c} per={=3} show=recommended
 expect | 3 recommended per section
 expect G7 ZZTEST-G7C (#{sec_g7c}): 16 of 16 not grade level ready, 15 recommended
-run srp-list {school} {year} per=0
+run srp-list {school} {year} per={=0}
 refuse per is at least 1 (got "0")
 run srp-list {school} {year} asof=2026-02-30
 refuse asof must be a real YYYY-MM-DD date (got "2026-02-30")
@@ -366,7 +366,7 @@ run srp-build {school} {year} asof=2026-02-30
 refuse asof must be a real YYYY-MM-DD date (got "2026-02-30")
 run srp-build {school} {year} size=x
 refuse Invalid size
-run srp-build {school} {year} size=10
+run srp-build {school} {year} size={=10}
 expect Built 2 SRP class(es):
 expect~ 7-4A \(#\d+\) · Grade 4 · 9 learner\(s\) · room - · no schedule · tutor -
 expect~ 7-4B \(#\d+\) · Grade 4 · 8 learner\(s\) · room - · no schedule · tutor -

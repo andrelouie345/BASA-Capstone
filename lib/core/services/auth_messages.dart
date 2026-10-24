@@ -20,11 +20,19 @@ String edgeFunctionErrorMessage(Object error) {
   return '${message ?? details ?? error.reasonPhrase ?? 'server error ${error.status}'}';
 }
 
+/// Shown for an error nobody planned for (a database or programming error):
+/// its raw text goes to the log only (L1).
+const unexpectedErrorMessage = 'something went wrong. Try again, and tell your admin if it keeps happening.';
+
 /// The reason after "Sign-in failed: " / "Password change failed: ". The raw
 /// error belongs in the log, not in the message.
 String authFailureMessage(Object error) {
   if (error is AuthRetryableFetchException || error is SocketException) return cantReachServerMessage;
   if (error is AuthException) return error.message;
+  // BASA's own `Exception('...')` carries a readable message.
   final text = error.toString();
-  return text.startsWith('Exception: ') ? text.substring('Exception: '.length) : text;
+  if (error is Exception && text.startsWith('Exception: ')) {
+    return text.substring('Exception: '.length);
+  }
+  return unexpectedErrorMessage;
 }

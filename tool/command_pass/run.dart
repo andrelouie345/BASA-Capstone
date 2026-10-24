@@ -115,7 +115,7 @@ Future<void> main(List<String> args) async {
   final report = File('${runDir.path}/report.md');
   report.writeAsStringSync(renderReport(results, cov, accounts.secrets));
 
-  final failed = results.any((r) => !r.setup && !r.skipped && !r.outcome.passed);
+  final failed = results.any(isFailed); // same rule as the report (review P2)
   final uncovered = cov != null && (cov.uncoveredTutor.isNotEmpty || cov.uncoveredAdmin.isNotEmpty);
   stdout.writeln(summaryLine(results, cov));
   stdout.writeln('Report: ${report.path}');

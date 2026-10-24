@@ -85,6 +85,16 @@ class Accounts {
 
   String emailOf(String name) => 'zztest.pass.r$runNumber.$name@basa.test';
 
+  /// The account name of [email], or null when it is none of the run's.
+  String? nameOf(String email) {
+    final e = email.toLowerCase();
+    if (superAccount != null && superAccount!.email.toLowerCase() == e) return 'super';
+    for (final a in runAccounts) {
+      if (emailOf(a) == e) return a;
+    }
+    return null;
+  }
+
   bool isPrivileged(String? account) => account == 'super' || account == 'coord';
 
   Iterable<String> get secrets => [
@@ -202,6 +212,11 @@ Future<List<StepResult>> runScenario(
         // A device the scenario signed out stays signed out when the runner
         // comes back to it (R2): no sign-in again after the switch.
         if (tokens.first == 'sign-out' && !dev.ctx.authVm.isSignedIn) dev.lastAccount = null;
+        // A sign-in typed as a run step changes who the id guard and the
+        // re-sign-in see (an account the runner doesn't know = none).
+        if (tokens.first.startsWith('sign-in') && dev.ctx.authVm.isSignedIn) {
+          dev.lastAccount = accounts.nameOf(dev.ctx.authVm.currentUser!.email);
+        }
         last = out;
         lastRunOk = out.crashType == null;
         add(step, lastRunOk ? const StepOutcome(true) : StepOutcome(false, 'command crashed (${out.crashType})'),
@@ -258,7 +273,7 @@ Future<List<StepResult>> runScenario(
         }
         // Checks may use {captures} and the built-in values too.
         String fill(String t) => substitute(t, _vars(accounts, state));
-        RegExp fillRegex(RegExp r) => RegExp(fill(r.pattern));
+        RegExp fillRegex(RegExp r) => RegExp(substitute(r.pattern, _vars(accounts, state), regex: true));
         try {
           switch (step) {
             case ExpectStep():
@@ -276,6 +291,15 @@ Future<List<StepResult>> runScenario(
         } on FormatException catch (e) {
           add(step, StepOutcome(false, 'bad regex after substitution: ${e.message}'), output: o.text);
           continue;
+        }
+        // Capture and sql steps don't check the text, but a printed crash
+        // still fails them (review).
+        if (step is CaptureStep || step is SqlStep) {
+          final crash = crashOutcome(o);
+          if (crash != null) {
+            add(step, crash, output: o.text);
+            continue;
+          }
         }
         switch (step) {
           case CaptureStep():
@@ -309,8 +333,17 @@ Future<List<StepResult>> runScenario(
   return results;
 }
 
-/// Returns the outcome and the output to show.
+/// Returns the outcome and the output to show. A crash is a failed sign-in,
+/// so the batch stops with its report written (review).
 Future<(StepOutcome, String)> _signIn(Device dev, String account, Accounts accounts, RunState state) async {
+  try {
+    return await _signInOrThrow(dev, account, accounts, state);
+  } catch (e) {
+    return (StepOutcome(false, 'sign-in as $account crashed (${e.runtimeType})'), '$e');
+  }
+}
+
+Future<(StepOutcome, String)> _signInOrThrow(Device dev, String account, Accounts accounts, RunState state) async {
   final ({String email, String password}) cred;
   try {
     cred = accounts.resolve(account);

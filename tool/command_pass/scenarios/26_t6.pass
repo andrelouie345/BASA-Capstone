@@ -84,7 +84,7 @@ capture t6_ses_srv = #(\d+) \| class #\d+ \| session \d+ \| {today} \| 40 min
 device coord-pc admin
 run pull-cloud yes
 expect aral_sessions
-run aral-session-edit {t6_ses_srv} minutes=45
+run aral-session-edit {t6_ses_srv} minutes={=45}
 expect Updated: #{t6_ses_srv} | class #{class_1} | session 1 | {today} | 45 min
 run sync-upload yes
 expect 1 row(s) now on the server.
