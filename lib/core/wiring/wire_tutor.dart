@@ -4,6 +4,7 @@
 // ReportSettingsViewModel live here because the dashboard, reminders, trends
 // and srp-classes need them (owner decision D1, 2026-10-22); their admin-only
 // methods are dropped by tree shaking and checked by tool/admin_markers.txt.
+import '../../viewmodels/app_viewmodels.dart';
 import '../../viewmodels/aral_checkin_viewmodel.dart';
 import '../../viewmodels/aral_class_viewmodel.dart';
 import '../../viewmodels/aral_irip_viewmodel.dart';
@@ -125,6 +126,36 @@ class TutorVms {
     required this.dashboardVm,
   });
 }
+
+/// What the screens get (ui/basa_scope.dart): the ViewModels only, without
+/// the repositories and dev-only ViewModels the wiring also carries.
+AppViewModels appViewModels(AppContext ctx, SharedVms s, TutorVms t) => AppViewModels(
+      auth: ctx.authVm,
+      serverConfig: s.serverConfigVm,
+      sync: s.syncVm,
+      school: s.schoolVm,
+      section: s.sectionVm,
+      student: s.studentVm,
+      crla: t.crlaVm,
+      crlaExport: t.crlaExportVm,
+      crlaThresholds: t.crlaThresholdVm,
+      philIri: t.philIriVm,
+      philIriContent: t.philIriContentVm,
+      aral: t.aralVm,
+      aralClass: t.aralClassVm,
+      aralSession: t.aralSessionVm,
+      aralIrip: t.aralIripVm,
+      aralCheckin: t.aralCheckinVm,
+      aralMaterial: t.aralMaterialVm,
+      aralReadability: t.aralReadabilityVm,
+      calendar: t.calendarVm,
+      reportSettings: t.reportSettingsVm,
+      nlaReport: t.nlaReportVm,
+      reminders: t.reminderVm,
+      trend: t.trendVm,
+      srp: t.srpVm,
+      dashboard: t.dashboardVm,
+    );
 
 TutorVms wireTutor(AppContext ctx, SharedVms s) {
   final db = ctx.localDb;

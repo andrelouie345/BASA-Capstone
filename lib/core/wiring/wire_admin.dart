@@ -3,6 +3,7 @@
 // sync approver, login logs, CRLA scoresheet import, ARAL reports and roster
 // import. Never imported from the tutor entry points (tool/check_tutor_imports.dart).
 import '../../viewmodels/admin_bootstrap_viewmodel.dart';
+import '../../viewmodels/admin_viewmodels.dart';
 import '../../viewmodels/aral_report_viewmodel.dart';
 import '../../viewmodels/aral_roster_import_viewmodel.dart';
 import '../../viewmodels/crla_import_viewmodel.dart';
@@ -82,6 +83,19 @@ class AdminVms {
     required this.tutorSectionVm,
   });
 }
+
+/// What admin-build screens get on top of AppViewModels (ui/admin/admin_scope.dart).
+AdminViewModels adminViewModels(AdminVms a) => AdminViewModels(
+      bootstrap: a.bootstrapVm,
+      users: a.userVm,
+      tutorSections: a.tutorSectionVm,
+      loginLogs: a.loginLogVm,
+      syncReview: a.syncReviewVm,
+      sf1Import: a.importVm,
+      crlaImport: a.crlaImportVm,
+      aralRosterImport: a.aralRosterImportVm,
+      aralReport: a.aralReportVm,
+    );
 
 Future<AdminVms> wireAdmin(AppContext ctx, SharedVms s, TutorVms t) async {
   final db = ctx.localDb;

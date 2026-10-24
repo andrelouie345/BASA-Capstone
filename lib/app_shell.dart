@@ -1,12 +1,15 @@
 // lib/app_shell.dart
 // The app shell both builds share (admin lib/main.dart, tutor lib/main_tutor.dart):
-// the placeholder home screen, the debug console around it (debug builds only),
-// and the screen shown when the data folder can't be prepared.
+// the ViewModels for every screen (BasaScope), the placeholder home screen, the
+// debug console around it (debug builds only), and the screen shown when the
+// data folder can't be prepared.
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'core/console/console_session.dart';
+import 'ui/basa_scope.dart';
 import 'ui/debug/debug_overlay.dart';
+import 'viewmodels/app_viewmodels.dart';
 import 'viewmodels/text_viewmodel.dart';
 
 /// Set only by tool/build_release.ps1 for its scan builds (never shipped). A
@@ -21,8 +24,13 @@ const basaHasConsole = kDebugMode || basaScanBuild;
 class BasaApp extends StatefulWidget {
   final String title;
   final ConsoleSession session;
+
+  /// What every screen reaches through `BasaScope.of(context)`.
+  final AppViewModels vms;
+
+  /// Placeholder home and the console's text commands only (dev).
   final TextViewModel textVm;
-  const BasaApp({super.key, required this.title, required this.session, required this.textVm});
+  const BasaApp({super.key, required this.title, required this.session, required this.vms, required this.textVm});
 
   @override
   State<BasaApp> createState() => _BasaAppState();
@@ -32,18 +40,22 @@ class _BasaAppState extends State<BasaApp> {
   @override
   Widget build(BuildContext context) {
     final home = BasaHomeScreen(title: widget.title, textVm: widget.textVm);
-    return MaterialApp(
-      title: widget.title,
-      debugShowCheckedModeBanner: false,
-      // No console in shipped release builds: basaHasConsole is a constant, so
-      // the compiler drops the console from them.
-      home: basaHasConsole
-          ? DebugConsoleShell(
-              session: widget.session,
-              onCommandRun: () => setState(() {}), // rebuilds everything below
-              child: home,
-            )
-          : home,
+    // Above MaterialApp, so every route sees the ViewModels.
+    return BasaScope(
+      vms: widget.vms,
+      child: MaterialApp(
+        title: widget.title,
+        debugShowCheckedModeBanner: false,
+        // No console in shipped release builds: basaHasConsole is a constant, so
+        // the compiler drops the console from them.
+        home: basaHasConsole
+            ? DebugConsoleShell(
+                session: widget.session,
+                onCommandRun: () => setState(() {}), // rebuilds everything below
+                child: home,
+              )
+            : home,
+      ),
     );
   }
 }

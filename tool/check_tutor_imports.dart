@@ -3,7 +3,8 @@
 // admin-only file. Run from the repo root after every piece:
 //   dart run tool/check_tutor_imports.dart
 // A new admin-only file goes in [_adminFiles]; a new admin command file is
-// named *_admin_commands.dart and is caught by the pattern.
+// named *_admin_commands.dart and an admin screen lives under lib/ui/admin/,
+// both caught by [isAdminFile].
 import 'dart:io';
 
 import 'import_walk.dart';
@@ -35,6 +36,8 @@ const _adminFiles = [
   'viewmodels/aral_report_viewmodel.dart',
   'viewmodels/aral_roster_import_viewmodel.dart',
   'viewmodels/tutor_section_assignment_viewmodel.dart',
+  'viewmodels/admin_viewmodels.dart',
+  'ui/admin/admin_scope.dart',
   'core/data/local/sync_review_local_sqlite.dart',
   'core/data/remote/import_conflict_repository_supabase.dart',
   'core/services/admin_bootstrap_service.dart',
@@ -42,8 +45,9 @@ const _adminFiles = [
   'core/services/sf1_column_map.dart',
 ];
 
-bool _isAdmin(String path) =>
+bool isAdminFile(String path) =>
     _adminFiles.contains(path) ||
+    path.startsWith('ui/admin/') ||
     (path.startsWith('core/console/commands/') && path.endsWith('_admin_commands.dart')) ||
     RegExp(r'^core/data/\w+/import_conflict_repository_\w+\.dart$').hasMatch(path);
 
@@ -64,7 +68,7 @@ void main() {
     packageRoot: '.',
     packageName: 'basa_capstone',
     entries: _entries,
-    isForbidden: _isAdmin,
+    isForbidden: isAdminFile,
   );
   if (violations.isEmpty) {
     stdout.writeln('OK: no admin file reachable from the tutor entries');

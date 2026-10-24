@@ -14,7 +14,7 @@ Flutter/Dart reading-assessment app for tutors (DepEd ARAL-Reading program, Phil
 ```
 main.dart / main_tutor.dart        Flutter entry points: admin app / tutor app (see *Builds*)
 console/main.dart / main_tutor.dart  console entry points: admin (./data) / tutor (./data_tutor)
-app_shell.dart                     BasaApp shell both apps share; debug console only when basaHasConsole
+app_shell.dart                     BasaApp shell both apps share (puts BasaScope at the root); debug console only when basaHasConsole
 core/                              pure Dart — NEVER imports Flutter
   wiring/                          AppContext, wireShared/wireTutor/wireAdmin + register*Commands, data_dir
   console/                         command framework + commands/ (one file per module)
@@ -24,8 +24,8 @@ core/                              pure Dart — NEVER imports Flutter
   repositories/                    abstract interfaces
   services/                        sf1_importer, sf1_column_map, roster_exporter, xls_to_xlsx_converter, ...
   viewmodels/viewmodel_registry.dart
-viewmodels/                        ViewModels (also never import Flutter)
-ui/                                debug overlay, mobile/, windows/  (not the owner's area)
+viewmodels/                        ViewModels (also never import Flutter); app_viewmodels.dart / admin_viewmodels.dart = what screens get
+ui/                                basa_scope.dart, admin/admin_scope.dart (admin build only), debug overlay, mobile/, windows/  (screens: not the owner's area)
 ```
 `tool/` (repo root): `check_tutor_imports.dart` (+ `import_walk.dart`), `check_vm_boundary.dart` (+ `vm_boundary.dart`), `scan_markers.dart` + `admin_markers.txt`, `build_release.ps1`, `command_pass/` (runner + `scenarios/*.pass` that run every console command of both builds against the dev cloud).
 

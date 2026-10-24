@@ -14,6 +14,7 @@ import 'core/wiring/data_dir.dart';
 import 'core/wiring/wire_admin.dart';
 import 'core/wiring/wire_shared.dart';
 import 'core/wiring/wire_tutor.dart';
+import 'ui/admin/admin_scope.dart';
 
 const _title = 'BASA';
 
@@ -61,5 +62,14 @@ Future <void> main() async{
     registerDevCommands(ctx, shared);
   }
 
-  runApp(BasaApp(title: _title, session: ctx.session, textVm: shared.textVm));
+  // AdminScope sits above BasaApp so the shared shell never imports an admin file.
+  runApp(AdminScope(
+    vms: adminViewModels(admin),
+    child: BasaApp(
+      title: _title,
+      session: ctx.session,
+      vms: appViewModels(ctx, shared, tutor),
+      textVm: shared.textVm,
+    ),
+  ));
 }

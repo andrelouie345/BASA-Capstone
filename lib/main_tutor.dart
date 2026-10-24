@@ -46,5 +46,10 @@ Future<void> main() async {
     registerDevCommands(ctx, shared);
   }
 
-  runApp(BasaApp(title: _title, session: ctx.session, textVm: shared.textVm));
+  runApp(BasaApp(
+    title: _title,
+    session: ctx.session,
+    vms: appViewModels(ctx, shared, tutor),
+    textVm: shared.textVm,
+  ));
 }

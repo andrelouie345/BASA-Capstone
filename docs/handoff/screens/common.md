@@ -2,6 +2,7 @@
 
 ## Rules every screen follows
 
+- A screen gets its ViewModels from the widget tree: `BasaScope.of(context)` → `AppViewModels` (both builds, `lib/ui/basa_scope.dart`; short names: `.crla`, `.aralClass`, `.auth`, ...) and, in admin-build screens only (under `lib/ui/admin/`), `AdminScope.of(context)` → `AdminViewModels` (`.users`, `.sf1Import`, `.syncReview`, ...). The bundles hold ViewModels only (no repositories).
 - A screen calls ViewModels and reads models. It never imports `core/services/`, `core/data/`, `core/wiring/`, `core/repositories/`, `supabase` or `sqflite` (`dart run tool/check_vm_boundary.dart` fails the build).
 - ViewModels are request/response: none is a `ChangeNotifier` or a stream. The screen owns its loading, error and refresh state, and calls the method again after a change.
 - The build is fixed by the entry point: `lib/main.dart` (admin build: admins, coordinators) or `lib/main_tutor.dart` (tutor build). A tutor-build screen never imports an admin file (`dart run tool/check_tutor_imports.dart`).
