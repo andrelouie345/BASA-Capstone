@@ -51,5 +51,6 @@ Future<void> main() async {
     session: ctx.session,
     vms: appViewModels(ctx, shared, tutor),
     textVm: shared.textVm,
+    isTutorBuild: true,
   ));
 }

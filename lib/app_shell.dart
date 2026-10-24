@@ -30,7 +30,20 @@ class BasaApp extends StatefulWidget {
 
   /// Placeholder home and the console's text commands only (dev).
   final TextViewModel textVm;
-  const BasaApp({super.key, required this.title, required this.session, required this.vms, required this.textVm});
+
+  /// The tutor build: its debug console is dark green. A bool on purpose: the
+  /// console's theme (and its title, a [debug] marker in
+  /// tool/admin_markers.txt) is chosen only inside the basaHasConsole branch,
+  /// so shipped builds don't keep it.
+  final bool isTutorBuild;
+  const BasaApp({
+    super.key,
+    required this.title,
+    required this.session,
+    required this.vms,
+    required this.textVm,
+    this.isTutorBuild = false,
+  });
 
   @override
   State<BasaApp> createState() => _BasaAppState();
@@ -51,6 +64,7 @@ class _BasaAppState extends State<BasaApp> {
         home: basaHasConsole
             ? DebugConsoleShell(
                 session: widget.session,
+                theme: widget.isTutorBuild ? ConsoleTheme.tutor : ConsoleTheme.admin,
                 onCommandRun: () => setState(() {}), // rebuilds everything below
                 child: home,
               )

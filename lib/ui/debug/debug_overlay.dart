@@ -5,16 +5,43 @@ import '../../core/console/console_session.dart';
 import 'tilde_trigger.dart';
 import 'record_commands.dart';
 
+/// Console panel colors per build, so the tutor app's console can't be
+/// mistaken for the admin one.
+class ConsoleTheme {
+  final String title;
+  final Color background;
+  final Color header;
+  final Color input;
+
+  const ConsoleTheme({required this.title, required this.background, required this.header, required this.input});
+
+  static const admin = ConsoleTheme(
+    title: 'BASA Debug Console',
+    background: Color(0xE6000000), // black, 90%
+    header: Color(0xFF212121),
+    input: Colors.black,
+  );
+
+  static const tutor = ConsoleTheme(
+    title: 'BASA Tutor Debug Console',
+    background: Color(0xEB0B2416), // dark green, 92%
+    header: Color(0xFF143A24),
+    input: Color(0xFF07170E),
+  );
+}
+
 class DebugConsoleShell extends StatefulWidget {
   final Widget child;
   final ConsoleSession session;
   final VoidCallback? onCommandRun;
+  final ConsoleTheme theme;
 
   const DebugConsoleShell({
     super.key,
     required this.child,
     required this.session,
-    this.onCommandRun,   
+    this.onCommandRun,
+    this.theme = ConsoleTheme.admin,
   });
 
   @override
@@ -95,16 +122,16 @@ class _DebugConsoleShellState extends State<DebugConsoleShell> {
             height: 420,
             child: Material(
               elevation: 12,
-              color: Colors.black.withOpacity(0.9),
+              color: widget.theme.background,
               child: Column(
                 children: [
                   Container(
-                    color: Colors.grey[900],
+                    color: widget.theme.header,
                     padding: const EdgeInsets.all(6),
                     child: Row(
                       children: [
-                        const Text('BASA Debug Console',
-                            style: TextStyle(color: Colors.white)),
+                        Text(widget.theme.title,
+                            style: const TextStyle(color: Colors.white)),
                         const Spacer(),
                         IconButton(
                           icon: const Icon(Icons.close, color: Colors.white, size: 18),
@@ -135,12 +162,12 @@ class _DebugConsoleShellState extends State<DebugConsoleShell> {
                     focusNode: _focusNode,
                     autofocus: true,
                     style: const TextStyle(color: Colors.white, fontFamily: 'monospace'),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       prefixText: '> ',
-                      prefixStyle: TextStyle(color: Colors.greenAccent),
+                      prefixStyle: const TextStyle(color: Colors.greenAccent),
                       border: InputBorder.none,
                       filled: true,
-                      fillColor: Colors.black,
+                      fillColor: widget.theme.input,
                     ),
                     onSubmitted: _submit,
                   ),
