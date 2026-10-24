@@ -30,6 +30,7 @@ import '../core/repositories/section_repository.dart';
 import '../core/repositories/student_repository.dart';
 import '../core/repositories/tutor_section_assignment_repository.dart';
 import '../core/services/aral_rules.dart' show aralActiveOn, aralExitedBy;
+import '../core/services/auth_messages.dart';
 import '../core/services/calendar_rules.dart';
 import '../core/services/crla_rules.dart' show crlaGradeOf;
 import '../core/services/normalizers.dart';
@@ -243,7 +244,7 @@ class DashboardViewModel {
   /// The school years that have sections on this device, latest first.
   Future<List<String>> schoolYears() async {
     _log('schoolYears()');
-    if (_auth.currentUser == null) throw const ViewModelException('Not signed in.');
+    if (_auth.currentUser == null) throw const ViewModelException(notSignedInMessage);
     int start(String y) => int.tryParse(y.length >= 4 ? y.substring(0, 4) : y) ?? 0;
     return {for (final s in await _sections.getAll()) s.schoolYear}.toList()
       ..sort((a, b) {
@@ -257,7 +258,7 @@ class DashboardViewModel {
   Future<DashboardSummary> summary(String schoolYear, {DateTime? today}) async {
     _log('summary($schoolYear, today: $today)');
     final me = _auth.currentUser;
-    if (me == null) throw const ViewModelException('Not signed in.');
+    if (me == null) throw const ViewModelException(notSignedInMessage);
     final String year;
     try {
       year = normalizeSchoolYear(schoolYear);

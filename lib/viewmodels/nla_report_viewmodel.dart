@@ -31,6 +31,7 @@ import '../core/models/student.dart';
 import '../core/models/user_role.dart';
 import '../core/repositories/section_repository.dart';
 import '../core/repositories/student_repository.dart';
+import '../core/services/auth_messages.dart';
 import '../core/services/csv.dart';
 import '../core/services/nla_form2b.dart';
 import '../core/services/normalizers.dart';
@@ -499,7 +500,7 @@ class NlaReportViewModel {
   /// the access check (admin/coordinator of the school, or the superadmin).
   Future<List<Section>> reportSections(int schoolId, String schoolYear, Set<int>? sectionIds, String what) async {
     final me = _auth.currentUser;
-    if (me == null) throw const ViewModelException('Not signed in.');
+    if (me == null) throw const ViewModelException(notSignedInMessage);
     if (me.role != UserRole.admin && me.role != UserRole.coordinator) {
       throw ViewModelException('Forbidden: only an admin or coordinator can generate $what.');
     }

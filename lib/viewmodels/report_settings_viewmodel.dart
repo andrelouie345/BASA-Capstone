@@ -13,6 +13,7 @@ import '../core/models/report_setting.dart';
 import '../core/models/user.dart';
 import '../core/models/user_role.dart';
 import '../core/repositories/report_setting_repository.dart';
+import '../core/services/auth_messages.dart';
 import 'auth_viewmodel.dart';
 import 'viewmodel_exception.dart';
 
@@ -37,8 +38,16 @@ class ReportSettingsViewModel {
 
   // ---- Reading (this device's copy) ----
 
+  /// Local reads need a signed-in user too (finding F18), like the other
+  /// ViewModels (F5/F6): screens call these directly.
+  void _requireSignIn() {
+    final error = _auth.requireActiveSession();
+    if (error != null) throw ViewModelException(error);
+  }
+
   /// The settings that apply to [schoolId]: defaults <- region <- school.
   Future<ReportSettings> effective(int schoolId) async {
+    _requireSignIn();
     final region = await _local.getRegion();
     final school = await _local.getForSchool(schoolId);
     return ReportSettings.fromMap({...?region?.settings, ...?school?.settings});
@@ -48,6 +57,7 @@ class ReportSettingsViewModel {
   /// [schoolId] (null = the region's).
   Future<({double? region, double? school, double effective})> doneThresholdLayers(int? schoolId) async {
     _log('doneThresholdLayers($schoolId)');
+    _requireSignIn();
     final region = await _local.getRegion();
     final school = schoolId == null ? null : await _local.getForSchool(schoolId);
     double? read(ReportSetting? s) => (s?.settings[ReportSettings.doneThresholdKey] as num?)?.toDouble();
@@ -62,6 +72,7 @@ class ReportSettingsViewModel {
   /// applies to [schoolId] (null = the region's).
   Future<({bool? region, bool? school, bool effective})> autoApproveLayers(int? schoolId) async {
     _log('autoApproveLayers($schoolId)');
+    _requireSignIn();
     final (region, school) = await _layers(schoolId);
     bool? read(ReportSetting? s) => s?.settings[ReportSettings.syncAutoApproveKey] as bool?;
     return (
@@ -75,6 +86,7 @@ class ReportSettingsViewModel {
   /// applies to [schoolId] (null = the region's).
   Future<({int? region, int? school, int effective})> offlineDaysLayers(int? schoolId) async {
     _log('offlineDaysLayers($schoolId)');
+    _requireSignIn();
     final (region, school) = await _layers(schoolId);
     int? read(ReportSetting? s) => (s?.settings[ReportSettings.offlineSigninDaysKey] as num?)?.toInt();
     return (
@@ -144,7 +156,7 @@ class ReportSettingsViewModel {
 
   User _me() {
     final me = _auth.currentUser;
-    if (me == null) throw const ViewModelException('Not signed in.');
+    if (me == null) throw const ViewModelException(notSignedInMessage);
     return me;
   }
 

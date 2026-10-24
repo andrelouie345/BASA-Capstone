@@ -21,6 +21,7 @@ library;
 
 import '../console_command.dart';
 import '../console_registry.dart';
+import '../date_args.dart';
 import '../file_output.dart';
 import '../../../viewmodels/nla_report_viewmodel.dart';
 import '../../models/phil_iri_assessment.dart' show PhilIriRound;
@@ -82,7 +83,7 @@ const _options = '[sections=<id,...>] [sex=m,f,t] [rounds=bosy,mosy1,mosy2,mosy3
         sectionRows = v != 'total';
         schoolTotal = v != 'sections';
       case 'asof':
-        asOf = DateTime.tryParse(o.substring(eq + 1)) ?? (throw _Usage('asof is YYYY-MM-DD'));
+        asOf = strictDateArg(o.substring(eq + 1)) ?? (throw _Usage(asofDateMessage(o.substring(eq + 1))));
       default:
         throw _Usage('Unknown option "$key". $_options');
     }
@@ -181,7 +182,7 @@ const _progressOptions = '[done=<percent, default: saved setting>] [sections=<id
         sectionRows = v != 'total';
         schoolTotal = v != 'sections';
       case 'asof':
-        asOf = DateTime.tryParse(raw) ?? (throw _Usage('asof is YYYY-MM-DD'));
+        asOf = strictDateArg(raw) ?? (throw _Usage(asofDateMessage(raw)));
       default:
         throw _Usage('Unknown option "$key". $_progressOptions');
     }
@@ -229,7 +230,7 @@ const _masterlistOptions = '[sections=<id,...>] [asof=YYYY-MM-DD]';
         };
         if (sections.isEmpty) throw const _Usage('An option needs at least one value.');
       case 'asof':
-        asOf = DateTime.tryParse(raw) ?? (throw _Usage('asof is YYYY-MM-DD'));
+        asOf = strictDateArg(raw) ?? (throw _Usage(asofDateMessage(raw)));
       default:
         throw _Usage('Unknown option "${o.substring(0, eq)}". $_masterlistOptions');
     }

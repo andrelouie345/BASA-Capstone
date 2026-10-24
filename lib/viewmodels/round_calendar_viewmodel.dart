@@ -14,6 +14,7 @@ import '../core/models/assessment_calendar.dart';
 import '../core/models/user.dart';
 import '../core/models/user_role.dart';
 import '../core/repositories/assessment_calendar_repository.dart';
+import '../core/services/auth_messages.dart';
 import '../core/services/calendar_rules.dart';
 import '../core/services/normalizers.dart';
 import 'auth_viewmodel.dart';
@@ -51,12 +52,20 @@ class RoundCalendarViewModel {
 
   // ---- Reading (this device's copy) ----
 
+  /// Local reads need a signed-in user too (finding F18), like the other
+  /// ViewModels (F5/F6): screens call these directly.
+  void _requireSignIn() {
+    final error = _auth.requireActiveSession();
+    if (error != null) throw ViewModelException(error);
+  }
+
   /// Every window that applies to [schoolId] in [year]: region rows, each
   /// replaced by the school's row for the same round, plus rounds only the
   /// school has. Skipped overrides are included. [schoolId] null = the region
   /// rows only. Ordered by instrument, then round order.
   Future<List<CalendarEntry>> effectiveCalendar(int? schoolId, String year) async {
     _log('effectiveCalendar($schoolId, $year)');
+    _requireSignIn();
     year = _year(year);
     // A round this app version does not know for its instrument (only around
     // a change of rounds, see invalidWindows) is left out so progress and
@@ -91,6 +100,7 @@ class RoundCalendarViewModel {
   /// it) or an old app with new data (update the app). effectiveCalendar
   /// leaves them out; the UI shows them as invalid.
   Future<List<CalendarWindow>> invalidWindows(int? schoolId, String year) async {
+    _requireSignIn();
     year = _year(year);
     return [
       ...await _local.regionWindows(year),
@@ -177,7 +187,7 @@ class RoundCalendarViewModel {
 
   User _me() {
     final me = _auth.currentUser;
-    if (me == null) throw const ViewModelException('Not signed in.');
+    if (me == null) throw const ViewModelException(notSignedInMessage);
     return me;
   }
 

@@ -47,6 +47,7 @@ import '../core/repositories/tutor_section_assignment_repository.dart';
 import '../core/repositories/user_repository.dart';
 import '../core/services/aral_checkin_rules.dart' show aralCheckinCheckpoints;
 import '../core/services/aral_rules.dart' show AralSessionSettings, aralActiveOn;
+import '../core/services/auth_messages.dart';
 import '../core/services/phil_iri_rules.dart' show philIriGradeOf;
 import '../core/services/calendar_rules.dart';
 import '../core/services/normalizers.dart';
@@ -263,7 +264,7 @@ class ReminderViewModel {
       {DateTime? today, double? doneThreshold}) async {
     _log('coordinatorReminders($schoolId, $year, today: $today, done: $doneThreshold)');
     final me = _auth.currentUser;
-    if (me == null) throw const ViewModelException('Not signed in.');
+    if (me == null) throw const ViewModelException(notSignedInMessage);
     if (me.role != UserRole.admin && me.role != UserRole.coordinator) {
       throw const ViewModelException('Forbidden: only an admin or coordinator sees coordinator reminders.');
     }
@@ -404,7 +405,7 @@ class ReminderViewModel {
   Future<TutorReminders> tutorReminders(String tutorId, String year, {DateTime? today}) async {
     _log('tutorReminders($tutorId, $year, today: $today)');
     final me = _auth.currentUser;
-    if (me == null) throw const ViewModelException('Not signed in.');
+    if (me == null) throw const ViewModelException(notSignedInMessage);
     try {
       year = normalizeSchoolYear(year);
     } on FormatException catch (e) {
@@ -625,7 +626,7 @@ class ReminderViewModel {
       {DateTime? today, double? doneThreshold}) async {
     _log('crlaCompletion($schoolId, $year, ${round.name}, today: $today, done: $doneThreshold)');
     final me = _auth.currentUser;
-    if (me == null) throw const ViewModelException('Not signed in.');
+    if (me == null) throw const ViewModelException(notSignedInMessage);
     if (me.role != UserRole.admin && me.role != UserRole.coordinator) {
       throw const ViewModelException('Forbidden: only an admin or coordinator sees CRLA completion.');
     }

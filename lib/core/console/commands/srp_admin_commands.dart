@@ -4,6 +4,7 @@
 
 import '../console_command.dart';
 import '../console_registry.dart';
+import '../date_args.dart';
 import '../file_output.dart';
 import '../../../viewmodels/nla_report_viewmodel.dart' show progressPercent;
 import '../../../viewmodels/srp_viewmodel.dart';
@@ -52,7 +53,7 @@ void registerSrpAdminCommands(ConsoleRegistry registry, SrpViewModel vm) {
         case 'size':
           size = srpInt(raw, 'size');
         case 'asof':
-          asOf = DateTime.tryParse(raw) ?? (throw const SrpUsage('asof is YYYY-MM-DD'));
+          asOf = strictDateArg(raw) ?? (throw SrpUsage(asofDateMessage(raw)));
         default:
           throw SrpUsage('Unknown option "$o". Options: per=n size=n asof=YYYY-MM-DD');
       }
@@ -182,7 +183,7 @@ const _options = '[per=<n, default $srpDefaultPerSection>] [show=all|recommended
         };
         if (sections.isEmpty) throw const SrpUsage('An option needs at least one value.');
       case 'asof':
-        asOf = DateTime.tryParse(raw) ?? (throw SrpUsage('asof is YYYY-MM-DD'));
+        asOf = strictDateArg(raw) ?? (throw SrpUsage(asofDateMessage(raw)));
       default:
         throw SrpUsage('Unknown option "$key". $_options');
     }

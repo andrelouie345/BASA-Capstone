@@ -52,6 +52,7 @@ import '../core/repositories/section_repository.dart';
 import '../core/repositories/student_repository.dart';
 import '../core/repositories/user_repository.dart';
 import '../core/services/aral_rules.dart' show aralCrlaLearnerProfile, aralCrlaProfileOrder;
+import '../core/services/auth_messages.dart';
 import '../core/services/calendar_rules.dart' show calendarDate;
 import '../core/services/nla_form2b.dart';
 import '../core/services/normalizers.dart';
@@ -219,7 +220,7 @@ class TrendViewModel {
     _log('aralActivity(${_scopeLog(scope)}, $schoolYear, asOf: $asOf)');
     final year = _year(schoolYear);
     final me = _auth.currentUser;
-    if (me == null) throw const ViewModelException('Not signed in.');
+    if (me == null) throw const ViewModelException(notSignedInMessage);
     final day = calendarDate(asOf ?? DateTime.now());
     // A held_on that is not YYYY-MM-DD (only possible from data loaded around
     // the app) is left out: the month walk below needs real months.
@@ -367,7 +368,7 @@ class TrendViewModel {
   /// after the access check. The per-school reports check the school again.
   Future<({String name, List<School> schools, Set<int>? sectionIds})> _resolve(TrendScope scope, String year) async {
     final me = _auth.currentUser;
-    if (me == null) throw const ViewModelException('Not signed in.');
+    if (me == null) throw const ViewModelException(notSignedInMessage);
     if (me.role != UserRole.admin && me.role != UserRole.coordinator) {
       throw const ViewModelException('Forbidden: only an admin or coordinator sees trend charts.');
     }

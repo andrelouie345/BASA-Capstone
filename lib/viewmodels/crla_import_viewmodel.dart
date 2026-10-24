@@ -19,6 +19,7 @@ import '../core/models/user_role.dart';
 import '../core/repositories/crla_assessment_repository.dart';
 import '../core/repositories/section_repository.dart';
 import '../core/repositories/student_repository.dart';
+import '../core/services/auth_messages.dart';
 import '../core/services/crla_rules.dart';
 import '../core/services/crla_scoresheet.dart';
 import 'auth_viewmodel.dart';
@@ -192,7 +193,7 @@ class CrlaImportViewModel {
 
   Future<Section> _requireSection(int sectionId) async {
     final me = _auth.currentUser;
-    if (me == null) throw const ViewModelException('Not signed in.');
+    if (me == null) throw const ViewModelException(notSignedInMessage);
     final section = await _sections.getById(sectionId);
     if (section == null) throw ViewModelException('No section with id $sectionId.');
     if ((me.role == UserRole.admin || me.role == UserRole.coordinator) &&

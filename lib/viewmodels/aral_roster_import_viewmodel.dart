@@ -32,6 +32,7 @@ import '../core/repositories/aral_enrollment_repository.dart';
 import '../core/repositories/section_repository.dart';
 import '../core/repositories/student_repository.dart';
 import '../core/services/aral_rules.dart' show aralClassCap;
+import '../core/services/auth_messages.dart';
 import '../core/services/normalizers.dart';
 import '../core/services/table_reader.dart';
 import 'aral_viewmodel.dart';
@@ -130,7 +131,7 @@ class AralRosterImportViewModel {
   Future<AralRosterImportPreview> preview(int schoolId, String schoolYear, List<int> bytes, String fileName) async {
     _log('preview(school: $schoolId, year: $schoolYear, file: $fileName)');
     final me = _auth.currentUser;
-    if (me == null) throw const ViewModelException('Not signed in.');
+    if (me == null) throw const ViewModelException(notSignedInMessage);
     if (me.role != UserRole.admin && me.role != UserRole.coordinator) {
       throw const ViewModelException('Forbidden: only an admin or coordinator can import an ARAL roster.');
     }

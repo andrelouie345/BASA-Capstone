@@ -1,0 +1,488 @@
+# A5 Calendar, report settings, coordinator reminders, trends, dashboard, NLA
+# report, progress monitoring, BOSY masterlist, SRP. Coordinator device; the
+# superadmin's region views on a device of their own at the end. Region-wide
+# writes are refusals only (nothing outside the run's schools is written).
+# Every write is undone before the batch ends, so it reruns.
+#
+# The run's Phil-IRI results on the server (Grade 7 sections, all from earlier
+# batches; T4's sessions stayed on the tutor's phone):
+#   ZZTEST-G7 (4 learners, M F M F): s_g7_3 (M) and s_g7_4 (F) read A3's
+#     passage at MOSY 1 with 2/2 answers = 100% -> Grade Level Ready. Nobody
+#     took BOSY or the GST.
+#   ZZTEST-G7C (16 learners, 8 M 8 F): s_c4 (Learner104, F) has A4's GST 10/40
+#     = 25% -> Frustration, which counts as her BOSY (the year's comprehension
+#     starts at the GST): 3-LD Frustration, adjusted grade 1 (6 down).
+#   The other Grade 7 sections (A1/A4 move tests) are empty.
+#   20 Grade 7 learners in all (10 M, 10 F); 1 assessed at BOSY = 5.0%.
+# Grade 2 CRLA (Filipino, T3/A4): BOSY s_g2_1 Reading At Grade Level, s_g2_2
+#   Low Emerging, s_g2_3 High Emerging, s_g2_4 Transitioning; MOSY s_g2_3
+#   Developing. T6 left one English attempt (no profile).
+# Calendar (B0): Phil-IRI BOSY and CRLA BOSY {past} .. {future}, nothing else.
+# Done threshold (B0): school 85%.
+
+device a5-pc admin fresh
+as coord
+run pull-cloud yes
+expect users:
+# Independent checks of the figures above, on this device's copy.
+sql select count(distinct student_id) from phil_iri_assessments where section_id = {sec_g7} and round = 'mosy1' and status <> 'in_progress' => 2
+sql select count(*) from phil_iri_assessments where section_id = {sec_g7} and round = 'bosy' => 0
+sql select count(*) from enrollments e join sections s on s.id = e.section_id where s.school_id = {school} and s.grade_level = '7' and s.school_year = '{year}' => 20
+
+# --- Calendar ----------------------------------------------------------------------
+run calendar-show {school} {year}
+expect Phil-IRI BOSY     {past} .. {future}  OPEN  (school override)
+expect CRLA BOSY         {past} .. {future}  OPEN  (school override)
+run calendar-show region {year}
+expect No rounds scheduled.
+# MOSY 1 closed 30 days ago; the school skips MOSY 2.
+run calendar-set {school} {year} phil_iri mosy1 {past} {past}
+expect Phil-IRI MOSY #1 {year} for school {school}: {past} .. {past}.
+run calendar-skip {school} {year} phil_iri mosy2
+expect Phil-IRI MOSY #2 {year} skipped for school {school}.
+run calendar-show {school} {year}
+expect Phil-IRI MOSY #1  {past} .. {past}  CLOSED  (school override)
+expect Phil-IRI MOSY #2  SKIPPED  (school override)
+run calendar-show {school} {year} today={past}
+expect | today {past}
+expect Phil-IRI MOSY #1  {past} .. {past}  OPEN  (school override)
+# Refusals: region and another school (coordinator), a skip for the region,
+# an unknown round, closes before opens, a date that does not exist.
+run calendar-set region {year} crla mosy {past} {future}
+refuse Forbidden: only the superadmin sets the region-wide calendar.
+run calendar-set {schoolB} {year} crla mosy {past} {future}
+refuse Forbidden: you can only set your own school's calendar.
+run calendar-skip region {year} crla mosy
+refuse Only a school skips a round; to drop a region window use calendar-clear region ...
+run calendar-skip {schoolB} {year} crla mosy
+refuse Forbidden: you can only set your own school's calendar.
+run calendar-clear region {year} crla mosy
+refuse Forbidden: only the superadmin sets the region-wide calendar.
+run calendar-set {school} {year} crla mosy9 {past} {future}
+refuse CRLA has no round "mosy9"; its rounds are bosy, mosy, eosy.
+run calendar-set {school} {year} crla mosy {future} {past}
+refuse The round closes ({past}) before it opens ({future}).
+run calendar-set {school} {year} crla mosy 2026-02-30 {future}
+refuse opens is not a real date: "2026-02-30"
+run calendar-set {school} {year} crla mosy {past}
+refuse Usage: calendar-set <region|schoolId> <year> <phil_iri|crla> <round> <opens> <closes>
+# A short year is read as the full one; a bare number is refused.
+run calendar-show {school} {=2026}
+refuse School year must look like 2025-2026
+
+# --- The calendar drives progress and reminders ----------------------------------------
+# MOSY 1 is now held: G7 2/4 = 50.0% below 85% -> NO MOSY (it was NOT
+# SCHEDULED); MOSY 2 skipped -> NOT SCHEDULED.
+run progress-report {school} {year} sections={sec_g7} rows=sections
+expect Progress monitoring | school {school} | {year} | as of {today} | done at 85.0%
+expect BOSY 0 (0.0%) NO IRA | MOSY #1 2 (50.0%) NO MOSY | MOSY #2 0 (0.0%) NOT SCHEDULED | MOSY #3 0 (0.0%) NOT SCHEDULED | EOSY 0 (0.0%) NOT SCHEDULED
+run reminders-coordinator {school} {year}
+expect School ZZTEST PASS r{run} (#{school}) — done at 85%
+expect [OVERDUE] Phil-IRI MOSY #1 closed 30 days ago: 2 of 2 sections below 85%.
+expect Grade 7 ZZTEST-G7 (#{sec_g7})  2/4 (50.0%)
+expect Grade 7 ZZTEST-G7C (#{sec_g7c})  0/16 (0.0%)
+expect [IN PROGRESS] Phil-IRI BOSY closes in 30 days: 2 of 2 sections below 85%.
+expect Grade 7 ZZTEST-G7C (#{sec_g7c})  1/16 (6.3%)
+expect [IN PROGRESS] CRLA BOSY closes in 30 days: the 1 section done.
+# As of 30 days ago nothing was assessed yet (results are dated by the runs).
+run reminders-coordinator {school} {year} today={past} done=50
+expect done at 50%
+expect [IN PROGRESS] Phil-IRI BOSY closes in 60 days: 2 of 2 sections below 50%.
+expect [IN PROGRESS] CRLA BOSY closes in 60 days: 1 of 1 section below 50%.
+expect Grade 2 ZZTEST-G2 (#{sec_g2})  0/4 (0.0%)
+run reminders-coordinator {school} {year} soon=1
+refuse Unknown option "soon". [today=YYYY-MM-DD] [done=<percent>]
+run reminders-coordinator {school} {year} today=2026-02-30
+refuse today must be a real YYYY-MM-DD date (got "2026-02-30")
+run reminders-coordinator all {year}
+refuse Forbidden: only the superadmin sees the reminders of every school.
+run reminders-coordinator {schoolB} {year}
+refuse Forbidden: that school is not yours.
+run reminders-coordinator {year}
+refuse Usage: reminders-coordinator <schoolId|all> <year> [today=YYYY-MM-DD] [done=<percent>]
+
+# Back to B0's calendar.
+run calendar-clear {school} {year} phil_iri mosy1
+expect Phil-IRI MOSY #1 {year} cleared for school {school}. The region window applies again (if any).
+run calendar-clear {school} {year} phil_iri mosy2
+expect Phil-IRI MOSY #2 {year} cleared for school {school}.
+run calendar-show {school} {year}
+expect~ \| today {today}\n  Phil-IRI BOSY     {past} \.\. {future}  OPEN  \(school override\)\n  CRLA BOSY         {past} \.\. {future}  OPEN  \(school override\)\n
+run progress-report {school} {year} sections={sec_g7} rows=sections
+expect MOSY #1 2 (50.0%) NOT SCHEDULED
+
+# --- Report settings ------------------------------------------------------------------
+run report-settings-show {school}
+expect Done threshold: region not set · school 85% · applies 85%
+run offline-days {school}
+expect Offline sign-in window: region not set · school not set · applies 14 days
+run sync-auto-approve {school}
+expect Auto-approve: region not set · school not set · applies off
+# 2 of 4 at 50% is DONE (counts, not the rounded share).
+run report-settings-set {school} {=50}
+expect Done threshold for school {school}: 50%.
+run progress-report {school} {year} sections={sec_g7}
+expect done at 50.0%
+expect MOSY #1 2 (50.0%) DONE
+expect SCHOOL TOTAL (1 section(s))
+run report-settings-set region {=50}
+refuse Forbidden: only the superadmin sets the region-wide report settings.
+run report-settings-set {schoolB} {=50}
+refuse Forbidden: you can only set your own school's report settings.
+run report-settings-set {school} {=0}
+refuse The percent must be 1-100 (got "0").
+run report-settings-set {school} {=101}
+refuse The percent must be 1-100 (got "101").
+run report-settings-reset region
+refuse Only a school override can be reset, not the region row.
+run report-settings-reset {schoolB}
+refuse Forbidden
+run report-settings-reset {school}
+expect School {school} now uses the region report settings.
+run report-settings-show {school}
+expect Done threshold: region not set · school not set · applies 85%
+# Back to B0's school value (reset also drops auto-approve and the offline
+# window; neither was set, see above).
+run report-settings-set {school} {=85}
+expect Done threshold for school {school}: 85%.
+run report-settings-show region
+expect Done threshold: region not set · applies 85%
+
+# --- Trends ---------------------------------------------------------------------------
+run trend-bands school:{school} {year}
+expect Form 2b bands — ZZTEST PASS r{run} — {year}
+expect~ BOSY  MOSY #1\n
+expect~ Grade Level Ready +0 +2\n
+expect~ 3-LD Frustration +1 +0\n
+expect~ Total assessed +1 +2
+run trend-bands section:{sec_g7} {year}
+expect Form 2b bands — Grade 7 ZZTEST-G7 — {year}
+expect~ Grade Level Ready +2\n
+expect~ Total assessed +2
+# Girls only: s_c4 at BOSY, s_g7_4 at MOSY 1.
+run trend-bands school:{school} {year} sex=F
+expect~ Grade Level Ready +0 +1\n
+expect~ 3-LD Frustration +1 +0\n
+run trend-bands school:{school} {year} sex=X
+refuse sex is M, F or T (got "X")
+run trend-bands region {year}
+refuse Forbidden: only the superadmin sees the region.
+run trend-bands school:{schoolB} {year}
+refuse Forbidden: that school is not yours.
+run trend-bands school:x {year}
+refuse A scope is section:ID, school:ID, tutor:ID, tutor:me or region (got "school:x").
+run trend-bands school:{school}
+refuse Usage: trend-bands <section:ID|school:ID|region> <year> [asof=YYYY-MM-DD] [sex=M|F|T]
+# Completion: only the scheduled round (BOSY), 1/20 = 5.0%.
+run trend-completion school:{school} {year}
+expect Phil-IRI completion — ZZTEST PASS r{run} — {year}
+expect~ School total +5\.0\n
+expect Done threshold: 85.0%
+run trend-completion section:{sec_g7} {year}
+expect~ Grade 7 ZZTEST-G7 +0\.0\n
+run trend-completion school:{school} {year} asof={past}
+expect~ School total +0\.0\n
+run trend-completion school:{school} {year} asof=2026-02-30
+refuse asof must be a real YYYY-MM-DD date (got "2026-02-30")
+run trend-completion school:{school} {year} sex=F
+refuse Unknown option "sex".
+run trend-crla-profiles school:{school} {year}
+expect CRLA reading profiles — ZZTEST PASS r{run} — {year}
+expect~ \n +BOSY  MOSY\n
+expect~ Low Emerging Reader +1 +0\n
+expect~ High Emerging Reader +1 +0\n
+expect~ Developing Reader +0 +1\n
+expect~ Transitioning Reader +1 +0\n
+expect~ Reading At Grade Level +1 +0\n
+expect~ Total assessed +4 +1
+run trend-crla-profiles section:{sec_g2} {year} variant=fil
+expect CRLA reading profiles — Grade 2 ZZTEST-G2 — {year} (fil)
+expect~ Total assessed +4 +1
+run trend-crla-profiles school:{school} {year} variant=eng
+expect~ No profile +1\n
+run trend-crla-profiles school:{school} {year} variant=xx
+refuse variant is mt, fil or eng (got "xx")
+run trend-crla-profiles school:{schoolB} {year}
+refuse Forbidden: that school is not yours.
+# Division exits: ARAL = 3-LD + 2-LD (s_c4 at BOSY); exited by MOSY 1 = at
+# grade level in it (s_g7_3, s_g7_4); BOSY has no "exited".
+run trend-aral-exits school:{school} {year}
+expect ARAL exits (Division report) — ZZTEST PASS r{run} — {year}
+expect~ ARAL \(3-LD \+ 2-LD\) +1 +0\n
+expect~ Exited \(grade level\) +\. +2
+run trend-aral-exits school:{school} {year} sex=M
+expect~ ARAL \(3-LD \+ 2-LD\) +0 +0\n
+expect~ Exited \(grade level\) +\. +1
+run trend-aral-exits section:{sec_g7} {year}
+expect~ Exited \(grade level\) +2
+run trend-aral-exits region {year}
+refuse Forbidden: only the superadmin sees the region.
+# No session is left on the server (T5's stayed on the phone, T6/A4 deleted theirs).
+run trend-aral-activity school:{school} {year}
+expect ARAL sessions per month — ZZTEST PASS r{run} — {year}
+expect No ARAL sessions yet.
+run trend-aral-activity region {year}
+refuse Forbidden: only the superadmin sees the region.
+
+# --- Dashboard ------------------------------------------------------------------------
+run dashboard-years
+expect {year}
+run dashboard {year}
+expect Dashboard {year} — {today}
+expect School ZZTEST PASS r{run} (#{school})
+expect Phil-IRI (Grade 4-10): 11 sections, 20 learners
+expect CRLA (Grade 1-3): 1 section, 4 learners
+expect [OPEN] Phil-IRI BOSY {past} .. {future}: 1/20 (5.0%), 0/2 sections done at 85%
+expect [OPEN] CRLA BOSY {past} .. {future}: 4/4 (100.0%), 1/1 section done at 85%
+expect ARAL roster: 3 active, 0 exited
+# 4 + 16 Grade 7 learners, all but s_c4 not assessed at BOSY.
+expect BOSY masterlist: 20 learners not grade level ready (19 not assessed)
+# SRP: 2 (G7: s_g7_1, s_g7_2) + 16 (G7C); recommended 2 + 15.
+expect SRP: 18 candidates (17 recommended), 0 classes with 0 learners
+expect [IN PROGRESS] Phil-IRI BOSY closes in 30 days: 2 of 2 sections below 85%.
+run dashboard {year} today={past}
+expect Dashboard {year} — {past}
+expect [OPEN] CRLA BOSY {past} .. {future}: 0/4 (0.0%), 0/1 section done at 85%
+run dashboard {year} soon=1
+refuse Unknown option "soon=1". Usage: dashboard <year> [today=YYYY-MM-DD]
+run dashboard
+refuse Usage: dashboard <year> [today=YYYY-MM-DD]
+
+# --- NLA report --------------------------------------------------------------------------
+run nla-report {school} {year}
+expect NLA report (Phil-IRI for JHS Form 2b) | school {school} | {year} | as of {today}
+expect G7 ZZTEST-G7 (#{sec_g7})
+expect MOSY #1: assessed M 1 F 1 T 2 | GLR M 1 F 1 T 2 |
+expect MOSY #1 ARAL (Division): 3-LD M 0 F 0 T 0 | 2-LD M 0 F 0 T 0 | total M 0 F 0 T 0 | exited M 1 F 1 T 2
+expect G7 ZZTEST-G7C (#{sec_g7c})
+expect Enrolment: M 8 F 8 T 16
+expect GST scores: Score 0-15: M 0 F 1 T 1 | Score 16-27: M 0 F 0 T 0 | Score 28-40: M 0 F 0 T 0
+expect BOSY: assessed M 0 F 1 T 1 | GLR M 0 F 0 T 0 | 2-LD Ind M 0 F 0 T 0, Ins M 0 F 0 T 0, Frus M 0 F 0 T 0 = M 0 F 0 T 0 | 3-LD Ind M 0 F 0 T 0, Ins M 0 F 0 T 0, Frus M 0 F 1 T 1 = M 0 F 1 T 1
+expect BOSY ARAL (Division): 3-LD M 0 F 1 T 1 | 2-LD M 0 F 0 T 0 | total M 0 F 1 T 1
+expect SCHOOL TOTAL (11 section(s))
+expect Enrolment: M 10 F 10 T 20
+run nla-report {school} {year} sections={sec_g7c} sex=f rounds=bosy blocks=form2b,aral rows=sections
+expect~ \| as of {today}\nG7 ZZTEST-G7C \(#{sec_g7c}\)\n  BOSY: assessed F 1 \| GLR F 0 \| 2-LD Ind F 0, Ins F 0, Frus F 0 = F 0 \| 3-LD Ind F 0, Ins F 0, Frus F 1 = F 1\n  BOSY ARAL \(Division\): 3-LD F 1 \| 2-LD F 0 \| total F 1
+run nla-report {school} {year} rows=total blocks=enrolment
+expect~ \| as of {today}\nSCHOOL TOTAL \(11 section\(s\)\)\n  Enrolment: M 10 F 10 T 20
+run nla-report {school} {year} rounds=mosy9
+refuse rounds are bosy, mosy1, mosy2, mosy3, eosy (got "mosy9")
+run nla-report {school} {year} blocks=charts
+refuse blocks are enrolment, gst, profile, form2b, aral (got "charts")
+# F17: a date that does not exist is refused, not rolled over.
+run nla-report {school} {year} asof=2026-02-30
+refuse asof must be a real YYYY-MM-DD date (got "2026-02-30")
+run nla-report {school} {year} asof={past}
+expect | as of {past}
+run nla-report {school} {year} sex=
+refuse An option needs at least one value.
+run nla-report {schoolB} {year}
+refuse Forbidden: that school is not yours.
+run nla-report-csv {school} {year} "{rundir}/a5_nla.csv" sections={sec_g7}
+expect Wrote
+expect a5_nla.csv (1 section(s)).
+run nla-report-csv {school} {year}
+refuse Usage: nla-report-csv <schoolId> <schoolYear> <out.csv>
+
+# --- Progress monitoring -------------------------------------------------------------------
+run progress-report {school} {year}
+expect G7 ZZTEST-G7C (#{sec_g7c})
+expect Enrolment: M 8 F 8 T 16 | GST takers: M 0 F 1 T 1 (6.3%)
+expect BOSY 1 (6.3%) NO IRA | MOSY #1 0 (0.0%) NOT SCHEDULED
+expect G7 ZZTEST-G7X (#{sec_g7x})
+expect Enrolment: M 0 F 0 T 0 | GST takers: M 0 F 0 T 0 (-)
+expect SCHOOL TOTAL (11 section(s))
+expect BOSY 1 (5.0%) NO IRA | MOSY #1 2 (10.0%) NOT SCHEDULED
+run progress-report {school} {year} done=50 rows=total
+expect~ done at 50\.0%\nSCHOOL TOTAL \(11 section\(s\)\)\n  Enrolment: M 10 F 10 T 20 \| GST takers: M 0 F 1 T 1 \(5\.0%\)\n
+run progress-report {school} {year} done=0
+refuse done is a percent above 0 and up to 100 (got "0")
+run progress-report {school} {year} asof=2026-02-30
+refuse asof must be a real YYYY-MM-DD date (got "2026-02-30")
+run progress-report {school} {year} rows=all
+refuse rows is sections, total or both (got "all")
+run progress-report {schoolB} {year}
+refuse Forbidden: that school is not yours.
+run progress-report-csv {school} {year} "{rundir}/a5_progress.csv"
+expect a5_progress.csv (11 section(s)).
+run progress-report-csv {school} {year} "{rundir}/a5_progress2.csv" sections={sec_g7}
+expect a5_progress2.csv (1 section(s)).
+
+# --- BOSY masterlist ------------------------------------------------------------------------
+run bosy-masterlist {school} {year}
+expect Masterlist of learners not grade level ready at BOSY | school {school} | {year} | as of {today}
+expect G7 ZZTEST-G7 (#{sec_g7}): 4 of 4 listed
+expect 1. ZZTESTA, Learner001 ({lrn_g7_1}, M) · adjusted grade 4 · 3-LD, 3 down · Frustration · NOT ASSESSED (assumed)
+expect G7 ZZTEST-G7C (#{sec_g7c}): 16 of 16 listed
+expect~ 16\. ZZTESTZ, Learner104 \(9990\d{4}7104, F\) · adjusted grade 1 · 3-LD, 6 down · Frustration · comprehension 25\.0%
+run bosy-masterlist {school} {year} sections={sec_g7c}
+expect~ \| as of {today}\nG7 ZZTEST-G7C \(#{sec_g7c}\): 16 of 16 listed\n
+run bosy-masterlist {school} {year} asof=20261024
+refuse asof must be a real YYYY-MM-DD date (got "20261024")
+run bosy-masterlist {school} {year} rows=total
+refuse Unknown option "rows". [sections=<id,...>] [asof=YYYY-MM-DD]
+run bosy-masterlist {schoolB} {year}
+refuse Forbidden: that school is not yours.
+run bosy-masterlist-csv {school} {year} "{rundir}/a5_master.csv"
+expect a5_master.csv (20 learner(s)).
+
+# --- SRP: candidates -------------------------------------------------------------------------
+# Weakest first by comprehension; an unknown result counts as 0 (her sheet),
+# so the 15 not assessed share rank 1 and s_c4 (25%) is #16, outside the 15.
+# s_g7_3/s_g7_4 are at grade level (MOSY 1) and are not candidates.
+run srp-list {school} {year}
+expect SRP candidates (not grade level ready by EOSY) | school {school} | {year} | as of {today} | 15 recommended per section
+expect G7 ZZTEST-G7 (#{sec_g7}): 2 of 4 not grade level ready, 2 recommended
+expect #1 * ZZTESTA, Learner001 ({lrn_g7_1}, M) · adjusted grade 4, 3 down · Frustration · NOT ASSESSED (assumed)
+expect G7 ZZTEST-G7C (#{sec_g7c}): 16 of 16 not grade level ready, 15 recommended
+expect~ #16   ZZTESTZ, Learner104 \(9990\d{4}7104, F\) · adjusted grade 1, 6 down · Frustration · comprehension 25\.0%, words 0\.0%, 0 wpm \(BOSY\)
+# per=3: a tie at the cut brings everyone tied in (15 at rank 1).
+run srp-list {school} {year} sections={sec_g7c} per=3 show=recommended
+expect | 3 recommended per section
+expect G7 ZZTEST-G7C (#{sec_g7c}): 16 of 16 not grade level ready, 15 recommended
+run srp-list {school} {year} per=0
+refuse per is at least 1 (got "0")
+run srp-list {school} {year} asof=2026-02-30
+refuse asof must be a real YYYY-MM-DD date (got "2026-02-30")
+run srp-list {school} {year} show=some
+refuse show is all or recommended (got "some")
+run srp-list {schoolB} {year}
+refuse Forbidden: that school is not yours.
+run srp-list-csv {school} {year} "{rundir}/a5_srp.csv"
+expect a5_srp.csv (18 learner(s)).
+run srp-list-csv {school} {year} "{rundir}/a5_srp2.csv" show=recommended
+expect a5_srp2.csv (17 learner(s)).
+
+# --- SRP: classes ------------------------------------------------------------------------------
+# 17 recommended, all assessed (or assumed) at Grade 4 -> classes 7-4A, 7-4B;
+# size 10 -> 2 classes, 9 + 8 (larger first).
+run srp-classes {school} {year}
+expect (no SRP classes)
+run srp-build {schoolB} {year}
+refuse Forbidden
+run srp-build {school} {year} asof=2026-02-30
+refuse asof must be a real YYYY-MM-DD date (got "2026-02-30")
+run srp-build {school} {year} size=x
+refuse Invalid size
+run srp-build {school} {year} size=10
+expect Built 2 SRP class(es):
+expect~ 7-4A \(#\d+\) · Grade 4 · 9 learner\(s\) · room - · no schedule · tutor -
+expect~ 7-4B \(#\d+\) · Grade 4 · 8 learner\(s\) · room - · no schedule · tutor -
+capture srp_a = 7-4A \(#(\d+)\)
+capture srp_b = 7-4B \(#(\d+)\)
+sql select count(*) from srp_class_members where class_id in ({srp_a}, {srp_b}) => 17
+run srp-build {school} {year}
+refuse School {school} already has 2 SRP class(es) for {year}: change them, or delete them all first.
+run srp-class-set {srp_a} room=Library "schedule=MWF 8-10" tutor={email_tutor2}
+expect~ Saved:\n7-4A \(#{srp_a}\) · Grade 4 · 9 learner\(s\) · room Library · MWF 8-10 · tutor 
+run srp-class-set 7-4B name=7-4Z
+expect~ Saved:\n7-4Z \(#{srp_b}\) · Grade 4 · 8 learner\(s\) · room - · no schedule · tutor -
+run srp-class-set {srp_a} colour=red
+refuse Unknown option "colour". Options: name= room= schedule= tutor=
+run srp-class-set {srp_a} tutor=nobody@basa.test
+refuse No user nobody@basa.test on this device (run pull-cloud).
+run srp-class-set {srp_a}
+refuse Usage: srp-class-set <classId|name> [name=..] [room=..|-] [schedule=..|-] [tutor=<email>|-]
+# s_c4 (not recommended) added by hand, moved, then taken out again.
+run srp-add {srp_a} {s_c4}
+expect 7-4A (#{srp_a}) · Grade 4 · 10 learner(s)
+expect~ 10\. ZZTESTZ, Learner104 \(#{s_c4}, 9990\d{4}7104\) · G7 ZZTEST-G7C
+run srp-add {srp_b} {s_c4}
+refuse Learner {s_c4} is already in SRP class 7-4A; move them instead.
+run srp-move {s_c4} 7-4Z
+expect~ Moved:\n7-4Z \(#{srp_b}\) · Grade 4 · 9 learner\(s\)
+sql select count(*) from srp_class_members where student_id = {s_c4} and class_id = {srp_b} => 1
+run srp-remove 7-4Z {s_c4}
+expect~ Removed:\n7-4Z \(#{srp_b}\) · Grade 4 · 8 learner\(s\)
+run srp-remove 7-4Z {s_c4}
+refuse Learner {s_c4} is not in 7-4Z.
+run srp-add {srp_a} {s_b7_1}
+refuse Learner {s_b7_1} is not enrolled in a section of school {school} for {year}.
+run srp-add 7-4Q {s_c4}
+refuse No SRP class named "7-4Q" on this device.
+run srp-classes-csv {school} {year} "{rundir}/a5_srpc.csv"
+expect a5_srpc.csv (2 class(es), 17 learner(s)).
+run srp-classes-csv {schoolB} {year} "{rundir}/a5_srpb.csv"
+refuse Forbidden: that school's SRP classes are not yours to see.
+
+# The SRP tutor (tutor2, no section) reads their class and its learners only.
+device a5-t2 tutor fresh
+as tutor2
+run pull-cloud yes
+expect users:
+run srp-classes {school} {year}
+expect~ 7-4A \(#{srp_a}\) · Grade 4 · 9 learner\(s\) · room Library · MWF 8-10
+sql select count(*) from srp_classes => 1
+sql select count(*) from srp_class_members => 9
+sql select count(*) from students => 9
+device a5-pc admin
+
+run srp-class-set {srp_a} room=- schedule=- tutor=-
+expect~ Saved:\n7-4A \(#{srp_a}\) · Grade 4 · 9 learner\(s\) · room - · no schedule · tutor -
+run srp-class-delete 7-4Z
+expect Deleted SRP class 7-4Z.
+run srp-class-delete 7-4Z
+refuse No SRP class named "7-4Z" on this device.
+run srp-classes-clear {school} {year}
+refuse This deletes every SRP class of the school for that year. Usage: srp-classes-clear <schoolId> <schoolYear> yes
+run srp-classes-clear {schoolB} {year} yes
+refuse Forbidden: only an admin or coordinator of the school manages its SRP classes.
+run srp-classes-clear {school} {year} yes
+expect Deleted 1 SRP class(es).
+run srp-classes {school} {year}
+expect (no SRP classes)
+
+# --- Superadmin: the region views (this run's lines only) ---------------------------------------
+device a5-super admin fresh
+as super
+run pull-cloud yes
+expect users:
+# Every school of the region is listed; only this run's lines are checked.
+run dashboard {year}
+expect School ZZTEST PASS r{run} (#{school})
+expect~ School ZZTEST PASS r{run} \(#{school}\)\n  Phil-IRI \(Grade 4-10\): 11 sections, 20 learners\n  CRLA \(Grade 1-3\): 1 section, 4 learners\n
+expect~ School ZZTEST PASS r{run} B \(#{schoolB}\)\n  Phil-IRI \(Grade 4-10\): 1 section, 2 learners\n
+expect~ REGION TOTAL \(\d+ schools\)
+run reminders-coordinator all {year}
+expect~ School ZZTEST PASS r{run} \(#{school}\) — done at 85%\n  \[IN PROGRESS\] Phil-IRI BOSY closes in 30 days: 2 of 2 sections below 85%\.
+expect~ School ZZTEST PASS r{run} B \(#{schoolB}\) — done at 85%\n  No reminders\.
+# School B has no calendar, so every round counts there.
+run trend-completion region {year}
+expect Phil-IRI completion — Region — {year}
+expect~ ZZTEST PASS r{run} +5\.0 +\. +\. +\. +\.\n
+expect~ ZZTEST PASS r{run} B +0\.0 +0\.0 +0\.0 +0\.0 +0\.0\n
+run trend-bands region {year}
+expect Form 2b bands — Region — {year}
+run trend-aral-exits region {year}
+expect ARAL exits (Division report) — Region — {year}
+run trend-aral-activity region {year}
+expect ARAL sessions per month — Region — {year}
+run calendar-show region {year}
+expect Assessment calendar | the region | {year} | today {today}
+
+# --- Signed out: nothing works ------------------------------------------------------------------
+device a5-pc admin
+run sign-out
+expect~ .
+run calendar-show {school} {year}
+refuse Not signed in. Sign in first.
+run calendar-set {school} {year} phil_iri mosy1 {past} {past}
+refuse Not signed in
+run report-settings-show {school}
+refuse Not signed in. Sign in first.
+run reminders-coordinator {school} {year}
+refuse Not signed in. Sign in first.
+run trend-bands school:{school} {year}
+refuse Not signed in. Sign in first.
+run dashboard {year}
+refuse Not signed in. Sign in first.
+run nla-report {school} {year}
+refuse Not signed in. Sign in first.
+run progress-report {school} {year}
+refuse Not signed in. Sign in first.
+run bosy-masterlist {school} {year}
+refuse Not signed in. Sign in first.
+run srp-list {school} {year}
+refuse Not signed in. Sign in first.
+run srp-classes {school} {year}
+refuse Not signed in. Sign in first.

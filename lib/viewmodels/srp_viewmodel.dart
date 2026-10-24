@@ -29,6 +29,7 @@ import '../core/repositories/section_repository.dart';
 import '../core/repositories/srp_class_repository.dart';
 import '../core/repositories/student_repository.dart';
 import '../core/repositories/user_repository.dart';
+import '../core/services/auth_messages.dart';
 import '../core/services/csv.dart';
 import '../core/services/normalizers.dart';
 import '../core/services/phil_iri_results.dart' show philIriNotAssessedResult;
@@ -474,7 +475,7 @@ class SrpViewModel {
 
   User _me() {
     final me = _auth.currentUser;
-    if (me == null) throw const ViewModelException('Not signed in.');
+    if (me == null) throw const ViewModelException(notSignedInMessage);
     return me;
   }
 

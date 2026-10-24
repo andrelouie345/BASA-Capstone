@@ -9,6 +9,7 @@ import '../console_command.dart';
 import '../console_registry.dart';
 import '../../../viewmodels/reminder_viewmodel.dart';
 import '../../models/report_setting.dart';
+import '../../services/auth_messages.dart';
 import 'reminder_command_helpers.dart';
 
 /// Coordinator reminders as console text (also used by `dashboard`).
@@ -87,7 +88,7 @@ void registerReminderCommands(ConsoleRegistry registry, ReminderViewModel vm, St
     if (args.length < 2) throw const ReminderUsage(usage);
     final o = reminderParse(args.sublist(2));
     if (o.done != null) throw const ReminderUsage('reminders-tutor takes no done= (tutors are reminded per learner). $usage');
-    final tutorId = args[0].toLowerCase() == 'me' ? (currentUserId() ?? (throw const ReminderUsage('Not signed in.'))) : args[0];
+    final tutorId = args[0].toLowerCase() == 'me' ? (currentUserId() ?? (throw const ReminderUsage(notSignedInMessage))) : args[0];
     return tutorRemindersText(await vm.tutorReminders(tutorId, args[1], today: o.today));
   });
 }

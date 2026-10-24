@@ -36,6 +36,7 @@ import '../core/repositories/section_repository.dart';
 import '../core/repositories/student_repository.dart';
 import '../core/services/aral_report_xlsx.dart';
 import '../core/services/aral_rules.dart';
+import '../core/services/auth_messages.dart';
 import '../core/services/csv.dart';
 import '../core/services/xlsx_cells.dart' show XlsxException;
 import '../core/services/normalizers.dart';
@@ -129,7 +130,7 @@ class AralReportViewModel {
   }) async {
     _log('implementationReport(school: $schoolId, year: $schoolYear, section: $sectionId)');
     final me = _auth.currentUser;
-    if (me == null) throw const ViewModelException('Not signed in.');
+    if (me == null) throw const ViewModelException(notSignedInMessage);
     if (me.role != UserRole.admin && me.role != UserRole.coordinator) {
       throw const ViewModelException('Forbidden: only an admin or coordinator can generate ARAL reports.');
     }

@@ -8,6 +8,7 @@ import 'package:basa_capstone/core/models/aral_class.dart';
 import 'package:basa_capstone/core/models/aral_enrollment.dart';
 import 'package:basa_capstone/core/models/aral_irip.dart';
 import 'package:basa_capstone/core/models/aral_session.dart';
+import 'package:basa_capstone/core/models/assessment_calendar.dart' show CalendarInstrument;
 import 'package:basa_capstone/core/models/crla_assessment.dart' show CrlaRound;
 import 'package:basa_capstone/core/models/sync_upload.dart' show SyncChoice;
 import 'package:basa_capstone/core/models/phil_iri_assessment.dart' show PhilIriRound;
@@ -173,6 +174,24 @@ void main() {
       }
     }
     expect(open, isEmpty);
+  });
+
+  // F18: the calendar and report settings are read from the device copy too.
+  test('the calendar and report settings ViewModels refuse local reads while signed out', () async {
+    final cal = t.calendarVm, rs = t.reportSettingsVm;
+    const y = '2026-2027';
+    final calls = <String, Future<Object?> Function()>{
+      'calendar.effectiveCalendar': () => cal.effectiveCalendar(1, y),
+      'calendar.invalidWindows': () => cal.invalidWindows(1, y),
+      'calendar.scheduledRounds': () => cal.scheduledRounds(1, y, CalendarInstrument.philIri),
+      'settings.effective': () => rs.effective(1),
+      'settings.doneThresholdLayers': () => rs.doneThresholdLayers(1),
+      'settings.autoApproveLayers': () => rs.autoApproveLayers(1),
+      'settings.offlineDaysLayers': () => rs.offlineDaysLayers(1),
+    };
+    for (final e in calls.entries) {
+      await expectLater(e.value(), _refused, reason: e.key);
+    }
   });
 
   test('SyncViewModel refuses every call while signed out', () async {
