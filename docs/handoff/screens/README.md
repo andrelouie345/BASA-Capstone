@@ -2,7 +2,7 @@
 
 What each screen of BASA can do, and which ViewModel calls serve it. Written 2026-10-24 for the ViewModel completeness check (spec `docs/superpowers/specs/2026-10-24-vm-completeness-design.md`); the frontend handoff docs grow from it. Layout, visuals and navigation are the UI team's and are not in here.
 
-Status: **draft, gaps awaiting the owner's decisions.**
+Status: **gaps decided by the owner 2026-10-24 (all as recommended).**
 
 ## Files
 
@@ -48,7 +48,7 @@ Console: the command(s) that show the real output.
 | **E** | Raw exception text (`$e`) in a ViewModel message (spec list). |
 | **M** | A screen need with no console capability today: proposed `deferred` (spec *Out of scope*) unless the owner decides otherwise. |
 
-Classes R and G were not in the spec; they came up during the walk (2026-10-24) and are proposed here for the owner's decision.
+Classes R and G were not in the spec; they came up during the walk (2026-10-24) and were accepted by the owner (2026-10-24).
 
 ## Gap format
 

@@ -45,13 +45,13 @@ Console: `report-settings-show`, `report-settings-set`, `report-settings-reset`,
 **REPORTS-G1** (I, T) — `NlaBand`, `NlaCounts`, `NlaGstBand` (`nla_form2b.dart`), `PhilIriLevel` (`phil_iri_rules.dart`) and `SrpRankKey` (`srp_rules.dart`) are service types in report results; `nla_report_commands.dart` imports both rule files for them.
 Fix: `core/models/report_types.dart` exports `NlaBand, NlaCounts, NlaGstBand` and `SrpRankKey`; `PhilIriLevel` comes from `phil_iri_types.dart` (PHILIRI-G2).
 Removes baseline: `core/console/commands/nla_report_commands.dart -> core/services/nla_form2b.dart`, `core/console/commands/nla_report_commands.dart -> core/services/phil_iri_rules.dart`
-Decision: (open)
+Decision: fix (owner 2026-10-24, as recommended).
 
 **REPORTS-G2** (I, N) — `srp-build` / `srp-list` read `srpDefaultPerSection` and `srpDefaultClassSize` from `srp_rules.dart`.
 Fix: `SrpViewModel.defaultPerSection` and `.defaultClassSize` getters (same constants).
 Removes baseline: `core/console/commands/srp_admin_commands.dart -> core/services/srp_rules.dart`
-Decision: (open)
+Decision: fix (owner 2026-10-24, as recommended).
 
 **REPORTS-G3** (E) — `srp_viewmodel.dart:538` puts `$e` in `lastMirrorWarning`.
 Fix: spec rule.
-Decision: (open)
+Decision: fix (owner 2026-10-24, as recommended).

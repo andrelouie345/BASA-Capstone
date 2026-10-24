@@ -94,39 +94,39 @@ Console: `aral-report`, `aral-export-report`, `aral-export-report-csv`, `aral-ex
 **ARAL-G1** (I, N) — "n/15 active" reads `aralClassCap` from `aral_rules.dart` in `aral_command_helpers.dart`.
 Fix: `AralClassViewModel.classCap` getter (`int`, = `aralClassCap`).
 Removes baseline: `core/console/commands/aral_command_helpers.dart -> core/services/aral_rules.dart`
-Decision: (open)
+Decision: fix (owner 2026-10-24, as recommended).
 
 **ARAL-G2** (I, N) — Met / Not met (`AralCheckinScore.passes(passPct)`) and the percent text are made in `aral_checkin_command_helpers.dart`.
 Fix: `AralCheckinResult.met` (`bool`, = `score.passes(passPct)`) and `AralCheckinScore.wholePercent` (`int`, same rounding as `toStringAsFixed(0)`). The report rows get the same if they carry a score (checked in the batch).
 Removes baseline: `core/console/commands/aral_checkin_command_helpers.dart -> core/services/aral_checkin_rules.dart`
-Decision: (open)
+Decision: fix (owner 2026-10-24, as recommended).
 
 **ARAL-G3** (N) — The implementation report's grade subtotals (when a grade has more than one section) and the school total are summed in `aral-report`. The DepEd layout shows them, so a screen needs them too.
 Fix: `AralImplementationReport.gradeTotals` → `Map<int, AralReportTotals>` and `.schoolTotal` → `AralReportTotals` (new small class in `aral_report_viewmodel.dart`: `enrolment`, `bosy`/`mosy` per column, `bosyTotal`, `mosyTotal`, `exitedGradeLevelReady`, `exitedOther`, `exited`, `bosyMinusMosy`), same sums as the command; the command prints from them.
-Decision: (open)
+Decision: fix (owner 2026-10-24, as recommended).
 
 **ARAL-G4** (I, N) — Setting defaults: the check-in cut-off and idle days come from `AralCheckinSettings.defaults` / `AralSessionSettings.defaults`; SHARP and KS1-extended defaults ("off") are fixed text in the command.
 Fix: per COMMON-G2: `AralCheckinSettingLayers.defaults`; the three record results gain a `defaults` field (`bool` / `int`), from the same constants.
 Removes baseline: `core/console/commands/aral_checkin_commands.dart -> core/services/aral_checkin_rules.dart`, `core/console/commands/aral_checkin_commands.dart -> core/services/aral_rules.dart`
-Decision: (open)
+Decision: fix (owner 2026-10-24, as recommended).
 
 **ARAL-G5** (T) — Service types in results: `AralCheckinScore`, `AralCheckinScoring`, `AralCheckinSettings` (`aral_checkin_rules.dart`); `AralPlacement`, `AralProgramSettings`, `AralRankKey`, `AralSessionSettings` (`aral_rules.dart`); `AralReadability` (`aral_readability.dart`).
 Fix: `core/models/aral_types.dart` exports them.
-Decision: (open)
+Decision: fix (owner 2026-10-24, as recommended).
 
 **ARAL-G6** (N) — `AralViewModel.tutors` returns a positional record `(User, int, int)`; a screen has to know which int is which.
 Fix: named record `({User tutor, int classes, int activeLearners})`; its one caller (`aral-tutors`) updated.
-Decision: (open)
+Decision: fix (owner 2026-10-24, as recommended).
 
 **ARAL-G7** (E) — `aral_material_viewmodel.dart:383` puts `$e` in `lastMirrorWarning`.
 Fix: spec rule.
-Decision: (open)
+Decision: fix (owner 2026-10-24, as recommended).
 
 **ARAL-G8** (E) — `AralClassViewModel._write` rethrows unknown database errors as they are (after turning known ones into `ViewModelException`).
 Found: rethrowing the original exception is what every other ViewModel does; with COMMON-G1 a screen shows one fixed sentence for any non-`ViewModelException`, so the raw text never reaches the user.
 Fix: no code change if COMMON-G1 is accepted (log the error before rethrowing, one line); otherwise wrap it in `ViewModelException(unexpectedErrorMessage)`.
-Decision: (open)
+Decision: no code change beyond logging the error before the rethrow, since COMMON-G1 is accepted (owner 2026-10-24).
 
 **ARAL-G9** (M) — No Flesch preview of a typed text before saving a readability entry.
 Fix: deferred (no console capability; the entry shows its scores after saving).
-Decision: (open)
+Decision: deferred: no console capability; the entry shows its scores after saving (owner 2026-10-24).

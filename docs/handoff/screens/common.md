@@ -64,12 +64,12 @@ Console: the console prints `"<what> failed: $e"`; a screen must not.
 
 **COMMON-G1** (E) — Exceptions other than `ViewModelException` (a `PostgrestException`, a socket error) reach the screen raw. The console prints them; a screen would show SQL or server text.
 Fix: no ViewModel change. `common.md` and the handoff docs fix the rule: a screen shows `ViewModelException.message`; anything else gets one fixed sentence (`unexpectedErrorMessage` from `core/services/auth_messages.dart`, reached through the model export below) and is logged. Class T export: `core/models/messages.dart` with `export '../services/auth_messages.dart' show unexpectedErrorMessage, notSignedInMessage;`.
-Decision: (open)
+Decision: fix (owner 2026-10-24, as recommended).
 
 **COMMON-G2** (N) — Settings shown as layers (default / region / school / applies: CRLA and Phil-IRI thresholds, check-in cut-off, idle-session days, SHARP, KS1 extended) do not carry their default; the console reads it from the rule file (`CrlaThresholds.defaults`, `PhilIriThresholds.defaults`, `AralCheckinSettings.defaults`, `AralSessionSettings.defaults`) or writes it as fixed text ("Default: off"). Report settings and offline days don't show a default today.
 Fix: each of those `...Layers` results gets a `defaults` field (same type as `effective`), filled by the ViewModel from the same rule constant; the commands read it from there. Covered per module: CRLA-G2, PHILIRI-G4, ARAL-G4 (this gap is the shared rule, decided once).
-Decision: (open)
+Decision: fix (owner 2026-10-24, as recommended).
 
 **COMMON-G3** (M) — A screen cannot ask whether a record is locked by a pending upload before the user edits it; it only learns from the refusal.
 Fix: deferred (no console capability; the refusal message is enough for now).
-Decision: (open)
+Decision: deferred: no console capability; the refusal message is enough for now (owner 2026-10-24).

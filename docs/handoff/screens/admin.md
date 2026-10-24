@@ -74,18 +74,18 @@ Console: `bootstrap-admin`
 **ADMIN-G1** (I, R, G) — `login-recent`/`login-history` build `LoginLogRepositorySupabase(authVm.client!)` in the command, and the sign-in + admin/coordinator checks are only in the command. `LoginLogViewModel` takes repositories (`useRepository`, `cloud:`) and checks nothing.
 Fix: `LoginLogViewModel` gets the `AuthViewModel` and a cloud-repository factory in its constructor (wiring, like the other ViewModels); `loadRecent({int limit = 50})` and `loadForUser(String userId)` call `requireOnlineSession()` and refuse non-admin/coordinator with `ViewModelException('Forbidden: admin or coordinator only.')`; `record(...)` checks `requireActiveSession()` + the same role. `useRepository` and the `cloud:` parameter go away. Console output unchanged.
 Removes baseline: `core/console/commands/login_commands.dart -> core/data/remote/login_log_repository_supabase.dart`
-Decision: (open)
+Decision: fix (owner 2026-10-24, as recommended).
 
 **ADMIN-G2** (I, R) — `bootstrap-admin` picks the cloud/LAN profile from the config store, builds a `SupabaseClient` and an `AdminBootstrapService`, then a ViewModel, all in the command.
 Fix: `AdminBootstrapViewModel` is built once in `wire_admin.dart` with the config store and a client factory; `bootstrap(String target, String email, String fullName)` → `String?` does the profile choice ("<target>.url not set" refusal as `ViewModelException`) and builds the client. Command only parses arguments.
 Removes baseline: `core/console/commands/admin_bootstrap_commands.dart -> core/data/remote/supabase_config.dart`, `... -> core/services/admin_bootstrap_service.dart`, `... -> package:supabase/supabase.dart`
-Decision: (open)
+Decision: fix (owner 2026-10-24, as recommended).
 
 **ADMIN-G3** (P, T) — SF1 import takes a file path all the way down (`.xls` files are converted on disk by `xls_to_xlsx_converter`); `Sf1ColumnMap`, `Sf1TrialResult`, `Sf1ImportResult` are service types.
 Fix options: (a) bytes overloads `previewRowBytes(bytes, fileName, rowIndex)`, `trialBytes(bytes, fileName)`, `importBytes(bytes, fileName)` that write a temp file inside the ViewModel and call the path versions; (b) defer: SF1 import is a desktop admin task (the `.xls` converter needs a desktop tool anyway), and a desktop file picker gives a path. Plus the T export either way: `core/models/sf1.dart` with `export '../services/sf1_importer.dart' show Sf1TrialResult, Sf1ImportResult;` and `export '../services/sf1_column_map.dart' show Sf1ColumnMap;`. Recommend (b) + the export.
-Decision: (open)
+Decision: (b) (owner 2026-10-24): the path API stays (desktop admin task); add the type export only.
 
 **ADMIN-G4** (E) — `user_viewmodel.dart:145` and `tutor_section_assignment_viewmodel.dart:109` put `$e` in `lastMirrorWarning`.
 Fix: spec rule (sentence kept without `($e)`, exception to the logger).
-Decision: (open)
+Decision: fix (owner 2026-10-24, as recommended).
 

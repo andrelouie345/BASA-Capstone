@@ -59,21 +59,21 @@ Console: `crla-import-preview`, `crla-import`
 
 **CRLA-G1** (N) — The variants (`mt`, `fil`, `eng`) and their default language (fil → Tagalog, eng → English, mt must be named) are only in `crla-start`'s argument code. A screen's form needs both, and the rule would otherwise be rebuilt in a widget.
 Fix: `core/models/crla_variant.dart`: `const crlaSubjectVariants = ['mt', 'fil', 'eng'];` and `String? crlaDefaultLanguage(String variant)` (same mapping); `startAssessment`'s `language` becomes optional and the ViewModel fills the default (ViewModelException "The mt variant needs a language (e.g. Cebuano)." when missing); the command uses both. No console text changes.
-Decision: (open)
+Decision: fix (owner 2026-10-24, as recommended).
 
 **CRLA-G2** (I, N) — `crla-thresholds` reads `CrlaThresholds.defaults` from `crla_rules.dart` to show each key's default.
 Fix: `CrlaThresholdLayers.defaults` (`CrlaThresholds`, = `CrlaThresholds.defaults`), per COMMON-G2.
 Removes baseline: `core/console/commands/crla_threshold_commands.dart -> core/services/crla_rules.dart`
-Decision: (open)
+Decision: fix (owner 2026-10-24, as recommended).
 
 **CRLA-G3** (T) — `CrlaThresholds` (`crla_rules.dart`), `CrlaScoresheetFile`, `CrlaScoresheetRow` (`crla_scoresheet.dart`) are service types in ViewModel results.
 Fix: `core/models/crla_types.dart` with `export '../services/crla_rules.dart' show CrlaThresholds;` and `export '../services/crla_scoresheet.dart' show CrlaScoresheetFile, CrlaScoresheetRow;`.
-Decision: (open)
+Decision: fix (owner 2026-10-24, as recommended).
 
 **CRLA-G4** (M) — No preview of wpm / reading profile while Part 2 is typed (the profile comes from the results view after saving).
 Fix: deferred (no console capability; the screen shows `getResult` after saving).
-Decision: (open)
+Decision: deferred: no console capability; the screen shows getResult after saving (owner 2026-10-24).
 
 **CRLA-G5** (E) — `crla_threshold_viewmodel.dart:237` puts `$e` in `lastMirrorWarning`.
 Fix: spec rule.
-Decision: (open)
+Decision: fix (owner 2026-10-24, as recommended).

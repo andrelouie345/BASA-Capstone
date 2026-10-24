@@ -40,18 +40,18 @@ Console: `trend-bands`, `trend-completion`, `trend-crla-profiles`, `trend-aral-e
 **DASH-G1** (I, T, N) — `calendar-show` calls `roundStatus` and `roundLabel` from `calendar_rules.dart` directly (the ViewModel already has `status`); `RoundStatus` is a service type.
 Fix: commands call `RoundCalendarViewModel.status`; `CalendarWindow.roundLabel` getter (model, same function); `core/models/calendar_types.dart` exports `RoundStatus`.
 Removes baseline: `core/console/commands/calendar_commands.dart -> core/services/calendar_rules.dart`, `core/console/commands/calendar_admin_commands.dart -> core/services/calendar_rules.dart`
-Decision: (open)
+Decision: fix (owner 2026-10-24, as recommended).
 
 **DASH-G2** (I) — Five console helpers check that a typed date is real with `calendarDate(d) != raw` (`calendar_rules.dart`): `calendar_command_helpers`, `dashboard_commands`, `reminder_command_helpers`, `trend_command_helpers`, and `calendar_commands` for the header date. Console-only parsing; screens use a date picker.
 Fix: use the console's own `strictDateArg` (`core/console/date_args.dart`, same rollover check) with each command's existing message text, and a local YYYY-MM-DD formatter for the header line (`date_args.dart`). Console output unchanged.
 Removes baseline: `core/console/commands/calendar_command_helpers.dart -> core/services/calendar_rules.dart`, `core/console/commands/dashboard_commands.dart -> core/services/calendar_rules.dart`, `core/console/commands/reminder_command_helpers.dart -> core/services/calendar_rules.dart`, `core/console/commands/trend_command_helpers.dart -> core/services/calendar_rules.dart`
-Decision: (open)
+Decision: fix (owner 2026-10-24, as recommended).
 
 **DASH-G3** (I) — `reminders-tutor me` reads `notSignedInMessage` from `auth_messages.dart`.
 Fix: import it from `core/models/messages.dart` (COMMON-G1's export).
 Removes baseline: `core/console/commands/reminder_commands.dart -> core/services/auth_messages.dart`
-Decision: (open)
+Decision: fix (owner 2026-10-24, as recommended).
 
 **DASH-G4** (E) — `round_calendar_viewmodel.dart:234` puts `$e` in `lastMirrorWarning`.
 Fix: spec rule.
-Decision: (open)
+Decision: fix (owner 2026-10-24, as recommended).

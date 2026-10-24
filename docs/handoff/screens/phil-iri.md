@@ -71,22 +71,22 @@ Console: `phil-iri-thresholds`, `phil-iri-threshold-set`, `phil-iri-threshold-re
 **PHILIRI-G1** (I, N) — `phil-iri-gst` decides "passed / below the cut-off" itself: it guesses the grade group from the max score (40 → 7, else 4), calls `philIriGstPassed` with the school's thresholds, and rounds with `philIriWholePercent`. `philIriGstPassed` throws a raw `ArgumentError` on bad input. A screen can't show the verdict.
 Fix: `PhilIriViewModel.gstPassed(PhilIriGstResult g)` → `Future<bool>` (same grade-group rule, school thresholds, same function); `PhilIriGstResult.wholePercent` getter (`int`, same rounding). `gst-list` can stay as it is (no verdict today).
 Removes baseline: `core/console/commands/phil_iri_commands.dart -> core/services/phil_iri_rules.dart` (with PHILIRI-G2, G3)
-Decision: (open)
+Decision: fix (owner 2026-10-24, as recommended).
 
 **PHILIRI-G2** (I, T, N) — `PhilIriPassageResult`, `PhilIriRoundResult` (`phil_iri_results.dart`), `PhilIriLevel`, `PhilIriThresholds` (`phil_iri_rules.dart`) are service types in results. The console makes their percents with `philIriWholePercent` and the adjusted-level / levels-down text with `philIriAdjustedLevelLabel` / `philIriLevelsDownLabel`.
 Fix: `core/models/phil_iri_types.dart` exports those four types; getters on the result classes (in their own files, calling the same functions): `PhilIriPassageResult.wordReadingPercent`, `.comprehensionPercent` (`int?`), `PhilIriRoundResult.wordReadingPercent`, `.comprehensionPercent`, `.adjustedLevelLabel` (`String?`), `.levelsDownLabel` (`String?`). The commands use them.
 Removes baseline: `core/console/commands/phil_iri_commands.dart -> core/services/phil_iri_results.dart`
-Decision: (open)
+Decision: fix (owner 2026-10-24, as recommended).
 
 **PHILIRI-G3** (N) — Whether a reading is timed yet (`_timed`: one-minute needs words read, the others need seconds) and the observation labels (`_observationText`) are command code.
 Fix: `PhilIriReading.isTimed` getter; `PhilIriObservation.labels` → `List<String>` (same wording). The miscue position text ("before word 3") stays console layout.
-Decision: (open)
+Decision: fix (owner 2026-10-24, as recommended).
 
 **PHILIRI-G4** (I, N) — `phil-iri-thresholds` reads `PhilIriThresholds.defaults` from `phil_iri_rules.dart`.
 Fix: `PhilIriThresholdLayers.defaults`, per COMMON-G2.
 Removes baseline: `core/console/commands/phil_iri_content_commands.dart -> core/services/phil_iri_rules.dart`
-Decision: (open)
+Decision: fix (owner 2026-10-24, as recommended).
 
 **PHILIRI-G5** (E) — `phil_iri_content_viewmodel.dart:682` puts `$e` in `lastMirrorWarning`.
 Fix: spec rule.
-Decision: (open)
+Decision: fix (owner 2026-10-24, as recommended).
