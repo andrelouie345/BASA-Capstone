@@ -94,6 +94,18 @@ import '../../core/console/console_session.dart';
     expect(scan(), isEmpty);
   });
 
+  test('ui may not touch .client', () {
+    lib('ui/mobile/x.dart', 'void f(dynamic auth) { final c = auth.client; }\n');
+
+    expect(scan(), ['ui/mobile/x.dart -> .client']);
+  });
+
+  test('ui may use .clientName', () {
+    lib('ui/mobile/x.dart', 'void f(dynamic s) { final n = s.clientName; }\n');
+
+    expect(scan(), isEmpty);
+  });
+
   test('exempt command files are skipped', () {
     lib('core/console/commands/test_data_commands.dart', "import '../../data/local/t.dart';\n");
     lib('core/console/commands/debug_commands.dart', "import '../../viewmodels/viewmodel_registry.dart';\n");

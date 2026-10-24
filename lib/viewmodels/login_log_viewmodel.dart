@@ -1,48 +1,81 @@
+import 'package:supabase/supabase.dart' hide User;
+
 import '../core/console/logger.dart';
 import '../core/models/login_log.dart';
 import '../core/models/sourced_login_log.dart';
+import '../core/models/user_role.dart';
 import '../core/repositories/login_log_repository.dart';
+import 'auth_viewmodel.dart';
+import 'viewmodel_exception.dart';
 
+/// Sign-in attempts, this device's log merged with the server's. Admins and
+/// coordinators only; the checks are here because screens call this
+/// ViewModel directly.
 class LoginLogViewModel {
   final ScopedLogger _log;
-  LoginLogRepository _repo; // this device's log (SQLite)
+  final LoginLogRepository _repo; // this device's log (SQLite)
+  final AuthViewModel _auth;
+  final LoginLogRepository Function(SupabaseClient client) _cloudFor;
   List<SourcedLoginLog> items = [];
 
-  /// Set when the cloud log was requested but couldn't be read; [items] then
-  /// holds the local log only.
+  /// Set when the server's log couldn't be read; [items] then holds this
+  /// device's log only. A sentence for the user (the detail is logged).
   String? cloudError;
 
-  LoginLogViewModel({required LoginLogRepository repo, Logger? logger})
-      : _repo = repo,
+  LoginLogViewModel({
+    required LoginLogRepository repo,
+    required AuthViewModel auth,
+    required LoginLogRepository Function(SupabaseClient client) cloudFor,
+    Logger? logger,
+  })  : _repo = repo,
+        _auth = auth,
+        _cloudFor = cloudFor,
         _log = ScopedLogger(logger, 'LoginLogViewModel');
 
-  void useRepository(LoginLogRepository repo, String label) {
-    _repo = repo;
-    _log('switched backend -> $label');
+  void _requireAdminOrCoordinator() {
+    final role = _auth.currentUser?.role;
+    if (role != UserRole.admin && role != UserRole.coordinator) {
+      throw const ViewModelException('Forbidden: admin or coordinator only.');
+    }
   }
 
+  /// Online session + admin/coordinator; the server's log repository.
+  LoginLogRepository _cloud() {
+    final error = _auth.requireOnlineSession();
+    if (error != null) throw ViewModelException(error);
+    _requireAdminOrCoordinator();
+    return _cloudFor(_auth.client!);
+  }
+
+  /// Writes an attempt to this device's log (a test tool; sign-in logs its
+  /// own attempts).
   Future<void> record(LoginLog attempt) async {
+    final error = _auth.requireActiveSession();
+    if (error != null) throw ViewModelException(error);
+    _requireAdminOrCoordinator();
     _log('record(email: "${attempt.emailAttempted}", success: ${attempt.success})');
     await _repo.log(attempt);
   }
 
-  /// Most recent attempts from this device's log, merged with the cloud log
-  /// when [cloud] is given (the cloud side is scoped by RLS to what the
-  /// signed-in user may see). Each entry is tagged with where it was found.
-  Future<void> loadRecent({int limit = 50, LoginLogRepository? cloud}) async {
-    _log('loadRecent(limit: $limit, cloud: ${cloud != null})');
+  /// Most recent attempts from this device's log, merged with the server's
+  /// (scoped by RLS to what the signed-in user may see). Each entry is tagged
+  /// with where it was found.
+  Future<void> loadRecent({int limit = 50}) async {
+    final cloud = _cloud();
+    _log('loadRecent(limit: $limit)');
     await _load(
       () => _repo.getRecent(limit: limit),
-      cloud == null ? null : () => cloud.getRecent(limit: limit),
+      () => cloud.getRecent(limit: limit),
       limit: limit,
     );
   }
 
-  Future<void> loadForUser(String userId, {LoginLogRepository? cloud}) async {
-    _log('loadForUser(userId: $userId, cloud: ${cloud != null})');
+  Future<void> loadForUser(String userId) async {
+    final cloud = _cloud();
+    _log('loadForUser(userId: $userId)');
     await _load(
       () => _repo.getForUser(userId),
-      cloud == null ? null : () => cloud.getForUser(userId),
+      () => cloud.getForUser(userId),
     );
   }
 
@@ -65,7 +98,7 @@ class LoginLogViewModel {
       try {
         add(await cloud(), LogSource.cloud);
       } catch (e) {
-        cloudError = e.toString();
+        cloudError = "The server's log could not be read.";
         _log('cloud login-log read failed: $e');
       }
     }

@@ -1,19 +1,13 @@
 # Shrink-only. A fix batch removes its lines. Empty = remove this file and the baseline code (Task 9).
-core/console/commands/admin_bootstrap_commands.dart -> core/data/remote/supabase_config.dart
-core/console/commands/admin_bootstrap_commands.dart -> core/services/admin_bootstrap_service.dart
-core/console/commands/admin_bootstrap_commands.dart -> package:supabase/supabase.dart
 core/console/commands/aral_checkin_command_helpers.dart -> core/services/aral_checkin_rules.dart
 core/console/commands/aral_checkin_commands.dart -> core/services/aral_checkin_rules.dart
 core/console/commands/aral_checkin_commands.dart -> core/services/aral_rules.dart
 core/console/commands/aral_command_helpers.dart -> core/services/aral_rules.dart
-core/console/commands/auth_commands.dart -> core/services/offline_signin_rules.dart
 core/console/commands/calendar_admin_commands.dart -> core/services/calendar_rules.dart
 core/console/commands/calendar_command_helpers.dart -> core/services/calendar_rules.dart
 core/console/commands/calendar_commands.dart -> core/services/calendar_rules.dart
-core/console/commands/config_commands.dart -> core/data/remote/supabase_config.dart
 core/console/commands/crla_threshold_commands.dart -> core/services/crla_rules.dart
 core/console/commands/dashboard_commands.dart -> core/services/calendar_rules.dart
-core/console/commands/login_commands.dart -> core/data/remote/login_log_repository_supabase.dart
 core/console/commands/nla_report_commands.dart -> core/services/nla_form2b.dart
 core/console/commands/nla_report_commands.dart -> core/services/phil_iri_rules.dart
 core/console/commands/phil_iri_commands.dart -> core/services/phil_iri_results.dart
@@ -23,5 +17,3 @@ core/console/commands/reminder_command_helpers.dart -> core/services/calendar_ru
 core/console/commands/reminder_commands.dart -> core/services/auth_messages.dart
 core/console/commands/srp_admin_commands.dart -> core/services/srp_rules.dart
 core/console/commands/trend_command_helpers.dart -> core/services/calendar_rules.dart
-core/console/commands/version_commands.dart -> core/release.dart
-core/console/commands/version_commands.dart -> core/services/version_check.dart

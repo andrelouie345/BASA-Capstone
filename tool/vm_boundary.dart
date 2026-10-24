@@ -33,6 +33,8 @@ const exemptCommandFiles = [
 /// Packages a screen must never reach directly (data access goes through ViewModels).
 const _uiForbiddenPackages = ['supabase', 'sqflite_common', 'sqflite_common_ffi', 'sqlite3'];
 
+final _clientAccess = RegExp(r'\.client\b');
+
 final _directive = RegExp(r'''^\s*(?:import|export)\s+['"]([^'"]+)['"]''', multiLine: true);
 
 /// Every forbidden direct import in command files and lib/ui/, sorted by line.
@@ -47,10 +49,14 @@ List<BoundaryViolation> findBoundaryViolations({required String packageRoot, req
       if (file.startsWith(_commandsDir) && exemptCommandFiles.contains(file.substring(_commandsDir.length))) {
         continue;
       }
-      for (final m in _directive.allMatches(f.readAsStringSync())) {
+      final source = f.readAsStringSync();
+      for (final m in _directive.allMatches(source)) {
         final target = _target(m.group(1)!, file, packageName);
         if (target != null && !_allowed(file, target)) violations.add(BoundaryViolation(file, target));
       }
+      // AuthViewModel.client is the server session itself; a screen calling it
+      // needs no import, so the text is checked (screen inventory AUTH-G4).
+      if (file.startsWith(_uiDir) && _clientAccess.hasMatch(source)) violations.add(BoundaryViolation(file, '.client'));
     }
   }
   violations.sort((a, b) => a.line.compareTo(b.line));

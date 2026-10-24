@@ -2,6 +2,7 @@
 // Admin build only (admins, coordinators): user management, SF1 import, the
 // sync approver, login logs, CRLA scoresheet import, ARAL reports and roster
 // import. Never imported from the tutor entry points (tool/check_tutor_imports.dart).
+import '../../viewmodels/admin_bootstrap_viewmodel.dart';
 import '../../viewmodels/aral_report_viewmodel.dart';
 import '../../viewmodels/aral_roster_import_viewmodel.dart';
 import '../../viewmodels/crla_import_viewmodel.dart';
@@ -39,6 +40,7 @@ import '../data/local/aral_enrollment_repository_sqlite.dart';
 import '../data/local/crla_assessment_repository_sqlite.dart';
 import '../data/local/crla_result_repository_sqlite.dart';
 import '../data/local/login_log_repository_sqlite.dart';
+import '../data/remote/login_log_repository_supabase.dart';
 import '../data/local/school_repository_sqlite.dart';
 import '../data/local/section_repository_sqlite.dart';
 import '../data/local/student_repository_sqlite.dart';
@@ -51,12 +53,14 @@ import '../data/remote/student_repository_supabase.dart';
 import '../data/remote/sync_remote_supabase.dart';
 import '../data/remote/tutor_section_assignment_repository_supabase.dart';
 import '../data/remote/user_repository_supabase.dart';
+import '../services/admin_bootstrap_service.dart';
 import '../services/sf1_column_map.dart';
 import 'app_context.dart';
 import 'wire_shared.dart';
 import 'wire_tutor.dart';
 
 class AdminVms {
+  final AdminBootstrapViewModel bootstrapVm;
   final UserViewModel userVm;
   final ImportViewModel importVm;
   final SyncReviewViewModel syncReviewVm;
@@ -67,6 +71,7 @@ class AdminVms {
   final TutorSectionAssignmentViewModel tutorSectionVm;
 
   AdminVms({
+    required this.bootstrapVm,
     required this.userVm,
     required this.importVm,
     required this.syncReviewVm,
@@ -83,6 +88,10 @@ Future<AdminVms> wireAdmin(AppContext ctx, SharedVms s, TutorVms t) async {
   final session = ctx.session;
   final vms = ctx.vmRegistry;
   final authVm = ctx.authVm;
+
+  final bootstrapVm = AdminBootstrapViewModel(
+      config: ctx.config, serviceFor: AdminBootstrapService.new, logger: session);
+  vms.register('AdminBootstrapViewModel', bootstrapVm);
 
   final userVm = UserViewModel(
       auth: authVm, repoFactory: UserRepositorySupabase.new, local: UserRepositorySqlite(db), logger: session);
@@ -113,7 +122,8 @@ Future<AdminVms> wireAdmin(AppContext ctx, SharedVms s, TutorVms t) async {
   );
   vms.register('SyncReviewViewModel', syncReviewVm);
 
-  final loginLogVm = LoginLogViewModel(repo: LoginLogRepositorySqlite(db), logger: session);
+  final loginLogVm = LoginLogViewModel(
+      repo: LoginLogRepositorySqlite(db), auth: authVm, cloudFor: LoginLogRepositorySupabase.new, logger: session);
   vms.register('LoginLogViewModel', loginLogVm);
 
   final crlaImportVm = CrlaImportViewModel(
@@ -161,6 +171,7 @@ Future<AdminVms> wireAdmin(AppContext ctx, SharedVms s, TutorVms t) async {
     importVm: importVm,
     syncReviewVm: syncReviewVm,
     loginLogVm: loginLogVm,
+    bootstrapVm: bootstrapVm,
     crlaImportVm: crlaImportVm,
     aralReportVm: aralReportVm,
     aralRosterImportVm: aralRosterImportVm,
@@ -171,14 +182,14 @@ Future<AdminVms> wireAdmin(AppContext ctx, SharedVms s, TutorVms t) async {
 void registerAdminCommands(AppContext ctx, SharedVms s, TutorVms t, AdminVms a) {
   final r = ctx.registry;
   final authVm = ctx.authVm;
-  registerAdminBootstrapCommands(r, ctx.config, ctx.session);
+  registerAdminBootstrapCommands(r, a.bootstrapVm);
   registerUserCommands(r, a.userVm);
   registerImportCommands(r, a.importVm);
   registerSchoolAdminCommands(r, s.schoolVm);
   registerSectionAdminCommands(r, s.sectionVm);
   registerTutorSectionCommands(r, a.tutorSectionVm);
   registerSyncReviewCommands(r, a.syncReviewVm);
-  registerLoginCommands(r, a.loginLogVm, authVm);
+  registerLoginCommands(r, a.loginLogVm);
   registerCrlaImportCommands(r, authVm, a.crlaImportVm);
   registerCrlaThresholdAdminCommands(r, t.crlaThresholdVm);
   registerPhilIriContentAdminCommands(r, t.philIriContentVm);

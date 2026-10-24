@@ -142,7 +142,7 @@ class UserViewModel {
     try {
       await write();
     } catch (e) {
-      lastMirrorWarning = 'Saved online, but not copied onto this device ($e); run pull-cloud.';
+      lastMirrorWarning = 'Saved online, but not copied onto this device; run pull-cloud.';
       _log('mirror failed: $e');
     }
   }

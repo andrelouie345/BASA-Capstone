@@ -15,12 +15,14 @@ import '../core/services/version_check.dart' as rule show checkVersion;
 import 'dart:convert';
 import 'dart:math';
 import '../core/models/offline_credential.dart';
+import '../core/models/offline_status.dart';
 import '../core/models/report_setting.dart';
 import '../core/repositories/offline_credential_repository.dart';
 import '../core/repositories/report_setting_repository.dart';
 import '../core/services/offline_signin_rules.dart';
 import '../core/services/pbkdf2.dart';
 import '../core/services/auth_messages.dart';
+import 'viewmodel_exception.dart';
 
 
 /// ViewModel for Authentication
@@ -72,7 +74,10 @@ class AuthViewModel {
 
   /// Signed in offline (local-copy work only, no server).
   bool get isOffline => _offline && currentUser != null;
-  SupabaseClient? get client => _client; // exposed so user-create etc. can reuse the active session
+  /// The online session's client. ViewModels only (they build their cloud
+  /// repositories from it); a screen never touches it, and
+  /// tool/check_vm_boundary.dart refuses `.client` in lib/ui/.
+  SupabaseClient? get client => _client;
 
   Future<String?> signIn({
     required String target,
@@ -237,6 +242,23 @@ class AuthViewModel {
   /// The saved offline credential, if any (for a status line; holds no password).
   Future<OfflineCredential?> offlineCredential() => _credentials.get();
 
+  /// What this device's offline sign-in allows (whose, until when, wrong
+  /// passwords so far), or null when none is saved. Holds no password.
+  Future<OfflineStatus?> offlineStatus() async {
+    final c = await _credentials.get();
+    if (c == null) return null;
+    final user = await _localUsers.getById(c.userId);
+    final days = await offlineWindowDays(user?.schoolId);
+    return OfflineStatus(
+      email: c.email,
+      lastOnlineAt: c.lastOnlineAt,
+      windowDays: days,
+      until: DateTime.parse(c.lastOnlineAt).add(Duration(days: days)),
+      failedAttempts: c.failedAttempts,
+      maxFailedAttempts: offlineMaxFailedAttempts,
+    );
+  }
+
   /// The local users row of the saved credential's owner, or null.
   Future<User?> offlineCredentialUser() async {
     final c = await _credentials.get();
@@ -278,7 +300,26 @@ class AuthViewModel {
       ));
     } catch (e) {
       _log('offline credential save failed (non-fatal): $e');
-      offlineWarning = 'Offline sign-in was not saved on this device: $e';
+      offlineWarning = 'Offline sign-in was not saved on this device.';
+    }
+  }
+
+  /// The database migrations this build was made for, oldest first, as
+  /// `<id>_<name>` (lib/core/release.dart). Offline.
+  List<String> appRelease() => [for (final e in basaMigrations.entries) '${e.key}_${e.value}'];
+
+  /// This app compared with the signed-in server: the verdict's label and its
+  /// message (empty when there is nothing to add). A failed fetch gives an
+  /// empty label and the fetch-failure message. Reports only.
+  Future<({String label, String message})> versionReport() async {
+    final error = requireOnlineSession(allowPendingPasswordChange: true);
+    if (error != null) throw ViewModelException(error);
+    try {
+      final check = await checkVersion();
+      return (label: versionLabel(check.verdict), message: versionMessage(check));
+    } catch (e) {
+      _log('version check failed: $e');
+      return (label: '', message: fetchFailedMessage(e));
     }
   }
 

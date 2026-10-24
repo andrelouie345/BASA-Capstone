@@ -8,6 +8,7 @@ import '../../viewmodels/section_viewmodel.dart';
 import '../../viewmodels/student_viewmodel.dart';
 import '../../viewmodels/sync_viewmodel.dart';
 import '../../viewmodels/test_data_viewmodel.dart';
+import '../../viewmodels/server_config_viewmodel.dart';
 import '../../viewmodels/text_viewmodel.dart';
 import '../console/commands/auth_commands.dart';
 import '../console/commands/config_commands.dart';
@@ -35,6 +36,7 @@ import 'app_context.dart';
 
 class SharedVms {
   final TextViewModel textVm;
+  final ServerConfigViewModel serverConfigVm;
   final TestDataViewModel testDataVm;
   final SyncViewModel syncVm;
   final SchoolViewModel schoolVm;
@@ -46,6 +48,7 @@ class SharedVms {
 
   SharedVms({
     required this.textVm,
+    required this.serverConfigVm,
     required this.testDataVm,
     required this.syncVm,
     required this.schoolVm,
@@ -65,6 +68,8 @@ SharedVms wireShared(AppContext ctx) {
 
   final textVm = TextViewModel(logger: session);
   vms.register('TextViewModel', textVm);
+  final serverConfigVm = ServerConfigViewModel(config: ctx.config, logger: session);
+  vms.register('ServerConfigViewModel', serverConfigVm);
   final testDataVm = TestDataViewModel(repo: TestRepositorySqlite(db), logger: session);
   vms.register('TestDataViewModel', testDataVm);
 
@@ -92,6 +97,7 @@ SharedVms wireShared(AppContext ctx) {
 
   return SharedVms(
     textVm: textVm,
+    serverConfigVm: serverConfigVm,
     testDataVm: testDataVm,
     syncVm: syncVm,
     schoolVm: schoolVm,
@@ -105,7 +111,7 @@ SharedVms wireShared(AppContext ctx) {
 
 void registerSharedCommands(AppContext ctx, SharedVms s) {
   final r = ctx.registry;
-  registerConfigCommands(r, ctx.config);
+  registerConfigCommands(r, s.serverConfigVm);
   registerAuthCommands(r, ctx.authVm);
   registerVersionCommands(r, ctx.authVm);
   registerStudentCommands(r, s.sectionVm, s.studentVm);

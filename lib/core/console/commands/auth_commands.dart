@@ -2,7 +2,6 @@
 import '../console_command.dart';
 import '../console_registry.dart';
 import '../../../viewmodels/auth_viewmodel.dart';
-import '../../services/offline_signin_rules.dart';
 
 void registerAuthCommands(ConsoleRegistry registry, AuthViewModel authVm) {
   registry.register(ConsoleCommand(
@@ -36,13 +35,10 @@ void registerAuthCommands(ConsoleRegistry registry, AuthViewModel authVm) {
     name: 'offline-status',
     description: 'offline-status — whose offline sign-in this device holds, its window and failed attempts (no password shown)',
     handler: (_) async {
-      final c = await authVm.offlineCredential();
-      if (c == null) return 'Offline sign-in: not set up on this device.';
-      final user = await authVm.offlineCredentialUser();
-      final days = await authVm.offlineWindowDays(user?.schoolId);
-      final until = DateTime.parse(c.lastOnlineAt).add(Duration(days: days));
-      return 'Offline sign-in: ${c.email}, last online ${c.lastOnlineAt}, window $days days '
-          '(until ${until.toIso8601String()}), failed attempts ${c.failedAttempts}/$offlineMaxFailedAttempts';
+      final s = await authVm.offlineStatus();
+      if (s == null) return 'Offline sign-in: not set up on this device.';
+      return 'Offline sign-in: ${s.email}, last online ${s.lastOnlineAt}, window ${s.windowDays} days '
+          '(until ${s.until.toIso8601String()}), failed attempts ${s.failedAttempts}/${s.maxFailedAttempts}';
     },
   ));
 
