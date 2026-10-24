@@ -25,8 +25,8 @@ import '../date_args.dart';
 import '../file_output.dart';
 import '../../../viewmodels/nla_report_viewmodel.dart';
 import '../../models/phil_iri_assessment.dart' show PhilIriRound;
-import '../../services/nla_form2b.dart';
-import '../../services/phil_iri_rules.dart' show PhilIriLevel;
+import '../../models/phil_iri_types.dart' show PhilIriLevel;
+import '../../models/report_types.dart' show NlaBand, NlaCounts, NlaGstBand;
 
 class _Usage implements Exception {
   final String message;

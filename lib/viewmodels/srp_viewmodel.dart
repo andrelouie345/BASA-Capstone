@@ -176,6 +176,11 @@ class SrpViewModel {
         _sections = sections,
         _log = ScopedLogger(logger, 'SrpViewModel');
 
+  /// How many of each section's weakest learners are recommended, and the
+  /// learners per built class, when the caller gives no number.
+  int get defaultPerSection => srpDefaultPerSection;
+  int get defaultClassSize => srpDefaultClassSize;
+
   /// The SRP candidates of every Grade 4-10 section of the school
   /// ([sectionIds] narrows it) as of [asOf] (default today), the weakest
   /// [perSection] (default 15) recommended: admin/coordinator of the school,
@@ -535,8 +540,8 @@ class SrpViewModel {
     try {
       await write();
     } catch (e) {
-      lastMirrorWarning = 'The SRP classes were changed online, but the local copy was not updated ($e). Run pull-cloud.';
-      _log('WARNING: $lastMirrorWarning');
+      lastMirrorWarning = 'The SRP classes were changed online, but the local copy was not updated. Run pull-cloud.';
+      _log('SRP classes mirror failed: $e');
     }
   }
 

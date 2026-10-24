@@ -13,6 +13,9 @@ DateTime? strictDateArg(String raw) {
   return d == null || calendarDate(d) != s ? null : d;
 }
 
+/// YYYY-MM-DD of [t] in local time (calendar_rules.calendarDate).
+String ymd(DateTime t) => calendarDate(t);
+
 /// The refusal for a bad asof= value (same wording as the trend commands).
 String asofDateMessage(String raw) => 'asof must be a real YYYY-MM-DD date (got "${raw.trim()}")';
 

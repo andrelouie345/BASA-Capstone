@@ -9,15 +9,15 @@ import '../console_command.dart';
 import '../console_registry.dart';
 import '../../../viewmodels/round_calendar_viewmodel.dart';
 import '../../models/assessment_calendar.dart';
-import '../../services/calendar_rules.dart';
+import '../date_args.dart';
 import 'calendar_command_helpers.dart';
 
-String _line(CalendarEntry e, DateTime today) {
+String _line(RoundCalendarViewModel vm, CalendarEntry e, DateTime today) {
   final w = e.window;
-  final name = '${w.instrument.label} ${roundLabel(w.round)}'.padRight(17);
+  final name = '${w.instrument.label} ${w.roundLabel}'.padRight(17);
   final src = e.isOverride ? '  (school override)' : '';
   if (e.skipped) return '$name SKIPPED$src';
-  return '$name ${w.opensOn} .. ${w.closesOn}  ${roundStatus(w, today).label}$src';
+  return '$name ${w.opensOn} .. ${w.closesOn}  ${vm.status(w, today: today).label}$src';
 }
 
 /// A stored row whose round this app version does not know for its instrument.
@@ -58,11 +58,11 @@ void registerCalendarCommands(ConsoleRegistry registry, RoundCalendarViewModel v
     final schoolId = calendarSchool(args[0]);
     final entries = await vm.effectiveCalendar(schoolId, args[1]);
     final invalid = await vm.invalidWindows(schoolId, args[1]);
-    final head = 'Assessment calendar | ${calendarWho(schoolId)} | ${args[1]} | today ${calendarDate(today)}';
+    final head = 'Assessment calendar | ${calendarWho(schoolId)} | ${args[1]} | today ${ymd(today)}';
     return [
       head,
       if (entries.isEmpty) 'No rounds scheduled.',
-      for (final e in entries) '  ${_line(e, today)}',
+      for (final e in entries) '  ${_line(vm, e, today)}',
       for (final w in invalid) '  ${_invalidLine(w)}',
     ].join('\n');
   });

@@ -8,10 +8,11 @@ import '../date_args.dart';
 import '../file_output.dart';
 import '../../../viewmodels/nla_report_viewmodel.dart' show progressPercent;
 import '../../../viewmodels/srp_viewmodel.dart';
-import '../../services/srp_rules.dart';
 import 'srp_command_helpers.dart';
 
 void registerSrpAdminCommands(ConsoleRegistry registry, SrpViewModel vm) {
+  final options = _options(vm.defaultPerSection);
+
   void add(String name, String description, Future<String> Function(List<String> args) handler) {
     registry.register(ConsoleCommand(
       name: name,
@@ -28,10 +29,10 @@ void registerSrpAdminCommands(ConsoleRegistry registry, SrpViewModel vm) {
     ));
   }
 
-  add('srp-list', 'srp-list <schoolId> <schoolYear> $_options — Summer Remediation Program candidates, '
+  add('srp-list', 'srp-list <schoolId> <schoolYear> $options — Summer Remediation Program candidates, '
       'weakest first', (args) async {
-    if (args.length < 2) throw const SrpUsage('Usage: srp-list <schoolId> <schoolYear> $_options');
-    final o = _filter(args.sublist(2));
+    if (args.length < 2) throw SrpUsage('Usage: srp-list <schoolId> <schoolYear> $options');
+    final o = _filter(args.sublist(2), options, vm.defaultPerSection);
     final list = await vm.candidates(
         schoolId: srpInt(args[0], 'schoolId'), schoolYear: args[1], sectionIds: o.sections, perSection: o.per,
         asOf: o.asOf);
@@ -39,10 +40,10 @@ void registerSrpAdminCommands(ConsoleRegistry registry, SrpViewModel vm) {
     return _text(list, o.recommendedOnly);
   });
 
-  add('srp-build', 'srp-build <schoolId> <schoolYear> [per=<n, default 15>] [size=<n, default 15>] '
+  add('srp-build', 'srp-build <schoolId> <schoolYear> [per=<n, default ${vm.defaultPerSection}>] [size=<n, default ${vm.defaultClassSize}>] '
       '[asof=YYYY-MM-DD] — build the SRP classes from the recommended learners (online)', (args) async {
     if (args.length < 2) throw const SrpUsage('Usage: srp-build <schoolId> <schoolYear> [per=n] [size=n] [asof=YYYY-MM-DD]');
-    var per = srpDefaultPerSection, size = srpDefaultClassSize;
+    var per = vm.defaultPerSection, size = vm.defaultClassSize;
     DateTime? asOf;
     for (final o in args.sublist(2)) {
       final eq = o.indexOf('=');
@@ -142,9 +143,9 @@ void registerSrpAdminCommands(ConsoleRegistry registry, SrpViewModel vm) {
     return _withWarning(vm, 'Deleted $n SRP class(es).');
   });
 
-  add('srp-list-csv','srp-list-csv <schoolId> <schoolYear> <out.csv> $_options — the same as CSV', (args) async {
-    if (args.length < 3) throw const SrpUsage('Usage: srp-list-csv <schoolId> <schoolYear> <out.csv> $_options');
-    final o = _filter(args.sublist(3));
+  add('srp-list-csv','srp-list-csv <schoolId> <schoolYear> <out.csv> $options — the same as CSV', (args) async {
+    if (args.length < 3) throw SrpUsage('Usage: srp-list-csv <schoolId> <schoolYear> <out.csv> $options');
+    final o = _filter(args.sublist(3), options, vm.defaultPerSection);
     final list = await vm.candidates(
         schoolId: srpInt(args[0], 'schoolId'), schoolYear: args[1], sectionIds: o.sections, perSection: o.per,
         asOf: o.asOf);
@@ -156,17 +157,18 @@ void registerSrpAdminCommands(ConsoleRegistry registry, SrpViewModel vm) {
   });
 }
 
-const _options = '[per=<n, default $srpDefaultPerSection>] [show=all|recommended] [sections=<id,...>] '
+String _options(int defaultPerSection) => '[per=<n, default $defaultPerSection>] [show=all|recommended] [sections=<id,...>] '
     '[asof=YYYY-MM-DD]';
 
-({int per, bool recommendedOnly, Set<int>? sections, DateTime? asOf}) _filter(List<String> opts) {
-  var per = srpDefaultPerSection;
+({int per, bool recommendedOnly, Set<int>? sections, DateTime? asOf}) _filter(
+    List<String> opts, String options, int defaultPerSection) {
+  var per = defaultPerSection;
   var recommendedOnly = false;
   Set<int>? sections;
   DateTime? asOf;
   for (final o in opts) {
     final eq = o.indexOf('=');
-    if (eq < 0) throw SrpUsage('Options look like key=value (got "$o"). $_options');
+    if (eq < 0) throw SrpUsage('Options look like key=value (got "$o"). $options');
     final key = o.substring(0, eq);
     final raw = o.substring(eq + 1).trim();
     switch (key) {
@@ -185,7 +187,7 @@ const _options = '[per=<n, default $srpDefaultPerSection>] [show=all|recommended
       case 'asof':
         asOf = strictDateArg(raw) ?? (throw SrpUsage(asofDateMessage(raw)));
       default:
-        throw SrpUsage('Unknown option "$key". $_options');
+        throw SrpUsage('Unknown option "$key". $options');
     }
   }
   return (per: per, recommendedOnly: recommendedOnly, sections: sections, asOf: asOf);

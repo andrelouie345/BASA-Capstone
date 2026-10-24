@@ -14,6 +14,11 @@ void main() {
     }
   });
 
+  test('ymd pads month and day', () {
+    expect(ymd(DateTime(2026, 3, 5)), '2026-03-05');
+    expect(ymd(DateTime(2026, 10, 24, 23, 59)), '2026-10-24');
+  });
+
   test('the refusal names the value', () {
     expect(asofDateMessage('2026-02-30'), 'asof must be a real YYYY-MM-DD date (got "2026-02-30")');
   });

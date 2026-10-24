@@ -1,5 +1,7 @@
 // lib/core/models/assessment_calendar.dart
 
+import '../services/calendar_rules.dart' as rules show roundLabel;
+
 /// The assessments that have rounds on the calendar. [dbValue] is the
 /// assessment_calendar.instrument value.
 enum CalendarInstrument {
@@ -47,6 +49,9 @@ class CalendarWindow {
     this.updatedBy,
     this.updatedAt,
   });
+
+  /// "BOSY", "MOSY #1" ... (calendar_rules.roundLabel).
+  String get roundLabel => rules.roundLabel(round);
 
   /// updated_by / updated_at are stamped by the database, never sent.
   Map<String, Object?> toMap() => {

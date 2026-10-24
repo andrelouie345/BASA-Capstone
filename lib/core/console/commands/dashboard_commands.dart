@@ -10,7 +10,7 @@ import '../../../viewmodels/dashboard_viewmodel.dart';
 import '../../../viewmodels/nla_report_viewmodel.dart' show progressPercent;
 import '../../models/assessment_calendar.dart';
 import '../../models/report_setting.dart';
-import '../../services/calendar_rules.dart';
+import '../date_args.dart';
 import 'reminder_commands.dart' show coordinatorRemindersText, tutorRemindersText;
 
 class _Usage implements Exception {
@@ -26,9 +26,8 @@ DateTime? _today(List<String> opts) {
     final eq = o.indexOf('=');
     if (eq < 0 || o.substring(0, eq) != 'today') throw _Usage('Unknown option "$o". $_usage');
     final raw = o.substring(eq + 1).trim();
-    final d = RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(raw) ? DateTime.tryParse(raw) : null;
-    // DateTime.parse rolls 2026-02-30 over to March; refuse it instead.
-    if (d == null || calendarDate(d) != raw) throw _Usage('today must be a real YYYY-MM-DD date (got "$raw")');
+    final d = strictDateArg(raw);
+    if (d == null) throw _Usage('today must be a real YYYY-MM-DD date (got "$raw")');
     today = d;
   }
   return today;

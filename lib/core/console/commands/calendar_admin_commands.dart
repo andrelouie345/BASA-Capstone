@@ -5,7 +5,6 @@ import '../console_command.dart';
 import '../console_registry.dart';
 import '../../../viewmodels/round_calendar_viewmodel.dart';
 import '../../models/assessment_calendar.dart';
-import '../../services/calendar_rules.dart';
 import 'calendar_command_helpers.dart';
 
 void registerCalendarAdminCommands(ConsoleRegistry registry, RoundCalendarViewModel vm) {
@@ -36,7 +35,7 @@ void registerCalendarAdminCommands(ConsoleRegistry registry, RoundCalendarViewMo
     final schoolId = calendarSchool(args[0]);
     final w = await vm.setWindow(schoolId, args[1], _instrument(args[2]), args[3],
         calendarDateArg(args[4], 'opens'), calendarDateArg(args[5], 'closes'));
-    return '${w.instrument.label} ${roundLabel(w.round)} ${w.schoolYear} for ${calendarWho(schoolId)}: '
+    return '${w.instrument.label} ${w.roundLabel} ${w.schoolYear} for ${calendarWho(schoolId)}: '
         '${w.opensOn} .. ${w.closesOn}.${warn()}';
   });
 
@@ -47,7 +46,7 @@ void registerCalendarAdminCommands(ConsoleRegistry registry, RoundCalendarViewMo
     final schoolId = calendarSchool(args[0]);
     if (schoolId == null) throw const CalendarUsage('Only a school skips a round; to drop a region window use calendar-clear region ...');
     final w = await vm.skipRound(schoolId, args[1], _instrument(args[2]), args[3]);
-    return '${w.instrument.label} ${roundLabel(w.round)} ${w.schoolYear} skipped for school $schoolId.${warn()}';
+    return '${w.instrument.label} ${w.roundLabel} ${w.schoolYear} skipped for school $schoolId.${warn()}';
   });
 
   add('calendar-clear',
@@ -56,9 +55,9 @@ void registerCalendarAdminCommands(ConsoleRegistry registry, RoundCalendarViewMo
     if (args.length != 4) throw const CalendarUsage('Usage: calendar-clear <region|schoolId> <year> <phil_iri|crla> <round>');
     final schoolId = calendarSchool(args[0]);
     final instrument = _instrument(args[2]);
-    await vm.clearWindow(schoolId, args[1], instrument, args[3]);
+    final w = await vm.clearWindow(schoolId, args[1], instrument, args[3]);
     final after = schoolId == null ? 'School overrides of it stay.' : 'The region window applies again (if any).';
-    return '${instrument.label} ${roundLabel(args[3].trim().toLowerCase())} ${args[1]} cleared for ${calendarWho(schoolId)}. '
+    return '${instrument.label} ${w.roundLabel} ${args[1]} cleared for ${calendarWho(schoolId)}. '
         '$after${warn()}';
   });
 }

@@ -150,7 +150,8 @@ class RoundCalendarViewModel {
 
   /// Removes a window: a school's override (the region window applies again)
   /// or, [schoolId] null, the region window (schools' overrides stay).
-  Future<void> clearWindow(int? schoolId, String year, CalendarInstrument instrument, String round) async {
+  /// Returns the removed window.
+  Future<CalendarWindow> clearWindow(int? schoolId, String year, CalendarInstrument instrument, String round) async {
     _log('clearWindow($schoolId, $year, ${instrument.dbValue}, $round)');
     year = _year(year);
     round = _round(instrument, round);
@@ -162,6 +163,7 @@ class RoundCalendarViewModel {
     }
     await _cloudWrite(() => cloud.delete(row.id!));
     await _mirror(() => _local.removeMirrored(row));
+    return row;
   }
 
   // ---- Helpers ----
@@ -231,8 +233,8 @@ class RoundCalendarViewModel {
     try {
       await write();
     } catch (e) {
-      lastMirrorWarning = 'The calendar was changed online, but the local copy was not updated ($e). Run pull-cloud.';
-      _log('WARNING: $lastMirrorWarning');
+      lastMirrorWarning = 'The calendar was changed online, but the local copy was not updated. Run pull-cloud.';
+      _log('calendar mirror failed: $e');
     }
   }
 }

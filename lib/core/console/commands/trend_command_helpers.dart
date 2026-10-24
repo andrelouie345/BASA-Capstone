@@ -4,7 +4,7 @@
 import '../../../viewmodels/nla_report_viewmodel.dart' show NlaSex;
 import '../../../viewmodels/trend_viewmodel.dart';
 import '../../models/trend_chart.dart';
-import '../../services/calendar_rules.dart';
+import '../date_args.dart';
 
 class TrendUsage implements Exception {
   final String message;
@@ -22,9 +22,8 @@ class TrendUsage implements Exception {
     final key = o.substring(0, eq), raw = o.substring(eq + 1).trim();
     switch (key) {
       case 'asof':
-        final d = RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(raw) ? DateTime.tryParse(raw) : null;
-        // DateTime.parse rolls 2026-02-30 over to March; refuse it instead.
-        if (d == null || calendarDate(d) != raw) throw TrendUsage('asof must be a real YYYY-MM-DD date (got "$raw")');
+        final d = strictDateArg(raw);
+        if (d == null) throw TrendUsage('asof must be a real YYYY-MM-DD date (got "$raw")');
         asOf = d;
       case 'sex' when allowSex:
         sex = switch (raw.toUpperCase()) {

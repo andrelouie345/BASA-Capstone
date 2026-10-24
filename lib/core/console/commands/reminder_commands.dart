@@ -9,7 +9,7 @@ import '../console_command.dart';
 import '../console_registry.dart';
 import '../../../viewmodels/reminder_viewmodel.dart';
 import '../../models/report_setting.dart';
-import '../../services/auth_messages.dart';
+import '../../models/messages.dart';
 import 'reminder_command_helpers.dart';
 
 /// Coordinator reminders as console text (also used by `dashboard`).

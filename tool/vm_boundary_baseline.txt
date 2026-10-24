@@ -1,11 +1,1 @@
 # Shrink-only. A fix batch removes its lines. Empty = remove this file and the baseline code (Task 9).
-core/console/commands/calendar_admin_commands.dart -> core/services/calendar_rules.dart
-core/console/commands/calendar_command_helpers.dart -> core/services/calendar_rules.dart
-core/console/commands/calendar_commands.dart -> core/services/calendar_rules.dart
-core/console/commands/dashboard_commands.dart -> core/services/calendar_rules.dart
-core/console/commands/nla_report_commands.dart -> core/services/nla_form2b.dart
-core/console/commands/nla_report_commands.dart -> core/services/phil_iri_rules.dart
-core/console/commands/reminder_command_helpers.dart -> core/services/calendar_rules.dart
-core/console/commands/reminder_commands.dart -> core/services/auth_messages.dart
-core/console/commands/srp_admin_commands.dart -> core/services/srp_rules.dart
-core/console/commands/trend_command_helpers.dart -> core/services/calendar_rules.dart
