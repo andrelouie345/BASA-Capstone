@@ -136,6 +136,26 @@ void main() {
         reason: updates.map((u) => '${u.kind.name}: ${u.reason}').join('; '));
   });
 
+  test('a KS1 learner (not referred) whose MOSY CRLA is Developing exits with classroom support (DM 064, review)',
+      () async {
+    await db.insert('students', {'id': 9542, 'lrn': '999999959542', 'last_name': 'ZZR', 'first_name': 'L9542',
+        'school_id': _school});
+    await db.insert('enrollments', {'student_id': 9542, 'section_id': 9504, 'school_year': _year, 'status': 'active'});
+    final e = await aral.enroll(sectionId: 9504, schoolYear: _year, studentId: 9542, keyStage: AralKeyStage.ks1,
+        classId: sun.id, enteredOn: DateTime(2026, 8, 1));
+    await db.insert('crla_assessments', {
+      'id': 9592, 'student_id': 9542, 'school_id': _school, 'section_id': 9504, 'school_year': _year,
+      'subject_variant': 'fil', 'language': 'Filipino', 'attempt_no': 1, 'assessed_at': '2026-10-20',
+      'round': 'mosy', 'reading_profile': 'Developing Reader', 'origin': 'cloud', 'row_version': 1,
+    });
+    final updates = await aral.applyResults(sectionId: 9504, schoolYear: _year);
+    final u = updates.singleWhere((u) => u.before.id == e.id);
+    expect(u.kind, AralUpdateKind.exited, reason: u.reason);
+    expect(u.reason, contains('leaves ARAL with classroom support'));
+    final after = (await aral.getEnrollment(e.id!))!;
+    expect((after.isActive, after.exitReason, after.exitedOn), (false, AralExitReason.classroomSupport, '2026-10-20'));
+  });
+
   test('a class grade outside 1-10 is refused; a grade or program change needs an empty class', () async {
     await expectLater(classes.createClass(schoolId: _school, schoolYear: _year, className: 'K', gradeLevel: 11),
         _refused('ARAL-Reading classes are for Grades 1-10.'));
@@ -149,6 +169,18 @@ void main() {
     final edited = await classes.editClass(empty.copyWith(gradeLevel: 9, program: () => AralClassProgram.ks2Plus));
     expect((edited.gradeLevel, edited.program), (9, AralClassProgram.ks2Plus));
     await classes.deleteClass(empty.id!);
+  });
+
+  test('a class with sessions is not deleted, even when its learners have all left (review C3)', () async {
+    final held = await classes.createClass(schoolId: _school, schoolYear: _year, className: '8-Held', gradeLevel: 8,
+        tutorId: _tutor);
+    // A pulled session of the class (its learners have since moved on).
+    await db.insert('aral_sessions', {'id': 95001, 'tutor_id': _tutor, 'school_id': _school, 'school_year': _year,
+        'session_no': 1, 'held_on': '2026-10-01', 'minutes': 60, 'setup': 'pull_out', 'origin': 'cloud', 'row_version': 1,
+        'class_id': held.id});
+    await expectLater(classes.deleteClass(held.id!),
+        _refused('Class "8-Held" still has learners or sessions; it can\'t be deleted.'));
+    expect((await classes.getClass(held.id!)).className, '8-Held');
   });
 
   test('a mixed-programs class takes any program of its grade', () async {

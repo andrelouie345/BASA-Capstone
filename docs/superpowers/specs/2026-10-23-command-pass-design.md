@@ -1,6 +1,6 @@
 # Command pass (run every command) — design
 
-Date: 2026-10-23. Status: **built** (2026-10-24). Last full run r10 (after the final review): `359/359 covered` (tutor 120/120, admin 239/239), 3036 steps, 0 failed. Where this text and *Changes during implementation* (end of file) disagree, the latter wins.
+Date: 2026-10-23. Status: **built** (2026-10-24). Last full run r11 (after the final review): `359/359 covered` (tutor 120/120, admin 239/239), 3036 steps, 0 failed. Where this text and *Changes during implementation* (end of file) disagree, the latter wins.
 
 ## Goal
 
@@ -166,6 +166,6 @@ Findings (all decided by the owner; fixes are in the commits of each batch):
 | F23 | A4b | recommendations named learners "student N" | fixed there; other id-only console lines kept on purpose (screens get names from ViewModels) |
 | F24 | r7 | coordinator importing another school's SF1 got a raw RLS error | fixed (own-school check before writes) |
 
-Final review (2026-10-24, two reviewers): the crash check now also catches errors that print no type name (`Bad state:`, casts, null checks, `ArgumentError`, plain `Exception`) and runs on `capture`/`sql` steps; the exit code uses the report's failure rule (R1 included); `refuse` fails on a usage answer unless the step expects `Usage:`; the id guard also refuses `key=<n>` / `key:<n>`; captured values are escaped in regex steps; a `run sign-in` step updates the guard's account; a crash during the automatic sign-in fails the step instead of stopping without a report. Sign-in after authenticating no longer shows raw database text and signs the unused client out. Full run r10: 359/359, 3036 steps, 0 failed.
+Final review (2026-10-24, two reviewers): the crash check now also catches errors that print no type name (`Bad state:`, casts, null checks, `ArgumentError`, plain `Exception`) and runs on `capture`/`sql` steps; the exit code uses the report's failure rule (R1 included); `refuse` fails on a usage answer unless the step expects `Usage:`; the id guard also refuses `key=<n>` / `key:<n>`; captured values are escaped in regex steps; a `run sign-in` step updates the guard's account; a crash during the automatic sign-in fails the step instead of stopping without a report. Sign-in after authenticating no longer shows raw database text and signs the unused client out. Full runs r10 (runner fixes) and r11 (ARAL fixes C1/C3): 359/359, 3036 steps, 0 failed.
 
 Known leftovers: raw exception text in the local-mirror warnings of six ViewModels (users, materials, CRLA thresholds, Phil-IRI content, calendar, SRP; console only) goes to the ViewModel completeness check before the frontend handoff. Old runs r2-r8 stay on the dev project with inactive accounts (no delete commands exist for users/students).

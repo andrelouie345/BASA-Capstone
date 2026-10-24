@@ -139,4 +139,16 @@ void main() {
     expect(rows.single.$1.classId, a.id);
     expect(summary.present, 1);
   });
+
+  test('a session moves only to a date its class has free (review)', () async {
+    await signInAs(_t1, 'one@zz', 'tutor');
+    final bSessions = await sessions.classSessions(b.id!);
+    final on4 = bSessions.singleWhere((s) => s.heldOn == '2026-08-04');
+    final on5 = bSessions.singleWhere((s) => s.heldOn == '2026-08-05');
+    await expectLater(sessions.editSession(on5.id!, heldOn: DateTime(2026, 8, 4)),
+        _refused('Class "7-B" already has session ${on4.sessionNo} (#${on4.id}) on 2026-08-04.'));
+    // Another class's date is free for 7-B.
+    final moved = await sessions.editSession(on5.id!, heldOn: DateTime(2026, 8, 10));
+    expect((moved.heldOn, moved.sessionNo), ('2026-08-10', on5.sessionNo));
+  });
 }

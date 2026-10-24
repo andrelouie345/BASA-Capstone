@@ -507,15 +507,6 @@ class AralSessionViewModel {
     return u;
   }
 
-  /// Tutors write their own sessions; admins/coordinators their school's.
-  static void _canWriteFor(User me, User tutor) {
-    if (me.role == UserRole.tutor) {
-      if (me.id != tutor.id) throw const ViewModelException('Forbidden: tutors log only their own sessions.');
-      return;
-    }
-    _canReadTutor(me, tutor);
-  }
-
   static void _canReadTutor(User me, User tutor) {
     if (me.role == UserRole.tutor) {
       if (me.id != tutor.id) throw const ViewModelException("Forbidden: another tutor's sessions.");

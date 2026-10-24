@@ -73,8 +73,10 @@ database (the app asks the coordinator to confirm a learner of another grade);
 app update required: **yes**, same rule) and `20261024020000` (repair:
 uploaded ARAL sessions were refused by the sessions read policy; app update
 required: no) and `20261024030000` (a duplicate ARAL class name is refused
-with a readable message naming the class; app update required: no). Each is
-idempotent.
+with a readable message naming the class; app update required: no) and
+`20261024040000` (a class tutor assesses their class learners only in that
+school year and school, and marks attendance in a class session only for that
+class's learners; app update required: no). Each is idempotent.
 Do **not** run
 `supabase/migrations_archive/`.
 

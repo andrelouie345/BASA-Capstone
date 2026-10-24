@@ -31,6 +31,7 @@ import '../core/models/aral_enrollment.dart';
 import '../core/models/user_role.dart';
 import '../core/repositories/aral_class_repository.dart';
 import '../core/repositories/aral_enrollment_repository.dart';
+import '../core/repositories/aral_session_repository.dart';
 import '../core/repositories/section_repository.dart';
 import '../core/repositories/student_repository.dart';
 import '../core/repositories/user_repository.dart';
@@ -83,6 +84,7 @@ class AralClassViewModel {
   final AuthViewModel _auth;
   final AralClassRepository _classes;
   final AralEnrollmentRepository _roster;
+  final AralSessionRepository _sessions;
   final SectionRepository _sections;
   final StudentRepository _students;
   final UserRepository _users;
@@ -91,6 +93,7 @@ class AralClassViewModel {
     required AuthViewModel auth,
     required AralClassRepository classes,
     required AralEnrollmentRepository roster,
+    required AralSessionRepository sessions,
     required SectionRepository sections,
     required StudentRepository students,
     required UserRepository users,
@@ -98,6 +101,7 @@ class AralClassViewModel {
   })  : _auth = auth,
         _classes = classes,
         _roster = roster,
+        _sessions = sessions,
         _sections = sections,
         _students = students,
         _users = users,
@@ -262,7 +266,9 @@ class AralClassViewModel {
     _log('deleteClass($classId)');
     _requireManager();
     final c = await _require(classId);
-    if ((await _roster.getByClass(classId)).isNotEmpty) {
+    // Sessions too (review C3): the device doesn't enforce foreign keys, and
+    // the cloud refuses the delete of a class its sessions point at.
+    if ((await _roster.getByClass(classId)).isNotEmpty || (await _sessions.getByClass(classId)).isNotEmpty) {
       throw ViewModelException("Class \"${c.className}\" still has learners or sessions; it can't be deleted.");
     }
     await _write(() => _classes.delete(classId));

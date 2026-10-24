@@ -221,6 +221,7 @@ TutorVms wireTutor(AppContext ctx, SharedVms s) {
     auth: authVm,
     classes: AralClassRepositorySqlite(db),
     roster: AralEnrollmentRepositorySqlite(db),
+    sessions: AralSessionRepositorySqlite(db),
     sections: SectionRepositorySqlite(db),
     students: StudentRepositorySqlite(db),
     users: UserRepositorySqlite(db),
