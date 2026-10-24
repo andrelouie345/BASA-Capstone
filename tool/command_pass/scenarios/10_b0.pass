@@ -65,9 +65,11 @@ expect Inserted: 4, Conflicts: 0, Already enrolled: 0
 # Importing the same roster again changes nothing.
 run import-students "{sf1_g2}"
 expect Inserted: 0, Conflicts: 0, Already enrolled: 4
-# School B's roster is not the coordinator's.
+# School B's roster is not the coordinator's (F24: refused before any write).
+run import-trial "{sf1_b7}"
+refuse Trial failed: Forbidden: this roster is for school
 run import-students "{sf1_b7}"
-refuse Import failed
+refuse Import failed: Forbidden: this roster is for school
 
 run section-list
 capture sec_g2 = (\d+) \| 2 - ZZTEST-G2 \({year}\)

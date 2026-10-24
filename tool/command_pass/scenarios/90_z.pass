@@ -12,6 +12,13 @@ expect users:
 run sync-pending {school}
 expect Nothing is waiting for approval.
 
+# A6's tablet (owner tutor1) is signed out while the account is still active;
+# the runner leaves a signed-out device signed out when it comes back (R2).
+device a6-phone tutor
+run sign-out
+expect Signed out.
+device z-pc admin
+
 # --- Deactivate the run's accounts ----------------------------------------------
 run user-set-active {coord_id} false
 expect Set {coord_id} active=false.
@@ -41,8 +48,8 @@ refuse Sign-in failed: account is inactive
 # tablet goes online (by design: CLAUDE.md, offline sign-in). Server work
 # stays refused.
 device a6-phone tutor
-run sign-out
-expect Signed out.
+run whoami
+expect Not signed in
 run sign-in-offline {email_tutor1} {pw_tutor1}
 expect Signed in offline as {email_tutor1} (tutor). Server work needs an online sign-in.
 run sync-upload yes

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:supabase/supabase.dart';
 import '../core/console/logger.dart';
 import '../core/models/import_conflict.dart';
+import '../core/models/school.dart';
 import '../core/models/section.dart';
 import '../core/models/student.dart';
 import '../core/models/user_role.dart';
@@ -101,12 +102,17 @@ class ImportViewModel {
   /// What import() would do, without writing anything.
   Future<Sf1TrialResult> trial(String filePath) async {
     _log('trial($filePath)');
-    return _wrapFormat(() => _importer(_cloud()).trial(filePath));
+    final cloud = _cloud();
+    final parsed = await _wrapFormat(() => _importer(cloud).trial(filePath));
+    await _checkOwnSchool(cloud, parsed);
+    return parsed;
   }
 
   Future<Sf1ImportResult> import(String filePath) async {
     _log('import($filePath)');
-    final result = await _wrapFormat(() => _importer(_cloud()).import(filePath));
+    final cloud = _cloud();
+    final result = await _wrapFormat(
+        () => _importer(cloud).import(filePath, check: (parsed) => _checkOwnSchool(cloud, parsed)));
     if (pendingConflicts.isNotEmpty || result.conflicts > 0) await loadPendingConflicts();
     return result;
   }
@@ -210,6 +216,23 @@ class ImportViewModel {
     pendingConflicts.removeWhere((c) => c.id == id);
   }
 
+  /// A school-bound admin or coordinator imports only their own school's
+  /// rosters (F24: the school insert was refused by RLS with a raw error).
+  /// The superadmin may import any school, and creates new ones this way.
+  Future<void> _checkOwnSchool(ImportCloudRepos cloud, Sf1TrialResult parsed) async {
+    final schoolId = _auth.currentUser?.schoolId;
+    if (schoolId == null) return;
+    final refusal = sf1OtherSchoolRefusal(
+      fileSchoolCode: parsed.schoolIdCode,
+      fileSchoolName: parsed.schoolName,
+      ownSchool: await cloud.schools.getById(schoolId),
+    );
+    if (refusal != null) {
+      _log('refused: roster of school ${parsed.schoolIdCode}');
+      throw ViewModelException(refusal);
+    }
+  }
+
   Future<T> _wrapFormat<T>(Future<T> Function() run) async {
     try {
       return await run();
@@ -217,4 +240,17 @@ class ImportViewModel {
       throw ViewModelException(e.message);
     }
   }
+}
+
+/// Null when a school-bound caller may import a roster of school
+/// [fileSchoolCode]; otherwise the refusal to show.
+String? sf1OtherSchoolRefusal({
+  required String fileSchoolCode,
+  required String fileSchoolName,
+  required School? ownSchool,
+}) {
+  if (ownSchool == null) return 'Forbidden: your school could not be read, so the roster cannot be checked.';
+  if (ownSchool.schoolId.trim() == fileSchoolCode.trim()) return null;
+  return 'Forbidden: this roster is for school ${fileSchoolCode.trim()} ($fileSchoolName); '
+      "you can only import your own school's rosters.";
 }

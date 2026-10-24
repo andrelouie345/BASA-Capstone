@@ -102,7 +102,7 @@ class StepResult {
   final String output;
   final bool skipped;
   /// A runner action that is not a scenario step (e.g. signing in again
-  /// after a device switch). Reported, not counted.
+  /// after a device switch). Reported; counted only when it fails (R1).
   final bool setup;
   const StepResult(this.batch, this.step, this.outcome,
       {this.output = '', this.skipped = false, this.setup = false});
@@ -199,6 +199,9 @@ Future<List<StepResult>> runScenario(
         if (logs.isNotEmpty) {
           out = CommandOutput('${out.text}\n${logs.join('\n')}', refused: out.refused, crashType: out.crashType);
         }
+        // A device the scenario signed out stays signed out when the runner
+        // comes back to it (R2): no sign-in again after the switch.
+        if (tokens.first == 'sign-out' && !dev.ctx.authVm.isSignedIn) dev.lastAccount = null;
         last = out;
         lastRunOk = out.crashType == null;
         add(step, lastRunOk ? const StepOutcome(true) : StepOutcome(false, 'command crashed (${out.crashType})'),

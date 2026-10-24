@@ -17,7 +17,8 @@ String describe(Step s) => switch (s) {
       WriteFileStep() => 'write-file ${s.name} ${s.text}',
     };
 
-bool _counted(StepResult r) => !r.setup;
+// A failed sign-in after a device switch stops the batch: it counts (R1).
+bool _counted(StepResult r) => !r.setup || !r.outcome.passed;
 bool _failed(StepResult r) => _counted(r) && !r.skipped && !r.outcome.passed;
 
 /// `[<covered>/<total> covered, ]<steps> steps, <failed> failed`.

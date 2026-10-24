@@ -313,12 +313,16 @@ class Sf1Importer {
     return _parseSheet(excelFile);
   }
 
-  Future<Sf1ImportResult> import(String filePath) async {
+  /// [check] runs on the parsed sheet before anything is written; it throws
+  /// to stop the import (the ViewModel's own-school check).
+  Future<Sf1ImportResult> import(String filePath,
+      {Future<void> Function(Sf1TrialResult parsed)? check}) async {
     _log('import($filePath)');
     final result = Sf1ImportResult();
 
     final excelFile = await _decodeWithRepair(filePath);
     final parsed = await _parseSheet(excelFile);
+    if (check != null) await check(parsed);
 
     if (parsed.regionId == null) {
       throw Exception('${parsed.regionError}. Fix the source file or the Region matcher, then retry.');

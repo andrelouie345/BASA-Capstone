@@ -7,6 +7,7 @@ import 'package:basa_capstone/viewmodels/viewmodel_exception.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import '../../../tool/command_pass/checks.dart' show StepOutcome;
 import '../../../tool/command_pass/coverage.dart';
 import '../../../tool/command_pass/device.dart';
 import '../../../tool/command_pass/report.dart';
@@ -150,6 +151,16 @@ void main() {
         totalAdmin: 228);
     expect(summaryLine(results, cov), '342/343 covered, 5 steps, 1 failed');
     expect(renderReport(results, cov, const []), contains('UNCOVERED (tutor): whoami'));
+  });
+
+  test('a failed sign-in after a device switch counts as a failure (R1)', () {
+    final step = parseScenario('t', 'device a tutor').steps.single;
+    final results = [
+      StepResult('t', step, const StepOutcome(true)),
+      StepResult('t', step, const StepOutcome(true), setup: true),
+      StepResult('t', step, const StepOutcome(false, 'sign-in as tutor1 failed'), setup: true),
+    ];
+    expect(summaryLine(results, null), '2 steps, 1 failed');
   });
 
   test('built-in values fill run lines, expect texts and capture patterns', () async {
