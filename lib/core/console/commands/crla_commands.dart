@@ -9,6 +9,7 @@ import '../../../viewmodels/auth_viewmodel.dart';
 import '../../../viewmodels/crla_viewmodel.dart';
 import '../../models/crla_assessment.dart' show CrlaRound;
 import '../../models/crla_result.dart';
+import '../../models/crla_variant.dart';
 
 void registerCrlaCommands(ConsoleRegistry registry, AuthViewModel authVm, CrlaViewModel vm) {
   registry.register(ConsoleCommand(
@@ -38,13 +39,7 @@ void registerCrlaCommands(ConsoleRegistry registry, AuthViewModel authVm, CrlaVi
       }
 
       // fil and eng imply their language; mt needs one spelled out.
-      final language = rest.isNotEmpty
-          ? rest.join(' ')
-          : switch (variant) {
-              'fil' => 'Tagalog',
-              'eng' => 'English',
-              _ => null,
-            };
+      final language = rest.isNotEmpty ? rest.join(' ') : crlaDefaultLanguage(variant);
       if (language == null) return 'The mt variant needs a language (e.g. Cebuano).\n$usage';
 
       try {

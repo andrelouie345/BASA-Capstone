@@ -11,6 +11,7 @@ import '../core/models/crla_result.dart';
 import '../core/repositories/crla_part2_fluency_repository.dart';
 import '../core/repositories/crla_result_repository.dart';
 import '../core/models/crla_story.dart';
+import '../core/models/crla_variant.dart';
 import '../core/repositories/crla_story_repository.dart';
 import '../core/repositories/crla_threshold_repository.dart';
 import '../core/repositories/school_repository.dart';
@@ -29,7 +30,6 @@ import 'viewmodel_exception.dart';
 /// crla_rules.dart from that snapshot and stored, so a later threshold change
 /// never rewrites old results. The cloud does the same with its own triggers.
 class CrlaViewModel {
-  static const _variants = {'mt', 'fil', 'eng'};
 
   // RAISE(ABORT, ...) texts of the CRLA triggers in local_database.dart.
   // A write refused by one of them is rethrown as a ViewModelException with
@@ -134,7 +134,7 @@ class CrlaViewModel {
     required int sectionId,
     required String schoolYear,
     required String subjectVariant,
-    required String language,
+    String? language,
     required CrlaRound round,
     String? administeredBy,
     DateTime? assessedAt,
@@ -144,9 +144,12 @@ class CrlaViewModel {
         'variant: $subjectVariant, year: $schoolYear, round: ${round.name})');
     schoolYear = normalizeSchoolYear(schoolYear);
 
-    if (!_variants.contains(subjectVariant)) {
+    if (!crlaSubjectVariants.contains(subjectVariant)) {
       throw ViewModelException("Variant must be one of mt, fil, eng (got '$subjectVariant').");
     }
+    // fil and eng imply their language; mt needs one named.
+    final lang = language ?? crlaDefaultLanguage(subjectVariant);
+    if (lang == null) throw const ViewModelException('The mt variant needs a language (e.g. Cebuano).');
     final section = await _sections.getById(sectionId);
     if (section == null) throw ViewModelException('No section with id $sectionId.');
     if (crlaGradeOf(section.gradeLevel) == null) {
@@ -162,7 +165,7 @@ class CrlaViewModel {
         sectionId: sectionId,
         schoolYear: schoolYear,
         subjectVariant: subjectVariant,
-        language: language,
+        language: lang,
         round: round,
         assessedAt: _localDate(assessedAt ?? DateTime.now()),
         administeredBy: administeredBy,

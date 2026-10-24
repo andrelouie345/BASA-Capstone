@@ -6,7 +6,6 @@ library;
 import '../console_command.dart';
 import '../console_registry.dart';
 import '../../../viewmodels/crla_threshold_viewmodel.dart';
-import '../../services/crla_rules.dart';
 import 'crla_threshold_command_helpers.dart';
 
 void registerCrlaThresholdCommands(ConsoleRegistry registry, CrlaThresholdViewModel vm) {
@@ -36,7 +35,7 @@ void registerCrlaThresholdCommands(ConsoleRegistry registry, CrlaThresholdViewMo
     if (schoolId != null) {
       out.write('; school $schoolId override: ${layers.school == null ? 'none' : '${school.length} key(s)'}');
     }
-    final defaults = CrlaThresholds.defaults.toMap();
+    final defaults = layers.defaults.toMap();
     layers.effective.toMap().forEach((key, value) {
       final from = school.containsKey(key) ? 'school' : (region.containsKey(key) ? 'region' : 'default');
       final note = from == 'default' ? '' : '   ($from; default ${defaults[key]})';

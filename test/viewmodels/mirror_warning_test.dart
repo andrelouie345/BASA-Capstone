@@ -1,11 +1,17 @@
 // A change saved online but not copied onto this device sets a warning a
 // screen shows as is, so it must not carry the exception's text (spec
 // docs/superpowers/specs/2026-10-24-vm-completeness-design.md, class E).
+import 'package:basa_capstone/core/models/crla_threshold_setting.dart';
 import 'package:basa_capstone/core/models/tutor_section_assignment.dart';
 import 'package:basa_capstone/core/models/user.dart';
 import 'package:basa_capstone/core/models/user_role.dart';
+import 'package:basa_capstone/core/repositories/crla_assessment_repository.dart';
+import 'package:basa_capstone/core/repositories/crla_part1_english_repository.dart';
+import 'package:basa_capstone/core/repositories/crla_part1_standard_repository.dart';
+import 'package:basa_capstone/core/repositories/crla_threshold_repository.dart';
 import 'package:basa_capstone/core/repositories/tutor_section_assignment_repository.dart';
 import 'package:basa_capstone/core/repositories/user_repository.dart';
+import 'package:basa_capstone/viewmodels/crla_threshold_viewmodel.dart';
 import 'package:basa_capstone/viewmodels/tutor_section_assignment_viewmodel.dart';
 import 'package:basa_capstone/viewmodels/user_viewmodel.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -44,6 +50,37 @@ class _Assignments implements TutorSectionAssignmentRepository {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _CrlaThresholds implements CrlaThresholdRepository {
+  final bool failing;
+  _CrlaThresholds({this.failing = false});
+  @override
+  Future<CrlaThresholdSetting?> getForSchool(int schoolId) async => CrlaThresholdSetting(schoolId: schoolId, settings: {});
+  @override
+  Future<void> deleteForSchool(int schoolId) async {}
+  @override
+  Future<void> removeMirroredForSchool(int schoolId) async {
+    if (failing) throw Exception('locked db');
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _NoAssessments implements CrlaAssessmentRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _NoPart1Standard implements CrlaPart1StandardRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _NoPart1English implements CrlaPart1EnglishRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 void main() {
   test('UserViewModel mirror warning has no exception text', () async {
     final vm = UserViewModel(
@@ -63,5 +100,24 @@ void main() {
     await vm.unassign(1);
 
     expect(vm.lastMirrorWarning, 'Saved online, but not copied onto this device; run pull-cloud.');
+  });
+
+  test('CrlaThresholdViewModel mirror warning has no exception text', () async {
+    final vm = CrlaThresholdViewModel(
+      auth: FakeOnlineAuth(UserRole.admin, schoolId: null),
+      cloudFactory: (_) => CrlaThresholdCloudRepos(
+          thresholds: _CrlaThresholds(),
+          assessments: _NoAssessments(),
+          part1Standard: _NoPart1Standard(),
+          part1English: _NoPart1English()),
+      localThresholds: _CrlaThresholds(failing: true),
+      localAssessments: _NoAssessments(),
+      localPart1Standard: _NoPart1Standard(),
+      localPart1English: _NoPart1English(),
+    );
+
+    await vm.resetSchoolThresholds(1);
+
+    expect(vm.lastMirrorWarning, 'CRLA thresholds saved online, but the local copy was not updated. Run pull-cloud.');
   });
 }

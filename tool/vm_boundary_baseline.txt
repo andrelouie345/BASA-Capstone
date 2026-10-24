@@ -6,7 +6,6 @@ core/console/commands/aral_command_helpers.dart -> core/services/aral_rules.dart
 core/console/commands/calendar_admin_commands.dart -> core/services/calendar_rules.dart
 core/console/commands/calendar_command_helpers.dart -> core/services/calendar_rules.dart
 core/console/commands/calendar_commands.dart -> core/services/calendar_rules.dart
-core/console/commands/crla_threshold_commands.dart -> core/services/crla_rules.dart
 core/console/commands/dashboard_commands.dart -> core/services/calendar_rules.dart
 core/console/commands/nla_report_commands.dart -> core/services/nla_form2b.dart
 core/console/commands/nla_report_commands.dart -> core/services/phil_iri_rules.dart

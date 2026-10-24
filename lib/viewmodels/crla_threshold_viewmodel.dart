@@ -47,6 +47,9 @@ class CrlaThresholdLayers {
   final CrlaThresholdSetting? school;
   final CrlaThresholds effective;
   const CrlaThresholdLayers(this.region, this.school, this.effective);
+
+  /// The built-in values that apply when neither row sets a key.
+  CrlaThresholds get defaults => CrlaThresholds.defaults;
 }
 
 class CrlaThresholdViewModel {
@@ -234,8 +237,8 @@ class CrlaThresholdViewModel {
     try {
       await write();
     } catch (e) {
-      lastMirrorWarning = '$what saved online, but the local copy was not updated ($e). Run pull-cloud.';
-      _log('WARNING: $lastMirrorWarning');
+      lastMirrorWarning = '$what saved online, but the local copy was not updated. Run pull-cloud.';
+      _log('WARNING: $what mirror failed: $e');
     }
   }
 }
