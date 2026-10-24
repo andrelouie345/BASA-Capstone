@@ -86,17 +86,3 @@ bool _allowed(String file, String target) {
   }
   return target.startsWith('core/console/');
 }
-
-/// Lines found but not in [baseline] (new), and baseline lines no longer found (gone).
-/// Blank and '#' lines of the baseline are ignored.
-({List<String> added, List<String> gone}) compareToBaseline(List<BoundaryViolation> found, List<String> baseline) {
-  final base = {
-    for (final l in baseline.map((l) => l.trim()))
-      if (l.isNotEmpty && !l.startsWith('#')) l,
-  };
-  final lines = {for (final v in found) v.line};
-  return (
-    added: [for (final l in lines) if (!base.contains(l)) l],
-    gone: [for (final l in base) if (!lines.contains(l)) l],
-  );
-}

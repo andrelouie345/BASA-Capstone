@@ -2,7 +2,7 @@
 
 What each screen of BASA can do, and which ViewModel calls serve it. Written 2026-10-24 for the ViewModel completeness check (spec `docs/superpowers/specs/2026-10-24-vm-completeness-design.md`); the frontend handoff docs grow from it. Layout, visuals and navigation are the UI team's and are not in here.
 
-Status: **gaps decided by the owner 2026-10-24 (all as recommended).**
+Status: **gaps decided by the owner 2026-10-24 (all as recommended); built 2026-10-24 (Tasks 4-8). Every gap now shows `Status: ✅ fixed` or `⏸ deferred`.**
 
 ## Files
 
@@ -32,13 +32,13 @@ Errors: refusals the ViewModel raises (`ViewModelException.message`, shown as is
 Console: the command(s) that show the real output.
 ```
 
-✅ = exists today. 🆕 = does not exist; the gap with that id proposes it.
+✅ = exists. ⏸ = deferred (the gap says why). (🆕 marked a missing call during the walk; all were built or deferred.)
 
 ## Gap classes
 
 | Class | Meaning |
 |-------|---------|
-| **I** | A command file imports a service, repository, config or release file (a line of `tool/vm_boundary_baseline.txt`). Every baseline line belongs to exactly one gap. |
+| **I** | A command file imports a service, repository, config or release file (a line of the former `tool/vm_boundary_baseline.txt`, emptied and removed 2026-10-24). Every baseline line belonged to exactly one gap. |
 | **T** | A type defined in `core/services/` (or `supabase`) appears in a ViewModel or model a screen gets, so a screen cannot even name it. Usual fix: `export ... show` from a `core/models/` file. |
 | **R** | A repository, service or Supabase client is reachable through a public ViewModel field or parameter, so a screen could bypass the ViewModel. |
 | **G** | A sign-in or role check exists only in the console command; a screen calling the ViewModel skips it. |
@@ -57,6 +57,7 @@ Classes R and G were not in the spec; they came up during the walk (2026-10-24) 
 Fix: exact new method / getter / change.
 Removes baseline: `file -> target` (class I only)
 Decision: (open)
+Status: ✅ fixed (Task n) | ⏸ deferred
 ```
 
 The owner fills `Decision:` with `fix`, `deferred: <reason>`, or a changed fix. Only `fix` gaps go into the batch plan (plan Task 3).
@@ -95,6 +96,7 @@ The owner fills `Decision:` with `fix`, `deferred: <reason>`, or a changed fix. 
 | ARAL-G6 | N | `aral.md` | `AralViewModel.tutors` returns a positional record `(User, int, int)`; a screen has to know which int is … | fix |
 | ARAL-G7 | E | `aral.md` | `aral_material_viewmodel.dart:383` puts `$e` in `lastMirrorWarning`. | fix |
 | ARAL-G8 | E | `aral.md` | `AralClassViewModel._write` rethrows unknown database errors as they are (after turning known ones into … | no change (with COMMON-G1) + log line |
+| ARAL-G10 | E | `aral.md` | The database's CHECK text was put in a `ViewModelException` (found in Task 7). | fix |
 | ARAL-G9 | M | `aral.md` | No Flesch preview of a typed text before saving a readability entry. | deferred |
 | REPORTS-G1 | I, T | `reports.md` | `NlaBand`, `NlaCounts`, `NlaGstBand` (`nla_form2b.dart`), `PhilIriLevel` (`phil_iri_rules.dart`) and … | fix |
 | REPORTS-G2 | I, N | `reports.md` | `srp-build` / `srp-list` read `srpDefaultPerSection` and `srpDefaultClassSize` from `srp_rules.dart`. | fix |

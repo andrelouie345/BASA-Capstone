@@ -5,7 +5,7 @@ Build: both    Roles: tutor / coordinator / admin
 Purpose: record a learner's GST score (total, or literal/inferential/critical) and list a section's.
 Calls:
 - ✅ `PhilIriViewModel.recordGst(...)` → `PhilIriGstResult`; `gstForSection(sectionId, schoolYear:)` → `List<PhilIriGstResult>`
-- 🆕 passed / below the cut-off, and the whole percent — PHILIRI-G1
+- ✅ `PhilIriViewModel.gstPassed(g)` → `bool`; `PhilIriGstResult.wholePercent` → `int` — PHILIRI-G1
 Live previews: none.
 Errors: grade outside 4–10, score out of range, another school (ViewModelException).
 Console: `phil-iri-gst`, `phil-iri-gst-list`
@@ -29,7 +29,7 @@ Calls:
 - ✅ `rubricCriteria(collectionId)`, `rubricScores(assessmentId)`, `scoreRubric(...)`
 - ✅ `complete(id)`, `reopen(id)`, `discard(id)`, `silentReadingFollowedUp(readingId)`
 - ✅ `scoreReading(readingId)` → `PhilIriPassageResult` (class T: PHILIRI-G2) — the reading's result from what is saved, local and immediate
-- 🆕 "is this reading timed yet" and observation labels — PHILIRI-G3
+- ✅ `PhilIriReading.isTimed`, `PhilIriObservation.labels` — PHILIRI-G3
 Live previews: `scoreReading` after each save (no extra call needed).
 Errors: locked by a pending upload, passage already used (no-repeat), round closed (ViewModelException).
 Console: `phil-iri-start`, `phil-iri-passages-for`, `phil-iri-read`, `phil-iri-time`, `phil-iri-observe`, `phil-iri-reading-delete`, `phil-iri-miscue`, `phil-iri-miscue-update`, `phil-iri-miscue-remove`, `phil-iri-answer`, `phil-iri-rubric`, `phil-iri-criteria`, `phil-iri-passage-show`, `phil-iri-complete`, `phil-iri-reopen`, `phil-iri-discard`, `phil-iri-score`
@@ -38,7 +38,7 @@ Console: `phil-iri-start`, `phil-iri-passages-for`, `phil-iri-read`, `phil-iri-t
 Build: both    Roles: tutor / coordinator / admin
 Calls:
 - ✅ `learnerResults(...)` → `PhilIriLearnerResults` (rounds: `PhilIriRoundResult`, class T: PHILIRI-G2)
-- 🆕 whole percents, adjusted-level and levels-down labels — PHILIRI-G2
+- ✅ `wordReadingPercent`, `comprehensionPercent`, `adjustedLevelLabel`, `levelsDownLabel`, `actualAdjustedLevelLabel`, `actualLevelsDownLabel` (getters on `PhilIriPassageResult` / `PhilIriRoundResult`) — PHILIRI-G2
 Console: `phil-iri-results`
 
 ### Finalize
@@ -72,21 +72,26 @@ Console: `phil-iri-thresholds`, `phil-iri-threshold-set`, `phil-iri-threshold-re
 Fix: `PhilIriViewModel.gstPassed(PhilIriGstResult g)` → `Future<bool>` (same grade-group rule, school thresholds, same function); `PhilIriGstResult.wholePercent` getter (`int`, same rounding). `gst-list` can stay as it is (no verdict today).
 Removes baseline: `core/console/commands/phil_iri_commands.dart -> core/services/phil_iri_rules.dart` (with PHILIRI-G2, G3)
 Decision: fix (owner 2026-10-24, as recommended).
+Status: ✅ fixed (VM completeness Task 6).
 
 **PHILIRI-G2** (I, T, N) — `PhilIriPassageResult`, `PhilIriRoundResult` (`phil_iri_results.dart`), `PhilIriLevel`, `PhilIriThresholds` (`phil_iri_rules.dart`) are service types in results. The console makes their percents with `philIriWholePercent` and the adjusted-level / levels-down text with `philIriAdjustedLevelLabel` / `philIriLevelsDownLabel`.
 Fix: `core/models/phil_iri_types.dart` exports those four types; getters on the result classes (in their own files, calling the same functions): `PhilIriPassageResult.wordReadingPercent`, `.comprehensionPercent` (`int?`), `PhilIriRoundResult.wordReadingPercent`, `.comprehensionPercent`, `.adjustedLevelLabel` (`String?`), `.levelsDownLabel` (`String?`). The commands use them.
 Removes baseline: `core/console/commands/phil_iri_commands.dart -> core/services/phil_iri_results.dart`
 Decision: fix (owner 2026-10-24, as recommended).
+Status: ✅ fixed (VM completeness Task 6).
 
 **PHILIRI-G3** (N) — Whether a reading is timed yet (`_timed`: one-minute needs words read, the others need seconds) and the observation labels (`_observationText`) are command code.
 Fix: `PhilIriReading.isTimed` getter; `PhilIriObservation.labels` → `List<String>` (same wording). The miscue position text ("before word 3") stays console layout.
 Decision: fix (owner 2026-10-24, as recommended).
+Status: ✅ fixed (VM completeness Task 6).
 
 **PHILIRI-G4** (I, N) — `phil-iri-thresholds` reads `PhilIriThresholds.defaults` from `phil_iri_rules.dart`.
 Fix: `PhilIriThresholdLayers.defaults`, per COMMON-G2.
 Removes baseline: `core/console/commands/phil_iri_content_commands.dart -> core/services/phil_iri_rules.dart`
 Decision: fix (owner 2026-10-24, as recommended).
+Status: ✅ fixed (VM completeness Task 6).
 
 **PHILIRI-G5** (E) — `phil_iri_content_viewmodel.dart:682` puts `$e` in `lastMirrorWarning`.
 Fix: spec rule.
 Decision: fix (owner 2026-10-24, as recommended).
+Status: ✅ fixed (VM completeness Task 6).

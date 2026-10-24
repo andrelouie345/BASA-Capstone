@@ -39,7 +39,7 @@ Purpose: show whether the device works offline, what waits to be uploaded, and t
 Calls:
 - ✅ `AuthViewModel.isOffline` → `bool`
 - ✅ `SyncViewModel.preview()` → `SyncPreview` (unsent work), `uploads()` → `List<SyncUploadRow>` (see `sync.md`)
-- 🆕 "is this record locked by a pending upload?" — gap COMMON-G3
+- ⏸ "is this record locked by a pending upload?" — gap COMMON-G3 (deferred; the refusal message says so)
 Live previews: none.
 Errors: a write on a locked record is refused by the ViewModel (message shown as is).
 Console: `sync-preview`, `sync-status`
@@ -65,11 +65,14 @@ Console: the console prints `"<what> failed: $e"`; a screen must not.
 **COMMON-G1** (E) — Exceptions other than `ViewModelException` (a `PostgrestException`, a socket error) reach the screen raw. The console prints them; a screen would show SQL or server text.
 Fix: no ViewModel change. `common.md` and the handoff docs fix the rule: a screen shows `ViewModelException.message`; anything else gets one fixed sentence (`unexpectedErrorMessage` from `core/services/auth_messages.dart`, reached through the model export below) and is logged. Class T export: `core/models/messages.dart` with `export '../services/auth_messages.dart' show unexpectedErrorMessage, notSignedInMessage;`.
 Decision: fix (owner 2026-10-24, as recommended).
+Status: ✅ fixed (VM completeness Task 4).
 
 **COMMON-G2** (N) — Settings shown as layers (default / region / school / applies: CRLA and Phil-IRI thresholds, check-in cut-off, idle-session days, SHARP, KS1 extended) do not carry their default; the console reads it from the rule file (`CrlaThresholds.defaults`, `PhilIriThresholds.defaults`, `AralCheckinSettings.defaults`, `AralSessionSettings.defaults`) or writes it as fixed text ("Default: off"). Report settings and offline days don't show a default today.
 Fix: each of those `...Layers` results gets a `defaults` field (same type as `effective`), filled by the ViewModel from the same rule constant; the commands read it from there. Covered per module: CRLA-G2, PHILIRI-G4, ARAL-G4 (this gap is the shared rule, decided once).
 Decision: fix (owner 2026-10-24, as recommended).
+Status: ✅ fixed (VM completeness Task 4).
 
 **COMMON-G3** (M) — A screen cannot ask whether a record is locked by a pending upload before the user edits it; it only learns from the refusal.
 Fix: deferred (no console capability; the refusal message is enough for now).
 Decision: deferred: no console capability; the refusal message is enough for now (owner 2026-10-24).
+Status: ⏸ deferred (see Decision).

@@ -125,13 +125,4 @@ import '../../core/console/console_session.dart';
 
     expect(scan(), ['core/console/commands/a_commands.dart -> core/services/x_rules.dart']);
   });
-
-  test('compareToBaseline reports added and gone lines, ignoring blanks and comments', () {
-    final found = [BoundaryViolation('a.dart', 'x.dart'), BoundaryViolation('b.dart', 'y.dart')];
-
-    final r = compareToBaseline(found, ['b.dart -> y.dart', 'c.dart -> z.dart', '# note', '']);
-
-    expect(r.added, ['a.dart -> x.dart']);
-    expect(r.gone, ['c.dart -> z.dart']);
-  });
 }

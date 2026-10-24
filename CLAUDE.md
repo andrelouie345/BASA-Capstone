@@ -27,7 +27,7 @@ core/                              pure Dart — NEVER imports Flutter
 viewmodels/                        ViewModels (also never import Flutter)
 ui/                                debug overlay, mobile/, windows/  (not the owner's area)
 ```
-`tool/` (repo root): `check_tutor_imports.dart` (+ `import_walk.dart`), `check_vm_boundary.dart` (+ `vm_boundary.dart`, `vm_boundary_baseline.txt`), `scan_markers.dart` + `admin_markers.txt`, `build_release.ps1`, `command_pass/` (runner + `scenarios/*.pass` that run every console command of both builds against the dev cloud).
+`tool/` (repo root): `check_tutor_imports.dart` (+ `import_walk.dart`), `check_vm_boundary.dart` (+ `vm_boundary.dart`), `scan_markers.dart` + `admin_markers.txt`, `build_release.ps1`, `command_pass/` (runner + `scenarios/*.pass` that run every console command of both builds against the dev cloud).
 
 ## Module workflow (follow this order)
 pure-Dart model → abstract repository interface → SQLite implementation (+ Supabase implementation) → ViewModel with a per-module `ScopedLogger` → console commands (one action per command, files in `core/console/commands/`) → build the ViewModel in `core/wiring/wire_tutor.dart` (both builds) or `wire_admin.dart` (admin build only) and register its commands in the matching `register*Commands` (a command a tutor can't use goes in a `*_admin_commands.dart` file, see `lib/core/CLAUDE.md`) → test through the console → only then does UI call the **ViewModel directly** (never the console command strings).
@@ -87,7 +87,7 @@ Module checklist: Login/user management (done), Learner Management (covered by s
 - Console: `dart run lib/console/main.dart` (admin) or `dart run lib/console/main_tutor.dart` (tutor); both must work without Flutter.
 - `flutter test` — pure-Dart tests in `test/`.
 - `dart run tool/check_tutor_imports.dart` — after every piece; fails with the import chain if the tutor build reaches an admin file.
-- `dart run tool/check_vm_boundary.dart` — after every piece; fails when a command file or `lib/ui/` imports anything but ViewModels, models and their framework (services, data, wiring, release, data packages). `tool/vm_boundary_baseline.txt` = violations left from before the rule, shrink-only (spec `docs/superpowers/specs/2026-10-24-vm-completeness-design.md`).
+- `dart run tool/check_vm_boundary.dart` — after every piece; fails when a command file or `lib/ui/` imports anything but ViewModels, models and their framework (services, data, wiring, release, data packages). No exceptions besides the three dev-only command files (spec `docs/superpowers/specs/2026-10-24-vm-completeness-design.md`).
 - `dart run tool/command_pass/run.dart [--run r<N>] [batch...]` — command pass (spec `docs/superpowers/specs/2026-10-23-command-pass-design.md`): dev cloud only; needs `D:\0_CAPSTONE\verify\pass\accounts.json` (test superadmin) and `D:\0_CAPSTONE\verify\data\supabase_config.json`. No arguments = a new run `r<N>` with every batch + coverage of both command lists (last clean run r12: 359/359, 3036 steps). `--run r<N> <batch>` reruns batches on an existing run (never `b0`: it is one-off setup; `z` deactivates the run's accounts). Report in `verify\pass\r<N>\report.md`.
 - Run the apps: `flutter run --flavor admin -t lib/main.dart` / `--flavor tutor -t lib/main_tutor.dart` (Android needs `--flavor`; Windows ignores it).
 - Release: `powershell -ExecutionPolicy Bypass -File tool\build_release.ps1 -CloudUrl <url> -CloudKey <anon key>` (or `-LanUrl/-LanKey`) → `build\dist`.

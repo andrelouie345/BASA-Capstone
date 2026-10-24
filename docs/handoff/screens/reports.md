@@ -30,7 +30,7 @@ Calls:
 - ✅ `SrpViewModel.candidates(...)` → `SrpList` (`SrpRankKey`: class T, REPORTS-G1); `srpListCsv(list, recommendedOnly:)`
 - ✅ `classes(schoolId:, schoolYear:)` → `List<SrpClassView>`; `srpClassesCsv(classes)`
 - ✅ admin: `buildClasses(...)`, `updateClass(...)`, `addLearner`, `moveLearner`, `removeLearner`, `deleteClass`, `clearClasses`, `classIdFor(ref)`; `lastMirrorWarning` (class E: REPORTS-G3)
-- 🆕 the default per-section count and class size for the form — REPORTS-G2
+- ✅ `SrpViewModel.defaultPerSection`, `.defaultClassSize` → `int` — REPORTS-G2
 Console: `srp-list`, `srp-list-csv`, `srp-classes`, `srp-classes-csv`, `srp-build`, `srp-class-set`, `srp-add`, `srp-move`, `srp-remove`, `srp-class-delete`, `srp-classes-clear`
 
 ### Report settings (done threshold, auto-approve, offline days)
@@ -46,12 +46,15 @@ Console: `report-settings-show`, `report-settings-set`, `report-settings-reset`,
 Fix: `core/models/report_types.dart` exports `NlaBand, NlaCounts, NlaGstBand` and `SrpRankKey`; `PhilIriLevel` comes from `phil_iri_types.dart` (PHILIRI-G2).
 Removes baseline: `core/console/commands/nla_report_commands.dart -> core/services/nla_form2b.dart`, `core/console/commands/nla_report_commands.dart -> core/services/phil_iri_rules.dart`
 Decision: fix (owner 2026-10-24, as recommended).
+Status: ✅ fixed (VM completeness Task 8).
 
 **REPORTS-G2** (I, N) — `srp-build` / `srp-list` read `srpDefaultPerSection` and `srpDefaultClassSize` from `srp_rules.dart`.
 Fix: `SrpViewModel.defaultPerSection` and `.defaultClassSize` getters (same constants).
 Removes baseline: `core/console/commands/srp_admin_commands.dart -> core/services/srp_rules.dart`
 Decision: fix (owner 2026-10-24, as recommended).
+Status: ✅ fixed (VM completeness Task 8).
 
 **REPORTS-G3** (E) — `srp_viewmodel.dart:538` puts `$e` in `lastMirrorWarning`.
 Fix: spec rule.
 Decision: fix (owner 2026-10-24, as recommended).
+Status: ✅ fixed (VM completeness Task 8).

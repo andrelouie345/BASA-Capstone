@@ -1,6 +1,6 @@
 # ViewModel completeness check — design
 
-Status: approved in brainstorm 2026-10-24, spec awaiting owner review.
+Status: built 2026-10-24 (plan docs/superpowers/plans/2026-10-24-vm-completeness.md, Tasks 1-9). Baseline emptied and removed; the boundary check now fails on any violation. Deferred: COMMON-G3, CRLA-G4, ARAL-G9, ADMIN-G3 bytes API (docs/handoff/screens/).
 
 ## Goal
 

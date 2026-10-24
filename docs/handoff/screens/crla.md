@@ -15,7 +15,7 @@ Build: both    Roles: tutor / coordinator / admin
 Purpose: start an attempt for a learner: variant (mother tongue / Filipino / English), language, round.
 Calls:
 - ✅ `CrlaViewModel.startAssessment(studentId:, sectionId:, schoolYear:, subjectVariant:, language:, round:, administeredBy:)` → `CrlaAssessment`
-- 🆕 variant list + default language per variant — CRLA-G1
+- ✅ `crlaSubjectVariants`, `crlaDefaultLanguage(variant)` (`core/models/crla_variant.dart`); `startAssessment` fills the default language — CRLA-G1
 - ✅ rounds: `CrlaRound.values` (`label`)
 - ✅ stories / languages: `CrlaViewModel.loadStories(regionId, language:, grade:)` → `stories`
 Live previews: none.
@@ -60,20 +60,25 @@ Console: `crla-import-preview`, `crla-import`
 **CRLA-G1** (N) — The variants (`mt`, `fil`, `eng`) and their default language (fil → Tagalog, eng → English, mt must be named) are only in `crla-start`'s argument code. A screen's form needs both, and the rule would otherwise be rebuilt in a widget.
 Fix: `core/models/crla_variant.dart`: `const crlaSubjectVariants = ['mt', 'fil', 'eng'];` and `String? crlaDefaultLanguage(String variant)` (same mapping); `startAssessment`'s `language` becomes optional and the ViewModel fills the default (ViewModelException "The mt variant needs a language (e.g. Cebuano)." when missing); the command uses both. No console text changes.
 Decision: fix (owner 2026-10-24, as recommended).
+Status: ✅ fixed (VM completeness Task 5).
 
 **CRLA-G2** (I, N) — `crla-thresholds` reads `CrlaThresholds.defaults` from `crla_rules.dart` to show each key's default.
 Fix: `CrlaThresholdLayers.defaults` (`CrlaThresholds`, = `CrlaThresholds.defaults`), per COMMON-G2.
 Removes baseline: `core/console/commands/crla_threshold_commands.dart -> core/services/crla_rules.dart`
 Decision: fix (owner 2026-10-24, as recommended).
+Status: ✅ fixed (VM completeness Task 5).
 
 **CRLA-G3** (T) — `CrlaThresholds` (`crla_rules.dart`), `CrlaScoresheetFile`, `CrlaScoresheetRow` (`crla_scoresheet.dart`) are service types in ViewModel results.
 Fix: `core/models/crla_types.dart` with `export '../services/crla_rules.dart' show CrlaThresholds;` and `export '../services/crla_scoresheet.dart' show CrlaScoresheetFile, CrlaScoresheetRow;`.
 Decision: fix (owner 2026-10-24, as recommended).
+Status: ✅ fixed (VM completeness Task 5).
 
 **CRLA-G4** (M) — No preview of wpm / reading profile while Part 2 is typed (the profile comes from the results view after saving).
 Fix: deferred (no console capability; the screen shows `getResult` after saving).
 Decision: deferred: no console capability; the screen shows getResult after saving (owner 2026-10-24).
+Status: ⏸ deferred (see Decision).
 
 **CRLA-G5** (E) — `crla_threshold_viewmodel.dart:237` puts `$e` in `lastMirrorWarning`.
 Fix: spec rule.
 Decision: fix (owner 2026-10-24, as recommended).
+Status: ✅ fixed (VM completeness Task 5).
