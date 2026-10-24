@@ -12,6 +12,7 @@ import 'package:basa_capstone/core/models/assessment_calendar.dart' show Calenda
 import 'package:basa_capstone/core/models/crla_assessment.dart' show CrlaRound;
 import 'package:basa_capstone/core/models/sync_upload.dart' show SyncChoice;
 import 'package:basa_capstone/core/models/phil_iri_assessment.dart' show PhilIriRound;
+import 'package:basa_capstone/core/models/phil_iri_gst_result.dart';
 import 'package:basa_capstone/core/models/phil_iri_miscue.dart';
 import 'package:basa_capstone/core/models/phil_iri_reading.dart';
 import 'package:basa_capstone/core/services/auth_messages.dart';
@@ -220,6 +221,8 @@ void main() {
       'effectiveThresholds': () => vm.effectiveThresholds(1),
       'recordGst': () => vm.recordGst(studentId: 1, sectionId: 1, schoolYear: '2026-2027', totalScore: 20),
       'gstForSection': () => vm.gstForSection(1),
+      'gstPassed': () => vm.gstPassed(PhilIriGstResult(
+          studentId: 1, schoolId: 1, sectionId: 1, schoolYear: '2026-2027', maxScore: 20, totalScore: 14, takenAt: '2026-06-20')),
       'startSession': () => vm.startSession(studentId: 1, sectionId: 1, schoolYear: '2026-2027', round: PhilIriRound.bosy),
       'getSession': () => vm.getSession(1),
       'availablePassages': () => vm.availablePassages(1),

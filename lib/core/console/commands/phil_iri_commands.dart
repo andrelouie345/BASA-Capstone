@@ -13,8 +13,7 @@ import '../../models/phil_iri_assessment.dart';
 import '../../models/phil_iri_miscue.dart';
 import '../../models/phil_iri_passage.dart';
 import '../../models/phil_iri_reading.dart';
-import '../../services/phil_iri_results.dart';
-import '../../services/phil_iri_rules.dart';
+import '../../models/phil_iri_types.dart';
 import 'phil_iri_command_helpers.dart';
 
 void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
@@ -52,10 +51,9 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
       inferentialCorrect: args.length == 7 ? philIriInt(args[5], 'inferential') : null,
       criticalCorrect: args.length == 7 ? philIriInt(args[6], 'critical') : null,
     );
-    // The max score tells the grade group (40 = Grades 7-10), which is all the pass mark needs.
-    final passed = philIriGstPassed(g.maxScore == 40 ? 7 : 4, g.totalScore, await vm.effectiveThresholds(g.schoolId));
+    final passed = await vm.gstPassed(g);
     return 'Recorded GST ${g.id} (attempt ${g.attemptNo}): ${g.totalScore}/${g.maxScore} '
-        '(${philIriWholePercent(g.percent)}%, ${passed ? 'passed' : 'below the cut-off'}).';
+        '(${g.wholePercent}%, ${passed ? 'passed' : 'below the cut-off'}).';
   });
 
   add('phil-iri-gst-list', 'phil-iri-gst-list <sectionId> [schoolYear] — GST results of a section', (args) async {
@@ -153,7 +151,7 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
         }
       }
 
-      if (_timed(r)) {
+      if (r.isTimed) {
         out.write('\n  ${s.isFinalized ? 'Frozen result' : 'Score now'}: ${_resultText(await vm.scoreReading(r.id!))}');
       }
     }
@@ -374,7 +372,7 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
     final out = StringBuffer('Student ${r.studentId} · Grade ${r.learnerGrade} · ${r.schoolYear}'
         '${r.regenerated ? ' · regenerated with today\'s thresholds' : ''}');
     final g = r.gst;
-    out.write('\nGST: ${g == null ? 'none' : '${g.totalScore}/${g.maxScore} (${philIriWholePercent(g.percent)}%, attempt ${g.attemptNo})'}');
+    out.write('\nGST: ${g == null ? 'none' : '${g.totalScore}/${g.maxScore} (${g.wholePercent}%, attempt ${g.attemptNo})'}');
     for (final round in r.rounds) {
       final s = r.sessions[round.round];
       final status = s == null ? 'not given' : 'session ${s.id} ${s.status.value}';
@@ -385,8 +383,7 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
         // The true current score, for the tutor (the line above is what reports use).
         final level = round.actualAdjustedLevel == null
             ? ''
-            : ' · adjusted ${philIriAdjustedLevelLabel(round.actualAdjustedLevel!)} · '
-                '${philIriLevelsDownLabel(round.actualLevelsDown)}';
+            : ' · adjusted ${round.actualAdjustedLevelLabel} · ${round.actualLevelsDownLabel}';
         out.write('\n${''.padRight(9)}true score: ${_resultText(a)}$level');
       }
     }
@@ -413,18 +410,7 @@ PhilIriMiscueType _miscueType(String raw) {
 
 const _observationFlags = ['wordbyword', 'noexpression', 'inaudible', 'punctuation', 'pointing', 'noanalysis'];
 
-String _observationText(PhilIriObservation o) => [
-      if (o.wordByWord) 'word-by-word reading',
-      if (o.lacksExpression) 'lacks expression',
-      if (o.voiceInaudible) 'voice hardly audible',
-      if (o.disregardsPunctuation) 'disregards punctuation',
-      if (o.pointsToWords) 'points to each word',
-      if (o.littleAnalysis) 'little or no word analysis',
-      if (o.other != null) 'other: ${o.other}',
-    ].join(', ');
-
-bool _timed(PhilIriReading r) =>
-    r.method == PhilIriReadingMethod.oneMinute ? r.wordsRead != null : r.readingSeconds != null;
+String _observationText(PhilIriObservation o) => o.labels.join(', ');
 
 String _timing(PhilIriReading r) => switch (r.method) {
       PhilIriReadingMethod.wholeText =>
@@ -444,22 +430,20 @@ String _miscueText(PhilIriMiscue m, List<String> words) {
       '${m.spokenText == null ? '' : ' "${m.spokenText}"'}${m.selfCorrected ? ' · self-corrected (not counted)' : ''}';
 }
 
-String _pct(double? fraction) => fraction == null ? 'blank' : '${philIriWholePercent(fraction)}%';
+String _pct(int? percent) => percent == null ? 'blank' : '$percent%';
 
 String _resultText(PhilIriPassageResult r) =>
-    '${r.silent ? 'silent · ' : ''}word reading ${_pct(r.wordReadingScore)} (${r.accuracyLevel.label}), '
+    '${r.silent ? 'silent · ' : ''}word reading ${_pct(r.wordReadingPercent)} (${r.accuracyLevel.label}), '
     '${r.wordsPerMinute.round()} wpm '
-    '(${r.speed.label}) -> ${r.wordReadingLevel.label}; comprehension ${_pct(r.comprehensionScore)} '
+    '(${r.speed.label}) -> ${r.wordReadingLevel.label}; comprehension ${_pct(r.comprehensionPercent)} '
     '(${r.comprehensionLevel.label}); profile ${r.profile.label}${r.isStrugglingReader ? ' · Struggling Reader' : ''}';
 
 String _roundText(PhilIriRoundResult r) {
   if (r.profile == null) return 'no result yet';
-  final level = r.adjustedLevel == null
-      ? ''
-      : ' · adjusted ${philIriAdjustedLevelLabel(r.adjustedLevel!)} · ${philIriLevelsDownLabel(r.levelsDown)}';
-  return 'WR ${_pct(r.wordReadingScore)} ${r.wordReadingLevel?.label ?? '-'}, '
+  final level = r.adjustedLevel == null ? '' : ' · adjusted ${r.adjustedLevelLabel} · ${r.levelsDownLabel}';
+  return 'WR ${_pct(r.wordReadingPercent)} ${r.wordReadingLevel?.label ?? '-'}, '
       '${r.wordsPerMinute?.round() ?? '-'} wpm ${r.speed?.label ?? '-'}, '
-      'comp ${_pct(r.comprehensionScore)} ${r.comprehensionLevel?.label ?? '-'} -> ${r.profile!.label}'
+      'comp ${_pct(r.comprehensionPercent)} ${r.comprehensionLevel?.label ?? '-'} -> ${r.profile!.label}'
       '${r.isStrugglingReader ? ' · Struggling Reader' : ''}$level';
 }
 

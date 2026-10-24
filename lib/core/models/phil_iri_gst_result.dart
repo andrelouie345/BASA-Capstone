@@ -6,6 +6,8 @@
 // Grades 7–10 a 40-item test. Snapshots school and section like
 // crla_assessments, so a transfer never rewrites it.
 
+import '../services/phil_iri_rules.dart' show philIriWholePercent;
+
 class PhilIriGstResult {
   final int? id;
   final int studentId;
@@ -38,6 +40,9 @@ class PhilIriGstResult {
   });
 
   double get percent => totalScore / maxScore;
+
+  /// The percent as the reports round it.
+  int get wholePercent => philIriWholePercent(percent);
 
   Map<String, Object?> toMap() => {
         if (id != null) 'id': id,

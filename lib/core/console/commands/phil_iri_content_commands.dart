@@ -9,7 +9,6 @@ import '../console_command.dart';
 import '../console_registry.dart';
 import '../../../viewmodels/phil_iri_content_viewmodel.dart';
 import '../../models/phil_iri_question.dart';
-import '../../services/phil_iri_rules.dart';
 import 'phil_iri_content_command_helpers.dart';
 
 void registerPhilIriContentCommands(ConsoleRegistry registry, PhilIriContentViewModel vm) {
@@ -92,7 +91,7 @@ void registerPhilIriContentCommands(ConsoleRegistry registry, PhilIriContentView
     if (schoolId != null) {
       out.write('; school $schoolId override: ${layers.school == null ? 'none' : '${school.length} key(s)'}');
     }
-    final defaults = PhilIriThresholds.defaults.toMap();
+    final defaults = layers.defaults.toMap();
     layers.effective.toMap().forEach((key, value) {
       final from = school.containsKey(key) ? 'school' : (region.containsKey(key) ? 'region' : 'default');
       final note = from == 'default' ? '' : '   ($from; default ${defaults[key]})';

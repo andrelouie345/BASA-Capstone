@@ -202,6 +202,14 @@ class PhilIriViewModel {
     return PhilIriThresholds.fromMap({...?region?.settings, ...?school?.settings});
   }
 
+  /// Whether [g] reaches the GST pass mark of its school. The test's size
+  /// tells the grade group (40 items = Grades 7-10), which is all the pass
+  /// mark needs.
+  Future<bool> gstPassed(PhilIriGstResult g) async {
+    _requireSignIn();
+    return philIriGstPassed(g.maxScore == 40 ? 7 : 4, g.totalScore, await effectiveThresholds(g.schoolId));
+  }
+
   // ---- GST ----
 
   /// Records a GST (Form 1B). The test is out of 20 for Grades 4-6 and 40 for

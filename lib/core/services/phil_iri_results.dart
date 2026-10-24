@@ -57,6 +57,10 @@ class PhilIriPassageResult {
 
   bool get comprehensionBlank => comprehensionScore == null;
 
+  /// Whole percents, rounded as the reports round them.
+  int get wordReadingPercent => philIriWholePercent(wordReadingScore);
+  int? get comprehensionPercent => comprehensionScore == null ? null : philIriWholePercent(comprehensionScore!);
+
   const PhilIriPassageResult({
     this.silent = false,
     required this.wordReadingScore,
@@ -178,6 +182,21 @@ class PhilIriRoundResult {
   final bool notAssessed;
 
   bool get comprehensionBlank => comprehensionScore == null;
+
+  /// Whole percents, rounded as the reports round them (null when unknown).
+  int? get wordReadingPercent => wordReadingScore == null ? null : philIriWholePercent(wordReadingScore!);
+  int? get comprehensionPercent => comprehensionScore == null ? null : philIriWholePercent(comprehensionScore!);
+
+  /// "Grade 5 (KS2)" / "Non-Reader"; null before an adjusted level is known.
+  String? get adjustedLevelLabel => adjustedLevel == null ? null : philIriAdjustedLevelLabel(adjustedLevel!);
+
+  /// "GLR" / "2-LD" / "Non-Reader"; null before an adjusted level is known.
+  String? get levelsDownLabel => adjustedLevel == null ? null : philIriLevelsDownLabel(levelsDown);
+
+  /// The same two labels for [actual] alone (the round's own reading).
+  String? get actualAdjustedLevelLabel =>
+      actualAdjustedLevel == null ? null : philIriAdjustedLevelLabel(actualAdjustedLevel!);
+  String? get actualLevelsDownLabel => actualAdjustedLevel == null ? null : philIriLevelsDownLabel(actualLevelsDown);
 
   const PhilIriRoundResult({
     required this.round,

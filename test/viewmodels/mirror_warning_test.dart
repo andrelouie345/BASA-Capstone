@@ -2,6 +2,7 @@
 // screen shows as is, so it must not carry the exception's text (spec
 // docs/superpowers/specs/2026-10-24-vm-completeness-design.md, class E).
 import 'package:basa_capstone/core/models/crla_threshold_setting.dart';
+import 'package:basa_capstone/core/models/phil_iri_threshold_setting.dart';
 import 'package:basa_capstone/core/models/tutor_section_assignment.dart';
 import 'package:basa_capstone/core/models/user.dart';
 import 'package:basa_capstone/core/models/user_role.dart';
@@ -9,9 +10,13 @@ import 'package:basa_capstone/core/repositories/crla_assessment_repository.dart'
 import 'package:basa_capstone/core/repositories/crla_part1_english_repository.dart';
 import 'package:basa_capstone/core/repositories/crla_part1_standard_repository.dart';
 import 'package:basa_capstone/core/repositories/crla_threshold_repository.dart';
+import 'package:basa_capstone/core/repositories/phil_iri_collection_repository.dart';
+import 'package:basa_capstone/core/repositories/phil_iri_passage_repository.dart';
+import 'package:basa_capstone/core/repositories/phil_iri_threshold_repository.dart';
 import 'package:basa_capstone/core/repositories/tutor_section_assignment_repository.dart';
 import 'package:basa_capstone/core/repositories/user_repository.dart';
 import 'package:basa_capstone/viewmodels/crla_threshold_viewmodel.dart';
+import 'package:basa_capstone/viewmodels/phil_iri_content_viewmodel.dart';
 import 'package:basa_capstone/viewmodels/tutor_section_assignment_viewmodel.dart';
 import 'package:basa_capstone/viewmodels/user_viewmodel.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -81,6 +86,33 @@ class _NoPart1English implements CrlaPart1EnglishRepository {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _PhilIriThresholds implements PhilIriThresholdRepository {
+  final bool failing;
+  _PhilIriThresholds({this.failing = false});
+  @override
+  Future<PhilIriThresholdSetting?> getForSchool(int schoolId) async =>
+      PhilIriThresholdSetting(schoolId: schoolId, settings: {});
+  @override
+  Future<void> deleteForSchool(int schoolId) async {}
+  @override
+  Future<void> removeMirroredForSchool(int schoolId) async {
+    if (failing) throw Exception('locked db');
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _NoCollections implements PhilIriCollectionRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _NoPassages implements PhilIriPassageRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 void main() {
   test('UserViewModel mirror warning has no exception text', () async {
     final vm = UserViewModel(
@@ -119,5 +151,20 @@ void main() {
     await vm.resetSchoolThresholds(1);
 
     expect(vm.lastMirrorWarning, 'CRLA thresholds saved online, but the local copy was not updated. Run pull-cloud.');
+  });
+
+  test('PhilIriContentViewModel mirror warning has no exception text', () async {
+    final vm = PhilIriContentViewModel(
+      auth: FakeOnlineAuth(UserRole.admin, schoolId: null),
+      cloudFactory: (_) =>
+          PhilIriContentCloudRepos(collections: _NoCollections(), passages: _NoPassages(), thresholds: _PhilIriThresholds()),
+      localCollections: _NoCollections(),
+      localPassages: _NoPassages(),
+      localThresholds: _PhilIriThresholds(failing: true),
+    );
+
+    await vm.resetSchoolThresholds(1);
+
+    expect(vm.lastMirrorWarning, 'Thresholds saved online, but the local copy was not updated. Run pull-cloud.');
   });
 }

@@ -48,6 +48,9 @@ class PhilIriThresholdLayers {
   final PhilIriThresholdSetting? school;
   final PhilIriThresholds effective;
   const PhilIriThresholdLayers(this.region, this.school, this.effective);
+
+  /// The built-in values that apply when neither row sets a key.
+  PhilIriThresholds get defaults => PhilIriThresholds.defaults;
 }
 
 class PhilIriContentViewModel {
@@ -679,8 +682,8 @@ class PhilIriContentViewModel {
     try {
       await write();
     } catch (e) {
-      lastMirrorWarning = '$what saved online, but the local copy was not updated ($e). Run pull-cloud.';
-      _log('WARNING: $lastMirrorWarning');
+      lastMirrorWarning = '$what saved online, but the local copy was not updated. Run pull-cloud.';
+      _log('WARNING: $what mirror failed: $e');
     }
   }
 

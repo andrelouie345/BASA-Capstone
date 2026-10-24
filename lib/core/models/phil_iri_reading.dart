@@ -49,6 +49,17 @@ class PhilIriObservation {
     this.littleAnalysis = false,
     this.other,
   });
+
+  /// The ticked observations as the record sheet words them, in its order.
+  List<String> get labels => [
+        if (wordByWord) 'word-by-word reading',
+        if (lacksExpression) 'lacks expression',
+        if (voiceInaudible) 'voice hardly audible',
+        if (disregardsPunctuation) 'disregards punctuation',
+        if (pointsToWords) 'points to each word',
+        if (littleAnalysis) 'little or no word analysis',
+        if (other != null) 'other: $other',
+      ];
 }
 
 class PhilIriReading {
@@ -60,6 +71,9 @@ class PhilIriReading {
   final int? readingSeconds;      // whole-text / silent: time taken; null until timed
   final int? wordsRead;           // one-minute: words read in the minute
   final PhilIriObservation observation;
+
+  /// Timed yet: a one-minute reading needs its words read, the others their seconds.
+  bool get isTimed => method == PhilIriReadingMethod.oneMinute ? wordsRead != null : readingSeconds != null;
 
   /// The result columns: written only by the repository's finalize().
   static const resultColumns = [
