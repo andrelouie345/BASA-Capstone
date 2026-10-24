@@ -66,7 +66,11 @@ s. 2025: the new exit reason "classroom support" and the school switch
 (ARAL classes: 15 active learners per class, one program and grade band,
 sessions per class, teacher referrals; removes `aral_enrollments.tutor_id`,
 the 15-per-section cap and `aral_tutor_settings`; existing ARAL learners wait
-for a class; app update required: **yes**, same rule). Each is idempotent.
+for a class; app update required: **yes**, same rule) and `20261024010000`
+(ARAL class home grade: every class has a grade 1-10 and one program or mixed
+programs; the grade band is removed and grades are no longer checked by the
+database (the app asks the coordinator to confirm a learner of another grade);
+app update required: **yes**, same rule). Each is idempotent.
 Do **not** run
 `supabase/migrations_archive/`.
 

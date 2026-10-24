@@ -1,6 +1,6 @@
 # ARAL classes — design
 
-Date: 2026-10-23. Status: approved 2026-10-23; built 2026-10-24 (plan `docs/superpowers/plans/2026-10-23-aral-classes.md`, Tasks 1-5; migration `20261023040000` applied on the dev cloud, SQLite v36/v37). See *Changes during implementation* at the end.
+Date: 2026-10-23. Status: approved 2026-10-23; built 2026-10-24 (plan `docs/superpowers/plans/2026-10-23-aral-classes.md`, Tasks 1-5; migration `20261023040000` applied on the dev cloud, SQLite v36/v37). Class grouping changed 2026-10-24 (plan `docs/superpowers/plans/2026-10-24-aral-class-grade.md`, migration `20261024010000`, SQLite v38): see *Class home grade* at the end, which replaces decision 2 and the grade band everywhere below. See also *Changes during implementation*.
 
 ## Goal
 
@@ -8,7 +8,7 @@ Give ARAL-Reading the groups tutors actually teach. DepEd Memorandum 064 s. 2025
 
 Success:
 - Every active ARAL learner sits in at most one class; no class ever holds more than 15 active learners.
-- A class keeps one program and one grade band; learners come from any section of the school.
+- A class has a home grade and one program or mixed programs (originally: one program and one grade band, see *Class home grade*); learners come from any section of the school.
 - A tutor teaches any number of classes; the coordinator places and moves learners freely and their records stay with them.
 - A class tutor reads and assesses the learners of their classes, whatever the learner's section.
 - The 15-per-section rule is gone; teacher referrals are a way into ARAL.
@@ -18,12 +18,12 @@ Out of scope: UI (groupmates); any change to how Phil-IRI/CRLA are scored; ALS a
 ## Decisions (owner, 2026-10-23)
 
 1. **15 active learners per class, hard stop** (cloud and device). Exited learners stay linked to the class but don't count.
-2. **One program per class** (`foundational`, `ks1`, `ks2_basic`, `ks2_plus`, `ks3_basic`, `ks3_plus`) **and one grade band** (`1-3`, `4-6`, `7-10`, by the learner's grade). A Grade 6 may sit with Grade 4s; a Grade 7 is not put with Grade 2s.
+2. **One program per class** (`foundational`, `ks1`, `ks2_basic`, `ks2_plus`, `ks3_basic`, `ks3_plus`) **and one grade band** (`1-3`, `4-6`, `7-10`, by the learner's grade). A Grade 6 may sit with Grade 4s; a Grade 7 is not put with Grade 2s. **Replaced 2026-10-24 by G1-G5 (*Class home grade*).**
 3. A class belongs to a school and a school year, **not to a section**; a learner keeps their SF1 section and has **at most one class**.
 4. A class has **one tutor, possibly blank** for a while; a tutor may teach several classes. A learner's tutor **is** their class's tutor (`aral_enrollments.tutor_id` is removed).
 5. **Enrolling and placing are two steps.** A learner may be on the roster "waiting for a class"; such learners are listed and are in no session. A full class never blocks an enrolment.
 6. **A session is one class's meeting**: attendance list = that class; one session per class per date; session numbers and check-ins (after sessions 16 and 32) count per class. The per-tutor "several sessions a day" setting is removed.
-7. When `aral-update` changes a learner's program, **the learner stays in the class** and is flagged ("now KS2 Plus: move to a KS2 Plus class"). New placements and moves must match the class's program and band.
+7. When `aral-update` changes a learner's program, **the learner stays in the class** and is flagged ("now KS2 Plus: move to a KS2 Plus class"). New placements and moves must match the class's program and band (since 2026-10-24: program in a one-program class; another grade only with the coordinator's confirmation, G3; a grade change also stays flagged, G4).
 8. After a move, the **new tutor reads** (not edits) the learner's attendance in the old class's sessions (and those sessions' date/lesson/number); the old class's other learners stay hidden. IRIP, check-ins and readability follow the roster entry.
 9. **Referrals:** a new basis `referral`, with `referred_by` and `referral_reason` required and the program picked by hand; the learner need not qualify by results. A referred learner is never exited with classroom support (only grade-level ready).
 10. **Class tutors assess their class learners** (CRLA, Phil-IRI, GST) regardless of section, in addition to section tutors.
@@ -39,21 +39,21 @@ Out of scope: UI (groupmates); any change to how Phil-IRI/CRLA are scored; ALS a
 | `id` | identity; negative device id when made offline |
 | `school_id`, `school_year` | school-year format check as elsewhere |
 | `class_name` | not blank; unique per school and year, ignoring case |
-| `program` | one of the six programs above |
-| `grade_band` | `1-3`, `4-6`, `7-10` |
+| `program` | one of the six programs above, or null = mixed programs (since `20261024010000`) |
+| `grade_level` | home grade 1-10, required (replaced `grade_band` `1-3`/`4-6`/`7-10` in `20261024010000`) |
 | `tutor_id` | nullable; must be an active tutor of the school (checked when set) |
 | `room`, `schedule`, `notes` | optional text |
 | `created_by`, `created_at`, `updated_at` | stamped by trigger |
 | `row_version` | sync |
 
-Program and band may change only while the class has no learners (active or exited). A class is deleted only when no roster entry and no session points at it.
+Program and grade (originally band) may change only while the class has no learners (active or exited). A class is deleted only when no roster entry and no session points at it.
 
 ### `aral_enrollments`
 
 - **Add** `class_id` (nullable, references `aral_classes`; null = waiting for a class).
 - **Add** `referred_by`, `referral_reason` (text). `basis_source` gains `referral`; a check requires both texts exactly when the basis is `referral`.
 - **Drop** `tutor_id` (and its tutor checks in the triggers).
-- **Placement check** (cloud trigger; device trigger for local rows) whenever a row gets a class, changes class, or becomes active in one: same school and year as the class; the learner's program equals the class's program; the learner's grade (their section's `grade_level`) is in the band; fewer than 15 other active learners in that class (transaction advisory lock per class). A program change by `aral-update` that leaves the learner in their class is **not** re-checked (decision 7).
+- **Placement check** (cloud trigger; device trigger for local rows) whenever a row gets a class, changes class, or becomes active in one: same school and year as the class; the learner's program equals the class's program (one-program classes only since `20261024010000`); originally the learner's grade had to be in the band (removed: grade is checked only by the ViewModels, G3); fewer than 15 other active learners in that class (transaction advisory lock per class). A program change by `aral-update` that leaves the learner in their class is **not** re-checked (decision 7).
 - **Remove** the 15-per-section cap (`aral_check_section_cap` and its calls, device and cloud).
 
 ### `aral_sessions`
@@ -99,7 +99,7 @@ Policies:
 ## 4. ViewModels and commands
 
 - **`AralClassViewModel`** (new, `lib/viewmodels/aral_class_viewmodel.dart`): `createClass`, `editClass`, `deleteClass`, `place(enrollmentId, classId)` (also moves), `unplace` — admin build; `classes(schoolId, year)` (tutors: their own), `classRoster(classId)` — both builds. Device checks mirror the triggers so the device refuses first with a readable message.
-- **`AralViewModel`**: `enroll` takes an optional class; `enrollProposed`'s tutor becomes a class (fills it weakest first up to 15, the rest unplaced and named in the warning); `assignTutor` removed; new `refer(…)` (referred by, reason, program); `reactivate` puts the learner back unplaced (with a warning) when their class is full; `applyResults` adds informational lines (program mismatch with the class, waiting for a class, now in another section, left the school) and never moves anyone; `moveToSection` (F9b) follows an SF1 section move inside the school — the class stays unless the new grade leaves its band (then unplaced and flagged); a school move is an `aral-exit … transferred_out`. Roster CSV export and import use the class (import column `Class`; a full or mismatched class leaves the row unplaced, flagged in the preview).
+- **`AralViewModel`**: `enroll` takes an optional class; `enrollProposed`'s tutor becomes a class (fills it weakest first up to 15, the rest unplaced and named in the warning); `assignTutor` removed; new `refer(…)` (referred by, reason, program); `reactivate` puts the learner back unplaced (with a warning) when their class is full; `applyResults` adds informational lines (program mismatch with the class, waiting for a class, now in another section, left the school) and never moves anyone; `moveToSection` (F9b) follows an SF1 section move inside the school — the class stays unless the new grade leaves its band (then unplaced and flagged; since 2026-10-24 the learner always stays, flagged, G4); a school move is an `aral-exit … transferred_out`. Roster CSV export and import use the class (import column `Class`; a full or mismatched class leaves the row unplaced, flagged in the preview).
 - **`AralSessionViewModel`**: `logSession` takes a class (tutors: their own classes; admin/coordinator: any class of the school); default list, one-per-date, numbering and check-in timing per class; the several-sessions-a-day methods are removed; `learnerAttendance` includes marks from earlier classes; tutor summary per class.
 - **Reminders / dashboard**: tutor reminders per class (no session lately, check-ins due, learners not assessed); coordinator reminders add unplaced learners, program mismatches and classes without a tutor.
 - **CRLA / Phil-IRI ViewModels**: no device-side section check exists; class learners become assessable once RLS and pull provide their rows.
@@ -125,7 +125,7 @@ Policies:
 
 ## Changes during implementation (owner decisions 2026-10-24)
 
-- **Placement check scope (D-T1a):** the cloud also re-checks the grade band when a placed, active learner's section changes (the program is not re-checked, decision 7). The check applies to active learners only: an exited learner's class change is not checked, their reactivation is.
+- **Placement check scope (D-T1a):** the cloud also re-checked the grade band when a placed, active learner's section changes (removed with the band in `20261024010000`) (the program is not re-checked, decision 7). The check applies to active learners only: an exited learner's class change is not checked, their reactivation is.
 - **Referral fields (D-T1b):** `referred_by` and `referral_reason` are locked after enrolment, like the basis.
 - **Old sessions (D-T1c):** one session per date is checked per class only; class-less sessions from before have no day check. Every new session needs a class (SQL Editor too).
 - **IRIP writer (D-T1d):** IRIP weeks, check-ins and readability are written by the tutor of the learner's current class (and admin/coordinator, superadmin); section tutors read only.
@@ -136,3 +136,15 @@ Policies:
 - **Sync:** with `aral_tutor_settings` gone, the "clash" problem kind (a new tutor setting the server already had) was removed with it.
 - **Smaller additions:** `AralClassViewModel.activeCount`, `AralViewModel.classNames`, `StudentRepository.activeSectionId`, `AralEnrollmentRepository.classTutorId`; `aral-class-show` lists the class's learners; the tutor summary names the class closest to a check-in; coordinator reminders carry `SchoolReminders.aral` notices.
 - **Release:** the migration reached the dev cloud before the app (owner, 2026-10-24); sign-in was refused there until `release.dart` listed it (Task 5).
+
+## Class home grade (owner decisions 2026-10-24, from the reading coordinator)
+
+Plan `docs/superpowers/plans/2026-10-24-aral-class-grade.md`; cloud migration `20261024010000_aral_class_grade.sql` (app update required: yes; applied on the dev cloud 2026-10-24); SQLite v38. Replaces decision 2 and every grade-band rule above.
+
+- **G1.** A class has a **home grade** (1-10, always) and **one program or mixed programs** (the coordinator's choice per class; `program` null = mixed). Classes are normally formed by grade, then by program. The grade band is removed.
+- **G2.** A one-program class takes only that program; a mixed class takes any program.
+- **G3.** A learner of **another grade** joins only when the coordinator confirms it (`aral-class-place <enrollmentId> <classId> other-grade`). BASA never does it on its own: enrol with a class, enrol-proposed, referral and roster import leave such a learner waiting for a class, with a warning. The cloud and the device triggers do not check grades.
+- **G4.** A placed learner whose grade changes (SF1 section move) **stays** in the class; `aral-update` and the coordinator reminders show every placed learner whose grade differs from the class's grade.
+- **G5.** Unchanged: 15 active learners per class, same school and year, one tutor (possibly blank), sessions per class; a one-program class's learner whose program changes stays and is flagged (decision 7).
+
+Built beyond the plan: `aralPlacementRefusal` returns the problem kind with the message (callers test the kind, not the text); `AralClass.isMixed`; `aral-class-edit … grade|program` (refused while the class has learners); the coordinator's `otherGrade` notice reads each learner's current section grade. Existing classes were given the lowest grade of their band (1-3 → 1, 4-6 → 4, 7-10 → 7).
