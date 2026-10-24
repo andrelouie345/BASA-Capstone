@@ -1,6 +1,6 @@
 # Command pass (run every command) — design
 
-Date: 2026-10-23. Status: design approved in conversation 2026-10-23; spec awaiting owner review.
+Date: 2026-10-23. Status: **built** (2026-10-24). Last full run r8: `359/359 covered` (tutor 120/120, admin 239/239), 3036 steps, 0 failed. Where this text and *Changes during implementation* (end of file) disagree, the latter wins.
 
 ## Goal
 
@@ -121,3 +121,49 @@ Pure-Dart tests in `test/tool/command_pass/` (run by `flutter test`, no cloud): 
 - Several devices in one process: `AppContext.open` per data folder must not share state (e.g. a database instance cache). The plan checks this first; fallback is one process per device switch.
 - Rows of every run accumulate on the dev project (accepted while it is recycled).
 - The pass depends on the dev cloud being reachable and on the deployed `create-user` Edge Function.
+
+## Changes during implementation
+
+Plan decisions (owner, 2026-10-23, plan `docs/superpowers/plans/2026-10-23-command-pass.md`):
+- **D1. Handlers are called directly**, not through `ConsoleSession.run`: the runner looks the command up in `ctx.registry.all`, tokenizes with `ConsoleRegistry.tokenize` and awaits the handler. A `ViewModelException` is the step's output (a refusal); any other exception fails the step as a crash, with its type. A raw database error reaching the user is therefore a finding.
+- **D2. One open device at a time** (`LocalDatabase` holds one static database). `device <name>` closes the current device and opens the other from its folder; switching back signs in again as that device's last account (a setup line, not a checked step). A successful `sign-out` step clears the last account, so a device signed out by the scenario stays signed out (R2, 2026-10-24); a failed automatic re-sign-in counts as a failed step (R1).
+- **D3. Run accounts' passwords** are generated at first sign-in and kept in `r<N>\accounts.json`; masked in the report.
+- **D4. Coverage is checked only on a full run** (no batch arguments). The command lists grew with later work: 343 at design time, 359 at r8 (120 tutor, 239 admin).
+- **D5. Literal numbers in privileged steps are written `{=n}`**; a bare integer in a step run as `zztest.super` or the coordinator is refused by the id guard.
+
+Runner additions found necessary while writing the batches:
+- Steps: `device <name> tutor|admin fresh` (empty folder each time: makes a batch rerunnable), `make-sf1 <capture> a|b <grade> <section> <count> [from=<n>]` (generated SF1 workbook for school A or B), `write-file <capture> <text...>` (a file in the run folder, `{..}` filled in, path stored in the capture).
+- Built-in values (win over captures): `{run}`, `{year}`, `{code_a}`/`{code_b}`, `{name_a}`/`{name_b}`, `{today}`, `{yesterday}`, `{ago2}`, `{ago3}`, `{past}` (-30 days), `{future}` (+30 days), `{rundir}`, `{stamp}` (unique per execution, for rerunnable names), `{email_<account>}`, `{pw_<account>}`.
+- `other-school` is allowed only on commands in `tool/command_pass/readonly_commands.txt`.
+- The test superadmin's password is written back to `accounts.json` when a scenario changes it.
+- A printed catch-all (`... failed: <SomeException|Error>` on a non-log line) fails the step unless the step names that type (F21): console catch-alls would otherwise hide crashes from D1.
+- Values are substituted in `expect`, `expect~`, `refuse` and `capture`, not in an `sql` step's expected value (fold captures into the query instead). Regex `^`/`$` anchor the whole output; use `(\n|$)` for a line end.
+- Batch A4 grew a second file, `34b_a4b.pass` (the 17 ARAL admin commands no batch had reached).
+
+Rules this pass established (also in `lib/core/CLAUDE.md`): every public ViewModel method checks sign-in and says `notSignedInMessage` (F5, F6, F7, F18, F19; `test/viewmodels/session_guard_test.dart`); console date arguments are strict (F17, F22); screens never get raw Supabase, RLS, SQL or file-system text (F2, F4, F8, F15, F20, F24).
+
+Findings (all decided by the owner; fixes are in the commits of each batch):
+
+| # | Batch | Finding | Outcome |
+|---|---|---|---|
+| F1 | B0 | `user-create` did not mirror the new user locally | fixed (local mirror) |
+| F2 | T1 | raw Supabase auth exception text | fixed (`auth_messages.dart`) |
+| F3 | T1 | ViewModel messages name console commands ("run pull-cloud") | session messages fixed; the rest left to the frontend handoff |
+| F4 | T3 | list/export commands bypassed ViewModels; raw file errors | fixed (ViewModel methods, `file_output.dart`) |
+| F5, F6, F7 | T4-T6 | Phil-IRI, CRLA, ARAL and sync ViewModels worked signed out | fixed (`_requireSignIn`) |
+| F8 | A1 | admin bootstrap showed raw Edge Function text | fixed |
+| F9 | A1 | ARAL roster did not follow a section move | became the KS1 memo piece and ARAL classes (own spec) |
+| F10 | A2 | CRLA words read typed freely vs the DepEd sheet formula | fixed (story words - miscues; migration `20261023020000`) |
+| F11 | A3 | deleting a synced read passage said "sync them" | fixed |
+| F12, F13 | A4 | `aral-propose` % words correct divided by 100; settings refusal said "cut-off" | fixed |
+| F14 | classes T6 | `aral_sessions` SELECT policy broke `sync_apply ... RETURNING` | fixed (migration `20261024020000`; RLS rule in CLAUDE.md) |
+| F15, F16 | A4 | duplicate class name gave a raw constraint error; coordinator notice showed ids only | fixed (migration `20261024030000`; names in notices) |
+| F17 | A5 | lenient `asof=` dates | fixed (`date_args.dart`) |
+| F18, F19 | A5 | settings/calendar reads worked signed out; inconsistent "Not signed in." | fixed |
+| F20 | A6 | settings mirror clashed on a new server id | fixed (delete old key row, then upsert) |
+| F21 | A6 | catch-alls hid crashes from the pass | runner check added; full rerun found nothing hidden |
+| F22 | A4b | ARAL console parsers took impossible dates | fixed |
+| F23 | A4b | recommendations named learners "student N" | fixed there; other id-only console lines kept on purpose (screens get names from ViewModels) |
+| F24 | r7 | coordinator importing another school's SF1 got a raw RLS error | fixed (own-school check before writes) |
+
+Known leftovers: raw exception text in the local-mirror warnings of five ViewModels (materials, CRLA thresholds, Phil-IRI content, calendar, SRP; console only) goes to the ViewModel completeness check before the frontend handoff. Old runs r2-r8 stay on the dev project with inactive accounts (no delete commands exist for users/students).

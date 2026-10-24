@@ -221,8 +221,8 @@ Batch-specific notes:
 
 ### Task 20: Docs
 
-- [ ] **Step 1: Update docs.**
+- [x] **Step 1: Update docs.**
   - `CLAUDE.md` *Commands*: add `dart run tool/command_pass/run.dart [--run r<N>] [batch...]` (needs `D:\…\verify\pass\accounts.json`; the dev cloud only).
   - `CLAUDE.md` layout `tool/` line: add `command_pass/`.
   - Spec status line: built, with a "Changes during implementation" section for D1-D4 and any later deviations.
-- [ ] **Step 2: Hand over a commit message.**
+- [x] **Step 2: Hand over a commit message.**
