@@ -4,11 +4,13 @@
 import '../console_command.dart';
 import '../console_registry.dart';
 import '../../../viewmodels/aral_material_viewmodel.dart';
+import '../../../viewmodels/aral_viewmodel.dart';
 import '../../models/aral_enrollment.dart';
 import '../../models/aral_material.dart';
 import 'aral_material_command_helpers.dart';
 
-void registerAralMaterialAdminCommands(ConsoleRegistry registry, AralMaterialViewModel vm) {
+/// [aral] only gives the learners' names for aral-recommend-section.
+void registerAralMaterialAdminCommands(ConsoleRegistry registry, AralMaterialViewModel vm, AralViewModel aral) {
   void add(String name, String description, Future<String> Function(List<String> args) handler) {
     registry.register(ConsoleCommand(
       name: name,
@@ -142,7 +144,8 @@ void registerAralMaterialAdminCommands(ConsoleRegistry registry, AralMaterialVie
     if (args.length != 2) throw const AralMaterialUsage('Usage: aral-recommend-section <sectionId> <schoolYear>');
     final list = await vm.sectionRecommendations(sectionId: aralMaterialInt(args[0], 'sectionId'), schoolYear: args[1]);
     if (list.isEmpty) return 'No active ARAL learners in section ${args[0]} for ${args[1]}.';
-    return list.map(aralMaterialRecommendation).join('\n');
+    final names = await aral.learnerNames(aralMaterialInt(args[0], 'sectionId'));
+    return list.map((r) => aralMaterialRecommendation(r, names)).join('\n');
   });
 }
 

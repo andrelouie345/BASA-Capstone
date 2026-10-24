@@ -3,6 +3,7 @@
 
 import '../console_command.dart';
 import '../console_registry.dart';
+import '../date_args.dart';
 import '../../../viewmodels/aral_viewmodel.dart';
 import '../../models/aral_enrollment.dart';
 import 'aral_command_helpers.dart';
@@ -69,7 +70,7 @@ void registerAralAdminCommands(ConsoleRegistry registry, AralViewModel vm) {
       } else if (a.startsWith('class=')) {
         classId = aralInt(a.substring(6), 'classId');
       } else if (a.startsWith('entered=')) {
-        entered = DateTime.tryParse(a.substring(8)) ?? (throw AralUsage('Invalid date in "$a".\n$usage'));
+        entered = strictDateArg(a.substring(8)) ?? (throw AralUsage('Invalid date in "$a".\n$usage'));
       } else {
         throw AralUsage('Unknown option "$a".\n$usage');
       }
@@ -108,7 +109,7 @@ void registerAralAdminCommands(ConsoleRegistry registry, AralViewModel vm) {
       } else if (a.startsWith('class=')) {
         classId = aralInt(a.substring(6), 'classId');
       } else if (a.startsWith('entered=')) {
-        entered = DateTime.tryParse(a.substring(8)) ?? (throw AralUsage('Invalid date in "$a".\n$referUsage'));
+        entered = strictDateArg(a.substring(8)) ?? (throw AralUsage('Invalid date in "$a".\n$referUsage'));
       } else {
         throw AralUsage('Unknown option "$a".\n$referUsage');
       }
@@ -201,7 +202,7 @@ void registerAralAdminCommands(ConsoleRegistry registry, AralViewModel vm) {
     const usage = 'Usage: aral-exit <enrollmentId> <transferred_out|dropped_out|other|classroom_support> [YYYY-MM-DD]';
     if (args.length < 2) throw const AralUsage(usage);
     final reason = AralExitReason.values.where((r) => r.value == args[1]).firstOrNull ?? (throw const AralUsage(usage));
-    final date = args.length > 2 ? (DateTime.tryParse(args[2]) ?? (throw const AralUsage(usage))) : null;
+    final date = args.length > 2 ? (strictDateArg(args[2]) ?? (throw const AralUsage(usage))) : null;
     final e = await vm.exit(aralInt(args[0], 'enrollmentId'), reason, on: date);
     return 'Updated: ${aralLine(e, await vm.learnerNames(e.sectionId), await vm.classNames(e.schoolId))}';
   });

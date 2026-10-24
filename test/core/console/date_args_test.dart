@@ -17,4 +17,15 @@ void main() {
   test('the refusal names the value', () {
     expect(asofDateMessage('2026-02-30'), 'asof must be a real YYYY-MM-DD date (got "2026-02-30")');
   });
+
+  // F22: an optional date argument tells a date from the next argument by its
+  // shape, so 2026-02-30 is refused instead of being read as notes.
+  test('a date-shaped token is recognised whether or not it is a real date', () {
+    expect(looksLikeDateArg('2026-02-30'), isTrue);
+    expect(looksLikeDateArg('2026-10-24'), isTrue);
+    for (final raw in ['ZZ', 'notes', '20261024', '2026-1-5', '16']) {
+      expect(looksLikeDateArg(raw), isFalse, reason: raw);
+    }
+    expect(notARealDateMessage('2026-02-30'), '"2026-02-30" is not a real date (YYYY-MM-DD)');
+  });
 }

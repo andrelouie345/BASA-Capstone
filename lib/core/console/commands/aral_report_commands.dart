@@ -5,6 +5,7 @@ library;
 
 import '../console_command.dart';
 import '../console_registry.dart';
+import '../date_args.dart';
 import '../../../viewmodels/aral_report_viewmodel.dart';
 
 class _Usage implements Exception {
@@ -57,7 +58,7 @@ void registerAralReportCommands(ConsoleRegistry registry, AralReportViewModel vm
         DateTime? asOf;
         for (final a in args.skip(2)) {
           if (a.startsWith('asof=')) {
-            asOf = DateTime.tryParse(a.substring(5)) ?? (throw const _Usage(usage));
+            asOf = strictDateArg(a.substring(5)) ?? (throw _Usage(asofDateMessage(a.substring(5))));
           } else {
             section = _int(a, 'sectionId');
           }

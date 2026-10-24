@@ -15,3 +15,11 @@ DateTime? strictDateArg(String raw) {
 
 /// The refusal for a bad asof= value (same wording as the trend commands).
 String asofDateMessage(String raw) => 'asof must be a real YYYY-MM-DD date (got "${raw.trim()}")';
+
+/// True when [raw] is written as YYYY-MM-DD (real date or not). Commands with
+/// an optional date use it to tell a date from the next argument (F22): a
+/// token that looks like a date but isn't one is refused, not read as notes.
+bool looksLikeDateArg(String raw) => RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(raw.trim());
+
+/// The refusal for a YYYY-MM-DD token that is not a real date (F22).
+String notARealDateMessage(String raw) => '"${raw.trim()}" is not a real date (YYYY-MM-DD)';

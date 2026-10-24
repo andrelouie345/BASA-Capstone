@@ -186,7 +186,7 @@ void registerAdminCommands(AppContext ctx, SharedVms s, TutorVms t, AdminVms a) 
   registerAralAdminCommands(r, t.aralVm);
   registerAralClassAdminCommands(r, t.aralClassVm);
   registerAralCheckinAdminCommands(r, t.aralCheckinVm);
-  registerAralMaterialAdminCommands(r, t.aralMaterialVm);
+  registerAralMaterialAdminCommands(r, t.aralMaterialVm, t.aralVm);
   registerCalendarAdminCommands(r, t.calendarVm);
   registerReportSettingsCommands(r, t.reportSettingsVm);
   registerNlaReportCommands(r, t.nlaReportVm);

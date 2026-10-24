@@ -10,6 +10,7 @@ import 'dart:io';
 
 import '../console_command.dart';
 import '../console_registry.dart';
+import '../date_args.dart';
 import '../file_output.dart';
 import '../../../viewmodels/aral_checkin_viewmodel.dart';
 import '../../../viewmodels/aral_report_viewmodel.dart';
@@ -30,7 +31,7 @@ int _int(String raw, String what) =>
   DateTime? asOf;
   for (final a in args) {
     if (a.startsWith('asof=')) {
-      asOf = DateTime.tryParse(a.substring(5)) ?? (throw _Usage('Invalid date in "$a" (YYYY-MM-DD)'));
+      asOf = strictDateArg(a.substring(5)) ?? (throw _Usage(asofDateMessage(a.substring(5))));
     } else if (int.tryParse(a) != null) {
       sectionId = int.parse(a);
     } else {

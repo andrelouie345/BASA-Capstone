@@ -8,6 +8,7 @@ library;
 
 import '../console_command.dart';
 import '../console_registry.dart';
+import '../date_args.dart';
 import '../../../viewmodels/aral_readability_viewmodel.dart';
 
 class _Usage implements Exception {
@@ -19,10 +20,7 @@ int _int(String raw, String what) =>
     int.tryParse(raw) ?? (throw _Usage('Invalid $what: "$raw" (expected a number)'));
 
 DateTime _dateArg(String raw) {
-  if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(raw) || DateTime.tryParse(raw) == null) {
-    throw _Usage('Dates are YYYY-MM-DD (got "$raw")');
-  }
-  return DateTime.parse(raw);
+  return strictDateArg(raw) ?? (throw _Usage('Dates are real YYYY-MM-DD dates (got "$raw")'));
 }
 
 String _line(AralReadabilityEntry x) {

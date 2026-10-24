@@ -1,0 +1,394 @@
+# A4 part 3 (2026-10-24): the ARAL admin commands no other batch runs:
+# check-in cut-off / idle days / settings reset, the check-in report and its
+# CSV, the implementation report (template + CSV), the roster CSV and the
+# roster import, notes, the material catalog (add/set/active/school link/
+# delete) and section recommendations. Region writes are refusals only.
+# Everything made here is removed at the end (synced), so the batch reruns:
+# the school's ARAL settings go back to B0/T5's (SHARP off, extended KS1 off,
+# cut-off and idle days from the region).
+
+device a4b-pc admin fresh
+as coord
+run pull-cloud yes
+expect users:
+
+# --- Check-in cut-off and idle session days ------------------------------------------
+run aral-checkin-cutoff {school}
+expect School {school}: (not set)
+expect Applies: 75%
+run aral-checkin-cutoff-set region {=70}
+refuse Forbidden: only the superadmin sets the region-wide ARAL settings.
+run aral-checkin-cutoff-set {schoolB} {=70}
+refuse Forbidden: you can only change your own school's ARAL settings.
+run aral-checkin-cutoff-set {school} {=0}
+refuse The cut-off is a percentage 1-100, not 0.
+run aral-checkin-cutoff-set {school} {=101}
+refuse The cut-off is a percentage 1-100, not 101.
+run aral-checkin-cutoff-set {school} abc
+refuse Invalid cut-off: "abc" (expected a number)
+run aral-checkin-cutoff-set {school}
+refuse Usage: aral-checkin-cutoff-set <region|schoolId> <1-100>
+run aral-checkin-cutoff-set {school} {=70}
+expect Cut-off for school {school} set to 70%.
+run aral-checkin-cutoff {school}
+expect School {school}: 70%
+expect Applies: 70%
+
+run aral-idle-days-set region {=10}
+refuse Forbidden: only the superadmin sets the region-wide ARAL settings.
+run aral-idle-days-set {schoolB} {=10}
+refuse Forbidden: you can only change your own school's ARAL settings.
+run aral-idle-days-set {school} {=0}
+refuse The idle session days are a whole number 1-60, not 0.
+run aral-idle-days-set {school} {=61}
+refuse The idle session days are a whole number 1-60, not 61.
+run aral-idle-days-set {school}
+refuse Usage: aral-idle-days-set <region|schoolId> <1-60>
+run aral-idle-days-set {school} {=10}
+expect Idle session days for school {school} set to 10.
+run aral-idle-days {school}
+expect School {school}: 10 days
+expect Applies: 10 days
+
+# --- One check-in for enr_1 (KS3 Basic tool #3, 20 items, 16-18 multiple choice
+# keys B B C): answers b b a = 2 right, open items 1-12 right, the other five
+# left unanswered (= wrong): 14/20 = 70%, met at the 70% cut-off exactly.
+run aral-checkin-start {enr_1} {=16} {today} "ZZ A4b"
+expect recorded (attempt 1, {today}).
+capture ck_a4b = Check-in #(-?\d+)
+run aral-checkin-answers {ck_a4b} {=16} bba
+expect~ .
+run aral-checkin-mark {ck_a4b} {=1} right
+expect~ .
+run aral-checkin-mark {ck_a4b} {=2} right
+expect~ .
+run aral-checkin-mark {ck_a4b} {=3} right
+expect~ .
+run aral-checkin-mark {ck_a4b} {=4} right
+expect~ .
+run aral-checkin-mark {ck_a4b} {=5} right
+expect~ .
+run aral-checkin-mark {ck_a4b} {=6} right
+expect~ .
+run aral-checkin-mark {ck_a4b} {=7} right
+expect~ .
+run aral-checkin-mark {ck_a4b} {=8} right
+expect~ .
+run aral-checkin-mark {ck_a4b} {=9} right
+expect~ .
+run aral-checkin-mark {ck_a4b} {=10} right
+expect~ .
+run aral-checkin-mark {ck_a4b} {=11} right
+expect~ .
+run aral-checkin-mark {ck_a4b} {=12} right
+expect~ .
+run aral-checkin {ck_a4b}
+expect 14/20 70% Met
+
+# --- Check-in report (cut-off 70%) -----------------------------------------------------
+run aral-checkin-report {school} {year}
+expect ARAL check-ins, school {school}, {year} (cut-off 70%)
+expect Grade 7 ZZTEST-G7 (section {sec_g7}):
+expect #{enr_1} ZZTESTA, Learner001 | KS3 Basic | after 16: 14/20 70% Met (incomplete) | after 32: not taken
+expect #{enr_2} ZZTESTB, Learner002 | KS3 Plus | after 16: not taken | after 32: not taken
+expect #{enr_3} ZZTESTC, Learner003 | KS1 | no check-in tools
+expect Totals (2 with check-in tools): after 16 took 1, met 1 | after 32 took 0, met 0
+run aral-checkin-report {school} {year} {sec_g7}
+expect Totals (2 with check-in tools): after 16 took 1, met 1 | after 32 took 0, met 0
+run aral-checkin-report {schoolB} {year}
+refuse Forbidden: that school is not yours.
+run aral-checkin-report {school}
+refuse Usage: aral-checkin-report <schoolId> <schoolYear> [sectionId]
+run aral-export-checkins {school} {year} "{rundir}/a4b_checkins.csv"
+expect Wrote
+run aral-export-checkins {school} {year} "{rundir}/a4b_checkins_g7.csv" {sec_g7}
+expect Wrote
+run aral-export-checkins {schoolB} {year} "{rundir}/a4b_checkins_b.csv"
+refuse Forbidden: that school is not yours.
+run aral-export-checkins {school} {year} "{rundir}/no-such-folder/x.csv"
+refuse Couldn't write
+run aral-export-checkins {school} {year} "{rundir}/x.csv" asof={today}
+refuse Usage: aral-export-checkins <schoolId> <schoolYear> <out.csv> [sectionId]
+
+# --- Settings reset: back to the region values, then B0/T5's switches --------------------
+run aral-checkin-cutoff-reset {schoolB}
+refuse Forbidden: you can only change your own school's ARAL settings.
+run aral-checkin-cutoff-reset
+refuse Usage: aral-checkin-cutoff-reset <schoolId>
+run aral-checkin-cutoff-reset {school}
+expect School {school} uses the region ARAL settings again (cut-off, SHARP, idle session days, extended KS1).
+run aral-checkin-cutoff {school}
+expect School {school}: (not set)
+expect Applies: 75%
+run aral-idle-days {school}
+expect School {school}: (not set)
+expect Applies: 7 days
+run aral-sharp {school}
+expect School {school}: (not set)
+expect Applies: off (levels 0-1 go to KS1)
+run aral-ks1-extended {school}
+expect School {school}: (not set)
+expect Applies: off (KS1 takes Low/High Emerging learners)
+# The region's 75% applies again: the same 14/20 is not met.
+run aral-checkin-report {school} {year} {sec_g7}
+expect (cut-off 75%)
+expect after 16: 14/20 70% Not met (incomplete)
+expect after 16 took 1, met 0
+run aral-checkin-delete {ck_a4b}
+expect~ .
+run aral-sharp-set {school} off
+expect~ SHARP\) off for school {school}
+run aral-ks1-extended-set {school} off
+expect~ Extended KS1 program off for school {school}
+run aral-sharp {school}
+expect School {school}: off
+run aral-ks1-extended {school}
+expect School {school}: off
+
+# --- Notes ------------------------------------------------------------------------------
+run aral-notes {enr_1} ZZ note {stamp}
+expect Updated: #{enr_1} | ZZTESTA, Learner001 ({s_g7_1}) | KS3 Basic | active | class "ZZ 7-Rose" | basis: phil_iri bosy not_assessed | suggested KS2 Basic | notes: ZZ note {stamp}
+run aral-roster {sec_g7} {year}
+expect #{enr_1} | ZZTESTA, Learner001 ({s_g7_1}) | KS3 Basic | active | class "ZZ 7-Rose" | basis: phil_iri bosy not_assessed | suggested KS2 Basic | notes: ZZ note {stamp}
+expect 3 on the roster, 3 active, 0 waiting for a class.
+run aral-notes {enr_1} -
+expect~ Updated: #{enr_1} \| ZZTESTA, Learner001 \({s_g7_1}\) \| KS3 Basic \| active \| class "ZZ 7-Rose" \| basis: phil_iri bosy not_assessed \| suggested KS2 Basic(\n|$)
+run aral-notes {enr_1}
+refuse Usage: aral-notes <enrollmentId> <text...|->
+run aral-notes {=999999} x
+refuse No ARAL enrollment with id 999999.
+run sync-upload yes
+expect~ [Aa]pplied
+
+# --- Material catalog -------------------------------------------------------------------
+run aral-material-add region ks3 basic learner English "ZZ Region {stamp}"
+refuse Forbidden: only the superadmin manages region-wide materials.
+run aral-material-add {schoolB} ks3 basic learner English "ZZ B {stamp}"
+refuse Forbidden: you can only manage your own school's materials.
+run aral-material-add {school} ks9 basic learner English "ZZ Bad {stamp}"
+refuse Program is foundational, ks1, ks2 or ks3 (got "ks9")
+run aral-material-add {school} ks3 basic learner English "ZZ Bad {stamp}" grades=5-8
+refuse KS3 materials are for Grades 7-10 only.
+run aral-material-add {school} ks3 basic poster English "ZZ Bad {stamp}"
+refuse Kind is learner, tutor or supplementary (got "poster")
+run aral-material-add {school} ks3 basic learner Klingon "ZZ Bad {stamp}"
+refuse Language is English or Filipino (got "Klingon")
+run aral-material-add {school} ks3 basic learner English
+refuse Usage: aral-material-add <region|schoolId>
+run aral-material-add {school} ks3 basic learner English "ZZ Mat {stamp}" grades=7-8 "file=zz mat.pdf" link=https://example.org/zz
+expect | ZZ Mat {stamp} | KS3 Basic | Learner's material | English | Grades 7-8 | school {school} | file: zz mat.pdf | link: https://example.org/zz
+capture mat = Added #(\d+)
+run aral-materials
+expect #{mat} | ZZ Mat {stamp} | KS3 Basic | Learner's material | English | Grades 7-8 | school {school} | file: zz mat.pdf | link: https://example.org/zz
+run aral-recommend {enr_1}
+expect #{enr_1} | {s_g7_1}: ZZTESTA, Learner001 | Grade 7 | KS3 Basic
+expect   - ZZ Mat {stamp} (Learner's material, English) | file: zz mat.pdf | link: https://example.org/zz
+run aral-recommend-section {sec_g7} {year}
+expect #{enr_1} | {s_g7_1}: ZZTESTA, Learner001 | Grade 7 | KS3 Basic
+expect   - ZZ Mat {stamp} (Learner's material, English)
+expect #{enr_2} | {s_g7_2}: ZZTESTB, Learner002 | Grade 7 | KS3 Plus
+expect No active KS3 Plus materials for Grade 7
+expect #{enr_3} | {s_g7_3}: ZZTESTC, Learner003 | Grade 7 | KS1
+expect No active KS1 materials for Grade 7
+run aral-recommend-section {sec_g2} {year}
+expect No active ARAL learners in section {sec_g2} for {year}.
+run aral-recommend-section {sec_b7} {year}
+refuse No section with id {sec_b7}.
+run aral-recommend-section {sec_g7}
+refuse Usage: aral-recommend-section <sectionId> <schoolYear>
+
+run aral-material-set {mat} title ZZ Mat B {stamp}
+expect Saved #{mat} | ZZ Mat B {stamp} | KS3 Basic | Learner's material | English | Grades 7-8 | school {school} | file: zz mat.pdf | link: https://example.org/zz
+run aral-material-set {mat} description For the ZZ pass
+expect Saved #{mat} | ZZ Mat B {stamp} | KS3 Basic | Learner's material | English | Grades 7-8 | school {school} |
+run aral-material-set {mat} grades 7-10
+expect Saved #{mat} | ZZ Mat B {stamp} | KS3 Basic | Learner's material | English | Grades 7-10 | school {school} |
+run aral-material-set {mat} grades 9-7
+refuse Grades must be within 1-12, lowest first (got 9-7).
+run aral-material-set {mat} kind tutor
+expect | Tutor's guide | English | Grades 7-10 | school {school} |
+run aral-material-set {mat} language Filipino
+expect | Tutor's guide | Filipino | Grades 7-10 | school {school} |
+run aral-material-set {mat} program ks3 plus
+expect | ZZ Mat B {stamp} | KS3 Plus | Tutor's guide |
+run aral-material-set {mat} program ks3
+refuse Usage: aral-material-set <id> program <ks> <basic|plus|any>
+run aral-material-set {mat} colour red
+refuse Usage: aral-material-set <id|"title"> <title|program|kind|language|grades|description|file|link> <value...>
+run aral-material-set {mat} file -
+expect | file: - | link: https://example.org/zz
+run aral-material-set {mat} description -
+expect | ZZ Mat B {stamp} | KS3 Plus |
+run aral-material-set "ZZ Mat B {stamp}" program ks3 basic
+expect Saved #{mat} | ZZ Mat B {stamp} | KS3 Basic | Tutor's guide | Filipino |
+run aral-material-set {mat} language English
+expect | Tutor's guide | English |
+run aral-material-set {mat} kind learner
+expect Saved #{mat} | ZZ Mat B {stamp} | KS3 Basic | Learner's material | English | Grades 7-10 | school {school} | file: - | link: https://example.org/zz
+
+run aral-material-school-link {mat} {school} https://example.org/school-{stamp}
+expect School {school} link for material #{mat}: https://example.org/school-{stamp}
+run aral-recommend {enr_1}
+expect   - ZZ Mat B {stamp} (Learner's material, English) | link: https://example.org/school-{stamp} (school link)
+run aral-material-school-link {mat} {schoolB} https://example.org/b
+refuse That material belongs to another school.
+run aral-material-school-link {mat} {school}
+refuse Usage: aral-material-school-link <id|"title"> <schoolId> <url|->
+run aral-material-school-link {mat} {school} -
+expect School {school} has no own link for material #{mat} any more.
+run aral-material-set {mat} link -
+expect | file: - | link: -
+run aral-recommend {enr_1}
+expect   - ZZ Mat B {stamp} (Learner's material, English) | link: none yet
+
+run aral-material-active {mat} off
+expect | school {school} | RETIRED | file: - | link: -
+run aral-recommend {enr_1}
+expect No active KS3 Basic materials for Grade 7 in the catalog on this device
+run aral-material-active {mat} maybe
+refuse Usage: aral-material-active <id> <on|off>
+run aral-material-active {mat} on
+expect~ Saved #{mat} \| ZZ Mat B {stamp} \| .* \| school {school} \| file: - \| link: -(\n|$)
+
+run aral-material-delete {mat}
+expect Deleted material #{mat}.
+run aral-materials
+expect No ARAL materials on this device
+run aral-material-delete {mat}
+refuse No ARAL material with id {mat} on this device
+run aral-material-set {=999999} title x
+refuse No ARAL material with id 999999 on this device
+
+# --- Implementation report and roster CSV ----------------------------------------------
+run aral-export-report {school} {year} "sample-files/ARAL/ARAL Reading Reports/ARAL Reading Implementation Report.xlsx" "{rundir}/a4b_report.xlsx"
+expect~ Wrote .*a4b_report\.xlsx\.
+expect Note: 1 Grade 1-3 section(s) use CRLA profiles, which the template has no columns for; they are in the CSV export (aral-export-report-csv).
+expect Note: 4 BOSY/MOSY count(s) are learners not assessed at all by {today}
+expect Note: 2 BOSY/MOSY count(s) had no Phil-IRI result yet
+run aral-export-report {school} {year} "sample-files/ARAL/ARAL Reading Reports/ARAL Reading Implementation Report.xlsx" "{rundir}/a4b_report_g7.xlsx" {sec_g7} asof={today}
+expect~ Wrote .*a4b_report_g7\.xlsx\.
+expect Note: 4 BOSY/MOSY count(s) are learners not assessed at all by {today}
+run aral-export-report {school} {year} "sample-files/ARAL/no-such-template.xlsx" "{rundir}/x.xlsx"
+refuse No template "sample-files/ARAL/no-such-template.xlsx".
+run aral-export-report {school} {year} "sample-files/ARAL/ARAL Reading Reports/ARAL Reading Implementation Report.xlsx" "sample-files/ARAL/ARAL Reading Reports/ARAL Reading Implementation Report.xlsx"
+refuse Write to a new file, not over the template.
+run aral-export-report {schoolB} {year} "sample-files/ARAL/ARAL Reading Reports/ARAL Reading Implementation Report.xlsx" "{rundir}/x.xlsx"
+refuse Forbidden: that school is not yours.
+run aral-export-report-csv {school} {year} "{rundir}/a4b_report.csv"
+expect~ Wrote .*a4b_report\.csv\.
+run aral-export-report-csv {school} {year} "{rundir}/a4b_report_g7.csv" {sec_g7} asof={today}
+expect~ Wrote .*a4b_report_g7\.csv\.
+run aral-export-report-csv {school} {year} "{rundir}/x.csv" asof=2026-02-30
+refuse asof must be a real YYYY-MM-DD date (got "2026-02-30")
+run aral-export-report-csv {school} {year} "{rundir}/x.csv" bogus
+refuse Unknown option "bogus".
+run aral-export-report-csv {schoolB} {year} "{rundir}/x.csv"
+refuse Forbidden: that school is not yours.
+run aral-export-roster {school} {year} "{rundir}/a4b_roster.csv"
+expect Wrote
+run aral-export-roster {schoolB} {year} "{rundir}/x.csv"
+refuse Forbidden: that school is not yours.
+run aral-export-roster {school} {year} "{rundir}/x.csv" asof={today}
+refuse Usage: aral-export-roster <schoolId> <schoolYear> <out.csv> [sectionId]
+
+# --- Roster import ----------------------------------------------------------------------
+# The school's roster CSV goes back in: every learner is already on the roster.
+run aral-import-roster-preview {school} {year} "{rundir}/a4b_roster.csv"
+expect ARAL roster import -> school {school}, {year}
+expect   skip    row 2 | LRN {lrn_g7_1} | ZZTESTA, Learner001 | G7 ZZTEST-G7 | already on the ARAL roster
+expect 0 to add, 3 skipped, 0 with errors.
+# One G7C learner: enrolled, exported, removed, then imported from the CSV.
+run aral-enroll {sec_g7c} {year} {s_c1} ks3 basic entered={past}
+capture e_imp_dev = On the ARAL roster: #(-?\d+)
+run aral-notes {e_imp_dev} Imported by the ZZ pass
+expect~ .
+run aral-export-roster {school} {year} "{rundir}/a4b_g7c.csv" {sec_g7c}
+expect Wrote
+run aral-remove {e_imp_dev}
+expect Removed ARAL enrollment {e_imp_dev}.
+run aral-import-roster-preview {school} {year} "{rundir}/a4b_g7c.csv"
+expect~ add     row 2 \| LRN 9990\d{4}7101 \| ZZTESTW, Learner101 \| G7 ZZTEST-G7C \| KS3 Basic \| entered {past}(\n|$)
+expect 1 to add, 0 skipped, 0 with errors.
+run aral-import-roster {school} {year} "{rundir}/a4b_g7c.csv"
+expect~ Added 1 learner\(s\) to the ARAL roster: #-\d+\.(\n|$)
+run aral-roster {sec_g7c} {year}
+expect~ \| ZZTESTW, Learner101 \({s_c1}\) \| KS3 Basic \| active \| unplaced \| basis: phil_iri bosy not_assessed \| suggested KS2 Basic \| notes: Imported by the ZZ pass
+expect 1 on the roster, 1 active, 1 waiting for a class.
+capture e_imp = #(-?\d+) \| [^|]*Learner101
+run aral-import-roster {school} {year} "{rundir}/a4b_g7c.csv"
+expect Added 0 learner(s) to the ARAL roster.
+expect Skipped 1 already on the roster.
+run aral-import-roster-preview {schoolB} {year} "{rundir}/a4b_g7c.csv"
+refuse Forbidden: that school is not yours.
+run aral-import-roster-preview {school} {year} "{rundir}/no-such.csv"
+refuse No file "{rundir}/no-such.csv".
+write-file a4b_nolrn Name,Program
+run aral-import-roster-preview {school} {year} "{a4b_nolrn}"
+refuse Use a .csv or .xlsx file.
+run aral-import-roster {school} {year}
+refuse Usage: aral-import-roster <schoolId> <schoolYear> <file.csv|file.xlsx>
+run aral-remove {e_imp}
+expect Removed ARAL enrollment {e_imp}.
+sql select count(*) from aral_enrollments where id < 0 => 0
+
+# --- F22: an impossible date is refused by every ARAL date argument -------------------------
+# (refused while reading the arguments, so nothing is written)
+run aral-report {school} {year} asof=2026-02-30
+refuse asof must be a real YYYY-MM-DD date (got "2026-02-30")
+run aral-export-report {school} {year} "sample-files/ARAL/ARAL Reading Reports/ARAL Reading Implementation Report.xlsx" "{rundir}/x.xlsx" asof=2026-02-30
+refuse asof must be a real YYYY-MM-DD date (got "2026-02-30")
+run aral-enroll {sec_g7c} {year} {s_c2} ks3 basic entered=2026-02-30
+refuse Invalid date in "entered=2026-02-30".
+run aral-refer {sec_g7c} {year} {s_c2} ks3 basic "by=ZZ" "reason=ZZ" entered=2026-02-30
+refuse Invalid date in "entered=2026-02-30".
+run aral-exit {enr_1} other 2026-02-30
+refuse Usage: aral-exit <enrollmentId>
+run aral-session-edit {=1} 2026-02-30
+refuse "2026-02-30" is not a real date (YYYY-MM-DD)
+run aral-checkin-start {enr_1} {=16} 2026-02-30 "ZZ"
+refuse "2026-02-30" is not a real date (YYYY-MM-DD)
+run aral-checkin-edit {=1} 2026-02-30
+refuse "2026-02-30" is not a real date (YYYY-MM-DD)
+run aral-irip-rate {=1} observed 2026-02-30
+refuse "2026-02-30" is not a real date (YYYY-MM-DD)
+run aral-readability-set {=1} date 2026-02-30
+refuse Dates are real YYYY-MM-DD dates (got "2026-02-30")
+sql select count(*) from aral_enrollments where id < 0 => 0
+
+# --- Signed out: every command here refuses ------------------------------------------------
+run sign-out
+expect Signed out.
+run aral-checkin-cutoff-set {school} {=70}
+refuse Not signed in. Sign in first.
+run aral-checkin-cutoff-reset {school}
+refuse Not signed in. Sign in first.
+run aral-idle-days-set {school} {=10}
+refuse Not signed in. Sign in first.
+run aral-checkin-report {school} {year}
+refuse Not signed in. Sign in first.
+run aral-export-checkins {school} {year} "{rundir}/a4b_so.csv"
+refuse Not signed in. Sign in first.
+run aral-export-report {school} {year} "sample-files/ARAL/ARAL Reading Reports/ARAL Reading Implementation Report.xlsx" "{rundir}/a4b_so.xlsx"
+refuse Not signed in. Sign in first.
+run aral-export-report-csv {school} {year} "{rundir}/a4b_so.csv"
+refuse Not signed in. Sign in first.
+run aral-export-roster {school} {year} "{rundir}/a4b_so.csv"
+refuse Not signed in. Sign in first.
+run aral-import-roster-preview {school} {year} "{rundir}/a4b_roster.csv"
+refuse Not signed in. Sign in first.
+run aral-import-roster {school} {year} "{rundir}/a4b_roster.csv"
+refuse Not signed in. Sign in first.
+run aral-notes {enr_1} x
+refuse Not signed in. Sign in first.
+run aral-material-add {school} ks3 basic learner English "ZZ SO {stamp}"
+refuse Not signed in. Sign in first.
+run aral-material-set {=1} title x
+refuse Not signed in. Sign in first.
+run aral-material-active {=1} off
+refuse Not signed in. Sign in first.
+run aral-material-delete {=1}
+refuse Not signed in. Sign in first.
+run aral-material-school-link {=1} {school} -
+refuse Not signed in. Sign in first.
+run aral-recommend-section {sec_g7} {year}
+refuse Not signed in. Sign in first.

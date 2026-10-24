@@ -7,6 +7,7 @@ library;
 
 import '../console_command.dart';
 import '../console_registry.dart';
+import '../date_args.dart';
 import '../../../viewmodels/aral_session_viewmodel.dart';
 import '../../models/aral_session.dart';
 import 'aral_session_command_helpers.dart';
@@ -20,7 +21,12 @@ AralSetup? _setup(String raw) => AralSetup.values.where((s) => s.value == raw ||
 
 AralMark? _mark(String raw) => AralMark.values.where((m) => m.name == raw).firstOrNull;
 
-bool _isDate(String a) => RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(a) && DateTime.tryParse(a) != null;
+/// A YYYY-MM-DD token; one that isn't a real date is refused (F22).
+bool _isDate(String a) {
+  if (!looksLikeDateArg(a)) return false;
+  if (strictDateArg(a) == null) throw AralSessionUsage(notARealDateMessage(a));
+  return true;
+}
 
 String _line(AralSession s) => '#${s.id} | ${s.classId == null ? 'no class' : 'class #${s.classId}'} | '
     'session ${s.sessionNo} | ${s.heldOn} | ${s.minutes} min | ${s.setup.label} | '

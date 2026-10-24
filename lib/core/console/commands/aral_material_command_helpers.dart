@@ -16,9 +16,14 @@ String aralMaterialLine(AralMaterial m) => '#${m.id} | ${m.title} | ${m.programL
     'Grades ${m.minGrade}-${m.maxGrade} | ${m.schoolId == null ? 'region-wide' : 'school ${m.schoolId}'}'
     '${m.isActive ? '' : ' | RETIRED'} | file: ${m.fileName ?? '-'} | link: ${m.link ?? '-'}';
 
-String aralMaterialRecommendation(AralRecommendation r) {
+/// [names] = AralViewModel.learnerNames of the learner's section (studentId ->
+/// "Last, First"); a learner whose name isn't on this device shows as
+/// `student 191` (F23: `191: Last, First` otherwise).
+String aralMaterialRecommendation(AralRecommendation r, Map<int, String> names) {
   final e = r.enrollment;
-  final head = '#${e.id} | student ${e.studentId} | Grade ${r.grade} | ${e.programLabel}';
+  final name = names[e.studentId];
+  final who = name == null ? 'student ${e.studentId}' : '${e.studentId}: $name';
+  final head = '#${e.id} | $who | Grade ${r.grade} | ${e.programLabel}';
   if (r.materials.isEmpty) return '$head\n  ${r.note ?? 'nothing'}';
   return [
     head,

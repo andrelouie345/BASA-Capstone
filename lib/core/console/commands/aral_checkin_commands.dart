@@ -8,13 +8,19 @@ library;
 
 import '../console_command.dart';
 import '../console_registry.dart';
+import '../date_args.dart';
 import '../../../viewmodels/aral_checkin_viewmodel.dart';
 import '../../models/aral_checkin.dart';
 import '../../services/aral_checkin_rules.dart';
 import '../../services/aral_rules.dart' show AralSessionSettings;
 import 'aral_checkin_command_helpers.dart';
 
-bool _isDate(String a) => RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(a) && DateTime.tryParse(a) != null;
+/// A YYYY-MM-DD token; one that isn't a real date is refused (F22).
+bool _isDate(String a) {
+  if (!looksLikeDateArg(a)) return false;
+  if (strictDateArg(a) == null) throw AralCheckinUsage(notARealDateMessage(a));
+  return true;
+}
 
 String _summary(AralCheckinResult r) {
   final c = r.checkin;

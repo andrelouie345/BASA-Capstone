@@ -9,9 +9,11 @@ library;
 import '../console_command.dart';
 import '../console_registry.dart';
 import '../../../viewmodels/aral_material_viewmodel.dart';
+import '../../../viewmodels/aral_viewmodel.dart';
 import 'aral_material_command_helpers.dart';
 
-void registerAralMaterialCommands(ConsoleRegistry registry, AralMaterialViewModel vm) {
+/// [aral] only gives the learners' names for the recommendation lines.
+void registerAralMaterialCommands(ConsoleRegistry registry, AralMaterialViewModel vm, AralViewModel aral) {
   void add(String name, String description, Future<String> Function(List<String> args) handler) {
     registry.register(ConsoleCommand(
       name: name,
@@ -36,6 +38,7 @@ void registerAralMaterialCommands(ConsoleRegistry registry, AralMaterialViewMode
 
   add('aral-recommend', 'aral-recommend <enrollmentId> — the materials for one ARAL learner (offline)', (args) async {
     if (args.length != 1) throw const AralMaterialUsage('Usage: aral-recommend <enrollmentId>');
-    return aralMaterialRecommendation(await vm.recommendations(aralMaterialInt(args[0], 'enrollmentId')));
+    final r = await vm.recommendations(aralMaterialInt(args[0], 'enrollmentId'));
+    return aralMaterialRecommendation(r, await aral.learnerNames(r.enrollment.sectionId));
   });
 }

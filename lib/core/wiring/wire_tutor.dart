@@ -407,7 +407,7 @@ void registerTutorCommands(AppContext ctx, SharedVms s, TutorVms t) {
   registerAralSessionCommands(r, t.aralSessionVm);
   registerAralIripCommands(r, t.aralIripVm);
   registerAralCheckinCommands(r, t.aralCheckinVm);
-  registerAralMaterialCommands(r, t.aralMaterialVm);
+  registerAralMaterialCommands(r, t.aralMaterialVm, t.aralVm);
   registerAralReadabilityCommands(r, t.aralReadabilityVm);
   registerCalendarCommands(r, t.calendarVm);
   registerReminderCommands(r, t.reminderVm, () => authVm.currentUser?.id);
