@@ -38,6 +38,9 @@ class AralCheckinScore {
 
   double get percent => total == 0 ? 0 : correct * 100 / total;
 
+  /// [percent] rounded to a whole number, as screens and the console show it.
+  int get wholePercent => percent.round();
+
   /// At least [passPct] percent of the items (compared in whole numbers).
   bool passes(int passPct) => total > 0 && correct * 100 >= passPct * total;
 

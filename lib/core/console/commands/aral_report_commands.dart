@@ -21,29 +21,11 @@ String _counts(List<String> columns, Map<String, int> m) {
   return '${columns.map((c) => '$c ${m[c] ?? 0}').join(', ')} (total $total)';
 }
 
-/// Sums rows that share the same column list (one grade's sections).
-String _subtotal(String label, List<AralSectionReportRow> rows) {
-  final cols = <String>[];
-  for (final r in rows) {
-    for (final c in r.columns) {
-      if (!cols.contains(c)) cols.add(c);
-    }
-  }
-  Map<String, int> sum(Map<String, int> Function(AralSectionReportRow) f) {
-    final out = <String, int>{};
-    for (final r in rows) {
-      f(r).forEach((k, v) => out[k] = (out[k] ?? 0) + v);
-    }
-    return out;
-  }
-  final enrol = rows.fold(0, (a, r) => a + r.enrolment);
-  final glr = rows.fold(0, (a, r) => a + r.exitedGradeLevelReady);
-  final other = rows.fold(0, (a, r) => a + r.exitedOther);
-  final diff = rows.fold(0, (a, r) => a + r.bosyMinusMosy);
-  return '$label | enrolment $enrol | BOSY: ${_counts(cols, sum((r) => r.bosy))} | '
-      'MOSY: ${_counts(cols, sum((r) => r.mosy))} | exited ${glr + other} (grade-level ready $glr, other $other) | '
-      'BOSY-MOSY $diff';
-}
+/// One grade's sections added up.
+String _subtotal(String label, AralReportTotals t) =>
+    '$label | enrolment ${t.enrolment} | BOSY: ${_counts(t.columns, t.bosy)} | '
+    'MOSY: ${_counts(t.columns, t.mosy)} | exited ${t.exited} (grade-level ready ${t.exitedGradeLevelReady}, '
+    'other ${t.exitedOther}) | BOSY-MOSY ${t.bosyMinusMosy}';
 
 void registerAralReportCommands(ConsoleRegistry registry, AralReportViewModel vm) {
   registry.register(ConsoleCommand(
@@ -71,8 +53,8 @@ void registerAralReportCommands(ConsoleRegistry registry, AralReportViewModel vm
           'Phil-IRI columns: levels down (3-LD = Frustration, 2-LD = Instructional in the division template); '
               'Grades 1-3: CRLA profiles.',
         ];
-        final grades = report.rows.map((r) => r.grade).toSet().toList()..sort();
-        for (final g in grades) {
+        final grades = report.gradeTotals;
+        for (final g in grades.keys) {
           final rows = report.rows.where((r) => r.grade == g).toList();
           for (final r in rows) {
             lines.add('G$g ${r.section.sectionName} (#${r.section.id}) | enrolment ${r.enrolment} | '
@@ -80,17 +62,14 @@ void registerAralReportCommands(ConsoleRegistry registry, AralReportViewModel vm
                 'exited ${r.exited} (grade-level ready ${r.exitedGradeLevelReady}, other ${r.exitedOther}) | '
                 'BOSY-MOSY ${r.bosyMinusMosy}');
           }
-          if (rows.length > 1) lines.add(_subtotal('  Grade $g total', rows));
+          if (rows.length > 1) lines.add(_subtotal('  Grade $g total', grades[g]!));
         }
         if (grades.length > 1) {
           // Phil-IRI and CRLA columns differ, so the school line totals only.
-          final bosy = report.rows.fold(0, (a, r) => a + r.bosyTotal);
-          final mosy = report.rows.fold(0, (a, r) => a + r.mosyTotal);
-          final enrol = report.rows.fold(0, (a, r) => a + r.enrolment);
-          final glr = report.rows.fold(0, (a, r) => a + r.exitedGradeLevelReady);
-          final other = report.rows.fold(0, (a, r) => a + r.exitedOther);
-          lines.add('SCHOOL TOTAL | enrolment $enrol | BOSY $bosy | MOSY $mosy | exited ${glr + other} '
-              '(grade-level ready $glr, other $other) | BOSY-MOSY ${bosy - mosy}');
+          final t = report.schoolTotal;
+          lines.add('SCHOOL TOTAL | enrolment ${t.enrolment} | BOSY ${t.bosyTotal} | MOSY ${t.mosyTotal} | '
+              'exited ${t.exited} (grade-level ready ${t.exitedGradeLevelReady}, other ${t.exitedOther}) | '
+              'BOSY-MOSY ${t.bosyMinusMosy}');
         }
         return lines.join('\n');
       } on _Usage catch (e) {

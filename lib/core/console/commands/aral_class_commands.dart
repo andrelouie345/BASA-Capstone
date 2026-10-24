@@ -33,7 +33,7 @@ void registerAralClassCommands(ConsoleRegistry registry, AralClassViewModel vm, 
     if (args.length != 2) throw const AralUsage('Usage: aral-classes <schoolId> <schoolYear>');
     final list = await vm.classes(schoolId: aralInt(args[0], 'schoolId'), schoolYear: args[1]);
     if (list.isEmpty) return 'No ARAL classes for that school and year on this device.';
-    return [for (final c in list) aralClassLine(c, active: await vm.activeCount(c.id!))].join('\n');
+    return [for (final c in list) aralClassLine(c, cap: vm.classCap, active: await vm.activeCount(c.id!))].join('\n');
   });
 
   add('aral-class-show', 'aral-class-show <classId> — one ARAL class and its learners', (args) async {
@@ -45,7 +45,7 @@ void registerAralClassCommands(ConsoleRegistry registry, AralClassViewModel vm, 
       names.addAll(await aral.learnerNames(section));
     }
     return [
-      aralClassLine(c, active: learners.where((e) => e.isActive).length),
+      aralClassLine(c, cap: vm.classCap, active: learners.where((e) => e.isActive).length),
       'school ${c.schoolId}, ${c.schoolYear}',
       if (c.notes != null) 'notes: ${c.notes}',
       for (final e in learners) '  ${aralLine(e, names, {c.id!: c.className})}',

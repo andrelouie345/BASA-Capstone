@@ -3,7 +3,6 @@
 
 import '../../models/aral_class.dart';
 import '../../models/aral_enrollment.dart';
-import '../../services/aral_rules.dart' show aralClassCap;
 
 class AralUsage implements Exception {
   final String message;
@@ -31,8 +30,9 @@ String aralLine(AralEnrollment e, Map<int, String> names, [Map<int, String> clas
 }
 
 /// One ARAL class: `#id | name | Grade 7, KS2 Basic | tutor id` (+ room and
-/// schedule when set, and `n/15 active` when [active] is given).
-String aralClassLine(AralClass c, {int? active}) =>
+/// schedule when set, and `n/<cap> active` when [active] is given; [cap] is
+/// AralClassViewModel.classCap).
+String aralClassLine(AralClass c, {int? active, required int cap}) =>
     '#${c.id} | ${c.className} | ${c.groupLabel} | '
     'tutor ${c.tutorId ?? '-'}${c.room == null ? '' : ' | room ${c.room}'}'
-    '${c.schedule == null ? '' : ' | ${c.schedule}'}${active == null ? '' : ' | $active/$aralClassCap active'}';
+    '${c.schedule == null ? '' : ' | ${c.schedule}'}${active == null ? '' : ' | $active/$cap active'}';

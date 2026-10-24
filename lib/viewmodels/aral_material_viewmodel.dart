@@ -371,7 +371,10 @@ class AralMaterialViewModel {
     } on PostgrestException catch (e) {
       if (e.code == '42501') throw const ViewModelException('Forbidden: the database refused this change.');
       if (e.code == '23505') throw const ViewModelException('A material with that title already exists here.');
-      if (e.code == '23514') throw ViewModelException('The database refused the values (${e.message}).');
+      if (e.code == '23514') {
+        _log('write refused: ${e.message}');
+        throw const ViewModelException('The database refused the values.');
+      }
       rethrow;
     }
   }
@@ -380,8 +383,8 @@ class AralMaterialViewModel {
     try {
       await write();
     } catch (e) {
-      lastMirrorWarning = 'The catalog was changed online, but the local copy was not updated ($e). Run pull-cloud.';
-      _log('WARNING: $lastMirrorWarning');
+      lastMirrorWarning = 'The catalog was changed online, but the local copy was not updated. Run pull-cloud.';
+      _log('catalog mirror failed: $e');
     }
   }
 

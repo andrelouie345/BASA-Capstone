@@ -62,7 +62,7 @@ void registerAralClassAdminCommands(ConsoleRegistry registry, AralClassViewModel
       schedule: opts['schedule'],
       notes: opts['notes'],
     );
-    return 'ARAL class added: ${aralClassLine(c, active: 0)}';
+    return 'ARAL class added: ${aralClassLine(c, cap: vm.classCap, active: 0)}';
   });
 
   const editUsage = 'Usage: aral-class-edit <classId> <name|tutor|room|schedule|notes|grade|program> <value...> '
@@ -85,7 +85,7 @@ void registerAralClassAdminCommands(ConsoleRegistry registry, AralClassViewModel
       _ => throw const AralUsage(editUsage),
     };
     final saved = await vm.editClass(changed);
-    return 'ARAL class saved: ${aralClassLine(saved, active: await vm.activeCount(saved.id!))}';
+    return 'ARAL class saved: ${aralClassLine(saved, cap: vm.classCap, active: await vm.activeCount(saved.id!))}';
   });
 
   const placeUsage = 'Usage: aral-class-place <enrollmentId> <classId> [other-grade]';
@@ -98,7 +98,7 @@ void registerAralClassAdminCommands(ConsoleRegistry registry, AralClassViewModel
     final e = await vm.place(aralInt(args[0], 'enrollmentId'), aralInt(args[1], 'classId'),
         otherGrade: args.length == 3);
     final c = await vm.getClass(e.classId!);
-    return 'ARAL learner #${e.id} placed in ${aralClassLine(c, active: await vm.activeCount(c.id!))}';
+    return 'ARAL learner #${e.id} placed in ${aralClassLine(c, cap: vm.classCap, active: await vm.activeCount(c.id!))}';
   });
 
   add('aral-class-unplace', 'aral-class-unplace <enrollmentId> — take an ARAL learner out of their class',

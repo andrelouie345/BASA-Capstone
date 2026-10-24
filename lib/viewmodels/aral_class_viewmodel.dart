@@ -89,6 +89,9 @@ class AralClassViewModel {
   final StudentRepository _students;
   final UserRepository _users;
 
+  /// The most active learners a class holds (aral_rules.dart).
+  int get classCap => aralClassCap;
+
   AralClassViewModel({
     required AuthViewModel auth,
     required AralClassRepository classes,
@@ -374,6 +377,7 @@ class AralClassViewModel {
       for (final refusal in _dbRefusals) {
         if (text.toLowerCase().contains(refusal.toLowerCase())) throw ViewModelException('$refusal.');
       }
+      _log('write failed: $e');
       rethrow;
     }
   }

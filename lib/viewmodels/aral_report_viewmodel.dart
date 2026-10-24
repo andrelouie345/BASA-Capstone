@@ -86,6 +86,62 @@ class AralSectionReportRow {
   int get bosyMinusMosy => bosyTotal - mosyTotal;
 }
 
+/// Rows added up: one grade's sections, or the whole school. The school
+/// total has no columns (Phil-IRI and CRLA columns differ), only totals.
+class AralReportTotals {
+  final int enrolment;
+  final List<String> columns; // merged in first-seen order
+  final Map<String, int> bosy;
+  final Map<String, int> mosy;
+  final int bosyTotal;
+  final int mosyTotal;
+  final int exitedGradeLevelReady;
+  final int exitedOther;
+
+  const AralReportTotals({
+    required this.enrolment,
+    required this.columns,
+    required this.bosy,
+    required this.mosy,
+    required this.bosyTotal,
+    required this.mosyTotal,
+    required this.exitedGradeLevelReady,
+    required this.exitedOther,
+  });
+
+  /// [rows] summed per column ([withColumns]) or as totals only.
+  factory AralReportTotals.of(List<AralSectionReportRow> rows, {required bool withColumns}) {
+    final cols = <String>[];
+    final bosy = <String, int>{};
+    final mosy = <String, int>{};
+    if (withColumns) {
+      for (final r in rows) {
+        for (final c in r.columns) {
+          if (!cols.contains(c)) cols.add(c);
+        }
+        r.bosy.forEach((k, v) => bosy[k] = (bosy[k] ?? 0) + v);
+        r.mosy.forEach((k, v) => mosy[k] = (mosy[k] ?? 0) + v);
+      }
+    }
+    int sum(int Function(AralSectionReportRow) f) => rows.fold(0, (a, r) => a + f(r));
+    return AralReportTotals(
+      enrolment: sum((r) => r.enrolment),
+      columns: cols,
+      bosy: bosy,
+      mosy: mosy,
+      bosyTotal: sum((r) => r.bosyTotal),
+      mosyTotal: sum((r) => r.mosyTotal),
+      exitedGradeLevelReady: sum((r) => r.exitedGradeLevelReady),
+      exitedOther: sum((r) => r.exitedOther),
+    );
+  }
+
+  int get exited => exitedGradeLevelReady + exitedOther;
+
+  /// The template's "exited" formula.
+  int get bosyMinusMosy => bosyTotal - mosyTotal;
+}
+
 class AralImplementationReport {
   final int schoolId;
   final String schoolYear;
@@ -93,6 +149,17 @@ class AralImplementationReport {
   final List<AralSectionReportRow> rows; // by grade, then section name
 
   const AralImplementationReport(this.schoolId, this.schoolYear, this.asOf, this.rows);
+
+  /// Every grade's sections added up, by grade (lowest first).
+  Map<int, AralReportTotals> get gradeTotals {
+    final grades = rows.map((r) => r.grade).toSet().toList()..sort();
+    return {
+      for (final g in grades) g: AralReportTotals.of(rows.where((r) => r.grade == g).toList(), withColumns: true),
+    };
+  }
+
+  /// Every row added up (totals only).
+  AralReportTotals get schoolTotal => AralReportTotals.of(rows, withColumns: false);
 }
 
 class AralReportViewModel {

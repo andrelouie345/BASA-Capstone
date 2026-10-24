@@ -66,7 +66,7 @@ void registerAralCommands(ConsoleRegistry registry, AralViewModel vm) {
     final list = await vm.tutors(schoolId: aralInt(args[0], 'schoolId'), schoolYear: args[1]);
     if (list.isEmpty) return 'No active tutors in that school.';
     return list
-        .map((t) => '${t.$1.id} | ${t.$1.fullName} | ${t.$2} class(es), ${t.$3} active ARAL learner(s)')
+        .map((t) => '${t.tutor.id} | ${t.tutor.fullName} | ${t.classes} class(es), ${t.activeLearners} active ARAL learner(s)')
         .join('\n');
   });
 }

@@ -99,11 +99,11 @@ Decision: fix (owner 2026-10-24, as recommended).
 **ARAL-G2** (I, N) — Met / Not met (`AralCheckinScore.passes(passPct)`) and the percent text are made in `aral_checkin_command_helpers.dart`.
 Fix: `AralCheckinResult.met` (`bool`, = `score.passes(passPct)`) and `AralCheckinScore.wholePercent` (`int`, same rounding as `toStringAsFixed(0)`). The report rows get the same if they carry a score (checked in the batch).
 Removes baseline: `core/console/commands/aral_checkin_command_helpers.dart -> core/services/aral_checkin_rules.dart`
-Decision: fix (owner 2026-10-24, as recommended).
+Decision: fix (owner 2026-10-24, as recommended). Changed in Task 7 (owner 2026-10-24): no `met` getter, because `AralCheckinResult.passed` already exists and the per-part lines are plain `AralCheckinScore`s; a screen calls `score.passes(passPct)` (the type comes from `aral_types.dart`, ARAL-G5). Only `wholePercent` was added.
 
 **ARAL-G3** (N) — The implementation report's grade subtotals (when a grade has more than one section) and the school total are summed in `aral-report`. The DepEd layout shows them, so a screen needs them too.
 Fix: `AralImplementationReport.gradeTotals` → `Map<int, AralReportTotals>` and `.schoolTotal` → `AralReportTotals` (new small class in `aral_report_viewmodel.dart`: `enrolment`, `bosy`/`mosy` per column, `bosyTotal`, `mosyTotal`, `exitedGradeLevelReady`, `exitedOther`, `exited`, `bosyMinusMosy`), same sums as the command; the command prints from them.
-Decision: fix (owner 2026-10-24, as recommended).
+Decision: fix (owner 2026-10-24, as recommended). Task 7 (owner 2026-10-24): `bosyTotal` / `mosyTotal` are stored fields, because the school total has no columns (Phil-IRI and CRLA columns differ) but still has totals.
 
 **ARAL-G4** (I, N) — Setting defaults: the check-in cut-off and idle days come from `AralCheckinSettings.defaults` / `AralSessionSettings.defaults`; SHARP and KS1-extended defaults ("off") are fixed text in the command.
 Fix: per COMMON-G2: `AralCheckinSettingLayers.defaults`; the three record results gain a `defaults` field (`bool` / `int`), from the same constants.
@@ -126,6 +126,10 @@ Decision: fix (owner 2026-10-24, as recommended).
 Found: rethrowing the original exception is what every other ViewModel does; with COMMON-G1 a screen shows one fixed sentence for any non-`ViewModelException`, so the raw text never reaches the user.
 Fix: no code change if COMMON-G1 is accepted (log the error before rethrowing, one line); otherwise wrap it in `ViewModelException(unexpectedErrorMessage)`.
 Decision: no code change beyond logging the error before the rethrow, since COMMON-G1 is accepted (owner 2026-10-24).
+
+**ARAL-G10** (E, found in Task 7) — `aral_material_viewmodel.dart` put the database's CHECK text in a `ViewModelException` (`'The database refused the values (${e.message}).'`).
+Fix: `'The database refused the values.'`; the text goes to the log.
+Decision: fix (owner 2026-10-24, as recommended).
 
 **ARAL-G9** (M) — No Flesch preview of a typed text before saving a readability entry.
 Fix: deferred (no console capability; the entry shows its scores after saving).

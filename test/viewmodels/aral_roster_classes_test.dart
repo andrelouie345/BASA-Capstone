@@ -103,6 +103,19 @@ void main() {
         _refused('ZZR, L9516 is in KS3 Basic; class "2-Sun" is KS1.'));
   });
 
+  test('classCap is 15', () {
+    expect(classes.classCap, 15);
+  });
+
+  test('tutors names its counts', () async {
+    // 7-Rose (15 placed above) and 2-Sun (empty) are Tutor One's.
+    final list = await aral.tutors(schoolId: _school, schoolYear: _year);
+    expect(list, hasLength(1));
+    expect(list.single.tutor.id, _tutor);
+    expect(list.single.classes, 2);
+    expect(list.single.activeLearners, 15);
+  });
+
   test('enrollProposed fills the class to 15, weakest first; the rest wait for a class', () async {
     final created = await aral.enrollProposed(sectionId: 9502, schoolYear: _year, classId: lily.id);
     expect(created, hasLength(17));

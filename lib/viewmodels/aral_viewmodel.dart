@@ -983,18 +983,19 @@ class AralViewModel {
 
   /// The school's active tutors with how many ARAL classes each teaches in
   /// [schoolYear] and how many active learners those classes hold.
-  Future<List<(User, int, int)>> tutors({required int schoolId, required String schoolYear}) async {
+  Future<List<({User tutor, int classes, int activeLearners})>> tutors(
+      {required int schoolId, required String schoolYear}) async {
     _requireSignIn();
     _log('tutors(school: $schoolId, year: $schoolYear)');
     schoolYear = normalizeSchoolYear(schoolYear);
     final classes = await _classes.getBySchool(schoolId, schoolYear: schoolYear);
-    final out = <(User, int, int)>[];
+    final out = <({User tutor, int classes, int activeLearners})>[];
     for (final u in await _users.getAll()) {
       if (u.role != UserRole.tutor || !u.isActive || u.schoolId != schoolId) continue;
       final learners = (await _roster.getByTutor(u.id, schoolYear: schoolYear)).where((e) => e.isActive).length;
-      out.add((u, classes.where((c) => c.tutorId == u.id).length, learners));
+      out.add((tutor: u, classes: classes.where((c) => c.tutorId == u.id).length, activeLearners: learners));
     }
-    out.sort((a, b) => a.$1.fullName.compareTo(b.$1.fullName));
+    out.sort((a, b) => a.tutor.fullName.compareTo(b.tutor.fullName));
     return out;
   }
 

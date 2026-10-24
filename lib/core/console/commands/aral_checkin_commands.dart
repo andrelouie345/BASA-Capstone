@@ -11,8 +11,7 @@ import '../console_registry.dart';
 import '../date_args.dart';
 import '../../../viewmodels/aral_checkin_viewmodel.dart';
 import '../../models/aral_checkin.dart';
-import '../../services/aral_checkin_rules.dart';
-import '../../services/aral_rules.dart' show AralSessionSettings;
+import '../../models/aral_types.dart';
 import 'aral_checkin_command_helpers.dart';
 
 /// A YYYY-MM-DD token; one that isn't a real date is refused (F22).
@@ -190,7 +189,7 @@ void registerAralCheckinCommands(ConsoleRegistry registry, AralCheckinViewModel 
     final schoolId = args.isEmpty ? null : aralCheckinInt(args[0], 'schoolId');
     final l = await vm.settingLayers(schoolId);
     String row(Object? v) => v == null ? '(not set)' : '$v%';
-    return 'Default: ${AralCheckinSettings.defaults.passPct}%\n'
+    return 'Default: ${l.defaults.passPct}%\n'
         'Region: ${row(l.region?.settings[AralCheckinSettings.passPctKey])}\n'
         '${schoolId == null ? '' : 'School $schoolId: ${row(l.school?.settings[AralCheckinSettings.passPctKey])}\n'}'
         'Applies: ${l.effective.passPct}%';
@@ -201,10 +200,11 @@ void registerAralCheckinCommands(ConsoleRegistry registry, AralCheckinViewModel 
     final schoolId = args.isEmpty ? null : aralCheckinInt(args[0], 'schoolId');
     final l = await vm.foundationalProgramLayers(schoolId);
     String row(bool? v) => v == null ? '(not set)' : (v ? 'on' : 'off');
-    return 'Default: off (levels 0-1 go to KS1)\n'
+    String said(bool v) => v ? 'on (levels 0-1 go to Foundational / SHARP)' : 'off (levels 0-1 go to KS1)';
+    return 'Default: ${said(l.defaults)}\n'
         'Region: ${row(l.region)}\n'
         '${schoolId == null ? '' : 'School $schoolId: ${row(l.school)}\n'}'
-        'Applies: ${l.effective ? 'on (levels 0-1 go to Foundational / SHARP)' : 'off (levels 0-1 go to KS1)'}';
+        'Applies: ${said(l.effective)}';
   });
 
   add('aral-ks1-extended',
@@ -213,10 +213,11 @@ void registerAralCheckinCommands(ConsoleRegistry registry, AralCheckinViewModel 
     final schoolId = args.isEmpty ? null : aralCheckinInt(args[0], 'schoolId');
     final l = await vm.ks1ExtendedLayers(schoolId);
     String row(bool? v) => v == null ? '(not set)' : (v ? 'on' : 'off');
-    return 'Default: off (KS1 takes Low/High Emerging learners)\n'
+    String said(bool v) => v ? 'on (Developing/Transitioning join KS1 too)' : 'off (KS1 takes Low/High Emerging learners)';
+    return 'Default: ${said(l.defaults)}\n'
         'Region: ${row(l.region)}\n'
         '${schoolId == null ? '' : 'School $schoolId: ${row(l.school)}\n'}'
-        'Applies: ${l.effective ? 'on (Developing/Transitioning join KS1 too)' : 'off (KS1 takes Low/High Emerging learners)'}';
+        'Applies: ${said(l.effective)}';
   });
 
   add('aral-idle-days',
@@ -225,7 +226,7 @@ void registerAralCheckinCommands(ConsoleRegistry registry, AralCheckinViewModel 
     final schoolId = args.isEmpty ? null : aralCheckinInt(args[0], 'schoolId');
     final l = await vm.idleSessionDaysLayers(schoolId);
     String row(int? v) => v == null ? '(not set)' : '$v days';
-    return 'Default: ${AralSessionSettings.defaults.idleSessionDays} days\n'
+    return 'Default: ${l.defaults} days\n'
         'Region: ${row(l.region)}\n'
         '${schoolId == null ? '' : 'School $schoolId: ${row(l.school)}\n'}'
         'Applies: ${l.effective} days';

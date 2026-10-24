@@ -121,6 +121,9 @@ class AralCheckinSettingLayers {
   final AralSetting? school;
   final AralCheckinSettings effective;
   const AralCheckinSettingLayers(this.region, this.school, this.effective);
+
+  /// The values when nothing is stored.
+  AralCheckinSettings get defaults => AralCheckinSettings.defaults;
 }
 
 class AralCheckinViewModel {
@@ -453,8 +456,10 @@ class AralCheckinViewModel {
   }
 
   /// The foundational literacy program switch (SHARP) in the cloud: the stored
-  /// region/school values (null = not set) and the one that applies.
-  Future<({bool? region, bool? school, bool effective})> foundationalProgramLayers(int? schoolId) async {
+  /// region/school values (null = not set), the one that applies and the
+  /// default (off).
+  Future<({bool? region, bool? school, bool effective, bool defaults})> foundationalProgramLayers(
+      int? schoolId) async {
     _requireSignIn();
     _log('foundationalProgramLayers($schoolId)');
     final cloud = _cloud();
@@ -465,6 +470,7 @@ class AralCheckinViewModel {
       region: read(region),
       school: read(school),
       effective: AralProgramSettings.fromMap({...?region?.settings, ...?school?.settings}).foundationalProgram,
+      defaults: AralProgramSettings.defaults.foundationalProgram,
     );
   }
 
@@ -486,8 +492,8 @@ class AralCheckinViewModel {
 
   /// The extended KS1 program switch in the cloud (DepEd Memorandum 064:
   /// KS1 Developing/Transitioning learners join too): the stored region/school
-  /// values (null = not set) and the one that applies.
-  Future<({bool? region, bool? school, bool effective})> ks1ExtendedLayers(int? schoolId) async {
+  /// values (null = not set), the one that applies and the default (off).
+  Future<({bool? region, bool? school, bool effective, bool defaults})> ks1ExtendedLayers(int? schoolId) async {
     _requireSignIn();
     _log('ks1ExtendedLayers($schoolId)');
     final cloud = _cloud();
@@ -498,6 +504,7 @@ class AralCheckinViewModel {
       region: read(region),
       school: read(school),
       effective: AralProgramSettings.fromMap({...?region?.settings, ...?school?.settings}).ks1Extended,
+      defaults: AralProgramSettings.defaults.ks1Extended,
     );
   }
 
@@ -527,8 +534,9 @@ class AralCheckinViewModel {
   }
 
   /// The "no session lately" reminder's day count in the cloud: the stored
-  /// region/school values (null = not set) and the one that applies.
-  Future<({int? region, int? school, int effective})> idleSessionDaysLayers(int? schoolId) async {
+  /// region/school values (null = not set), the one that applies and the
+  /// default.
+  Future<({int? region, int? school, int effective, int defaults})> idleSessionDaysLayers(int? schoolId) async {
     _requireSignIn();
     _log('idleSessionDaysLayers($schoolId)');
     final cloud = _cloud();
@@ -539,6 +547,7 @@ class AralCheckinViewModel {
       region: read(region),
       school: read(school),
       effective: AralSessionSettings.fromMap({...?region?.settings, ...?school?.settings}).idleSessionDays,
+      defaults: AralSessionSettings.defaults.idleSessionDays,
     );
   }
 

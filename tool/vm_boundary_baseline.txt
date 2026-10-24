@@ -1,8 +1,4 @@
 # Shrink-only. A fix batch removes its lines. Empty = remove this file and the baseline code (Task 9).
-core/console/commands/aral_checkin_command_helpers.dart -> core/services/aral_checkin_rules.dart
-core/console/commands/aral_checkin_commands.dart -> core/services/aral_checkin_rules.dart
-core/console/commands/aral_checkin_commands.dart -> core/services/aral_rules.dart
-core/console/commands/aral_command_helpers.dart -> core/services/aral_rules.dart
 core/console/commands/calendar_admin_commands.dart -> core/services/calendar_rules.dart
 core/console/commands/calendar_command_helpers.dart -> core/services/calendar_rules.dart
 core/console/commands/calendar_commands.dart -> core/services/calendar_rules.dart
