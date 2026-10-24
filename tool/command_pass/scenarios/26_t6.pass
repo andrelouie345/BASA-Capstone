@@ -16,7 +16,7 @@ expect attempt
 capture t6_crla = Started assessment (-?\d+)
 run crla-part1 {t6_crla} 8 3
 expect total 11, level Light Refresher.
-run aral-log {year} 40 during_class lesson "ZZ T6"
+run aral-log {class_1} 40 during_class lesson "ZZ T6"
 expect Logged:
 capture t6_ses = Logged: #(-?\d+)
 run aral-mark-rest {t6_ses} present
@@ -78,14 +78,14 @@ sql select count(*) from crla_assessments where id < 0 => 0
 sql select count(*) from aral_sessions where id < 0 => 0
 run aral-sessions
 expect 1 session(s), 40 minutes.
-capture t6_ses_srv = #(\d+) \| session \d+ \| {today} \| 40 min
+capture t6_ses_srv = #(\d+) \| class #\d+ \| session \d+ \| {today} \| 40 min
 
 # --- A conflict: the coordinator changed the session first --------------------
 device coord-pc admin
 run pull-cloud yes
 expect aral_sessions
 run aral-session-edit {t6_ses_srv} minutes=45
-expect Updated: #{t6_ses_srv} | session 1 | {today} | 45 min
+expect Updated: #{t6_ses_srv} | class #{class_1} | session 1 | {today} | 45 min
 run sync-upload yes
 expect 1 row(s) now on the server.
 

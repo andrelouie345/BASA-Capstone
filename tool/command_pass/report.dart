@@ -13,7 +13,7 @@ String describe(Step s) => switch (s) {
       RefuseStep() => 'refuse ${s.text}',
       CaptureStep() => 'capture ${s.name} = ${s.pattern.pattern}',
       SqlStep() => 'sql ${s.query} => ${s.expected}',
-      MakeSf1Step() => 'make-sf1 ${s.name} ${s.schoolB ? 'b' : 'a'} ${s.grade} ${s.section} ${s.count}',
+      MakeSf1Step() => 'make-sf1 ${s.name} ${s.schoolB ? 'b' : 'a'} ${s.grade} ${s.section} ${s.count}${s.first == 1 ? '' : ' from=${s.first}'}',
       WriteFileStep() => 'write-file ${s.name} ${s.text}',
     };
 

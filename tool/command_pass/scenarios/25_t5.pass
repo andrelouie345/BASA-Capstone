@@ -17,9 +17,15 @@ expect users:
 run aral-roster {sec_g7} {year}
 expect #{enr_1} | ZZTESTA, Learner001 ({s_g7_1}) | KS3 Basic | active
 expect #{enr_3} | ZZTESTC, Learner003 ({s_g7_3}) | KS1 | active
-expect 3 on the roster, 3 active.
+expect 3 on the roster, 3 active, 0 waiting for a class.
 run aral-roster tutor
-expect 3 on the roster, 3 active.
+expect 3 on the roster, 3 active, 0 waiting for a class.
+run aral-classes {school} {year}
+expect #{class_1} | ZZ 7-Rose | Grade 7, mixed programs | tutor {tutor1_id} | 3/15 active
+run aral-class-show {class_1}
+expect #{class_1} | ZZ 7-Rose | Grade 7, mixed programs | tutor {tutor1_id} | 3/15 active
+expect school {school}, {year}
+expect #{enr_3} | ZZTESTC, Learner003 ({s_g7_3}) | KS1 | active | class "ZZ 7-Rose"
 run aral-sharp {school}
 expect School {school}: on
 expect Applies: on (levels 0-1 go to Foundational / SHARP)
@@ -39,32 +45,23 @@ run aral-recommend {enr_1}
 expect No active KS3 Basic materials for Grade 7 in the catalog on this device
 
 # --- Sessions and attendance --------------------------------------------------------
-# Learners entered ARAL today, so everything is dated today. One session per
-# day until the coordinator allows several (switched off again at the end).
-run aral-log {year} 60 pull_out lesson "ZZ T5 lesson 1"
-expect | session 1 | {today} | 60 min | Pull-out |
+# A session is one class's meeting: one per class per date, numbered per
+# class. The learners entered ARAL {past} (B0), so sessions are dated
+# {past}, {yesterday} and {today}.
+run aral-log {class_1} 60 pull_out {past} lesson "ZZ T5 lesson 1"
+expect | session 1 | {past} | 60 min | Pull-out |
 capture ses_1 = Logged: #(-?\d+)
-run aral-log {year} 45 after_class
+run aral-log {class_1} 45 after_class {past}
 refuse already has session 1
-run aral-log {year} 30 weekend 2099-01-01
+run aral-log {class_1} 30 weekend 2099-01-01
 refuse The session date 2099-01-01 is in the future.
-run aral-log {year} 30 indoors
+run aral-log {class_1} 30 indoors
 refuse Unknown set-up "indoors".
-
-device coord-pc admin
-run aral-tutor-multi {tutor1_id} on
-expect Tutor {tutor1_id}: several sessions per day allowed.
-run sync-upload yes
-expect~ [Aa]pplied
-
-device t5-phone tutor
-run pull-cloud yes
-expect users:
-run aral-log {year} 45 after_class
-expect | session 2 | {today} | 45 min | After class |
+run aral-log {class_1} 45 after_class {yesterday}
+expect | session 2 | {yesterday} | 45 min | After class |
 capture ses_2 = Logged: #(-?\d+)
-run aral-log {year} 30 weekend
-expect | session 3 |
+run aral-log {class_1} 30 weekend
+expect | session 3 | {today} |
 capture ses_3 = Logged: #(-?\d+)
 
 run aral-sheet {ses_1}
@@ -83,11 +80,18 @@ expect~ .
 run aral-mark-rest {ses_2} absent
 expect~ .
 run aral-session-edit {ses_2} minutes=50 remarks "ZZ edited"
-expect | session 2 | {today} | 50 min | After class |
+expect | session 2 | {yesterday} | 50 min | After class |
 run aral-session-delete {ses_3}
 expect Deleted ARAL session {ses_3}.
 run aral-sessions
 expect 2 session(s), 110 minutes.
+run aral-class-sessions {class_1}
+expect | class #{class_1} | session 1 | {past} | 60 min | Pull-out |
+expect | class #{class_1} | session 2 | {yesterday} | 50 min | After class |
+expect 2 session(s), 110 minutes.
+run aral-class-summary {class_1}
+expect Class #{class_1} "ZZ 7-Rose" (Grade 7, mixed programs): 2 session(s), 110 minutes, last session 2; next check-in after session 16 (14 to go)
+expect marks: 2 present, 3 absent, 1 excused (40% attendance)
 # Attendance rate leaves excused out: enr_1 present+absent = 50%,
 # enr_2 excused+absent = 0 of 1, enr_3 present (rest)+absent = 50%.
 run aral-attendance {enr_1}
@@ -218,9 +222,8 @@ expect | ZZ T5 kept |
 capture rl_2 = Logged #(-?\d+)
 
 run aral-tutor-summary {year}
-expect 2 session(s), 110 minutes, last session 2; next check-in after session 16 (14 to go)
+expect over their classes: 2 session(s), 110 minutes; soonest check-in: after session 16 of a class (14 to go)
 expect marks: 2 present, 3 absent, 1 excused (40% attendance)
-expect Sessions per day: several allowed
 
 # --- Signed out, on a device holding the roster: every ARAL tutor command refuses.
 run sign-out
@@ -229,11 +232,19 @@ run aral-roster {sec_g7} {year}
 refuse Not signed in. Sign in first.
 run aral-sessions
 refuse Not signed in. Sign in first.
+run aral-classes {school} {year}
+refuse Not signed in. Sign in first.
+run aral-class-show {class_1}
+refuse Not signed in. Sign in first.
+run aral-class-sessions {class_1}
+refuse Not signed in. Sign in first.
+run aral-class-summary {class_1}
+refuse Not signed in. Sign in first.
 run aral-sheet {ses_1}
 refuse Not signed in. Sign in first.
 run aral-attendance {enr_1}
 refuse Not signed in. Sign in first.
-run aral-log {year} 30 weekend
+run aral-log {class_1} 30 weekend
 refuse Not signed in. Sign in first.
 run aral-mark {ses_1} {enr_1} absent
 refuse Not signed in. Sign in first.
@@ -306,12 +317,7 @@ refuse Not signed in. Sign in first.
 run aral-checkin-cutoff {school}
 refuse Not signed in. Sign in first.
 
-# The coordinator stops allowing several sessions per day again.
 device coord-pc admin
-run aral-tutor-multi {tutor1_id} off
-expect~ .
-run sync-upload yes
-expect~ [Aa]pplied
 # SHARP back off (the default), so later batches and reruns start from it.
 run aral-sharp-set {school} off
 expect~ off

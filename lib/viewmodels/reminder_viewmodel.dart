@@ -132,13 +132,17 @@ class AralClassNotice {
   final AralClassNoticeKind kind;
   final String message;
 
-  /// The roster entries concerned (waiting, mismatch).
-  final List<int> enrollmentIds;
+  /// The learners concerned (waiting, other program, other grade), by name,
+  /// each with their ARAL roster row.
+  final List<ReminderLearner> learners;
 
   /// The class concerned (no tutor).
   final AralClass? aralClass;
 
-  const AralClassNotice(this.kind, this.message, {this.enrollmentIds = const [], this.aralClass});
+  const AralClassNotice(this.kind, this.message, {this.learners = const [], this.aralClass});
+
+  /// The roster entries concerned.
+  List<int> get enrollmentIds => [for (final l in learners) l.enrollmentId!];
 }
 
 /// In display order (spec D3): overdue assessments, check-ins due, open-round
@@ -348,12 +352,12 @@ class ReminderViewModel {
   Future<List<AralClassNotice>> _aralNotices(int schoolId, String year, String day) async {
     final classes = {for (final c in await _classes.getBySchool(schoolId, schoolYear: year)) c.id!: c};
     final active = (await _roster.getBySchool(schoolId, schoolYear: year)).where((e) => aralActiveOn(e, day)).toList();
-    final waiting = [for (final e in active) if (e.classId == null) e.id!];
+    final waiting = [for (final e in active) if (e.classId == null) e];
     final mismatch = [
       for (final e in active)
         if (e.classId != null && classes[e.classId]?.program != null &&
             classes[e.classId]!.program != AralClassProgram.of(e.keyStage, e.track))
-          e.id!,
+          e,
     ];
     final grades = <int, int?>{};
     for (final id in active.map((e) => e.sectionId).toSet()) {
@@ -363,19 +367,32 @@ class ReminderViewModel {
       for (final e in active)
         if (e.classId != null && classes[e.classId] != null && grades[e.sectionId] != null &&
             grades[e.sectionId] != classes[e.classId]!.gradeLevel)
-          e.id!,
+          e,
     ];
+    final learnersOf = <int, Map<int, Student>>{}; // section id -> student id -> learner
+    Future<List<ReminderLearner>> named(List<AralEnrollment> list) async {
+      final out = <ReminderLearner>[];
+      for (final e in list) {
+        final st = (learnersOf[e.sectionId] ??=
+            {for (final st in await _students.getBySection(e.sectionId)) st.id!: st})[e.studentId];
+        out.add(st == null
+            ? ReminderLearner(e.studentId, '', 'student ${e.studentId}', e.id)
+            : ReminderLearner(st.id!, st.lrn, _name(st), e.id));
+      }
+      return out..sort(_byName);
+    }
+
     String learners(int n) => n == 1 ? '1 ARAL learner' : '$n ARAL learners';
     return [
       if (waiting.isNotEmpty)
         AralClassNotice(AralClassNoticeKind.waiting, '${learners(waiting.length)} waiting for a class.',
-            enrollmentIds: waiting),
+            learners: await named(waiting)),
       if (mismatch.isNotEmpty)
         AralClassNotice(AralClassNoticeKind.programMismatch,
-            '${learners(mismatch.length)} in a class of another program.', enrollmentIds: mismatch),
+            '${learners(mismatch.length)} in a class of another program.', learners: await named(mismatch)),
       if (otherGrade.isNotEmpty)
         AralClassNotice(AralClassNoticeKind.otherGrade,
-            '${learners(otherGrade.length)} in a class of another grade.', enrollmentIds: otherGrade),
+            '${learners(otherGrade.length)} in a class of another grade.', learners: await named(otherGrade)),
       for (final c in classes.values.where((c) => c.tutorId == null))
         AralClassNotice(AralClassNoticeKind.noTutor, 'Class "${c.className}" has no tutor.', aralClass: c),
     ];

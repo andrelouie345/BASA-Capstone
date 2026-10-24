@@ -14,6 +14,7 @@ import 'package:basa_capstone/core/wiring/wire_shared.dart';
 import 'package:basa_capstone/core/wiring/wire_tutor.dart';
 import 'package:basa_capstone/viewmodels/aral_class_viewmodel.dart';
 import 'package:basa_capstone/viewmodels/aral_viewmodel.dart';
+import 'package:basa_capstone/viewmodels/reminder_viewmodel.dart';
 import 'package:basa_capstone/viewmodels/viewmodel_exception.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -32,6 +33,7 @@ void main() {
   late Database db;
   late AralViewModel aral;
   late AralClassViewModel classes;
+  late ReminderViewModel reminders;
   late AralClass rose, lily, sun, mixed;
 
   setUpAll(() async {
@@ -42,6 +44,7 @@ void main() {
     final t = wireTutor(ctx, wireShared(ctx));
     aral = t.aralVm;
     classes = t.aralClassVm;
+    reminders = t.reminderVm;
 
     await db.insert('schools', {'id': _school, 'school_id': 'ZZR1', 'school_name': 'ZZ Roster Classes'});
     await db.insert('users', {'id': _tutor, 'email': 'tutor@zz', 'full_name': 'Tutor One', 'role': 'tutor', 'school_id': _school});
@@ -213,5 +216,16 @@ void main() {
     expect(
         updates.where((u) => u.before.id == unplaced.id && u.kind == AralUpdateKind.unplaced && u.reason == 'waiting for a class'),
         hasLength(1));
+  });
+
+  test('coordinator reminders name the learners of each ARAL notice (F16)', () async {
+    final school = (await reminders.coordinatorReminders(_school, _year)).single;
+    final other = school.aral.singleWhere((n) => n.kind == AralClassNoticeKind.otherGrade);
+    expect(other.message, '2 ARAL learners in a class of another grade.');
+    expect(other.learners.map((l) => '${l.lrn} ${l.name}'), ['999999959501 ZZR, L9501', '999999959551 ZZR, L9551']);
+    expect(other.enrollmentIds, [for (final l in other.learners) l.enrollmentId]);
+    final waiting = school.aral.singleWhere((n) => n.kind == AralClassNoticeKind.waiting);
+    expect(waiting.learners.map((l) => l.name), contains('ZZR, L9516'));
+    expect(waiting.learners.every((l) => l.lrn.isNotEmpty && l.enrollmentId != null), isTrue);
   });
 }

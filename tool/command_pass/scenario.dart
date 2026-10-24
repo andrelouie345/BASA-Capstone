@@ -64,16 +64,19 @@ class SqlStep extends Step {
   const SqlStep(super.line, this.query, this.expected);
 }
 
-/// `make-sf1 <capture> a|b <grade> <section> <count>`: write an SF1 workbook
-/// for school a (the run's school) or b into the run folder and capture its
-/// path. Not a run: checks cannot follow it.
+/// `make-sf1 <capture> a|b <grade> <section> <count> [from=<n>]`: write an SF1
+/// workbook for school a (the run's school) or b into the run folder and
+/// capture its path. `from` is the first learner index (default 1), so a
+/// second section of the same grade gets different LRNs. Not a run: checks
+/// cannot follow it.
 class MakeSf1Step extends Step {
   final String name;
   final bool schoolB;
   final int grade;
   final String section;
   final int count;
-  const MakeSf1Step(super.line, this.name, this.schoolB, this.grade, this.section, this.count);
+  final int first;
+  const MakeSf1Step(super.line, this.name, this.schoolB, this.grade, this.section, this.count, {this.first = 1});
 }
 
 /// `write-file <capture> <text...>`: write the text ({..} values filled in)
@@ -168,12 +171,15 @@ Scenario parseScenario(String batch, String source) {
         steps.add(SqlStep(n, rest.substring(0, arrow).trim(), rest.substring(arrow + 4).trim()));
       case 'make-sf1':
         final p = rest.split(RegExp(r'\s+'));
-        final grade = p.length == 5 ? int.tryParse(p[2]) : null;
-        final count = p.length == 5 ? int.tryParse(p[4]) : null;
-        if (p.length != 5 || !const {'a', 'b'}.contains(p[1]) || grade == null || count == null || count < 1) {
-          fail('expected "make-sf1 <capture> a|b <grade> <section> <count>"');
+        final shapeOk = p.length == 5 || (p.length == 6 && p[5].startsWith('from='));
+        final grade = shapeOk ? int.tryParse(p[2]) : null;
+        final count = shapeOk ? int.tryParse(p[4]) : null;
+        final first = shapeOk && p.length == 6 ? int.tryParse(p[5].substring(5)) : 1;
+        if (!shapeOk || !const {'a', 'b'}.contains(p[1]) || grade == null || count == null || count < 1 ||
+            first == null || first < 1) {
+          fail('expected "make-sf1 <capture> a|b <grade> <section> <count> [from=<n>]"');
         }
-        steps.add(MakeSf1Step(n, p[0], p[1] == 'b', grade, p[3], count));
+        steps.add(MakeSf1Step(n, p[0], p[1] == 'b', grade, p[3], count, first: first));
         afterRun = false;
       case 'write-file':
         final sp = rest.indexOf(' ');

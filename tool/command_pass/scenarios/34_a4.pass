@@ -46,13 +46,13 @@ expect users:
 run aral-propose {sec_g2} {year}
 expect~ \| {s_g2_4} \| ZZTESTD, Learner004 \| proposed -> KS1 \| CRLA BOSY Filipino: Transitioning Reader
 run aral-enroll {sec_g2} {year} {s_g2_4}
-expect ZZTESTD, Learner004 ({s_g2_4}) | KS1 | active | tutor - | basis: crla bosy Transitioning Reader
+expect ZZTESTD, Learner004 ({s_g2_4}) | KS1 | active | unplaced | basis: crla bosy Transitioning Reader
 capture e_g2_4 = On the ARAL roster: #(-?\d+)
 run aral-enroll {sec_g2} {year} {s_g2_3}
-expect ZZTESTC, Learner003 ({s_g2_3}) | KS1 | active | tutor - | basis: crla bosy High Emerging Reader
+expect ZZTESTC, Learner003 ({s_g2_3}) | KS1 | active | unplaced | basis: crla bosy High Emerging Reader
 capture e_g2_3 = On the ARAL roster: #(-?\d+)
 run aral-enroll {sec_g2} {year} {s_g2_2}
-expect ZZTESTB, Learner002 ({s_g2_2}) | KS1 | active | tutor - | basis: crla bosy Low Emerging Reader
+expect ZZTESTB, Learner002 ({s_g2_2}) | KS1 | active | unplaced | basis: crla bosy Low Emerging Reader
 capture e_g2_2 = On the ARAL roster: #(-?\d+)
 
 # --- A MOSY result for s_g2_3: High Emerging -> Developing ---------------------------
@@ -96,7 +96,7 @@ expect users:
 run aral-roster {sec_g2} {year}
 expect~ \| ZZTESTC, Learner003 \({s_g2_3}\) \| KS1 \| exited {today} \(classroom_support\)
 expect~ \| ZZTESTD, Learner004 \({s_g2_4}\) \| KS1 \| exited {today} \(classroom_support\)
-expect 3 on the roster, 1 active.
+expect 3 on the roster, 1 active, 1 waiting for a class.
 run aral-report {school} {year} {sec_g2}
 expect | exited 2 (grade-level ready 0, other 2) |
 
@@ -125,4 +125,387 @@ expect Signed out.
 run aral-ks1-extended {school}
 refuse Not signed in. Sign in first.
 run aral-ks1-extended-set {school} on
+refuse Not signed in. Sign in first.
+
+# ====================================================================================
+# A4 part 2 (2026-10-24): ARAL classes (spec docs/superpowers/specs/2026-10-23-aral-
+# classes-design.md, home grade + one program or mixed). A class holds at most 15
+# active learners of one school and year; a learner of another grade only with the
+# coordinator's other-grade confirmation; sessions per class. Section ZZTEST-G7C
+# (16 Grade 7 learners, LRNs ...7101-7116) is imported here for the 15 cap.
+# Everything made here is removed at the end (synced), so the batch reruns.
+#   cb = "ZZ A4 Basic {stamp}" (Grade 7, KS3 Basic, tutor2); class_1 = B0's
+#   "ZZ 7-Rose" (Grade 7, mixed, tutor1, 3 learners).
+
+device a4-pc admin
+as coord
+run pull-cloud yes
+expect users:
+
+# --- Section G7C ------------------------------------------------------------------
+make-sf1 sf1_g7c a 7 ZZTEST-G7C 16 from=101
+run import-students "{sf1_g7c}"
+expect~ Inserted: (16|0), Conflicts: 0
+run section-list
+capture sec_g7c = (\d+) \| 7 - ZZTEST-G7C \({year}\)
+run student-list-section {sec_g7c}
+capture s_c1 = (\d+) \| 9990\d{4}7101
+capture s_c2 = (\d+) \| 9990\d{4}7102
+capture s_c3 = (\d+) \| 9990\d{4}7103
+capture s_c4 = (\d+) \| 9990\d{4}7104
+capture s_c5 = (\d+) \| 9990\d{4}7105
+capture s_c6 = (\d+) \| 9990\d{4}7106
+capture s_c7 = (\d+) \| 9990\d{4}7107
+capture s_c8 = (\d+) \| 9990\d{4}7108
+capture s_c9 = (\d+) \| 9990\d{4}7109
+capture s_c10 = (\d+) \| 9990\d{4}7110
+capture s_c11 = (\d+) \| 9990\d{4}7111
+capture s_c12 = (\d+) \| 9990\d{4}7112
+capture s_c13 = (\d+) \| 9990\d{4}7113
+capture s_c14 = (\d+) \| 9990\d{4}7114
+capture s_c15 = (\d+) \| 9990\d{4}7115
+capture s_c16 = (\d+) \| 9990\d{4}7116
+run pull-cloud yes
+expect users:
+
+# --- Class admin ----------------------------------------------------------------------
+run aral-class-add {school} {year} {=7} ks3_basic ZZ A4 Basic {stamp} tutor={tutor2_id} "room=Room 4" "schedule=MWF 9-10"
+expect | ZZ A4 Basic {stamp} | Grade 7, KS3 Basic | tutor {tutor2_id} | room Room 4 | MWF 9-10 | 0/15 active
+capture cb = ARAL class added: #(-\d+)
+run aral-class-add {school} {year} {=12} mixed ZZ Too High
+refuse ARAL-Reading classes are for Grades 1-10.
+run aral-class-add {school} {year} {=7} ks2 ZZ Bad Program
+refuse Unknown program "ks2"
+run aral-class-add {school} {year} {=7} mixed zz a4 basic {stamp}
+refuse A class named "zz a4 basic {stamp}" already exists for {year}.
+run aral-class-add {schoolB} {year} {=7} mixed ZZ Other School
+refuse Forbidden: that school is not yours.
+run aral-class-add {school} {year} {=7} mixed ZZ Tutor From B tutor={coord_id}
+refuse The class tutor must be an active tutor of the school.
+run aral-class-edit {cb} notes ZZ A4 notes
+expect ARAL class saved: #{cb} | ZZ A4 Basic {stamp} |
+run aral-class-edit {cb} tutor -
+expect | tutor - | room Room 4 |
+run aral-class-edit {cb} tutor {tutor2_id}
+expect | tutor {tutor2_id} |
+run aral-class-edit {cb} grade {=13}
+refuse ARAL-Reading classes are for Grades 1-10.
+run aral-class-edit {cb} colour red
+refuse Usage: aral-class-edit
+run aral-class-show {cb}
+expect notes: ZZ A4 notes
+expect (no learners yet)
+
+# --- A teacher's referral: who and why are required; program picked by hand -----------
+run aral-refer {sec_g7} {year} {s_g7_4} ks1 "reason=ZZ reads slowly"
+refuse A referral needs who referred the learner and why.
+run aral-refer {sec_g7} {year} {s_g7_4} ks1 "by=ZZ Teacher Cruz" "reason=ZZ reads slowly" class={cb}
+expect | KS1 | active | unplaced | basis: referral by ZZ Teacher Cruz: ZZ reads slowly
+expect Warning: ZZTESTD, Learner004 is in KS1; class "ZZ A4 Basic {stamp}" is KS3 Basic. ZZTESTD, Learner004 is on the roster without a class.
+capture e_ref = On the ARAL roster: #(-?\d+)
+# KS1 does not fit the KS3 Basic class: the learner waits; the mixed class takes them.
+run aral-class-place {e_ref} {cb}
+refuse ZZTESTD, Learner004 is in KS1; class "ZZ A4 Basic {stamp}" is KS3 Basic.
+run aral-class-place {e_ref} {class_1}
+expect placed in #{class_1} | ZZ 7-Rose | Grade 7, mixed programs | tutor {tutor1_id} | 4/15 active
+
+# --- 14 learners in cb, uploaded --------------------------------------------------------
+run aral-enroll {sec_g7c} {year} {s_c1} ks3 basic class={cb} entered={past}
+expect class "ZZ A4 Basic {stamp}"
+run aral-enroll {sec_g7c} {year} {s_c2} ks3 basic class={cb} entered={past}
+expect class "ZZ A4 Basic {stamp}"
+run aral-enroll {sec_g7c} {year} {s_c3} ks3 basic class={cb} entered={past}
+expect class "ZZ A4 Basic {stamp}"
+run aral-enroll {sec_g7c} {year} {s_c4} ks3 basic class={cb} entered={past}
+expect class "ZZ A4 Basic {stamp}"
+run aral-enroll {sec_g7c} {year} {s_c5} ks3 basic class={cb} entered={past}
+expect class "ZZ A4 Basic {stamp}"
+run aral-enroll {sec_g7c} {year} {s_c6} ks3 basic class={cb} entered={past}
+expect class "ZZ A4 Basic {stamp}"
+run aral-enroll {sec_g7c} {year} {s_c7} ks3 basic class={cb} entered={past}
+expect class "ZZ A4 Basic {stamp}"
+run aral-enroll {sec_g7c} {year} {s_c8} ks3 basic class={cb} entered={past}
+expect class "ZZ A4 Basic {stamp}"
+run aral-enroll {sec_g7c} {year} {s_c9} ks3 basic class={cb} entered={past}
+expect class "ZZ A4 Basic {stamp}"
+run aral-enroll {sec_g7c} {year} {s_c10} ks3 basic class={cb} entered={past}
+expect class "ZZ A4 Basic {stamp}"
+run aral-enroll {sec_g7c} {year} {s_c11} ks3 basic class={cb} entered={past}
+expect class "ZZ A4 Basic {stamp}"
+run aral-enroll {sec_g7c} {year} {s_c12} ks3 basic class={cb} entered={past}
+expect class "ZZ A4 Basic {stamp}"
+run aral-enroll {sec_g7c} {year} {s_c13} ks3 basic class={cb} entered={past}
+expect class "ZZ A4 Basic {stamp}"
+run aral-enroll {sec_g7c} {year} {s_c14} ks3 basic class={cb} entered={past}
+expect class "ZZ A4 Basic {stamp}"
+run aral-classes {school} {year}
+expect | ZZ A4 Basic {stamp} | Grade 7, KS3 Basic | tutor {tutor2_id} | room Room 4 | MWF 9-10 | 14/15 active
+run sync-upload yes
+expect~ [Aa]pplied
+run aral-classes {school} {year}
+capture cb_srv = #(\d+) \| ZZ A4 Basic {stamp}
+run aral-roster {sec_g7c} {year}
+capture e_c1 = #(\d+) \| [^|]*Learner101 
+capture e_c2 = #(\d+) \| [^|]*Learner102 
+capture e_c3 = #(\d+) \| [^|]*Learner103 
+capture e_c4 = #(\d+) \| [^|]*Learner104 
+capture e_c5 = #(\d+) \| [^|]*Learner105 
+capture e_c6 = #(\d+) \| [^|]*Learner106 
+capture e_c7 = #(\d+) \| [^|]*Learner107 
+capture e_c8 = #(\d+) \| [^|]*Learner108 
+capture e_c9 = #(\d+) \| [^|]*Learner109 
+capture e_c10 = #(\d+) \| [^|]*Learner110 
+capture e_c11 = #(\d+) \| [^|]*Learner111 
+capture e_c12 = #(\d+) \| [^|]*Learner112 
+capture e_c13 = #(\d+) \| [^|]*Learner113 
+capture e_c14 = #(\d+) \| [^|]*Learner114 
+run aral-roster {sec_g7} {year}
+capture e_ref_srv = #(\d+) \| [^|]*\({s_g7_4}\)
+
+# --- Review Focus 1: the cap holds when two devices place the 15th learner ----------------
+# a4-pc2 places learner 15 and uploads; a4-pc (still seeing 14) places learner 16:
+# its upload is refused at apply with a readable message.
+device a4-pc2 admin fresh
+as coord
+run pull-cloud yes
+expect users:
+run aral-enroll {sec_g7c} {year} {s_c15} ks3 basic class={cb_srv} entered={past}
+expect class "ZZ A4 Basic {stamp}"
+run sync-upload yes
+expect~ [Aa]pplied
+
+device a4-pc admin
+run aral-enroll {sec_g7c} {year} {s_c16} ks3 basic class={cb_srv} entered={past}
+expect class "ZZ A4 Basic {stamp}"
+capture e_c16_dev = On the ARAL roster: #(-?\d+)
+run sync-upload yes
+expect~ an ARAL class has at most 15 active learners
+run sync-status
+expect~ error .*an ARAL class has at most 15 active learners
+# Fixed on the device: learner 16 waits for a class, then the upload goes through.
+run aral-class-unplace {e_c16_dev}
+expect ARAL learner #{e_c16_dev} now waits for a class.
+run sync-upload yes
+expect~ [Aa]pplied
+run pull-cloud yes
+expect users:
+run aral-roster {sec_g7c} {year}
+capture e_c15 = #(\d+) \| [^|]*Learner115
+capture e_c16 = #(\d+) \| [^|]*Learner116
+expect 16 on the roster, 16 active, 1 waiting for a class.
+run aral-class-place {e_c16} {cb_srv}
+refuse Class "ZZ A4 Basic {stamp}" already has 15 active ARAL learners.
+
+# --- Review Focus 1: two offline classes with the same name -------------------------------
+run aral-class-add {school} {year} {=7} mixed ZZ Dup {stamp}
+capture dup_1 = ARAL class added: #(-\d+)
+device a4-pc2 admin
+run aral-class-add {school} {year} {=7} mixed ZZ Dup {stamp}
+expect ARAL class added
+run sync-upload yes
+expect~ [Aa]pplied
+device a4-pc admin
+run sync-upload yes
+expect~ an ARAL class named "ZZ Dup {stamp}" already exists in this school for {year}
+expect~ can be changed again
+run aral-class-edit {dup_1} name ZZ Dup B {stamp}
+expect | ZZ Dup B {stamp} |
+run sync-upload yes
+expect~ [Aa]pplied
+
+# --- A session in cb (the coordinator logs it for tutor2), every learner present ---------
+run aral-log {cb_srv} {=40} pull_out tutor={tutor2_id} lesson "ZZ A4 cb"
+expect | class #{cb_srv} | session 1 | {today} | 40 min | Pull-out | tutor {tutor2_id} | ZZ A4 cb
+capture cb_ses_dev = Logged: #(-?\d+)
+run aral-mark-rest {cb_ses_dev} present
+expect Marked 15 learner(s) present.
+run sync-upload yes
+expect~ [Aa]pplied
+run aral-class-sessions {cb_srv}
+capture cb_ses = #(\d+) \| class #{cb_srv} \| session 1 \|
+
+# --- Reactivating into a full class: back without a class --------------------------------
+run aral-exit {e_c1} other
+expect | exited {today} (other) | class "ZZ A4 Basic {stamp}"
+run aral-class-place {e_c16} {cb_srv}
+expect placed in #{cb_srv} | ZZ A4 Basic {stamp} | Grade 7, KS3 Basic | tutor {tutor2_id} | room Room 4 | MWF 9-10 | 15/15 active
+run aral-reactivate {e_c1}
+expect | KS3 Basic | active | unplaced |
+expect Warning: Class "ZZ A4 Basic {stamp}" is full, so this learner is back without a class. Place them in a class (aral-class-place).
+run aral-class-place {e_c1} {class_1}
+expect placed in #{class_1} | ZZ 7-Rose | Grade 7, mixed programs | tutor {tutor1_id} | 5/15 active
+
+# --- A program change keeps the learner in class, flagged ----------------------------------
+run aral-placement {e_c3} ks2 basic
+expect | KS2 Basic | active | class "ZZ A4 Basic {stamp}"
+run aral-update {sec_g7c} {year}
+expect #{e_c3} | ZZTESTY, Learner103 | programMismatch | program now KS2 Basic: move to a KS2 Basic class (class "ZZ A4 Basic {stamp}" is KS3 Basic)
+expect 1 in a class of another program
+run aral-placement {e_c3} ks3 basic
+expect | KS3 Basic | active | class "ZZ A4 Basic {stamp}"
+
+# --- Another grade: never automatic, only with the coordinator's confirmation ---------------
+run aral-enroll-proposed {sec_g2} {year} class={class_1}
+expect Added 2 learner(s):
+expect ZZTESTB, Learner002 ({s_g2_2}): ZZTESTB, Learner002 is in Grade 2; class "ZZ 7-Rose" is for Grade 7.
+run aral-roster {sec_g2} {year}
+capture e_g2p = #(-?\d+) \| [^|]*\({s_g2_2}\)
+run aral-class-place {e_g2p} {class_1}
+refuse ZZTESTB, Learner002 is in Grade 2; class "ZZ 7-Rose" is for Grade 7. Place them in it anyway with other-grade if you decide so.
+run aral-class-place {e_g2p} {class_1} other-grade
+expect placed in #{class_1} | ZZ 7-Rose | Grade 7, mixed programs | tutor {tutor1_id} | 6/15 active
+run aral-update {sec_g2} {year}
+expect | ZZTESTB, Learner002 | otherGrade | Grade 2 in class "ZZ 7-Rose" (Grade 7)
+expect 1 in a class of another grade
+run reminders-coordinator {school} {year}
+expect [ARAL] 1 ARAL learner in a class of another grade.
+expect~ 9990\d{8}  ZZTESTB, Learner002  \(ARAL #-?\d+\)
+
+# --- An SF1 section move inside the school (same grade): aral-move follows it --------------
+make-sf1 sf1_mv a 7 ZZTEST-G7M{stamp} 1 from=116
+run import-students "{sf1_mv}"
+expect Inserted: 0, Conflicts: 1, Already enrolled: 0, Skipped: 0
+run resolve-conflicts-all update
+expect~ .
+run aral-move {e_c15}
+refuse ZZTESTK, Learner115 is already in section {sec_g7c}.
+run aral-move {e_c16}
+expect Updated: #{e_c16} | ZZTESTL, Learner116 ({s_c16}) | KS3 Basic | active | class "ZZ A4 Basic {stamp}"
+run sync-upload yes
+expect~ [Aa]pplied
+
+# --- The new class tutor reads the moved learner's marks in the old class's session --------
+run aral-class-place {e_c2} {class_1}
+expect placed in #{class_1} | ZZ 7-Rose | Grade 7, mixed programs | tutor {tutor1_id} | 7/15 active
+run sync-upload yes
+expect~ [Aa]pplied
+device a4-t1 tutor fresh
+as tutor1
+run pull-cloud yes
+expect users:
+run aral-attendance {e_c2}
+expect class #{cb_srv} | session 1 | {today} | tutor {tutor2_id} | present
+expect 1 present, 0 absent, 0 excused (100% attendance)
+# e_c1 and e_c2 both left cb for class_1: tutor1 sees their two marks only.
+# The old class's session is reached through the learner's marks, not listed
+# as one of tutor1's sessions.
+run aral-sessions
+expect No ARAL sessions.
+sql select count(*) from aral_attendance where session_id = {cb_ses} => 2
+sql select count(*) from aral_sessions where id = {cb_ses} => 1
+
+# --- The class tutor assesses a learner of a section they are not assigned to --------------
+device a4-t2 tutor fresh
+as tutor2
+run pull-cloud yes
+expect users:
+run aral-roster tutor
+expect #{e_c16} | ZZTESTL, Learner116 ({s_c16}) | KS3 Basic | active | class "ZZ A4 Basic {stamp}"
+# A failing score, so the learner stays an ARAL learner on reruns.
+run phil-iri-gst {s_c4} {sec_g7c} {year} 10
+expect 10/40
+# A learner who left tutor2's class is not on their device.
+run phil-iri-gst {s_c2} {sec_g7c} {year} 25
+refuse Learner has no active enrollment in this section for that school year.
+run sync-upload yes
+expect waiting for approval.
+capture up_a4t2 = Upload (\d+)
+device a4-pc admin
+run sync-approve {up_a4t2}
+expect Upload {up_a4t2} applied.
+
+# --- Clean up (synced), so the batch reruns ------------------------------------------------
+# The moved learner goes back to G7C (SF1), the session and the roster rows go,
+# then the classes.
+run import-students "{sf1_g7c}"
+expect~ Conflicts: 1
+run resolve-conflicts-all update
+expect~ .
+run pull-cloud yes
+expect users:
+run aral-class-delete {cb_srv}
+refuse Class "ZZ A4 Basic {stamp}" still has learners or sessions; it can't be deleted.
+run aral-session-delete {cb_ses}
+expect Deleted ARAL session {cb_ses}.
+run aral-remove {e_c1}
+expect Removed ARAL enrollment {e_c1}.
+run aral-remove {e_c2}
+expect Removed ARAL enrollment {e_c2}.
+run aral-remove {e_c3}
+expect Removed ARAL enrollment {e_c3}.
+run aral-remove {e_c4}
+expect Removed ARAL enrollment {e_c4}.
+run aral-remove {e_c5}
+expect Removed ARAL enrollment {e_c5}.
+run aral-remove {e_c6}
+expect Removed ARAL enrollment {e_c6}.
+run aral-remove {e_c7}
+expect Removed ARAL enrollment {e_c7}.
+run aral-remove {e_c8}
+expect Removed ARAL enrollment {e_c8}.
+run aral-remove {e_c9}
+expect Removed ARAL enrollment {e_c9}.
+run aral-remove {e_c10}
+expect Removed ARAL enrollment {e_c10}.
+run aral-remove {e_c11}
+expect Removed ARAL enrollment {e_c11}.
+run aral-remove {e_c12}
+expect Removed ARAL enrollment {e_c12}.
+run aral-remove {e_c13}
+expect Removed ARAL enrollment {e_c13}.
+run aral-remove {e_c14}
+expect Removed ARAL enrollment {e_c14}.
+run aral-remove {e_c15}
+expect Removed ARAL enrollment {e_c15}.
+run aral-remove {e_c16}
+expect Removed ARAL enrollment {e_c16}.
+run aral-remove {e_ref_srv}
+expect Removed ARAL enrollment {e_ref_srv}.
+run aral-roster {sec_g2} {year}
+capture e_g2p_s = #(\d+) \| [^|]*\({s_g2_2}\)
+capture e_g2q_s = #(\d+) \| [^|]*\({s_g2_3}\)
+run aral-remove {e_g2p_s}
+expect Removed ARAL enrollment {e_g2p_s}.
+run aral-remove {e_g2q_s}
+expect Removed ARAL enrollment {e_g2q_s}.
+run aral-classes {school} {year}
+capture dup_a = #(\d+) \| ZZ Dup {stamp} \|
+capture dup_b = #(\d+) \| ZZ Dup B {stamp} \|
+run aral-class-delete {cb_srv}
+expect ARAL class #{cb_srv} "ZZ A4 Basic {stamp}" deleted.
+run aral-class-delete {dup_a}
+expect~ .
+run aral-class-delete {dup_b}
+expect~ .
+run sync-upload yes
+expect~ [Aa]pplied
+run aral-classes {school} {year}
+expect #{class_1} | ZZ 7-Rose | Grade 7, mixed programs | tutor {tutor1_id} | 3/15 active
+
+# --- Signed out: every class and roster admin command refuses -------------------------------
+run sign-out
+expect Signed out.
+run aral-classes {school} {year}
+refuse Not signed in. Sign in first.
+run aral-class-show {class_1}
+refuse Not signed in. Sign in first.
+run aral-class-add {school} {year} {=7} mixed ZZ Nope
+refuse Not signed in. Sign in first.
+run aral-class-edit {class_1} room x
+refuse Not signed in. Sign in first.
+run aral-class-delete {class_1}
+refuse Not signed in. Sign in first.
+run aral-class-place {enr_1} {class_1}
+refuse Not signed in. Sign in first.
+run aral-class-unplace {enr_1}
+refuse Not signed in. Sign in first.
+run aral-class-sessions {class_1}
+refuse Not signed in. Sign in first.
+run aral-class-summary {class_1}
+refuse Not signed in. Sign in first.
+run aral-refer {sec_g7} {year} {s_g7_4} ks1 "by=x" "reason=y"
+refuse Not signed in. Sign in first.
+run aral-move {enr_1}
+refuse Not signed in. Sign in first.
+run aral-enroll-proposed {sec_g2} {year}
 refuse Not signed in. Sign in first.

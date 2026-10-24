@@ -113,16 +113,23 @@ run pull-cloud yes
 expect users:
 sql select count(*) from users where id = '{tutor1_id}' and is_active = 1 => 1
 
-# Three ARAL learners in G7 with tutor1; the fourth stays off the roster.
-# New rows get negative (device) ids until they are uploaded.
-run aral-enroll {sec_g7} {year} {s_g7_1} ks3 basic tutor={tutor1_id}
+# One ARAL class: Grade 7, mixed programs, taught by tutor1. New rows get
+# negative (device) ids until they are uploaded.
+run aral-class-add {school} {year} {=7} mixed ZZ 7-Rose tutor={tutor1_id}
+expect | ZZ 7-Rose | Grade 7, mixed programs | tutor {tutor1_id} | 0/15 active
+capture class_dev = ARAL class added: #(-\d+)
+
+# Three ARAL learners in G7, placed in the class; the fourth stays off the
+# roster. They entered ARAL 30 days ago, so T5 can date sessions on three days.
+run aral-enroll {sec_g7} {year} {s_g7_1} ks3 basic class={class_dev} entered={past}
 expect On the ARAL roster: #-
-run aral-enroll {sec_g7} {year} {s_g7_2} ks3 plus tutor={tutor1_id}
-expect On the ARAL roster: #-
-run aral-enroll {sec_g7} {year} {s_g7_3} ks1 tutor={tutor1_id}
-expect On the ARAL roster: #-
+expect class "ZZ 7-Rose"
+run aral-enroll {sec_g7} {year} {s_g7_2} ks3 plus class={class_dev} entered={past}
+expect class "ZZ 7-Rose"
+run aral-enroll {sec_g7} {year} {s_g7_3} ks1 class={class_dev} entered={past}
+expect class "ZZ 7-Rose"
 # Foundational needs SHARP switched on (an A4 setting), so not here.
-run aral-enroll {sec_g7} {year} {s_g7_4} foundational tutor={tutor1_id}
+run aral-enroll {sec_g7} {year} {s_g7_4} foundational class={class_dev}
 refuse SHARP
 
 # A coordinator's upload is applied at once; afterwards the rows have
@@ -133,6 +140,10 @@ run sync-status
 expect applied
 sql select count(*) from aral_enrollments where section_id = {sec_g7} and id > 0 => 3
 sql select count(*) from aral_enrollments where id < 0 => 0
+sql select count(*) from aral_classes where id < 0 => 0
+run aral-classes {school} {year}
+expect | ZZ 7-Rose | Grade 7, mixed programs | tutor {tutor1_id} | 3/15 active
+capture class_1 = #(\d+) \| ZZ 7-Rose
 run aral-roster {sec_g7} {year}
 capture enr_1 = #(\d+) \| ZZTESTA, Learner001
 capture enr_2 = #(\d+) \| ZZTESTB, Learner002

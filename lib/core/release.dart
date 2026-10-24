@@ -23,4 +23,6 @@ const Map<String, String> basaMigrations = {
   '20261023030000': 'aral_ks1_memo_rules',
   '20261023040000': 'aral_classes',
   '20261024010000': 'aral_class_grade',
+  '20261024020000': 'aral_sessions_select_returning',
+  '20261024030000': 'aral_class_name_message',
 };

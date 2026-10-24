@@ -70,7 +70,11 @@ for a class; app update required: **yes**, same rule) and `20261024010000`
 (ARAL class home grade: every class has a grade 1-10 and one program or mixed
 programs; the grade band is removed and grades are no longer checked by the
 database (the app asks the coordinator to confirm a learner of another grade);
-app update required: **yes**, same rule). Each is idempotent.
+app update required: **yes**, same rule) and `20261024020000` (repair:
+uploaded ARAL sessions were refused by the sessions read policy; app update
+required: no) and `20261024030000` (a duplicate ARAL class name is refused
+with a readable message naming the class; app update required: no). Each is
+idempotent.
 Do **not** run
 `supabase/migrations_archive/`.
 

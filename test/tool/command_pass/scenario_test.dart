@@ -99,6 +99,12 @@ expect ZZTEST
     expect(m.grade, 7);
     expect(m.section, 'ZZTEST-G7');
     expect(m.count, 4);
+    expect(m.first, 1);
+    final f = parseScenario('x', 'device pc admin\nmake-sf1 sf1_g7c a 7 ZZTEST-G7C 16 from=101').steps[1] as MakeSf1Step;
+    expect(f.count, 16);
+    expect(f.first, 101);
+    expect(() => parseScenario('x', 'make-sf1 f a 7 S 4 from=0'), throwsFormatException);
+    expect(() => parseScenario('x', 'make-sf1 f a 7 S 4 101'), throwsFormatException);
     expect(() => parseScenario('x', 'make-sf1 f c 7 S 4'), throwsFormatException);
     expect(() => parseScenario('x', 'make-sf1 f a seven S 4'), throwsFormatException);
     expect(() => parseScenario('x', 'make-sf1 f a 7 S'), throwsFormatException);

@@ -54,6 +54,9 @@ void main() {
     final b = sf1Learners(runNumber: 12, grade: 2, count: 2, schoolB: true).map((l) => l.lrn).toList();
     expect(b, ['999000122501', '999000122502']);
     expect(sf1Learners(runNumber: 13, grade: 2, count: 1).single.lrn, '999000132001');
+    final c = sf1Learners(runNumber: 12, grade: 7, count: 2, first: 101);
+    expect(c.map((l) => l.lrn), ['999000127101', '999000127102']);
+    expect(c.first.first, 'Learner101');
   });
 
   test('school year follows the June start', () {

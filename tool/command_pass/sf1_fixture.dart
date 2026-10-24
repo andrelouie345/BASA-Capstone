@@ -26,11 +26,13 @@ String currentSchoolYear(DateTime now) {
 }
 
 /// LRN = 9990 + run (4) + grade's last digit (1) + index (3); school B's
-/// indexes start at 501. Sexes alternate from M.
-List<Sf1Learner> sf1Learners({required int runNumber, required int grade, required int count, bool schoolB = false}) {
+/// indexes start at 501. Indexes start at [first] (another section of the
+/// same grade). Sexes alternate from M.
+List<Sf1Learner> sf1Learners(
+    {required int runNumber, required int grade, required int count, bool schoolB = false, int first = 1}) {
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   return [
-    for (var i = 1; i <= count; i++)
+    for (var i = first; i < first + count; i++)
       Sf1Learner(
         '9990${runNumber.toString().padLeft(4, '0')}${grade % 10}${(i + (schoolB ? 500 : 0)).toString().padLeft(3, '0')}',
         'ZZTEST${letters[(i - 1) % 26]}',

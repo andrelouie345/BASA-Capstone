@@ -48,7 +48,8 @@ expect Grade 7 ZZTEST-G7 (#{sec_g7}): 4 learners
 expect ARAL roster: 3 active, 0 exited
 expect Sessions held: 0, last none
 run reminders-tutor me {year}
-expect 0 ARAL sessions held, last none
+expect 0 sessions held in their ARAL classes, last none; no-session reminder after 7 days
+expect [NO SESSION] Class "ZZ 7-Rose": no session yet this school year.
 expect {lrn_g7_1}  ZZTESTA, Learner001  (ARAL #{enr_1})
 run reminders-tutor {tutor2_id} {year}
 refuse Forbidden: a tutor sees only their own reminders.
@@ -57,9 +58,9 @@ expect No ARAL sessions yet.
 run trend-aral-activity school:{school} {year}
 refuse Forbidden: only an admin or coordinator can do that.
 run aral-tutors {school} {year}
-expect {tutor1_id} | ZZTEST Pass Tutor1 r{run} | 3 active ARAL learner(s)
+expect {tutor1_id} | ZZTEST Pass Tutor1 r{run} | 1 class(es), 3 active ARAL learner(s)
 run aral-tutor-summary {year}
-expect 0 session(s), 0 minutes, last session -; next check-in after session 16 (16 to go)
+expect over their classes: 0 session(s), 0 minutes; soonest check-in: after session 16 of a class (16 to go)
 expect 3 active ARAL learner(s); marks: 0 present, 0 absent, 0 excused
 # Another tutor is not on a tutor's device.
 run aral-tutor-summary {year} {tutor2_id}

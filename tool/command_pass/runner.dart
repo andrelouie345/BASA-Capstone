@@ -221,7 +221,11 @@ Future<List<StepResult>> runScenario(
               grade: '${step.grade}',
               section: substitute(step.section, _vars(accounts, state)),
               learners: sf1Learners(
-                  runNumber: accounts.runNumber, grade: step.grade, count: step.count, schoolB: step.schoolB));
+                  runNumber: accounts.runNumber,
+                  grade: step.grade,
+                  count: step.count,
+                  schoolB: step.schoolB,
+                  first: step.first));
         } catch (e) {
           add(step, StepOutcome(false, 'cannot write the SF1 workbook: $e'));
           continue;
@@ -347,6 +351,7 @@ Map<String, String> _vars(Accounts accounts, RunState state) {
     'name_b': sf1SchoolName(n, schoolB: true),
     'today': day(now),
     'past': day(now.subtract(const Duration(days: 30))),
+    'yesterday': day(now.subtract(const Duration(days: 1))),
     'future': day(now.add(const Duration(days: 30))),
     'rundir': state.runDir.path,
     'stamp': state.stamp,

@@ -32,7 +32,9 @@ String coordinatorRemindersText(List<SchoolReminders> schools) {
     }
     for (final n in s.aral) {
       out.write('\n  [ARAL] ${n.message}');
-      if (n.enrollmentIds.isNotEmpty) out.write('\n      ARAL #${n.enrollmentIds.join(', #')}');
+      for (final l in n.learners) {
+        out.write('\n      ${l.lrn.isEmpty ? '(no LRN)' : l.lrn}  ${l.name}  (ARAL #${l.enrollmentId})');
+      }
     }
   }
   return out.toString();
