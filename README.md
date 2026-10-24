@@ -76,7 +76,10 @@ required: no) and `20261024030000` (a duplicate ARAL class name is refused
 with a readable message naming the class; app update required: no) and
 `20261024040000` (a class tutor assesses their class learners only in that
 school year and school, and marks attendance in a class session only for that
-class's learners; app update required: no). Each is idempotent.
+class's learners; app update required: no) and `20261024050000` (an upload is
+checked against the 15-learner class cap and one session per class per date
+as a whole, so offline swaps of places or dates apply; app update required:
+no). Each is idempotent.
 Do **not** run
 `supabase/migrations_archive/`.
 
