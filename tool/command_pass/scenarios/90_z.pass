@@ -1,0 +1,51 @@
+# Z Teardown. The superadmin checks that the run left no upload waiting for
+# approval, then deactivates the run's accounts (coordinator, tutor1, tutor2)
+# and shows that none of them can sign in online any more. Only the superadmin
+# signs in here, so the batch can be rerun after it has run once.
+
+device z-pc admin fresh
+as super
+run pull-cloud yes
+expect users:
+
+# --- Nothing left waiting --------------------------------------------------------
+run sync-pending {school}
+expect Nothing is waiting for approval.
+
+# --- Deactivate the run's accounts ----------------------------------------------
+run user-set-active {coord_id} false
+expect Set {coord_id} active=false.
+run user-set-active {tutor1_id} false
+expect Set {tutor1_id} active=false.
+run user-set-active {tutor2_id} false
+expect Set {tutor2_id} active=false.
+# The superadmin's own device has the change at once (no pull needed).
+sql select count(*) from users where id in ('{coord_id}', '{tutor1_id}', '{tutor2_id}') and is_active = 0 => 3
+run user-list
+expect {coord_id} | {email_coord} | ZZTEST Pass Coord r{run} | coordinator | school {school} | inactive
+expect {tutor1_id} | {email_tutor1} | ZZTEST Pass Tutor1 r{run} | tutor | school {school} | inactive
+expect {tutor2_id} | {email_tutor2} | ZZTEST Pass Tutor2 r{run} | tutor | school {school} | inactive
+
+# --- None of them signs in online -----------------------------------------------
+device z-coord admin fresh
+run sign-in cloud {email_coord} {pw_coord}
+refuse Sign-in failed: account is inactive
+device z-phone tutor fresh
+run sign-in cloud {email_tutor1} {pw_tutor1}
+refuse Sign-in failed: account is inactive
+run sign-in cloud {email_tutor2} {pw_tutor2}
+refuse Sign-in failed: account is inactive
+
+# A tablet that pulled before the deactivation still holds the account as
+# active, so its owner can sign in offline until the window ends or the
+# tablet goes online (by design: CLAUDE.md, offline sign-in). Server work
+# stays refused.
+device a6-phone tutor
+run sign-out
+expect Signed out.
+run sign-in-offline {email_tutor1} {pw_tutor1}
+expect Signed in offline as {email_tutor1} (tutor). Server work needs an online sign-in.
+run sync-upload yes
+refuse This needs an online sign-in. Sign in again while connected.
+run pull-cloud yes
+refuse This needs an online sign-in. Sign in again while connected.
