@@ -230,8 +230,7 @@ void registerAralSessionCommands(ConsoleRegistry registry, AralSessionViewModel 
     if (args.length != 1) throw const AralSessionUsage('Usage: aral-class-summary <classId>');
     vm.lastWarning = null;
     final c = await vm.classSummary(_int(args[0], 'classId'));
-    return 'Class #${c.aralClass.id} "${c.aralClass.className}" (${c.aralClass.program.label}, Grades '
-        '${c.aralClass.gradeBand.value}): '
+    return 'Class #${c.aralClass.id} "${c.aralClass.className}" (${c.aralClass.groupLabel}): '
         '${_summary(c.sessions, c.totalMinutes, c.lastSessionNo, c.nextCheckInAfter, c.activeLearners, c.attendance)}';
   });
 }

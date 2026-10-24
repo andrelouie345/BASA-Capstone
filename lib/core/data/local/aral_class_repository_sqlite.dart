@@ -17,7 +17,7 @@ class AralClassRepositorySqlite implements AralClassRepository {
   static String _now() => DateTime.now().toUtc().toIso8601String();
 
   /// The columns an update may change (the rest are fixed at insert).
-  static const _changeable = ['class_name', 'program', 'grade_band', 'tutor_id', 'room', 'schedule', 'notes'];
+  static const _changeable = ['class_name', 'grade_level', 'program', 'tutor_id', 'room', 'schedule', 'notes'];
 
   @override
   Future<AralClass> insert(AralClass aralClass) async {

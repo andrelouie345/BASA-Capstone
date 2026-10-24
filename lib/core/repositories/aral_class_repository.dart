@@ -7,7 +7,7 @@ abstract class AralClassRepository {
   /// Stores a new class and returns it with its id (and stamps).
   Future<AralClass> insert(AralClass aralClass);
 
-  /// Saves the changeable fields (name, program, band, tutor, room, schedule,
+  /// Saves the changeable fields (name, grade, program, tutor, room, schedule,
   /// notes). School and year never change.
   Future<AralClass> update(AralClass aralClass);
 

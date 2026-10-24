@@ -171,7 +171,8 @@ void registerAralAdminCommands(ConsoleRegistry registry, AralViewModel vm) {
         '${n(AralUpdateKind.exited)} exit(s), ${n(AralUpdateKind.refreshed)} newer result(s) with the same program, '
         '${n(AralUpdateKind.unchanged)} unchanged, ${n(AralUpdateKind.noResult)} without a finished result; '
         '${n(AralUpdateKind.unplaced)} waiting for a class, ${n(AralUpdateKind.programMismatch)} in a class of '
-        'another program, ${n(AralUpdateKind.otherSection)} in another section, ${n(AralUpdateKind.leftSchool)} '
+        'another program, ${n(AralUpdateKind.otherGrade)} in a class of another grade, '
+        '${n(AralUpdateKind.otherSection)} in another section, ${n(AralUpdateKind.leftSchool)} '
         'left the school.';
   });
 
@@ -187,8 +188,8 @@ void registerAralAdminCommands(ConsoleRegistry registry, AralViewModel vm) {
   });
 
   add('aral-move',
-      'aral-move <enrollmentId> — follow the learner\'s SF1 section move inside the school (the class stays when it '
-          'takes the new grade)', (args) async {
+      'aral-move <enrollmentId> — follow the learner\'s SF1 section move inside the school (the class stays; a '
+          'new grade other than the class\'s is flagged)', (args) async {
     if (args.length != 1) throw const AralUsage('Usage: aral-move <enrollmentId>');
     final e = await vm.moveToSection(aralInt(args[0], 'enrollmentId'));
     return 'Updated: ${aralLine(e, await vm.learnerNames(e.sectionId), await vm.classNames(e.schoolId))}';

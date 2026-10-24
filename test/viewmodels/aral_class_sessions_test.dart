@@ -65,7 +65,7 @@ void main() {
 
     await signInAs(_coord, 'coord@zz', 'coordinator');
     classFor(String name, String? tutor) => classes.createClass(schoolId: _school, schoolYear: _year, className: name,
-        program: AralClassProgram.ks3Basic, gradeBand: AralGradeBand.g7to10, tutorId: tutor);
+        gradeLevel: 7, program: AralClassProgram.ks3Basic, tutorId: tutor);
     a = await classFor('7-A', _t1);
     b = await classFor('7-B', _t1);
     c = await classFor('7-C', _t2);

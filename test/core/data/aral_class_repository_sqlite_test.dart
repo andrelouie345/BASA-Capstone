@@ -38,11 +38,11 @@ void main() {
 
   AralClass cls(String name,
           {String year = '2026-2027',
-          AralClassProgram program = AralClassProgram.ks3Basic,
-          AralGradeBand band = AralGradeBand.g7to10,
+          AralClassProgram? program = AralClassProgram.ks3Basic,
+          int grade = 7,
           String? tutor,
           int school = 9301}) =>
-      AralClass(schoolId: school, schoolYear: year, className: name, program: program, gradeBand: band, tutorId: tutor);
+      AralClass(schoolId: school, schoolYear: year, className: name, gradeLevel: grade, program: program, tutorId: tutor);
 
   test('a new class gets a negative id and its stamps', () async {
     final c = await repo.insert(cls('7-Rose', tutor: t1));
@@ -59,7 +59,7 @@ void main() {
 
   test('getByTutor and getBySchool', () async {
     await repo.insert(cls('7-Lily', tutor: t2));
-    await repo.insert(cls('2-Sun', program: AralClassProgram.ks1, band: AralGradeBand.g1to3, tutor: t1));
+    await repo.insert(cls('2-Sun', program: AralClassProgram.ks1, grade: 2, tutor: t1));
     expect((await repo.getByTutor(t1, schoolYear: '2026-2027')).map((c) => c.className), ['2-Sun', '7-Rose']);
     expect((await repo.getByTutor(t2)).map((c) => c.className), ['7-Lily']);
     expect((await repo.getBySchool(9301, schoolYear: '2026-2027')).map((c) => c.className), ['2-Sun', '7-Lily', '7-Rose']);
@@ -76,13 +76,18 @@ void main() {
     expect(await repo.findById(c.id!), isNull);
   });
 
-  test('unknown program or band is refused', () async {
-    Future<void> raw(String program, String band) => db.insert('aral_classes', {
+  test('unknown program or a grade outside 1-10 is refused; no program = mixed', () async {
+    Future<void> raw(String? program, int grade) => db.insert('aral_classes', {
           'id': -900, 'school_id': 9301, 'school_year': '2026-2027', 'class_name': 'Bad', 'program': program,
-          'grade_band': band, 'created_at': 'x', 'updated_at': 'x'});
-    await expectLater(raw('ks2', '4-6'), throwsA(isA<DatabaseException>()));
-    await expectLater(raw('ks1', '1-2'), throwsA(isA<DatabaseException>()));
-    await expectLater(raw('ks1', '1-3').then((_) => db.delete('aral_classes', where: 'id = -900')), completes);
+          'grade_level': grade, 'created_at': 'x', 'updated_at': 'x'});
+    await expectLater(raw('ks2', 4), throwsA(isA<DatabaseException>()));
+    await expectLater(raw('ks1', 11), throwsA(isA<DatabaseException>()));
+    await expectLater(raw('ks1', 0), throwsA(isA<DatabaseException>()));
+    await expectLater(raw('ks1', 1).then((_) => db.delete('aral_classes', where: 'id = -900')), completes);
+    final m = await repo.insert(cls('7-Mixed', program: null));
+    expect((await repo.findById(m.id!))!.program, isNull);
+    expect((await db.query('aral_classes', where: 'id = ?', whereArgs: [m.id])).single.containsKey('grade_band'), isFalse);
+    await repo.delete(m.id!);
   });
 
   test('a blank name or a bad school year is refused', () async {
@@ -110,7 +115,7 @@ void main() {
   test('a mirrored class keeps its cloud id and is not re-checked', () async {
     final m = await repo.upsertWithId(
         const AralClass(id: 812, schoolId: 9302, schoolYear: '2026-2027', className: 'B-1', program: AralClassProgram.ks1,
-            gradeBand: AralGradeBand.g1to3, tutorId: '00000000-0000-0000-0000-0000000093a9'));
+            gradeLevel: 2, tutorId: '00000000-0000-0000-0000-0000000093a9'));
     expect(m.id, 812);
     final row = (await db.query('aral_classes', where: 'id = 812')).single;
     expect(row['origin'], 'cloud');

@@ -3,13 +3,17 @@
 // An ARAL class: the group a tutor actually teaches (DepEd Memorandum 064 s.
 // 2025: at most 15 learners, grouped by reading profile). Offline-first and
 // synced like the roster; same columns as the cloud table aral_classes
-// (20261023040000).
+// (20261023040000, grade and mixed programs 20261024010000).
 //
 // Owner decisions (2026-10-23, spec docs/superpowers/specs/2026-10-23-aral-classes-design.md):
 //  * A class belongs to a school and a school year, not to a section; its
 //    learners come from any section of the school.
-//  * One program and one grade band per class; at most 15 active learners
-//    (aralClassCap, the placement rules are in aral_rules.dart).
+//  * At most 15 active learners (aralClassCap, the placement rules are in
+//    aral_rules.dart).
+// Owner decisions (2026-10-24, from the reading coordinator; plan
+// docs/superpowers/plans/2026-10-24-aral-class-grade.md G1-G2):
+//  * A class has a home grade (1-10) and one program or mixed programs
+//    (program null). The grade band (1-3 / 4-6 / 7-10) is gone.
 //  * One tutor, possibly blank for a while; a tutor may teach several classes.
 import 'aral_enrollment.dart';
 
@@ -41,40 +45,13 @@ enum AralClassProgram {
       );
 }
 
-/// The grades a class takes, by the learner's section grade.
-enum AralGradeBand {
-  g1to3('1-3', 1, 3),
-  g4to6('4-6', 4, 6),
-  g7to10('7-10', 7, 10);
-
-  final String value;
-  final int from;
-  final int to;
-  const AralGradeBand(this.value, this.from, this.to);
-
-  bool contains(int grade) => grade >= from && grade <= to;
-
-  /// The band of a Grade [grade] learner; null outside Grades 1-10.
-  static AralGradeBand? ofGrade(int grade) {
-    for (final b in AralGradeBand.values) {
-      if (b.contains(grade)) return b;
-    }
-    return null;
-  }
-
-  static AralGradeBand fromString(String v) => AralGradeBand.values.firstWhere(
-        (b) => b.value == v,
-        orElse: () => throw ArgumentError('Invalid AralGradeBand value: $v'),
-      );
-}
-
 class AralClass {
   final int? id;
   final int schoolId;
   final String schoolYear;
   final String className;
-  final AralClassProgram program;
-  final AralGradeBand gradeBand;
+  final int gradeLevel;              // the home grade, 1-10
+  final AralClassProgram? program;   // null = mixed programs
   final String? tutorId;       // users.id, an active tutor of the school; null = none yet
   final String? room;
   final String? schedule;
@@ -88,8 +65,8 @@ class AralClass {
     required this.schoolId,
     required this.schoolYear,
     required this.className,
-    required this.program,
-    required this.gradeBand,
+    required this.gradeLevel,
+    this.program,
     this.tutorId,
     this.room,
     this.schedule,
@@ -104,8 +81,8 @@ class AralClass {
         'school_id': schoolId,
         'school_year': schoolYear,
         'class_name': className,
-        'program': program.value,
-        'grade_band': gradeBand.value,
+        'grade_level': gradeLevel,
+        'program': program?.value,
         'tutor_id': tutorId,
         'room': room,
         'schedule': schedule,
@@ -120,8 +97,8 @@ class AralClass {
         schoolId: m['school_id'] as int,
         schoolYear: m['school_year'] as String,
         className: m['class_name'] as String,
-        program: AralClassProgram.fromString(m['program'] as String),
-        gradeBand: AralGradeBand.fromString(m['grade_band'] as String),
+        gradeLevel: m['grade_level'] as int,
+        program: m['program'] == null ? null : AralClassProgram.fromString(m['program'] as String),
         tutorId: m['tutor_id'] as String?,
         room: m['room'] as String?,
         schedule: m['schedule'] as String?,
@@ -133,8 +110,8 @@ class AralClass {
 
   AralClass copyWith({
     String? className,
-    AralClassProgram? program,
-    AralGradeBand? gradeBand,
+    int? gradeLevel,
+    AralClassProgram? Function()? program,
     String? Function()? tutorId,
     String? Function()? room,
     String? Function()? schedule,
@@ -145,8 +122,8 @@ class AralClass {
         schoolId: schoolId,
         schoolYear: schoolYear,
         className: className ?? this.className,
-        program: program ?? this.program,
-        gradeBand: gradeBand ?? this.gradeBand,
+        gradeLevel: gradeLevel ?? this.gradeLevel,
+        program: program == null ? this.program : program(),
         tutorId: tutorId == null ? this.tutorId : tutorId(),
         room: room == null ? this.room : room(),
         schedule: schedule == null ? this.schedule : schedule(),
@@ -155,4 +132,10 @@ class AralClass {
         createdAt: createdAt,
         updatedAt: updatedAt,
       );
+
+  /// Whether the class takes every program.
+  bool get isMixed => program == null;
+
+  /// `Grade 7, KS2 Basic` or `Grade 7, mixed programs`.
+  String get groupLabel => 'Grade $gradeLevel, ${program?.label ?? 'mixed programs'}';
 }

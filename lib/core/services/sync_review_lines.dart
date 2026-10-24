@@ -221,7 +221,8 @@ class _Describer {
       'crla_assessments' => (_learner(row), 'CRLA ${row['round']} ${row['subject_variant']}'),
       'phil_iri_gst_results' => (_learner(row), 'Phil-IRI GST ${row['total_score']}/${row['max_score']}'),
       'phil_iri_assessments' => (_learner(row), 'Phil-IRI ${row['round']}'),
-      'aral_classes' => (null, 'ARAL class "${row['class_name']}" (G${row['grade_band']}, ${_program(row['program'])}, '
+      'aral_classes' => (null, 'ARAL class "${row['class_name']}" (Grade ${row['grade_level']}, '
+          '${row['program'] == null ? 'mixed programs' : _program(row['program'])}, '
           'tutor ${row['tutor_id'] == null ? '-' : _user('${row['tutor_id']}')})'),
       'aral_enrollments' => (
           _learner(row),

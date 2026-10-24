@@ -14,8 +14,10 @@
 //    results only).
 //  * Class (ARAL classes, 2026-10-24; replaces "Tutor email"): the class's
 //    name in that school and year; an unknown name is a row error. A class
-//    that is full or teaches another program or grade band doesn't stop the
-//    row: the learner is imported without a class (flagged in the preview).
+//    that is full, teaches another program or is for another grade doesn't
+//    stop the row: the learner is imported without a class (flagged in the
+//    preview). Another grade goes in only by the coordinator's
+//    aral-class-place ... other-grade (2026-10-24, G3).
 //  * Every learner goes through AralViewModel.enroll (Grades 1-10, ...),
 //    each section weakest reader first.
 // Preview first, then import. Admins/coordinators of the school.
@@ -232,10 +234,10 @@ class AralRosterImportViewModel {
       String? classFlag;
       if (cls != null && outcome == AralRosterImportOutcome.add) {
         final grade = int.tryParse(found!.$2.gradeLevel) ?? 0;
-        if (ks != null && AralClassProgram.of(ks, track) != cls.program) {
-          classFlag = 'class "${cls.className}" is ${cls.program.label}: imported without a class';
-        } else if (!cls.gradeBand.contains(grade)) {
-          classFlag = 'class "${cls.className}" takes Grades ${cls.gradeBand.value}: imported without a class';
+        if (ks != null && cls.program != null && AralClassProgram.of(ks, track) != cls.program) {
+          classFlag = 'class "${cls.className}" is ${cls.program!.label}: imported without a class';
+        } else if (grade != cls.gradeLevel) {
+          classFlag = 'class "${cls.className}" is for Grade ${cls.gradeLevel}: imported without a class';
         } else if (taken[cls.id!]! >= aralClassCap) {
           classFlag = 'class "${cls.className}" is full: imported without a class';
         } else {

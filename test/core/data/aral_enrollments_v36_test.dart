@@ -146,7 +146,7 @@ void main() {
       await db.delete('aral_enrollments');
       rose = -(await db.rawInsert("INSERT INTO local_ids (made_at) VALUES (datetime('now'))"));
       await db.insert('aral_classes', {'id': rose, 'school_id': 1, 'school_year': year, 'class_name': '7-Rose',
-          'program': 'ks3_basic', 'grade_band': '7-10', 'tutor_id': tutor});
+          'program': 'ks3_basic', 'grade_level': 7, 'tutor_id': tutor});
     });
 
     Future<int> enrol(int student, {String ks = 'ks3', String? track = 'basic', int section = 1, int? classId,
@@ -179,10 +179,14 @@ void main() {
       await db.update('aral_enrollments', {'notes': 'n'}, where: 'id = ?', whereArgs: [ids[1]]);
     });
 
-    test('program and band must match', () async {
+    test('the program must match; the grade is not checked here (the coordinator confirms it)', () async {
       await expectLater(enrol(17, ks: 'ks2', classId: rose), refusedWith("The learner's program does not match the ARAL class"));
-      await expectLater(enrol(20, section: 2, classId: rose),
-          refusedWith("The learner's grade is outside the ARAL class's grade band"));
+      // Grade 5 into a Grade 7 class: the device leaves that to the ViewModel
+      // (other-grade), like the cloud.
+      final g5 = (await db.query('aral_enrollments', where: "class_id = ? AND status = 'active'", whereArgs: [rose])).first['id'];
+      await db.update('aral_enrollments', {'status': 'exited', 'exited_on': '2026-10-21', 'exit_reason': 'other'},
+          where: 'id = ?', whereArgs: [g5]);
+      await enrol(20, section: 2, classId: rose);
       // A program change that keeps the class is not re-checked (decision 7).
       final placed = (await db.query('aral_enrollments', where: "class_id = ? AND status = 'active'", whereArgs: [rose])).first['id'];
       await db.update('aral_enrollments', {'key_stage': 'ks2', 'track': 'plus'}, where: 'id = ?', whereArgs: [placed]);
@@ -191,7 +195,7 @@ void main() {
     test('a class of another school or year is refused', () async {
       final next = -(await db.rawInsert("INSERT INTO local_ids (made_at) VALUES (datetime('now'))"));
       await db.insert('aral_classes', {'id': next, 'school_id': 1, 'school_year': '2027-2028', 'class_name': '7-Rose',
-          'program': 'ks3_basic', 'grade_band': '7-10'});
+          'program': 'ks3_basic', 'grade_level': 7});
       await expectLater(enrol(18, classId: next), refusedWith('The ARAL class belongs to another school or school year'));
     });
 
@@ -203,13 +207,35 @@ void main() {
           refusedWith('only the placement, class, status and notes change'));
     });
 
-    test('a class with learners keeps its program and band; an empty one may change', () async {
-      await expectLater(db.update('aral_classes', {'program': 'ks3_plus'}, where: 'id = ?', whereArgs: [rose]),
-          refusedWith('An ARAL class with learners keeps its program and grade band'));
+    test('a class with learners keeps its grade and program (mixed included); an empty one may change', () async {
+      for (final change in [
+        {'program': 'ks3_plus'},
+        {'program': null},
+        {'grade_level': 8},
+      ]) {
+        await expectLater(db.update('aral_classes', change, where: 'id = ?', whereArgs: [rose]),
+            refusedWith('An ARAL class with learners keeps its grade and program'), reason: '$change');
+      }
       final empty = -(await db.rawInsert("INSERT INTO local_ids (made_at) VALUES (datetime('now'))"));
       await db.insert('aral_classes', {'id': empty, 'school_id': 1, 'school_year': year, 'class_name': 'Empty',
-          'program': 'ks1', 'grade_band': '1-3'});
-      await db.update('aral_classes', {'program': 'ks2_basic', 'grade_band': '4-6'}, where: 'id = ?', whereArgs: [empty]);
+          'program': 'ks1', 'grade_level': 2});
+      await db.update('aral_classes', {'program': null, 'grade_level': 4}, where: 'id = ?', whereArgs: [empty]);
+      await db.update('aral_classes', {'program': 'ks2_basic'}, where: 'id = ?', whereArgs: [empty]);
+    });
+
+    test('a mixed class takes any program, still 15 active', () async {
+      final mixed = -(await db.rawInsert("INSERT INTO local_ids (made_at) VALUES (datetime('now'))"));
+      await db.insert('aral_classes', {'id': mixed, 'school_id': 1, 'school_year': year, 'class_name': '7-Mixed',
+          'program': null, 'grade_level': 7});
+      final free = (await db.query('aral_enrollments', where: 'class_id IS NULL AND status = ?', whereArgs: ['active']))
+          .map((r) => r['id'] as int)
+          .toList();
+      for (final (i, id) in free.indexed) {
+        final (ks, track) = [('ks1', null), ('ks2', 'basic'), ('ks3', 'plus')][i % 3];
+        await db.update('aral_enrollments', {'key_stage': ks, 'track': track, 'class_id': mixed},
+            where: 'id = ?', whereArgs: [id]);
+      }
+      expect((await db.query('aral_enrollments', where: 'class_id = ?', whereArgs: [mixed])).length, free.length);
     });
   });
 }

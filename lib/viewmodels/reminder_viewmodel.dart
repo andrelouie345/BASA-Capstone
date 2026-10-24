@@ -125,7 +125,7 @@ class SchoolReminders {
   const SchoolReminders(this.schoolId, this.schoolName, this.doneThreshold, this.reminders, [this.aral = const []]);
 }
 
-enum AralClassNoticeKind { waiting, programMismatch, noTutor }
+enum AralClassNoticeKind { waiting, programMismatch, otherGrade, noTutor }
 
 /// An ARAL class matter for the coordinator.
 class AralClassNotice {
@@ -343,7 +343,8 @@ class ReminderViewModel {
   }
 
   /// The school's ARAL learners waiting for a class or in a class of another
-  /// program on [day], and its classes without a tutor.
+  /// program (one-program classes) or another grade on [day], and its
+  /// classes without a tutor.
   Future<List<AralClassNotice>> _aralNotices(int schoolId, String year, String day) async {
     final classes = {for (final c in await _classes.getBySchool(schoolId, schoolYear: year)) c.id!: c};
     final active = (await _roster.getBySchool(schoolId, schoolYear: year)).where((e) => aralActiveOn(e, day)).toList();
@@ -354,6 +355,16 @@ class ReminderViewModel {
             classes[e.classId]!.program != AralClassProgram.of(e.keyStage, e.track))
           e.id!,
     ];
+    final grades = <int, int?>{};
+    for (final id in active.map((e) => e.sectionId).toSet()) {
+      grades[id] = int.tryParse((await _sections.getById(id))?.gradeLevel ?? '');
+    }
+    final otherGrade = [
+      for (final e in active)
+        if (e.classId != null && classes[e.classId] != null && grades[e.sectionId] != null &&
+            grades[e.sectionId] != classes[e.classId]!.gradeLevel)
+          e.id!,
+    ];
     String learners(int n) => n == 1 ? '1 ARAL learner' : '$n ARAL learners';
     return [
       if (waiting.isNotEmpty)
@@ -362,6 +373,9 @@ class ReminderViewModel {
       if (mismatch.isNotEmpty)
         AralClassNotice(AralClassNoticeKind.programMismatch,
             '${learners(mismatch.length)} in a class of another program.', enrollmentIds: mismatch),
+      if (otherGrade.isNotEmpty)
+        AralClassNotice(AralClassNoticeKind.otherGrade,
+            '${learners(otherGrade.length)} in a class of another grade.', enrollmentIds: otherGrade),
       for (final c in classes.values.where((c) => c.tutorId == null))
         AralClassNotice(AralClassNoticeKind.noTutor, 'Class "${c.className}" has no tutor.', aralClass: c),
     ];

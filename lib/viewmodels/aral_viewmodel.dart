@@ -126,8 +126,11 @@ enum AralUpdateKind {
   /// No finished result yet.
   noResult,
   // Notices for the coordinator (no write; before == after):
-  /// The learner's program differs from their class's: move them.
+  /// The learner's program differs from their (one-program) class's: move them.
   programMismatch,
+  /// The learner's grade differs from their class's (placed with other-grade,
+  /// or their grade changed since; G4).
+  otherGrade,
   /// The learner waits for a class.
   unplaced,
   /// The learner's SF1 section changed inside the school: aral-move.
@@ -476,11 +479,13 @@ class AralViewModel {
   /// Inserts [draft], in [cls] when it takes the learner.
   Future<(AralEnrollment, String?)> _insertPlaced(AralEnrollment draft, AralClass? cls,
       {required int grade, required String learner}) async {
+    // Another grade is never placed here: only the coordinator's
+    // aral-class-place ... other-grade does that (G3).
     final refusal = cls == null ? null : await aralPlacementRefusal(_roster, cls, draft, grade: grade, learner: learner);
     final stored = await _write(() => _roster.insert(
         cls == null || refusal != null ? draft : draft.copyWith(classId: () => cls.id)));
     _log('enrolled ${stored.id} (${stored.programLabel}${stored.classId == null ? '' : ', class ${stored.classId}'})');
-    return (stored, refusal);
+    return (stored, refusal?.$2);
   }
 
   /// Confirms every proposal of the section as suggested. With [classId] the
@@ -588,9 +593,9 @@ class AralViewModel {
   }
 
   /// Follows an SF1 section move inside the school (F9b): the roster entry
-  /// takes the learner's current section. The class stays when it takes the
-  /// new grade; otherwise the learner waits for a class (lastWarning). A
-  /// learner who left the school is exited as transferred out instead.
+  /// takes the learner's current section. The class always stays (G4); when
+  /// the new grade differs from the class's, lastWarning says so. A learner
+  /// who left the school is exited as transferred out instead.
   Future<AralEnrollment> moveToSection(int enrollmentId) async {
     _requireSignIn();
     _log('moveToSection($enrollmentId)');
@@ -606,16 +611,13 @@ class AralViewModel {
     }
     if (section.id == e.sectionId) throw ViewModelException('$name is already in section ${e.sectionId}.');
     final (_, grade) = await _aralSection(section.id!, e.schoolYear);
-    var classId = e.classId;
-    if (classId != null) {
-      final cls = await _classes.findById(classId);
-      if (cls != null && !cls.gradeBand.contains(grade)) {
-        classId = null;
-        _warn('Grade $grade is outside class "${cls.className}" (Grades ${cls.gradeBand.value}); '
-            'the learner now waits for a class.');
-      }
+    final moved = await _write(() => _roster.update(e.copyWith(sectionId: section.id)));
+    final cls = e.classId == null ? null : await _classes.findById(e.classId!);
+    if (cls != null && cls.gradeLevel != grade) {
+      _warn('Grade $grade is now in class "${cls.className}" (Grade ${cls.gradeLevel}); '
+          'move them if needed (aral-class-place).');
     }
-    return _write(() => _roster.update(e.copyWith(sectionId: section.id, classId: () => classId)));
+    return moved;
   }
 
   /// Records that the learner left ARAL for an administrative reason
@@ -643,7 +645,9 @@ class AralViewModel {
 
   /// Undoes an administrative exit (e.g. recorded by mistake). A
   /// grade-level-ready exit stands: it follows the results. When their class
-  /// can't take them back, the learner returns without a class (lastWarning).
+  /// can't take them back (full, or now of another program), the learner
+  /// returns without a class (lastWarning). The grade is not re-checked: the
+  /// learner was in that class already.
   Future<AralEnrollment> reactivate(int enrollmentId) async {
     _requireSignIn();
     _log('reactivate($enrollmentId)');
@@ -661,14 +665,13 @@ class AralViewModel {
       final section = await _sections.getById(e.sectionId);
       final grade = int.tryParse(section?.gradeLevel ?? '') ?? 0;
       final refusal = await aralPlacementRefusal(_roster, cls, back,
-          grade: grade, learner: await _learnerName(e.studentId, e.sectionId));
+          grade: grade, learner: await _learnerName(e.studentId, e.sectionId), otherGradeOk: true);
       if (refusal != null) {
         back = back.copyWith(classId: () => null);
-        final full = refusal == 'Class "${cls.className}" already has $aralClassCap active ARAL learners.';
-        _warn(full
+        _warn(refusal.$1 == AralPlacementProblem.full
             ? 'Class "${cls.className}" is full, so this learner is back without a class. '
                 'Place them in a class (aral-class-place).'
-            : '$refusal This learner is back without a class. Place them in a class (aral-class-place).');
+            : '${refusal.$2} This learner is back without a class. Place them in a class (aral-class-place).');
       }
     }
     return _write(() => _roster.update(back));
@@ -751,7 +754,7 @@ class AralViewModel {
 
   /// What the coordinator should look at for an active learner (no write):
   /// left the school, moved to another section, waiting for a class, or in a
-  /// class of another program.
+  /// class of another program (one-program classes) or another grade.
   Future<List<AralUpdate>> _notices(AralEnrollment e) async {
     if (!e.isActive) return const [];
     AralUpdate notice(AralUpdateKind kind, String reason) => AralUpdate(e, e, kind, reason);
@@ -769,10 +772,14 @@ class AralViewModel {
     } else {
       final cls = await _classes.findById(e.classId!);
       final program = AralClassProgram.of(e.keyStage, e.track);
-      if (cls != null && cls.program != program) {
+      if (cls != null && cls.program != null && cls.program != program) {
         out.add(notice(AralUpdateKind.programMismatch,
             'program now ${program.label}: move to a ${program.label} class '
-            '(class "${cls.className}" is ${cls.program.label})'));
+            '(class "${cls.className}" is ${cls.program!.label})'));
+      }
+      final grade = int.tryParse((await _sections.getById(e.sectionId))?.gradeLevel ?? '');
+      if (cls != null && grade != null && grade != cls.gradeLevel) {
+        out.add(notice(AralUpdateKind.otherGrade, 'Grade $grade in class "${cls.className}" (Grade ${cls.gradeLevel})'));
       }
     }
     return out;

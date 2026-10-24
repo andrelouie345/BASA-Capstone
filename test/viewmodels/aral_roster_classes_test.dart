@@ -1,7 +1,9 @@
 // The ARAL roster on classes (spec docs/superpowers/specs/2026-10-23-aral-classes-design.md),
 // signed in offline as a coordinator: placing into a full class, the
-// proposal filling a class, referrals, a section move across the band, and
-// the informational lines of aral-update.
+// proposal filling a class, referrals, learners of another grade (only with
+// the coordinator's other-grade confirmation, plan 2026-10-24-aral-class-grade),
+// mixed-programs classes, a section move to another grade, and the
+// informational lines of aral-update.
 import 'dart:io';
 
 import 'package:basa_capstone/core/data/local/local_database.dart';
@@ -30,7 +32,7 @@ void main() {
   late Database db;
   late AralViewModel aral;
   late AralClassViewModel classes;
-  late AralClass rose, lily, sun;
+  late AralClass rose, lily, sun, mixed;
 
   setUpAll(() async {
     sqfliteFfiInit();
@@ -43,8 +45,8 @@ void main() {
 
     await db.insert('schools', {'id': _school, 'school_id': 'ZZR1', 'school_name': 'ZZ Roster Classes'});
     await db.insert('users', {'id': _tutor, 'email': 'tutor@zz', 'full_name': 'Tutor One', 'role': 'tutor', 'school_id': _school});
-    // A: G7 (16 learners), B: G7 (17), C: G5 (none yet), D: G2 (1).
-    for (final (id, grade) in [(9501, '7'), (9502, '7'), (9503, '5'), (9504, '2')]) {
+    // A: G7 (16 learners), B: G7 (17), C: G5 (none yet), D: G2 (1), E: G9 (3), F: G7 (3).
+    for (final (id, grade) in [(9501, '7'), (9502, '7'), (9503, '5'), (9504, '2'), (9505, '9'), (9506, '7')]) {
       await db.insert('sections', {'id': id, 'school_id': _school, 'school_year': _year, 'grade_level': grade, 'section_name': 'S$id'});
     }
     Future<void> learner(int id, int section) async {
@@ -59,16 +61,23 @@ void main() {
       await learner(9500 + i, 9502);
     }
     await learner(9541, 9504);
+    for (var i = 51; i <= 53; i++) {
+      await learner(9500 + i, 9505);
+    }
+    for (var i = 61; i <= 63; i++) {
+      await learner(9500 + i, 9506);
+    }
 
     await seedOfflineOwner(db, userId: _coord, email: 'coord@zz', role: 'coordinator', schoolId: _school);
     expect(await ctx.authVm.signInOffline(email: 'coord@zz', password: 'test-pw'), isNull);
 
     rose = await classes.createClass(schoolId: _school, schoolYear: _year, className: '7-Rose',
-        program: AralClassProgram.ks3Basic, gradeBand: AralGradeBand.g7to10, tutorId: _tutor);
+        gradeLevel: 7, program: AralClassProgram.ks3Basic, tutorId: _tutor);
     lily = await classes.createClass(schoolId: _school, schoolYear: _year, className: '7-Lily',
-        program: AralClassProgram.ks2Basic, gradeBand: AralGradeBand.g7to10);
+        gradeLevel: 7, program: AralClassProgram.ks2Basic);
     sun = await classes.createClass(schoolId: _school, schoolYear: _year, className: '2-Sun',
-        program: AralClassProgram.ks1, gradeBand: AralGradeBand.g1to3, tutorId: _tutor);
+        gradeLevel: 2, program: AralClassProgram.ks1, tutorId: _tutor);
+    mixed = await classes.createClass(schoolId: _school, schoolYear: _year, className: '7-Mixed', gradeLevel: 7);
   });
 
   tearDownAll(LocalDatabase.close);
@@ -84,7 +93,7 @@ void main() {
     }
     await expectLater(classes.place(enrolled.last.id!, rose.id!), _refused('Class "7-Rose" already has 15 active ARAL learners.'));
     expect((await classes.classRoster(rose.id!)).length, 15);
-    // Wrong program or band: refused with the learner's name.
+    // Wrong program: refused with the learner's name.
     await expectLater(classes.place(enrolled.last.id!, lily.id!),
         _refused('ZZR, L9516 is in KS3 Basic; class "7-Lily" is KS2 Basic.'));
     await expectLater(classes.place(enrolled.last.id!, sun.id!),
@@ -124,14 +133,78 @@ void main() {
         reason: updates.map((u) => '${u.kind.name}: ${u.reason}').join('; '));
   });
 
-  test('a section move across the band leaves the class', () async {
+  test('a class grade outside 1-10 is refused; a grade or program change needs an empty class', () async {
+    await expectLater(classes.createClass(schoolId: _school, schoolYear: _year, className: 'K', gradeLevel: 11),
+        _refused('ARAL-Reading classes are for Grades 1-10.'));
+    await expectLater(classes.createClass(schoolId: _school, schoolYear: _year, className: 'K', gradeLevel: 0),
+        _refused('ARAL-Reading classes are for Grades 1-10.'));
+    for (final change in [rose.copyWith(gradeLevel: 8), rose.copyWith(program: () => null),
+        rose.copyWith(program: () => AralClassProgram.ks3Plus)]) {
+      await expectLater(classes.editClass(change), _refused('Class "7-Rose" has learners; its grade and program can\'t change.'));
+    }
+    final empty = await classes.createClass(schoolId: _school, schoolYear: _year, className: '8-Empty', gradeLevel: 8);
+    final edited = await classes.editClass(empty.copyWith(gradeLevel: 9, program: () => AralClassProgram.ks2Plus));
+    expect((edited.gradeLevel, edited.program), (9, AralClassProgram.ks2Plus));
+    await classes.deleteClass(empty.id!);
+  });
+
+  test('a mixed-programs class takes any program of its grade', () async {
+    final placed = [
+      for (final (id, ks, track) in [
+        (9561, AralKeyStage.ks1, null),
+        (9562, AralKeyStage.ks2, AralTrack.basic),
+        (9563, AralKeyStage.ks3, AralTrack.plus),
+      ])
+        await aral.enroll(sectionId: 9506, schoolYear: _year, studentId: id, keyStage: ks, track: track, classId: mixed.id),
+    ];
+    expect(placed.map((e) => e.classId), everyElement(mixed.id));
+    expect(aral.lastWarning, isNull);
+  });
+
+  test('another grade joins only with other-grade', () async {
+    final g9 = await aral.enroll(sectionId: 9505, schoolYear: _year, studentId: 9551,
+        keyStage: AralKeyStage.ks1, classId: mixed.id);
+    expect(g9.classId, isNull, reason: 'enrol with a class never places another grade');
+    expect(aral.lastWarning, 'ZZR, L9551 is in Grade 9; class "7-Mixed" is for Grade 7. '
+        'ZZR, L9551 is on the roster without a class.');
+    await expectLater(classes.place(g9.id!, mixed.id!),
+        _refused('ZZR, L9551 is in Grade 9; class "7-Mixed" is for Grade 7. '
+            'Place them in it anyway with other-grade if you decide so.'));
+    expect((await classes.place(g9.id!, mixed.id!, otherGrade: true)).classId, mixed.id);
+    // The confirmation doesn't lift the program rule.
+    final other = await aral.enroll(sectionId: 9505, schoolYear: _year, studentId: 9552,
+        keyStage: AralKeyStage.ks1);
+    await expectLater(classes.place(other.id!, rose.id!, otherGrade: true),
+        _refused('ZZR, L9552 is in KS1; class "7-Rose" is KS3 Basic.'));
+  });
+
+  test('enrollProposed from another grade enrols everybody and places nobody', () async {
+    final created = await aral.enrollProposed(sectionId: 9505, schoolYear: _year, classId: mixed.id);
+    expect(created, hasLength(1)); // 9551 and 9552 are already on the roster
+    expect(created.single.classId, isNull);
+    expect(aral.lastWarning, contains('ZZR, L9553 (9553): ZZR, L9553 is in Grade 9; class "7-Mixed" is for Grade 7.'));
+  });
+
+  test('a section move to another grade keeps the class and warns', () async {
     final e = (await aral.roster(sectionId: 9501, schoolYear: _year)).firstWhere((e) => e.studentId == 9501);
     expect(e.classId, rose.id);
     await db.update('enrollments', {'section_id': 9503}, where: 'student_id = 9501');
     final moved = await aral.moveToSection(e.id!);
     expect(moved.sectionId, 9503);
-    expect(moved.classId, isNull);
-    expect(aral.lastWarning, 'Grade 5 is outside class "7-Rose" (Grades 7-10); the learner now waits for a class.');
+    expect(moved.classId, rose.id);
+    expect(aral.lastWarning, 'Grade 5 is now in class "7-Rose" (Grade 7); move them if needed (aral-class-place).');
+  });
+
+  test('aral-update lists learners in a class of another grade', () async {
+    final updates = await aral.applyResults(sectionId: 9503, schoolYear: _year);
+    expect(updates.where((u) => u.kind == AralUpdateKind.otherGrade).map((u) => u.reason),
+        ['Grade 5 in class "7-Rose" (Grade 7)']);
+    final g9 = await aral.applyResults(sectionId: 9505, schoolYear: _year);
+    expect(g9.where((u) => u.kind == AralUpdateKind.otherGrade).map((u) => u.reason),
+        ['Grade 9 in class "7-Mixed" (Grade 7)']);
+    // A mixed class never flags a program mismatch.
+    final f = await aral.applyResults(sectionId: 9506, schoolYear: _year);
+    expect(f.where((u) => u.kind == AralUpdateKind.programMismatch || u.kind == AralUpdateKind.otherGrade), isEmpty);
   });
 
   test('aral-update lists learners waiting for a class', () async {

@@ -63,7 +63,10 @@ class LocalDatabase {
         // tutor_id (rebuildAralEnrollmentsForV36).
         // v37: ARAL sessions belong to a class (aral_sessions.class_id), and
         // aral_tutor_settings is dropped (upgradeAralSessionsForV37).
-        version: 37,
+        // v38: aral_classes rebuilt with a home grade (grade_level) and an
+        // optional program (null = mixed), without grade_band
+        // (rebuildAralClassesForV38; cloud 20261024010000).
+        version: 38,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
@@ -175,6 +178,9 @@ class LocalDatabase {
           if (oldVersion < 36) await rebuildAralEnrollmentsForV36(db);
           // v37. Before createAralLocalSchema, whose session triggers read class_id.
           if (oldVersion < 37) await upgradeAralSessionsForV37(db);
+          // v38. Before every creator: it drops the triggers that mention
+          // aral_classes (roster placement, sessions, sync locks).
+          if (oldVersion < 38) await rebuildAralClassesForV38(db);
           // v15. Must run before createPhilIriLocalSchema, which recreates the
           // triggers this drops.
           if (oldVersion < 15) await rebuildPhilIriPassagesForV15(db);

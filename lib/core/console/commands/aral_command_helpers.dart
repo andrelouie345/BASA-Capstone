@@ -30,9 +30,9 @@ String aralLine(AralEnrollment e, Map<int, String> names, [Map<int, String> clas
       'basis: ${basis.trim()} | $suggested${e.notes == null ? '' : ' | notes: ${e.notes}'}';
 }
 
-/// One ARAL class: `#id | name | program | Grades band | tutor id` (+ room
-/// and schedule when set, and `n/15 active` when [active] is given).
+/// One ARAL class: `#id | name | Grade 7, KS2 Basic | tutor id` (+ room and
+/// schedule when set, and `n/15 active` when [active] is given).
 String aralClassLine(AralClass c, {int? active}) =>
-    '#${c.id} | ${c.className} | ${c.program.label} | Grades ${c.gradeBand.value} | '
+    '#${c.id} | ${c.className} | ${c.groupLabel} | '
     'tutor ${c.tutorId ?? '-'}${c.room == null ? '' : ' | room ${c.room}'}'
     '${c.schedule == null ? '' : ' | ${c.schedule}'}${active == null ? '' : ' | $active/$aralClassCap active'}';

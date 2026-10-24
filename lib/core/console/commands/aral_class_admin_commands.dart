@@ -24,18 +24,20 @@ void registerAralClassAdminCommands(ConsoleRegistry registry, AralClassViewModel
     ));
   }
 
-  final programs = AralClassProgram.values.map((p) => p.value).join('|');
-  final bands = AralGradeBand.values.map((b) => b.value).join('|');
-  AralClassProgram program(String raw) => AralClassProgram.values.firstWhere((p) => p.value == raw,
-      orElse: () => throw AralUsage('Unknown program "$raw" (expected $programs)'));
-  AralGradeBand band(String raw) => AralGradeBand.values.firstWhere((b) => b.value == raw,
-      orElse: () => throw AralUsage('Unknown grade band "$raw" (expected $bands)'));
+  final programs = '${AralClassProgram.values.map((p) => p.value).join('|')}|mixed';
+  // null = mixed programs.
+  AralClassProgram? program(String raw) => raw == 'mixed'
+      ? null
+      : AralClassProgram.values.firstWhere((p) => p.value == raw,
+          orElse: () => throw AralUsage('Unknown program "$raw" (expected $programs)'));
+  int grade(String raw) => aralInt(raw, 'grade');
 
-  final addUsage = 'Usage: aral-class-add <schoolId> <schoolYear> <$programs> <$bands> <name...> [tutor=<userId>] '
+  final addUsage = 'Usage: aral-class-add <schoolId> <schoolYear> <grade 1-10> <$programs> <name...> [tutor=<userId>] '
       '["room=<room>"] ["schedule=<when>"] ["notes=<text>"]';
   add('aral-class-add',
-      'aral-class-add <schoolId> <schoolYear> <program> <band> <name...> [tutor=<userId>] ["room=.."] ["schedule=.."] '
-          '["notes=.."] — a new ARAL class (program $programs; band $bands)', (args) async {
+      'aral-class-add <schoolId> <schoolYear> <grade 1-10> <program|mixed> <name...> [tutor=<userId>] ["room=.."] '
+          '["schedule=.."] ["notes=.."] — a new ARAL class of one grade, with one program or mixed programs '
+          '(program $programs)', (args) async {
     if (args.length < 5) throw AralUsage(addUsage);
     final words = <String>[];
     final opts = <String, String>{};
@@ -52,8 +54,8 @@ void registerAralClassAdminCommands(ConsoleRegistry registry, AralClassViewModel
     final c = await vm.createClass(
       schoolId: aralInt(args[0], 'schoolId'),
       schoolYear: args[1],
-      program: program(args[2]),
-      gradeBand: band(args[3]),
+      gradeLevel: grade(args[2]),
+      program: program(args[3]),
       className: words.join(' '),
       tutorId: opts['tutor'],
       room: opts['room'],
@@ -63,11 +65,11 @@ void registerAralClassAdminCommands(ConsoleRegistry registry, AralClassViewModel
     return 'ARAL class added: ${aralClassLine(c, active: 0)}';
   });
 
-  const editUsage = 'Usage: aral-class-edit <classId> <name|tutor|room|schedule|notes|program|band> <value...> '
-      '("-" clears tutor, room, schedule or notes)';
+  const editUsage = 'Usage: aral-class-edit <classId> <name|tutor|room|schedule|notes|grade|program> <value...> '
+      '("-" clears tutor, room, schedule or notes; program mixed = mixed programs)';
   add('aral-class-edit',
-      'aral-class-edit <classId> <name|tutor|room|schedule|notes|program|band> <value...> — change one thing about an '
-          'ARAL class ("-" clears tutor, room, schedule or notes)', (args) async {
+      'aral-class-edit <classId> <name|tutor|room|schedule|notes|grade|program> <value...> — change one thing about '
+          'an ARAL class ("-" clears tutor, room, schedule or notes; program mixed = mixed programs)', (args) async {
     if (args.length < 3) throw const AralUsage(editUsage);
     final current = await vm.getClass(aralInt(args[0], 'classId'));
     final value = args.skip(2).join(' ');
@@ -78,19 +80,23 @@ void registerAralClassAdminCommands(ConsoleRegistry registry, AralClassViewModel
       'room' => current.copyWith(room: orNull),
       'schedule' => current.copyWith(schedule: orNull),
       'notes' => current.copyWith(notes: orNull),
-      'program' => current.copyWith(program: program(value)),
-      'band' => current.copyWith(gradeBand: band(value)),
+      'grade' => current.copyWith(gradeLevel: grade(value)),
+      'program' => current.copyWith(program: () => program(value)),
       _ => throw const AralUsage(editUsage),
     };
     final saved = await vm.editClass(changed);
     return 'ARAL class saved: ${aralClassLine(saved, active: await vm.activeCount(saved.id!))}';
   });
 
+  const placeUsage = 'Usage: aral-class-place <enrollmentId> <classId> [other-grade]';
   add('aral-class-place',
-      'aral-class-place <enrollmentId> <classId> — put an ARAL learner in a class, or move them to another one',
-      (args) async {
-    if (args.length != 2) throw const AralUsage('Usage: aral-class-place <enrollmentId> <classId>');
-    final e = await vm.place(aralInt(args[0], 'enrollmentId'), aralInt(args[1], 'classId'));
+      'aral-class-place <enrollmentId> <classId> [other-grade] — put an ARAL learner in a class, or move them to '
+          'another one (other-grade = place a learner of another grade than the class\'s)', (args) async {
+    if (args.length < 2 || args.length > 3 || (args.length == 3 && args[2] != 'other-grade')) {
+      throw const AralUsage(placeUsage);
+    }
+    final e = await vm.place(aralInt(args[0], 'enrollmentId'), aralInt(args[1], 'classId'),
+        otherGrade: args.length == 3);
     final c = await vm.getClass(e.classId!);
     return 'ARAL learner #${e.id} placed in ${aralClassLine(c, active: await vm.activeCount(c.id!))}';
   });

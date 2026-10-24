@@ -41,13 +41,17 @@ import 'phil_iri_results.dart' show PhilIriRoundResult;
 /// learners stay linked to the class but don't count.
 const aralClassCap = 15;
 
-/// Why a learner can't go into an ARAL class, in the order the cloud's
-/// aral_check_class_placement checks them (20261023040000).
-enum AralPlacementProblem { otherSchoolOrYear, programMismatch, gradeOutsideBand, full }
+/// Why a learner can't go into an ARAL class. School, program and cap are
+/// checked in the order of the cloud's aral_check_class_placement
+/// (20261024010000); the grade only here, after the program (owner
+/// 2026-10-24, G3: another grade joins only when the coordinator confirms it).
+enum AralPlacementProblem { otherSchoolOrYear, programMismatch, otherGrade, full }
 
 /// The first reason an active learner of [schoolId]/[schoolYear] in [program]
 /// and Grade [grade] can't go into [target], which already holds
-/// [activeOthersInClass] other active learners; null = they can.
+/// [activeOthersInClass] other active learners; null = they can. A mixed
+/// class takes any program; a learner of another grade than the class's
+/// only with [otherGradeOk] (the coordinator's confirmation).
 AralPlacementProblem? aralPlacementProblem({
   required AralClass target,
   required int schoolId,
@@ -55,10 +59,11 @@ AralPlacementProblem? aralPlacementProblem({
   required AralClassProgram program,
   required int grade,
   required int activeOthersInClass,
+  bool otherGradeOk = false,
 }) {
   if (target.schoolId != schoolId || target.schoolYear != schoolYear) return AralPlacementProblem.otherSchoolOrYear;
-  if (target.program != program) return AralPlacementProblem.programMismatch;
-  if (!target.gradeBand.contains(grade)) return AralPlacementProblem.gradeOutsideBand;
+  if (target.program != null && target.program != program) return AralPlacementProblem.programMismatch;
+  if (grade != target.gradeLevel && !otherGradeOk) return AralPlacementProblem.otherGrade;
   if (activeOthersInClass >= aralClassCap) return AralPlacementProblem.full;
   return null;
 }
@@ -69,9 +74,9 @@ String aralPlacementMessage(AralPlacementProblem p,
     switch (p) {
       AralPlacementProblem.full => 'Class "${target.className}" already has $aralClassCap active ARAL learners.',
       AralPlacementProblem.programMismatch =>
-        '$learner is in ${program.label}; class "${target.className}" is ${target.program.label}.',
-      AralPlacementProblem.gradeOutsideBand =>
-        '$learner is in Grade $grade; class "${target.className}" takes Grades ${target.gradeBand.value}.',
+        '$learner is in ${program.label}; class "${target.className}" is ${target.program?.label}.',
+      AralPlacementProblem.otherGrade =>
+        '$learner is in Grade $grade; class "${target.className}" is for Grade ${target.gradeLevel}.',
       AralPlacementProblem.otherSchoolOrYear =>
         'Class "${target.className}" belongs to another school or school year.',
     };

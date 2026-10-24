@@ -91,9 +91,9 @@ void main() {
       'class.classes': () => cls.classes(schoolId: 1),
       'class.getClass': () => cls.getClass(1),
       'class.createClass': () => cls.createClass(
-          schoolId: 1, schoolYear: y, className: 'x', program: AralClassProgram.ks1, gradeBand: AralGradeBand.g1to3),
+          schoolId: 1, schoolYear: y, className: 'x', gradeLevel: 1, program: AralClassProgram.ks1),
       'class.editClass': () => cls.editClass(const AralClass(
-          id: 1, schoolId: 1, schoolYear: y, className: 'x', program: AralClassProgram.ks1, gradeBand: AralGradeBand.g1to3)),
+          id: 1, schoolId: 1, schoolYear: y, className: 'x', gradeLevel: 1, program: AralClassProgram.ks1)),
       'class.deleteClass': () => cls.deleteClass(1),
       'class.classRoster': () => cls.classRoster(1),
       'class.activeCount': () => cls.activeCount(1),

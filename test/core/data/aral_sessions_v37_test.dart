@@ -133,7 +133,7 @@ void main() {
     final a = await localId(), b = await localId();
     for (final (id, name) in [(a, '7-A'), (b, '7-B')]) {
       await db.insert('aral_classes', {'id': id, 'school_id': 1, 'school_year': year, 'class_name': name,
-          'program': 'ks3_basic', 'grade_band': '7-10', 'tutor_id': tutor});
+          'program': 'ks3_basic', 'grade_level': 7, 'tutor_id': tutor});
     }
     Future<int> session(int? classId, String day) async {
       final id = await localId();
