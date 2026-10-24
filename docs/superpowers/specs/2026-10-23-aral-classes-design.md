@@ -1,6 +1,6 @@
 # ARAL classes — design
 
-Date: 2026-10-23. Status: design approved in conversation 2026-10-23 (sections 1-5); spec awaiting owner review.
+Date: 2026-10-23. Status: approved 2026-10-23; built 2026-10-24 (plan `docs/superpowers/plans/2026-10-23-aral-classes.md`, Tasks 1-5; migration `20261023040000` applied on the dev cloud, SQLite v36/v37). See *Changes during implementation* at the end.
 
 ## Goal
 
@@ -122,3 +122,17 @@ Policies:
 **Testing:** pure-Dart tests for placement rules (same cases as the triggers); SQLite trigger and upgrade tests; PG18 RLS matrix with superadmin, coordinators of two schools, two tutors, a learner joining from another section and a learner moved between classes (reads, writes, assessing, history); session-guard entries for every new public method; live command-pass batches with hand-worked figures where computed.
 
 **Risks:** the two table rebuilds must keep `row_version` (else synced rows look new) — the v35 rebuild pattern and its test; pull order (classes before roster/sessions); the per-class cap under two coordinators placing at once — per-class advisory lock.
+
+## Changes during implementation (owner decisions 2026-10-24)
+
+- **Placement check scope (D-T1a):** the cloud also re-checks the grade band when a placed, active learner's section changes (the program is not re-checked, decision 7). The check applies to active learners only: an exited learner's class change is not checked, their reactivation is.
+- **Referral fields (D-T1b):** `referred_by` and `referral_reason` are locked after enrolment, like the basis.
+- **Old sessions (D-T1c):** one session per date is checked per class only; class-less sessions from before have no day check. Every new session needs a class (SQL Editor too).
+- **IRIP writer (D-T1d):** IRIP weeks, check-ins and readability are written by the tutor of the learner's current class (and admin/coordinator, superadmin); section tutors read only.
+- **Proposal (D-T3a):** with the section cap gone, every learner below grade level is proposed; `enrollProposed(class=)` enrols them all, places the weakest while the class has room, the rest wait for a class. The `tied`/`overCap` statuses and `freePlaces` were removed.
+- **Tutor load (D-T3b):** the per-tutor "over 15" warning was removed; the 15 limit is the class's. `aral-tutors` shows classes and active learners.
+- **Roster CSV (D-T3d):** `Class` and `Tutor` (the class tutor) replace `Tutor`/`Tutor email`; the referral columns were added. The import reads `Class`.
+- **Device schema:** v37 adds `aral_sessions.class_id` with `ALTER TABLE ... ADD COLUMN ... REFERENCES` instead of a rebuild (no other change to the table).
+- **Sync:** with `aral_tutor_settings` gone, the "clash" problem kind (a new tutor setting the server already had) was removed with it.
+- **Smaller additions:** `AralClassViewModel.activeCount`, `AralViewModel.classNames`, `StudentRepository.activeSectionId`, `AralEnrollmentRepository.classTutorId`; `aral-class-show` lists the class's learners; the tutor summary names the class closest to a check-in; coordinator reminders carry `SchoolReminders.aral` notices.
+- **Release:** the migration reached the dev cloud before the app (owner, 2026-10-24); sign-in was refused there until `release.dart` listed it (Task 5).

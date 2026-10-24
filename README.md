@@ -62,7 +62,11 @@ scoresheet, story words - miscues, when the story is known; app update
 required: **yes**, apply only when every device has synced and every upload is
 decided) and `20261023030000` (ARAL Key Stage 1 follows DepEd Memorandum 064
 s. 2025: the new exit reason "classroom support" and the school switch
-`ks1_extended`; app update required: **yes**, same rule). Each is idempotent.
+`ks1_extended`; app update required: **yes**, same rule) and `20261023040000`
+(ARAL classes: 15 active learners per class, one program and grade band,
+sessions per class, teacher referrals; removes `aral_enrollments.tutor_id`,
+the 15-per-section cap and `aral_tutor_settings`; existing ARAL learners wait
+for a class; app update required: **yes**, same rule). Each is idempotent.
 Do **not** run
 `supabase/migrations_archive/`.
 
