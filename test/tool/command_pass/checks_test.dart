@@ -19,6 +19,31 @@ void main() {
       expect(checkRefuse(const RefuseStep(1, 'Started'), crashed).passed, isFalse);
       expect(checkExpect(const ExpectStep(1, 'Started'), crashed).message, contains('StateError'));
     });
+
+    // F21: catch-alls in command files print '<name> failed: <e>'.
+    test('a crash printed as "... failed: <Type>" fails every check', () {
+      final printed = out("aral-update failed: type 'Null' is not a subtype of type 'int' (TypeError)");
+      expect(checkExpect(const ExpectStep(1, 'aral-update'), printed).passed, isFalse);
+      expect(checkRefuse(const RefuseStep(1, 'failed'), printed).passed, isFalse);
+      expect(checkRefuse(const RefuseStep(1, 'failed'), printed).message, contains('TypeError'));
+      final pg = out('report-settings-set failed: PostgrestException(message: boom, code: 42P01)');
+      expect(checkExpectRegex(ExpectRegexStep(1, RegExp('failed')), pg).passed, isFalse);
+    });
+
+    test('a step that names the type, or a plain failure text, still passes', () {
+      final pg = out('x failed: PostgrestException(message: boom)');
+      expect(checkRefuse(const RefuseStep(1, 'PostgrestException'), pg).passed, isTrue);
+      expect(checkRefuse(const RefuseStep(1, 'Sign-in failed'), out('Sign-in failed: Invalid login credentials')).passed,
+          isTrue);
+      expect(checkExpect(const ExpectStep(1, 'Error rate'), out('Import failed: 0 rows. Error rate 0%')).passed,
+          isTrue);
+    });
+
+    test('a ViewModel log line naming the type is not the answer', () {
+      final logged = out('Sign-in failed: Invalid login credentials\n'
+          '[AuthViewModel] sign-in failed: AuthApiException(message: Invalid login credentials)');
+      expect(checkRefuse(const RefuseStep(1, 'Invalid login credentials'), logged).passed, isTrue);
+    });
   });
 
   group('expect', () {

@@ -33,11 +33,18 @@ class AralSettingRepositorySqlite implements AralSettingRepository {
   @override
   Future<AralSetting> upsertWithId(AralSetting setting) async {
     if (setting.id == null) throw ArgumentError('Cannot upsertWithId an AralSetting with no id');
-    await upsertById(db, 'aral_settings', toSqliteRow({
-      ...setting.toMap(),
-      if (setting.updatedBy != null) 'updated_by': setting.updatedBy,
-      if (setting.updatedAt != null) 'updated_at': setting.updatedAt,
-    }));
+    await db.transaction((txn) async {
+      // The server row of a school (or the region) gets a new id after a
+      // reset on another device: the server wins, so the old row for the same
+      // key goes (F20).
+      await txn.delete('aral_settings',
+          where: 'IFNULL(school_id, 0) = ? AND id <> ?', whereArgs: [setting.schoolId ?? 0, setting.id]);
+      await upsertById(txn, 'aral_settings', toSqliteRow({
+        ...setting.toMap(),
+        if (setting.updatedBy != null) 'updated_by': setting.updatedBy,
+        if (setting.updatedAt != null) 'updated_at': setting.updatedAt,
+      }));
+    });
     final rows = await db.query('aral_settings', where: 'id = ?', whereArgs: [setting.id]);
     return AralSetting.fromMap(rows.first);
   }

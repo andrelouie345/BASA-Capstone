@@ -679,8 +679,9 @@ class AralCheckinViewModel {
     try {
       await write();
     } catch (e) {
-      lastMirrorWarning = 'ARAL settings saved online, but the local copy was not updated ($e). Run pull-cloud.';
-      _log('WARNING: $lastMirrorWarning');
+      // The detail goes to the log only: raw database text is no message for a screen (F20).
+      lastMirrorWarning = 'ARAL settings saved online, but the local copy was not updated. Run pull-cloud.';
+      _log('WARNING: $lastMirrorWarning ($e)');
     }
   }
 

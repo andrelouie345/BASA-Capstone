@@ -33,11 +33,18 @@ class ReportSettingRepositorySqlite implements ReportSettingRepository {
   @override
   Future<ReportSetting> upsertWithId(ReportSetting setting) async {
     if (setting.id == null) throw ArgumentError('Cannot upsertWithId an ReportSetting with no id');
-    await upsertById(db, 'report_settings', toSqliteRow({
-      ...setting.toMap(),
-      if (setting.updatedBy != null) 'updated_by': setting.updatedBy,
-      if (setting.updatedAt != null) 'updated_at': setting.updatedAt,
-    }));
+    await db.transaction((txn) async {
+      // The server row of a school (or the region) gets a new id after a
+      // reset on another device: the server wins, so the old row for the same
+      // key goes (F20).
+      await txn.delete('report_settings',
+          where: 'IFNULL(school_id, 0) = ? AND id <> ?', whereArgs: [setting.schoolId ?? 0, setting.id]);
+      await upsertById(txn, 'report_settings', toSqliteRow({
+        ...setting.toMap(),
+        if (setting.updatedBy != null) 'updated_by': setting.updatedBy,
+        if (setting.updatedAt != null) 'updated_at': setting.updatedAt,
+      }));
+    });
     final rows = await db.query('report_settings', where: 'id = ?', whereArgs: [setting.id]);
     return ReportSetting.fromMap(rows.first);
   }

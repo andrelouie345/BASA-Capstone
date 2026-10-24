@@ -30,8 +30,26 @@ class MissingCaptureException implements Exception {
 
 bool _isUsage(String text) => text.trimLeft().startsWith('Usage:');
 
-StepOutcome? _crashed(CommandOutput o) =>
-    o.crashType == null ? null : StepOutcome(false, 'command crashed (${o.crashType})');
+/// A crash a command file's catch-all printed as text ('<name> failed: <e>',
+/// F21): "failed: " followed on the same line by an exception type name.
+final _printedCrash = RegExp(r'failed: [^\n]*?\b([A-Z]\w*(?:Exception|Error))\b');
+
+final _logLine = RegExp(r'^\s*\[[A-Za-z]+\]');
+
+/// [expected]: the step's text or pattern; a step that names the type
+/// expects that crash text on purpose.
+StepOutcome? _crashed(CommandOutput o, String expected) {
+  if (o.crashType != null) return StepOutcome(false, 'command crashed (${o.crashType})');
+  // Log lines ("[AuthViewModel] ...") carry exception names on purpose; only
+  // the answer counts.
+  final type = o.text
+      .split('\n')
+      .where((l) => !_logLine.hasMatch(l))
+      .map((l) => _printedCrash.firstMatch(l)?.group(1))
+      .firstWhere((t) => t != null, orElse: () => null);
+  if (type == null || expected.contains(type)) return null;
+  return StepOutcome(false, 'command crashed (printed as text: $type)');
+}
 
 StepOutcome? _notASuccess(CommandOutput o) {
   if (o.refused) return const StepOutcome(false, 'command was refused');
@@ -40,19 +58,19 @@ StepOutcome? _notASuccess(CommandOutput o) {
 }
 
 StepOutcome checkExpect(ExpectStep s, CommandOutput o) =>
-    _crashed(o) ??
+    _crashed(o, s.text) ??
     _notASuccess(o) ??
     (o.text.contains(s.text) ? const StepOutcome(true) : StepOutcome(false, 'expected "${s.text}"'));
 
 StepOutcome checkExpectRegex(ExpectRegexStep s, CommandOutput o) =>
-    _crashed(o) ??
+    _crashed(o, s.pattern.pattern) ??
     _notASuccess(o) ??
     (s.pattern.hasMatch(o.text) ? const StepOutcome(true) : StepOutcome(false, 'expected /${s.pattern.pattern}/'));
 
 /// Many commands return refusals as text, so a plain answer with the text
 /// passes too.
 StepOutcome checkRefuse(RefuseStep s, CommandOutput o) =>
-    _crashed(o) ??
+    _crashed(o, s.text) ??
     (o.text.contains(s.text) ? const StepOutcome(true) : StepOutcome(false, 'expected a refusal with "${s.text}"'));
 
 /// Group 1 of the match, or null when nothing (or nothing usable) matched.

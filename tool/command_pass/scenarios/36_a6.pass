@@ -1,0 +1,290 @@
+# A6 Approver side, sync auto-approve, the offline sign-in window, and
+# pull-cloud as coordinator and superadmin (including a device that changes
+# owner). tutor1 logs ARAL sessions of {class_1} on {ago3} and {ago2} (dates
+# no other batch uses) and deletes them again; the settings go back to B0's
+# (school done threshold 85, nothing else). Region-wide writes are refusals
+# only. Every upload is decided before the batch ends, so it reruns.
+
+device a6-phone tutor fresh
+as tutor1
+run pull-cloud yes
+expect users:
+run offline-status
+expect Offline sign-in: {email_tutor1}
+expect window 14 days
+
+# --- Offline sign-in window (coordinator) -------------------------------------
+device coord-pc admin
+as coord
+run offline-days {school}
+expect Offline sign-in window: region not set · school not set · applies 14 days
+run offline-days {school} extra
+refuse Usage: offline-days <region|schoolId>
+run offline-days nowhere
+refuse Invalid school: "nowhere" (a school id or region)
+run offline-days-set {school}
+refuse Usage: offline-days-set <region|schoolId> <1-60>
+run offline-days-set {school} two
+refuse The window is a whole number of days (got "two").
+run offline-days-set {school} {=0}
+refuse The offline sign-in window is 1 to 60 days, not 0.
+run offline-days-set {school} {=61}
+refuse The offline sign-in window is 1 to 60 days, not 61.
+run offline-days-set region {=30}
+refuse Forbidden: only the superadmin sets the region-wide report settings.
+run offline-days-set {schoolB} {=30}
+refuse Forbidden: you can only set your own school's report settings.
+# A device that is behind (F20): another device resets the school's row, the
+# server gives the new row a new id, then this device writes.
+device a6-pc2 admin fresh
+as coord
+run pull-cloud yes
+expect users:
+device coord-pc admin
+run report-settings-reset {school}
+expect School {school} now uses the region report settings.
+run report-settings-set {school} {=85}
+expect Done threshold for school {school}: 85%.
+device a6-pc2 admin
+run offline-days-set {school} {=3}
+expect Offline sign-in window for school {school}: 3 days. Tablets get it after their next pull-cloud.
+run offline-days {school}
+expect Offline sign-in window: region not set · school 3 days · applies 3 days
+device coord-pc admin
+run pull-cloud yes
+expect users:
+run offline-days {school}
+expect Offline sign-in window: region not set · school 3 days · applies 3 days
+
+# The phone keeps 14 days until it pulls.
+device a6-phone tutor
+run offline-status
+expect window 14 days
+run pull-cloud yes
+expect report_settings
+run offline-status
+expect window 3 days
+run sign-out
+expect Signed out.
+run sign-in-offline {email_tutor1} {pw_tutor1}
+expect Signed in offline as {email_tutor1}
+# Offline: work that needs the server is refused.
+run pull-cloud yes
+refuse This needs an online sign-in. Sign in again while connected.
+run sync-upload yes
+refuse This needs an online sign-in. Sign in again while connected.
+
+# --- Auto-approve off: a tutor's upload waits ---------------------------------
+device coord-pc admin
+run sync-auto-approve {school}
+expect Auto-approve: region not set · school not set · applies off
+run sync-auto-approve {school} maybe
+refuse Usage: sync-auto-approve <region|schoolId> [on|off]
+run sync-auto-approve
+refuse Usage: sync-auto-approve <region|schoolId> [on|off]
+run sync-auto-approve region on
+refuse Forbidden: only the superadmin sets the region-wide report settings.
+run sync-auto-approve {schoolB} on
+refuse Forbidden: you can only set your own school's report settings.
+run sync-pending
+expect Nothing is waiting for approval.
+expect 0 upload(s) still pending.
+run sync-approve latest
+expect Nothing is waiting for approval.
+
+device a6-phone tutor
+as tutor1
+run aral-log {class_1} 30 during_class {ago3} lesson "ZZ A6 one"
+expect Logged:
+capture a6_s1 = Logged: #(-?\d+)
+run aral-mark-rest {a6_s1} present
+expect present.
+run sync-upload yes
+expect waiting for approval.
+capture a6_u1 = Upload (\d+) sent
+
+device coord-pc admin
+run sync-pending
+expect Waiting for approval (oldest first):
+expect~ {a6_u1}  ZZTEST Pass Tutor1 r{run}
+expect 1 upload(s) still pending.
+run sync-pending {school}
+expect 1 upload(s) still pending.
+run sync-pending {schoolB}
+refuse Forbidden: you can only review your own school's uploads.
+run sync-pending x
+refuse Usage: sync-pending [schoolId]
+run sync-show latest
+expect Upload {a6_u1} by ZZTEST Pass Tutor1 r{run}
+expect pending
+expect~ ARAL session \d+ \({ago3}\): new, with 3 attendance marks
+run sync-show
+refuse Usage: sync-show <upload id>|latest
+run sync-show {=999999999}
+refuse Upload 999999999 not found (or not one you can review).
+run sync-approve abc
+refuse Usage: sync-approve <upload id>|latest
+run sync-approve {=999999999}
+refuse Upload 999999999 not found (or not one you can review).
+run sync-reject {a6_u1} xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+refuse The reason is 501 characters; keep it to 500.
+
+# --- Auto-approve on: uploads already waiting still wait; new ones apply ------
+run sync-auto-approve {school} on
+expect Auto-approve for school {school} is now on.
+expect Uploads already waiting still need sync-approve.
+run sync-auto-approve {school}
+expect Auto-approve: region not set · school on · applies on
+run sync-pending
+expect 1 upload(s) still pending.
+
+device a6-phone tutor
+run aral-log {class_1} 30 during_class {ago2} lesson "ZZ A6 two"
+expect Logged:
+capture a6_s2 = Logged: #(-?\d+)
+run aral-mark-rest {a6_s2} present
+expect present.
+run sync-upload yes
+expect applied: 4 row(s) now on the server.
+capture a6_u2 = Upload (\d+)
+sql select count(*) from aral_sessions where held_on = '{ago2}' and id < 0 => 0
+run sync-status
+expect~ {a6_u2}  applied
+expect~ {a6_u1}  pending
+
+# The coordinator decides the waiting one.
+device coord-pc admin
+run sync-approve latest
+expect Upload {a6_u1} applied.
+run sync-approve {a6_u1}
+refuse Upload {a6_u1} is applied, not pending
+run sync-reject {a6_u1} ZZ too late
+refuse Could not reject upload {a6_u1}: Upload {a6_u1} is applied, not pending
+run sync-pending
+expect Nothing is waiting for approval.
+run sync-auto-approve {school} off
+expect Auto-approve for school {school} is now off.
+
+device a6-phone tutor
+run sync-status
+expect Upload {a6_u1} applied
+run aral-sessions
+expect ZZ A6 one
+expect ZZ A6 two
+capture a6_s1_srv = #(\d+) \| class #{class_1} \| session \d+ \| {ago3}
+capture a6_s2_srv = #(\d+) \| class #{class_1} \| session \d+ \| {ago2}
+sql select count(*) from aral_sessions where id < 0 => 0
+
+# --- The superadmin: pull, region reads, review a school's upload -------------
+device a6-super admin fresh
+as super
+run pull-cloud yes
+expect users:
+expect Done. Local data now belongs to zztest.super@basa.test.
+sql select count(*) from schools where id in ({school}, {schoolB}) => 2
+sql select count(*) from aral_sessions where id in ({a6_s1_srv}, {a6_s2_srv}) => 2
+run offline-days region
+expect Offline sign-in window: region not set · applies 14 days
+run offline-days {school}
+expect Offline sign-in window: region not set · school 3 days · applies 3 days
+run sync-auto-approve region
+expect Auto-approve: region not set · applies off
+run offline-days-set region {=0}
+refuse The offline sign-in window is 1 to 60 days, not 0.
+run sync-pending {school}
+expect Nothing is waiting for approval.
+
+# tutor1 deletes both sessions (auto-approve is off again: it waits).
+device a6-phone tutor
+run aral-session-delete {a6_s1_srv}
+expect Deleted ARAL session {a6_s1_srv}.
+run aral-session-delete {a6_s2_srv}
+expect Deleted ARAL session {a6_s2_srv}.
+run sync-upload yes
+expect waiting for approval.
+capture a6_u3 = Upload (\d+)
+
+device a6-super admin
+run sync-pending
+expect~ {a6_u3}  ZZTEST Pass Tutor1 r{run}
+run sync-pending {school}
+expect 1 upload(s) still pending.
+run sync-show {a6_u3}
+expect Upload {a6_u3} by ZZTEST Pass Tutor1 r{run}
+expect~ pending \(school {school} ZZTEST PASS r{run}\)
+expect~ ARAL session \d+ \({ago3}\): deleted, 3 attendance marks deleted
+expect~ ARAL session \d+ \({ago2}\): deleted, 3 attendance marks deleted
+run sync-approve {a6_u3}
+expect Upload {a6_u3} applied.
+
+device a6-phone tutor
+run sync-status
+expect Upload {a6_u3} applied
+sql select count(*) from aral_sessions where id in ({a6_s1_srv}, {a6_s2_srv}) => 0
+run sync-preview
+expect Nothing to upload.
+
+# --- One device, two users: the coordinator's unsent work blocks the superadmin
+device a6-shared admin fresh
+as coord
+run pull-cloud yes
+expect Done. Local data now belongs to {email_coord}.
+run aral-log {class_1} {=30} during_class {ago2} lesson "ZZ A6 shared"
+expect Logged:
+capture a6_s4 = Logged: #(-?\d+)
+as super
+run pull-cloud
+expect This device holds work of {email_coord} that is not on the server yet; the pull will refuse until they sync
+run pull-cloud yes
+refuse Refused: this device holds work of {email_coord} that is not on the server yet:
+run sync-upload yes
+refuse This device's work belongs to {email_coord}; only they can sync it.
+run pull-cloud yes discard-local
+expect Discarded this device's unsent work: 1 new record(s), 0 change(s) to server records.
+expect Replaced the copy of {email_coord}.
+expect Done. Local data now belongs to zztest.super@basa.test.
+sql select count(*) from aral_sessions where id = {a6_s4} => 0
+
+# --- A tutor on the admin build reviews nothing -------------------------------
+as tutor1
+run sync-pending
+refuse Forbidden: only an admin or coordinator reviews uploads.
+run sync-approve latest
+refuse Forbidden: only an admin or coordinator reviews uploads.
+run offline-days-set {school} 5
+refuse Forbidden: only an admin or coordinator sets the report settings.
+run sync-auto-approve {school} on
+refuse Forbidden: only an admin or coordinator sets the report settings.
+
+# --- Back to B0's settings -------------------------------------------------------
+device coord-pc admin
+run report-settings-reset {school}
+expect School {school} now uses the region report settings.
+run report-settings-set {school} {=85}
+expect Done threshold for school {school}: 85%.
+run offline-days {school}
+expect Offline sign-in window: region not set · school not set · applies 14 days
+run sync-auto-approve {school}
+expect Auto-approve: region not set · school not set · applies off
+run sync-pending
+expect Nothing is waiting for approval.
+
+# --- Signed out: nothing works ---------------------------------------------------
+run sign-out
+expect Signed out.
+run sync-pending
+refuse Not signed in. Sign in first.
+run sync-show latest
+refuse Not signed in. Sign in first.
+run sync-approve latest
+refuse Not signed in. Sign in first.
+run sync-reject latest ZZ no
+refuse Not signed in. Sign in first.
+run offline-days {school}
+refuse Not signed in. Sign in first.
+run offline-days-set {school} {=5}
+refuse Not signed in. Sign in first.
+run sync-auto-approve {school}
+refuse Not signed in. Sign in first.
+run sync-auto-approve {school} on
+refuse Not signed in. Sign in first.
