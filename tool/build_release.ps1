@@ -36,6 +36,7 @@ function Invoke-Step([string]$what, [scriptblock]$cmd) {
 }
 
 Invoke-Step 'Import walk (tutor entries reach no admin file)' { dart run tool/check_tutor_imports.dart }
+Invoke-Step 'ViewModel boundary (commands and ui import only ViewModels and models)' { dart run tool/check_vm_boundary.dart }
 
 $apkOut = 'build\app\outputs\flutter-apk'
 $winOut = 'build\windows\x64\runner\Release'
