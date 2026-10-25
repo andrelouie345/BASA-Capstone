@@ -14,7 +14,7 @@ Console: `phil-iri-gst`, `phil-iri-gst-list`
 Build: both    Roles: tutor / coordinator / admin
 Purpose: a section's sessions (per round), open one.
 Calls:
-- `loadForSection(sectionId, schoolYear:, round:)` → session list; `refresh()`; `getSession(id)` → `PhilIriAssessment?`
+- `PhilIriViewModel.loadForSection(sectionId, schoolYear:, round:)` → session list; `refresh()`; `getSession(id)` → `PhilIriAssessment?`
 - rounds: `PhilIriRound.values` (`label`)
 Console: `phil-iri-sessions`, `phil-iri-session`
 
@@ -22,7 +22,7 @@ Console: `phil-iri-sessions`, `phil-iri-session`
 Build: both    Roles: tutor / coordinator / admin
 Purpose: start a session, pick a passage, time the reading (whole text / one minute / silent), mark miscues on the passage's words, answer the questions, score the rubric, complete or discard.
 Calls:
-- `startSession(...)` → `PhilIriAssessment`; `availablePassages(assessmentId, ...)` → `List<PhilIriPassage>`
+- `PhilIriViewModel.startSession(...)` → `PhilIriAssessment`; `availablePassages(assessmentId, ...)` → `List<PhilIriPassage>`
 - `startReading(...)` → `PhilIriReading` (method: `PhilIriReadingMethod`); `saveTiming(readingId, readingSeconds:|wordsRead:)`; `saveObservation(readingId, PhilIriObservation)`; `deleteReading(id)`; `readings(assessmentId)`
 - `markMiscue(...)`, `updateMiscue(m)`, `removeMiscue(id)`, `miscues(readingId)` (miscue types: `PhilIriMiscueType.values`, `label`)
 - `answer(...)`, `answers(readingId)`; `passage(id)`, `questions(passageId)`, `collection(id)`
@@ -37,14 +37,14 @@ Console: `phil-iri-start`, `phil-iri-passages-for`, `phil-iri-read`, `phil-iri-t
 ### Learner results
 Build: both    Roles: tutor / coordinator / admin
 Calls:
-- `learnerResults(...)` → `PhilIriLearnerResults` (rounds: `PhilIriRoundResult`; types from `core/models/phil_iri_types.dart`)
+- `PhilIriViewModel.learnerResults(...)` → `PhilIriLearnerResults` (rounds: `PhilIriRoundResult`; types from `core/models/phil_iri_types.dart`)
 - `wordReadingPercent`, `comprehensionPercent`, `adjustedLevelLabel`, `levelsDownLabel`, `actualAdjustedLevelLabel`, `actualLevelsDownLabel` (getters on `PhilIriPassageResult` / `PhilIriRoundResult`)
 Console: `phil-iri-results`
 
 ### Finalize
 Build: admin    Roles: admin / coordinator
 Calls:
-- `finalize(assessmentId)` → `PhilIriAssessment`; `finalizeRound(...)` → `PhilIriRoundClosure`
+- `PhilIriViewModel.finalize(assessmentId)` → `PhilIriAssessment`; `finalizeRound(...)` → `PhilIriRoundClosure`
 Console: `phil-iri-finalize`, `phil-iri-finalize-round`
 
 ### Content (collections, passages, questions, rubric)
@@ -57,11 +57,11 @@ Calls:
 - `lastMirrorWarning` → `String?`
 Errors: passage in use, wrong grade/collection (ViewModelException).
 Console: `phil-iri-collections`, `phil-iri-passages`, `phil-iri-passage-show`, `phil-iri-collection-add`/`-edit`/`-activate`/`-promote`/`-delete`, `phil-iri-criterion-add`/`-update`/`-delete`, `phil-iri-passage-add`/`-edit`/`-activate`/`-delete`, `phil-iri-question-add`/`-update`/`-delete`
-Note: `phil-iri-passage-add`/`-edit` read the passage text from a file path in the console; the ViewModel takes the text (`PhilIriPassage`), so a screen passes the typed or picked text. Not a gap.
+Note: `phil-iri-passage-add`/`-edit` read the passage text from a file path in the console; the ViewModel takes the text (`PhilIriPassage`), so a screen passes the typed or picked text.
 
 ### Phil-IRI thresholds
 Build: both (view) / admin (edit)
 Calls:
-- `thresholdLayers(schoolId)` → `PhilIriThresholdLayers` (`region`, `school`, `effective`, `defaults`)
-- `saveThresholds(...)`, `resetSchoolThresholds(schoolId)`; `PhilIriViewModel.effectiveThresholds(schoolId)` → `PhilIriThresholds` (type from `core/models/phil_iri_types.dart`)
+- `PhilIriContentViewModel.thresholdLayers(schoolId)` → `PhilIriThresholdLayers` (`region`, `school`, `effective`, `defaults`)
+- `PhilIriContentViewModel.saveThresholds(...)`, `resetSchoolThresholds(schoolId)`; `PhilIriViewModel.effectiveThresholds(schoolId)` → `PhilIriThresholds` (type from `core/models/phil_iri_types.dart`)
 Console: `phil-iri-thresholds`, `phil-iri-threshold-set`, `phil-iri-threshold-reset`

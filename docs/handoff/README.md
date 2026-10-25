@@ -20,7 +20,7 @@ It works **offline first**: the data lives on the device and is sent to the serv
 
 The tutor build must not contain admin code. Screens only admins and coordinators use go under `lib/ui/admin/`; a tutor-build screen never imports anything from there (a check refuses it, see *Checks before every PR*).
 
-Run them: `flutter run --flavor admin -t lib/main.dart` or `flutter run --flavor tutor -t lib/main_tutor.dart` (Android needs `--flavor`; Windows ignores it).
+Run them (**DO NOT PLAY RESOURCE INTENSIVE GAMES WHILE THE APP BUILDS AND RUNS.**): `flutter run --flavor admin -t lib/main.dart` or `flutter run --flavor tutor -t lib/main_tutor.dart` (Android needs `--flavor`; Windows ignores it).
 
 ## How a screen talks to the backend (MVVM)
 
@@ -59,7 +59,7 @@ The screens for this are in `screens/sync.md`. Messages from the ViewModels alre
 
 Every screen block ends with a `Console:` line. Run that command to see what the ViewModel call returns with real data before you build the screen.
 - **In the app (debug builds only):** press `~` three times quickly, or tap the top-left corner five times within two seconds. Type `help` for the command list.
-- **Without the app:** `dart run lib/console/main.dart` (admin) or `dart run lib/console/main_tutor.dart` (tutor).
+- **Without the app** (**DO NOT PLAY RESOURCE INTENSIVE GAMES WHILE IT RUNS.**): `dart run lib/console/main.dart` (admin) or `dart run lib/console/main_tutor.dart` (tutor).
 
 Release builds have no console.
 

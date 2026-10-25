@@ -87,7 +87,7 @@ class SyncViewModel {
     if (preview.ownerSwitch && preview.localTotal > 0 && !discardLocal) {
       throw ViewModelException('Refused: this device holds work of ${preview.owner!.email ?? preview.owner!.userId} '
           'that is not on the server yet:\n${_lines(preview.localWork)}\n'
-          'They must sync first, or run "pull-cloud yes discard-local" to delete it.');
+          'They must sync first, or download again and delete it (pull-cloud yes discard-local).');
     }
 
     final Map<String, List<Map<String, dynamic>>> fetched;
@@ -104,7 +104,7 @@ class SyncViewModel {
     } on PullOrphansException catch (e) {
       throw ViewModelException('Refused, nothing was changed: ${e.orphans.length} record(s) on this device point at '
           'data the server no longer gives you:\n${e.orphans.map((o) => '  $o').join('\n')}\n'
-          'Run "pull-cloud yes discard-local" to delete this device\'s unsent work.');
+          'To go on, download again and delete this device\'s unsent work (pull-cloud yes discard-local).');
     } catch (e) {
       throw ViewModelException('Pull stopped, nothing was changed (rolled back): $e');
     }
@@ -386,7 +386,7 @@ class SyncViewModel {
   /// Only the device owner (the last puller) uploads this device's work.
   Future<void> _requireOwner() async {
     final owner = await _local.owner();
-    if (owner == null) throw ViewModelException('This device was never pulled. Run "pull-cloud yes" first.');
+    if (owner == null) throw ViewModelException('This device was never pulled. Download the latest data first (pull-cloud yes).');
     if (owner.userId != _auth.currentUser?.id) {
       throw ViewModelException('This device\'s work belongs to ${owner.email ?? owner.userId}; only they can sync it.');
     }

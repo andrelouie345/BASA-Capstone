@@ -62,7 +62,7 @@ Console: `aral-checkin-tools`, `aral-checkin-items`, `aral-checkins`, `aral-chec
 Build: both (view) / admin (set)    Roles: view all; set admin / coordinator
 Purpose: check-in cut-off, SHARP (foundational program), KS1 extended, idle-session days; region and school layers.
 Calls:
-- `settingLayers(schoolId)` → `AralCheckinSettingLayers`; `foundationalProgramLayers`, `ks1ExtendedLayers`, `idleSessionDaysLayers` → records `(region, school, effective, defaults)`; `AralCheckinSettingLayers.defaults`
+- `AralCheckinViewModel.settingLayers(schoolId)` → `AralCheckinSettingLayers`; `foundationalProgramLayers`, `ks1ExtendedLayers`, `idleSessionDaysLayers` → records `(region, school, effective, defaults)`; `AralCheckinSettingLayers.defaults`
 - admin: `setPassPct`, `setFoundationalProgram`, `setKs1Extended`, `setIdleSessionDays`, `resetSchoolSettings(schoolId)`
 - `localSettings(schoolId)` → `AralCheckinSettings`, `localSessionSettings(schoolId)` → `AralSessionSettings` (types from `core/models/aral_types.dart`)
 Console: `aral-checkin-cutoff`, `aral-checkin-cutoff-set`, `aral-checkin-cutoff-reset`, `aral-sharp`, `aral-sharp-set`, `aral-ks1-extended`, `aral-ks1-extended-set`, `aral-idle-days`, `aral-idle-days-set`

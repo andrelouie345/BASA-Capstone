@@ -176,7 +176,7 @@ class AralClassViewModel {
     final refusal = await aralPlacementRefusal(_roster, c, e, grade: grade, learner: name, otherGradeOk: otherGrade);
     if (refusal != null) {
       throw ViewModelException(refusal.$1 == AralPlacementProblem.otherGrade
-          ? '${refusal.$2} Place them in it anyway with other-grade if you decide so.'
+          ? '${refusal.$2} To place them in it anyway, confirm the other grade (other-grade).'
           : refusal.$2);
     }
     return _write(() => _roster.update(e.copyWith(classId: () => classId)));

@@ -515,7 +515,7 @@ class AralViewModel {
       if (refusal != null) waiting.add('${c.name} (${c.student.id}): $refusal');
     }
     if (waiting.isNotEmpty) {
-      _warn('${waiting.length} learner(s) are on the roster without a class; place them with aral-class-place:\n'
+      _warn('${waiting.length} learner(s) are on the roster without a class; place them in a class (aral-class-place):\n'
           '${waiting.map((w) => '  $w').join('\n')}');
     }
     return created;

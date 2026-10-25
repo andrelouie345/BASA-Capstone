@@ -351,7 +351,7 @@ expect ZZTESTB, Learner002 ({s_g2_2}): ZZTESTB, Learner002 is in Grade 2; class 
 run aral-roster {sec_g2} {year}
 capture e_g2p = #(-?\d+) \| [^|]*\({s_g2_2}\)
 run aral-class-place {e_g2p} {class_1}
-refuse ZZTESTB, Learner002 is in Grade 2; class "ZZ 7-Rose" is for Grade 7. Place them in it anyway with other-grade if you decide so.
+refuse ZZTESTB, Learner002 is in Grade 2; class "ZZ 7-Rose" is for Grade 7. To place them in it anyway, confirm the other grade (other-grade).
 run aral-class-place {e_g2p} {class_1} other-grade
 expect placed in #{class_1} | ZZ 7-Rose | Grade 7, mixed programs | tutor {tutor1_id} | 6/15 active
 run aral-update {sec_g2} {year}

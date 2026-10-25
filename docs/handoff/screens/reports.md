@@ -14,13 +14,13 @@ Console: `nla-report`, `nla-report-csv`
 ### Progress monitoring
 Build: admin    Roles: admin / coordinator
 Calls:
-- `progress(...)` → `ProgressReport`; `progressReportCsv(report, sectionRows:, schoolTotal:)`; `progressPercent(share)`, `thresholdPercent(share)` (model) → `String`
+- `NlaReportViewModel.progress(...)` → `ProgressReport`; `progressReportCsv(report, sectionRows:, schoolTotal:)`; `progressPercent(share)`, `thresholdPercent(share)` (model) → `String`
 Console: `progress-report`, `progress-report-csv`
 
 ### BOSY masterlist
 Build: admin    Roles: admin / coordinator
 Calls:
-- `bosyMasterlist(...)` → `BosyMasterlist`; `bosyMasterlistCsv(list)`
+- `NlaReportViewModel.bosyMasterlist(...)` → `BosyMasterlist`; `bosyMasterlistCsv(list)`
 Console: `bosy-masterlist`, `bosy-masterlist-csv`
 
 ### SRP (Summer Remediation Program)
@@ -45,7 +45,7 @@ Build: admin    Roles: coordinator / admin / superadmin
 Purpose: every import and export in one place (the reading coordinators asked for this). Imports are also reached from their own screens; the hub only gathers them.
 Calls (existing ones, the same as in the screens named in brackets):
 - imports: `ImportViewModel` SF1 `trial` / `import` (also in *SF1 import*, `admin.md`); `CrlaImportViewModel.preview` / `importScoresheet` (also in *Scoresheet import*, `crla.md`); `AralRosterImportViewModel.preview` / `importRoster` (also in *Implementation report and roster files*, `aral.md`)
-- exports: `StudentViewModel.rosterCsv(sectionId)` (*Learners and roster CSV*); `CrlaExportViewModel.exportScoresheet(...)` (*Scoresheet export*); `AralReportViewModel.implementationReportXlsx(...)`, `implementationReportCsv(...)`, `AralViewModel.rosterCsv(...)` (*Implementation report and roster files*); `nlaReportCsv(...)`, `progressReportCsv(...)`, `bosyMasterlistCsv(...)`, `srpListCsv(...)`, `srpClassesCsv(...)` (this file)
+- exports: `StudentViewModel.rosterCsv(sectionId)` (*Learners and roster CSV*); `CrlaExportViewModel.exportScoresheet(...)` (*Scoresheet export*); `AralReportViewModel.implementationReportXlsx(...)`, `implementationReportCsv(...)`, `AralViewModel.rosterCsv(...)` (*Implementation report and roster files*); `AralCheckinViewModel.checkinReportCsv(...)` (*Check-ins*, `aral.md`); `nlaReportCsv(...)`, `progressReportCsv(...)`, `bosyMasterlistCsv(...)`, `srpListCsv(...)`, `srpClassesCsv(...)` (this file)
 Live previews: none.
 Errors: as in each screen named above.
 Console: the commands of those screens.

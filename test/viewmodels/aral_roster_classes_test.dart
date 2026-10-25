@@ -217,7 +217,7 @@ void main() {
         'ZZR, L9551 is on the roster without a class.');
     await expectLater(classes.place(g9.id!, mixed.id!),
         _refused('ZZR, L9551 is in Grade 9; class "7-Mixed" is for Grade 7. '
-            'Place them in it anyway with other-grade if you decide so.'));
+            'To place them in it anyway, confirm the other grade (other-grade).'));
     expect((await classes.place(g9.id!, mixed.id!, otherGrade: true)).classId, mixed.id);
     // The confirmation doesn't lift the program rule.
     final other = await aral.enroll(sectionId: 9505, schoolYear: _year, studentId: 9552,

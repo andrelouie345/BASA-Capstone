@@ -305,7 +305,7 @@ class SyncUploadResult {
   String toString() =>
       outcome?.toString() ??
       (statusError != null
-          ? 'Upload $uploadId sent: $records row(s). Its decision could not be read ($statusError); run sync-status.'
+          ? 'Upload $uploadId sent: $records row(s). Its decision could not be read ($statusError); check the upload status (sync-status).'
           : 'Upload $uploadId sent: $records row(s), waiting for approval.'
               '${applyError == null ? '' : '\nIt could not be applied at once: $applyError'}');
 }

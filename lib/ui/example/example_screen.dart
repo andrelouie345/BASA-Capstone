@@ -81,27 +81,34 @@ class _ExampleScreenState extends State<ExampleScreen> {
     final colors = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('Example screen (replace me)')),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? _Message(text: _error!, color: colors.error, onRetry: _loadYears)
-              : _years.isEmpty
-                  ? _Message(
-                      text: 'No school years on this device yet. Download the latest data first.',
-                      color: colors.onSurface,
-                      onRetry: _loadYears)
-                  : ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        DropdownButton<String>(
-                          value: _year,
-                          items: [for (final y in _years) DropdownMenuItem(value: y, child: Text(y))],
-                          onChanged: (y) => y == null ? null : _pickYear(y),
-                        ),
-                        const SizedBox(height: 8),
-                        ..._summaryTiles(_summary),
-                      ],
-                    ),
+      // No years yet: the whole body is the spinner or the message. Once
+      // there are years, the picker stays on screen whatever happens below it,
+      // so a year that fails never traps the user.
+      body: _years.isEmpty
+          ? _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _Message(
+                  text: _error ?? 'No school years on this device yet. Download the latest data first.',
+                  color: _error != null ? colors.error : colors.onSurface,
+                  onRetry: _loadYears)
+          : ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                DropdownButton<String>(
+                  value: _year,
+                  items: [for (final y in _years) DropdownMenuItem(value: y, child: Text(y))],
+                  onChanged: _loading ? null : (y) => y == null ? null : _pickYear(y),
+                ),
+                const SizedBox(height: 8),
+                if (_loading)
+                  const Center(child: CircularProgressIndicator())
+                else if (_error != null)
+                  // "Try again" repeats the call that failed: the picked year's summary.
+                  _Message(text: _error!, color: colors.error, onRetry: () => _pickYear(_year!))
+                else
+                  ..._summaryTiles(_summary),
+              ],
+            ),
     );
   }
 

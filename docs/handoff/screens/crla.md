@@ -26,7 +26,7 @@ Console: `crla-start`, `crla-stories`
 Build: both    Roles: tutor / coordinator / admin
 Purpose: enter Part 1 (standard or English) and Part 2 (story, miscues, time, comprehension).
 Calls:
-- `savePart1Standard(...)`, `savePart1English(...)`, `savePart2Fluency(assessmentId:, storyNo:, miscues:, wordsRead:, timeMinutes:, timeSeconds:, comprehensionCorrect:, ...)`
+- `CrlaViewModel.savePart1Standard(...)`, `savePart1English(...)`, `savePart2Fluency(assessmentId:, storyNo:, miscues:, wordsRead:, timeMinutes:, timeSeconds:, comprehensionCorrect:, ...)`
 - `getAssessment(id)`, `getResult(id)` → `CrlaResult?` (profile after saving)
 - `effectiveThresholds(schoolId)` → `CrlaThresholds` (type from `core/models/crla_types.dart`)
 Live previews: none. Not available yet: a profile / wpm preview before saving (the profile is shown after saving).
