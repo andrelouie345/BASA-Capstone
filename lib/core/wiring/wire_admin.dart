@@ -8,6 +8,7 @@ import '../../viewmodels/aral_report_viewmodel.dart';
 import '../../viewmodels/aral_roster_import_viewmodel.dart';
 import '../../viewmodels/crla_import_viewmodel.dart';
 import '../../viewmodels/import_viewmodel.dart';
+import '../../viewmodels/learner_history_viewmodel.dart';
 import '../../viewmodels/login_log_viewmodel.dart';
 import '../../viewmodels/sync_review_viewmodel.dart';
 import '../../viewmodels/tutor_section_assignment_viewmodel.dart';
@@ -40,6 +41,10 @@ import '../data/local/aral_class_repository_sqlite.dart';
 import '../data/local/aral_enrollment_repository_sqlite.dart';
 import '../data/local/crla_assessment_repository_sqlite.dart';
 import '../data/local/crla_result_repository_sqlite.dart';
+import '../data/local/aral_session_repository_sqlite.dart';
+import '../data/local/learner_history_repository_sqlite.dart';
+import '../data/local/phil_iri_assessment_repository_sqlite.dart';
+import '../data/local/phil_iri_gst_repository_sqlite.dart';
 import '../data/local/login_log_repository_sqlite.dart';
 import '../data/remote/login_log_repository_supabase.dart';
 import '../data/local/school_repository_sqlite.dart';
@@ -70,6 +75,7 @@ class AdminVms {
   final AralReportViewModel aralReportVm;
   final AralRosterImportViewModel aralRosterImportVm;
   final TutorSectionAssignmentViewModel tutorSectionVm;
+  final LearnerHistoryViewModel learnerHistoryVm;
 
   AdminVms({
     required this.bootstrapVm,
@@ -81,6 +87,7 @@ class AdminVms {
     required this.aralReportVm,
     required this.aralRosterImportVm,
     required this.tutorSectionVm,
+    required this.learnerHistoryVm,
   });
 }
 
@@ -95,6 +102,7 @@ AdminViewModels adminViewModels(AdminVms a) => AdminViewModels(
       crlaImport: a.crlaImportVm,
       aralRosterImport: a.aralRosterImportVm,
       aralReport: a.aralReportVm,
+      learnerHistory: a.learnerHistoryVm,
     );
 
 Future<AdminVms> wireAdmin(AppContext ctx, SharedVms s, TutorVms t) async {
@@ -180,6 +188,22 @@ Future<AdminVms> wireAdmin(AppContext ctx, SharedVms s, TutorVms t) async {
   );
   vms.register('TutorSectionAssignmentViewModel', tutorSectionVm);
 
+  final learnerHistoryVm = LearnerHistoryViewModel(
+    auth: authVm,
+    history: LearnerHistoryRepositorySqlite(db),
+    crlaResults: CrlaResultRepositorySqlite(db),
+    philIriSessions: PhilIriAssessmentRepositorySqlite(db),
+    gst: PhilIriGstRepositorySqlite(db),
+    philIri: t.philIriVm,
+    checkins: t.aralCheckinVm,
+    sessions: AralSessionRepositorySqlite(db),
+    classes: AralClassRepositorySqlite(db),
+    users: UserRepositorySqlite(db),
+    sections: SectionRepositorySqlite(db),
+    logger: session,
+  );
+  vms.register('LearnerHistoryViewModel', learnerHistoryVm);
+
   return AdminVms(
     userVm: userVm,
     importVm: importVm,
@@ -190,6 +214,7 @@ Future<AdminVms> wireAdmin(AppContext ctx, SharedVms s, TutorVms t) async {
     aralReportVm: aralReportVm,
     aralRosterImportVm: aralRosterImportVm,
     tutorSectionVm: tutorSectionVm,
+    learnerHistoryVm: learnerHistoryVm,
   );
 }
 

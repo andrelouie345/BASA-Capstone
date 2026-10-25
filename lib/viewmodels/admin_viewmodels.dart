@@ -9,6 +9,7 @@ import 'aral_report_viewmodel.dart';
 import 'aral_roster_import_viewmodel.dart';
 import 'crla_import_viewmodel.dart';
 import 'import_viewmodel.dart';
+import 'learner_history_viewmodel.dart';
 import 'login_log_viewmodel.dart';
 import 'sync_review_viewmodel.dart';
 import 'tutor_section_assignment_viewmodel.dart';
@@ -27,6 +28,9 @@ class AdminViewModels {
   final AralRosterImportViewModel aralRosterImport;
   final AralReportViewModel aralReport;
 
+  /// One learner's progress by school year.
+  final LearnerHistoryViewModel learnerHistory;
+
   AdminViewModels({
     required this.bootstrap,
     required this.users,
@@ -37,5 +41,6 @@ class AdminViewModels {
     required this.crlaImport,
     required this.aralRosterImport,
     required this.aralReport,
+    required this.learnerHistory,
   });
 }
