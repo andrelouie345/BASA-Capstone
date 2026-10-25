@@ -150,3 +150,35 @@ run config-set-lan-url
 refuse Usage:
 run config-set-lan-key
 refuse Usage:
+
+# --- Theme colours, same throwaway device (per device, before sign-in) -------
+run theme-show
+expect mode: system
+expect (all defaults)
+run theme-mode dark
+expect Mode set to dark.
+run theme-set light primary #1E88E5
+expect light.primary set to #FF1E88E5.
+run theme-set dark surface #80121212
+expect dark.surface set to #80121212.
+run theme-show
+expect mode: dark
+expect primary: #FF1E88E5
+expect surface: #80121212
+run theme-set light 9bad #1E88E5
+refuse is not valid
+run theme-set light primary blue
+refuse Colour must be #RRGGBB or #AARRGGBB
+run theme-set sepia primary #1E88E5
+refuse Usage:
+run theme-mode
+refuse Usage:
+run theme-clear light primary
+expect light.primary back to the default.
+run theme-clear
+refuse Usage:
+run theme-reset
+expect Colours reset to the defaults.
+run theme-show
+expect mode: system
+expect (all defaults)

@@ -11,7 +11,7 @@ For the UI team and their Claude Code. Start with `docs/handoff/README.md` (the 
 - **ViewModels are request/response.** No `ChangeNotifier`, no streams: the screen keeps its loading / error / result state and calls again after a change. Read the ViewModel from the scope before any `await` (don't use `context` across one).
 - **Admin screens only under `lib/ui/admin/`.** The tutor build must not reach them (`dart run tool/check_tutor_imports.dart` fails). A screen in both builds never imports from `lib/ui/admin/`.
 - **Debug-only code behind `basaHasConsole`** (`lib/app_shell.dart`). Release builds have no console and no example screen.
-- **Light and dark mode.** The app needs both (not built yet: `theme` + `darkTheme` on the `MaterialApp` in `lib/app_shell.dart`). Screens take colours from `Theme.of(context).colorScheme`, never hard-coded colours.
+- **Light and dark mode, customizable colours.** The app needs both (not built yet: `theme` + `darkTheme` + `themeMode` on the `MaterialApp` in `lib/app_shell.dart`), built from the UI's default colours plus the user's saved changes (`ThemeSettingsViewModel`, per device; see `docs/handoff/screens/auth.md#colours-light-and-dark-mode`). Screens take colours from `Theme.of(context).colorScheme`, never hard-coded colours.
 - **The checks pass before every PR** (below), and PRs go into `excelsior`, not `main`.
 
 ## Yours to decide

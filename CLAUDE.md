@@ -7,6 +7,7 @@ Flutter/Dart reading-assessment app for tutors (DepEd ARAL-Reading program, Phil
 ## Stack
 - Flutter/Dart, MVVM. Offline-first: **SQLite** (sqflite_common_ffi on every platform, with the SQLite that `package:sqlite3` bundles: Android's system SQLite is too old) mirrored from **Supabase** (cloud, plus an optional self-hosted LAN Supabase/Postgres using the same client with a different URL).
 - Supabase URL/anon key (cloud + LAN) are runtime-editable via console `config-*` commands and persisted to disk (`<data dir>/supabase_config.json`). Nothing is hardcoded: when no config file exists, defaults come from build-time defines `BASA_CLOUD_URL`, `BASA_CLOUD_KEY`, `BASA_LAN_URL`, `BASA_LAN_KEY` (`flutter run/build --dart-define=...`, `dart run -D...`), else empty.
+- Colours (light/dark mode + the colours a user changed) are per device too, in `<data dir>/theme_settings.json` (`ThemeSettingsViewModel`, both builds, `theme-*` commands); the UI owns the colour names and defaults (`docs/handoff/screens/auth.md`).
 - The app only ever uses the anon key. Never put a `service_role` key in the app or console. Admin account creation goes through a server-side Edge Function.
 - Tests are done through the developer console (`lib/console/main.dart`, plain `dart run`, no Flutter engine), plus `dart analyze` and `flutter test` (pure-Dart tests in `test/`: command sets per build, data folder, import walk, marker scan).
 
@@ -70,7 +71,7 @@ Module checklist: Login/user management (done), Learner Management (covered by s
 - The tutor build must not contain admin code. Split rule = live RLS: a write a tutor's policy refuses, or a read the ViewModel refuses to tutors, is admin. Admin-only commands live in `*_admin_commands.dart` or in the wholly admin command files listed in `tool/check_tutor_imports.dart`.
 - No console in shipped release builds (`basaHasConsole = kDebugMode || basaScanBuild`, written at the call site). Scan builds (`--dart-define=BASA_SCAN_BUILD=true`, made only by `build_release.ps1`, never shipped) compile the console in so every ViewModel method a build can call is in it.
 - Checks: `dart run tool/check_tutor_imports.dart` and `dart run tool/check_vm_boundary.dart` after every piece; `tool/build_release.ps1` per release (import walk, ViewModel boundary, both builds for Android + Windows, two scan APKs, marker scan with an admin self-test: every `[admin]` marker must be in the admin scan build and in no tutor build).
-- Coordinators use the admin build. Tutor console: 120 commands (`test/core/wiring/tutor_commands.txt`); admin console: 241.
+- Coordinators use the admin build. Tutor console: 125 commands (`test/core/wiring/tutor_commands.txt`); admin console: 246.
 
 ## Parked / known follow-ups
 - DB-switching redesign (above).

@@ -227,6 +227,11 @@ sync-show
 sync-status
 sync-upload
 sync-withdraw
+theme-clear
+theme-mode
+theme-reset
+theme-set
+theme-show
 trend-aral-activity
 trend-aral-exits
 trend-bands

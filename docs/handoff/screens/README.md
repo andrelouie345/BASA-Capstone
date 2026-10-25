@@ -7,7 +7,7 @@ What each screen of BASA needs from the backend: which ViewModel calls serve it,
 | File | Covers |
 |------|--------|
 | `common.md` | what every screen needs: who is signed in, pickers, online/offline, errors |
-| `auth.md` | sign-in (online/offline), password change, server settings, version check |
+| `auth.md` | sign-in (online/offline, with the server settings dropdown), password change, server settings, colours (light/dark, customizable), version check |
 | `admin.md` | users, schools, sections, learners, tutor assignments, SF1 import, login logs, first admin |
 | `crla.md` | CRLA assessment, results, stories, thresholds, scoresheet import/export |
 | `phil-iri.md` | GST, Phil-IRI sessions, readings, miscues, answers, rubric, results, content, thresholds |

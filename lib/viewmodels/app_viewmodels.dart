@@ -29,12 +29,14 @@ import 'server_config_viewmodel.dart';
 import 'srp_viewmodel.dart';
 import 'student_viewmodel.dart';
 import 'sync_viewmodel.dart';
+import 'theme_settings_viewmodel.dart';
 import 'trend_viewmodel.dart';
 
 class AppViewModels {
   // Account, server, sync, lists
   final AuthViewModel auth;
   final ServerConfigViewModel serverConfig;
+  final ThemeSettingsViewModel theme; // colours, per device
   final SyncViewModel sync;
   final SchoolViewModel school;
   final SectionViewModel section;
@@ -70,6 +72,7 @@ class AppViewModels {
   AppViewModels({
     required this.auth,
     required this.serverConfig,
+    required this.theme,
     required this.sync,
     required this.school,
     required this.section,

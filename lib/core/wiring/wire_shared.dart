@@ -10,6 +10,7 @@ import '../../viewmodels/sync_viewmodel.dart';
 import '../../viewmodels/test_data_viewmodel.dart';
 import '../../viewmodels/server_config_viewmodel.dart';
 import '../../viewmodels/text_viewmodel.dart';
+import '../../viewmodels/theme_settings_viewmodel.dart';
 import '../console/commands/auth_commands.dart';
 import '../console/commands/config_commands.dart';
 import '../console/commands/debug_commands.dart';
@@ -20,6 +21,7 @@ import '../console/commands/student_commands.dart';
 import '../console/commands/sync_commands.dart';
 import '../console/commands/test_data_commands.dart';
 import '../console/commands/text_commands.dart';
+import '../console/commands/theme_commands.dart';
 import '../console/commands/version_commands.dart';
 import '../data/local/section_repository_sqlite.dart';
 import '../data/local/student_repository_sqlite.dart';
@@ -37,6 +39,7 @@ import 'app_context.dart';
 class SharedVms {
   final TextViewModel textVm;
   final ServerConfigViewModel serverConfigVm;
+  final ThemeSettingsViewModel themeVm;
   final TestDataViewModel testDataVm;
   final SyncViewModel syncVm;
   final SchoolViewModel schoolVm;
@@ -49,6 +52,7 @@ class SharedVms {
   SharedVms({
     required this.textVm,
     required this.serverConfigVm,
+    required this.themeVm,
     required this.testDataVm,
     required this.syncVm,
     required this.schoolVm,
@@ -70,6 +74,8 @@ SharedVms wireShared(AppContext ctx) {
   vms.register('TextViewModel', textVm);
   final serverConfigVm = ServerConfigViewModel(config: ctx.config, logger: session);
   vms.register('ServerConfigViewModel', serverConfigVm);
+  final themeVm = ThemeSettingsViewModel(store: ctx.theme, logger: session);
+  vms.register('ThemeSettingsViewModel', themeVm);
   final testDataVm = TestDataViewModel(repo: TestRepositorySqlite(db), logger: session);
   vms.register('TestDataViewModel', testDataVm);
 
@@ -98,6 +104,7 @@ SharedVms wireShared(AppContext ctx) {
   return SharedVms(
     textVm: textVm,
     serverConfigVm: serverConfigVm,
+    themeVm: themeVm,
     testDataVm: testDataVm,
     syncVm: syncVm,
     schoolVm: schoolVm,
@@ -112,6 +119,7 @@ SharedVms wireShared(AppContext ctx) {
 void registerSharedCommands(AppContext ctx, SharedVms s) {
   final r = ctx.registry;
   registerConfigCommands(r, s.serverConfigVm);
+  registerThemeCommands(r, s.themeVm);
   registerAuthCommands(r, ctx.authVm);
   registerVersionCommands(r, ctx.authVm);
   registerStudentCommands(r, s.sectionVm, s.studentVm);

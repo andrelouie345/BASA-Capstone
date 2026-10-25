@@ -114,6 +114,11 @@ sync-resolve
 sync-status
 sync-upload
 sync-withdraw
+theme-clear
+theme-mode
+theme-reset
+theme-set
+theme-show
 trend-aral-activity
 version-app
 version-check

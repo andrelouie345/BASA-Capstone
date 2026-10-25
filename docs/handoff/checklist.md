@@ -23,7 +23,7 @@ The debug console (`lib/ui/debug/`) is a developer tool, not an app screen: leav
 | 3 | Online / offline and pending work | shared part | both | [common.md](screens/common.md#online--offline-and-pending-work) |  |  |
 | 4 | Version refusal | shared part | both | [common.md](screens/common.md#version-refusal) |  |  |
 | 5 | Error display | shared part | both | [common.md](screens/common.md#error-display) |  |  |
-| 6 | Sign in (online) | screen | both | [auth.md](screens/auth.md#sign-in-online) |  |  |
+| 6 | Sign in (online), with the server settings dropdown | screen | both | [auth.md](screens/auth.md#sign-in-online) |  |  |
 | 7 | Sign in offline | screen | both | [auth.md](screens/auth.md#sign-in-offline) |  |  |
 | 8 | Change password | screen | both | [auth.md](screens/auth.md#change-password) |  |  |
 | 9 | Sign out | menu item | both | [auth.md](screens/auth.md#sign-out) |  |  |
@@ -75,3 +75,4 @@ The debug console (`lib/ui/debug/`) is a developer tool, not an app screen: leav
 | 55 | Send my work (upload) | screen | both | [sync.md](screens/sync.md#send-my-work-upload) |  |  |
 | 56 | Review uploads (approver) | screen | admin | [sync.md](screens/sync.md#review-uploads-approver) |  |  |
 | 57 | Light and dark mode (whole app) | app-wide | both | [README.md](README.md#light-and-dark-mode) |  |  |
+| 58 | Colours (customize light and dark, defaults preset) | screen | both | [auth.md](screens/auth.md#colours-light-and-dark-mode) |  |  |

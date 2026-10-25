@@ -74,7 +74,45 @@ The debug console (`lib/ui/debug/`) is a developer tool, not an app screen: leav
 
 ## Light and dark mode
 
-The app needs both a **light mode** and a **dark mode**. Neither is built yet: the `MaterialApp` in `lib/app_shell.dart` sets no `theme` or `darkTheme`. Add both there (following the phone's or computer's setting), and in every screen take colours from the theme (`Theme.of(context).colorScheme`), never hard-coded colours, so each screen works in both. It is a row in `checklist.md`.
+The app needs both a **light mode** and a **dark mode**. Neither is built yet: the `MaterialApp` in `lib/app_shell.dart` sets no `theme` or `darkTheme`. Add both there, and in every screen take colours from the theme (`Theme.of(context).colorScheme`), never hard-coded colours, so each screen works in both.
+
+The colours are **customizable**, for each mode, with **defaults preset**:
+- You choose the colour names and their default values, in one Dart file under `lib/ui/` (e.g. `lib/ui/theme/basa_colors.dart`).
+- The user's changes and their choice of light / dark / follow the device are saved **on the device** (not per user) by `ThemeSettingsViewModel` (`BasaScope.of(context).theme`), in `theme_settings.json` next to the server settings. Only changed colours are saved; everything else uses your defaults.
+- The app shell reads the saved settings at start-up, builds both themes from defaults + changes, and rebuilds after the user changes something.
+
+Calls and details: `screens/auth.md` (*Colours*). Rows 57 and 58 in `checklist.md`.
+
+## Setting up Claude Code
+
+The backend was built with Claude Code and the **Superpowers** plugin: every piece went *brainstorm → written plan → build task by task → review*, with tests and console checks before anything was called done. Use the same plugins so your Claude Code works the same way. In Claude Code, run:
+
+```
+/plugin install superpowers@claude-plugins-official
+/plugin install frontend-design@claude-plugins-official
+```
+
+and in a terminal (the Flutter team's official plugin):
+
+```
+claude plugin marketplace add flutter/agent-plugins
+claude plugin install dart-flutter@dart-flutter
+```
+
+If a command fails, run `/plugin`, open **Discover** and search for the name. Restart Claude Code after installing.
+
+Also install **claude-win-notify** (Windows notifications when Claude Code finishes, asks a question or waits for your approval). In Claude Code: `/plugin` → **Discover** → search `claude-win-notify`. If it isn't listed, follow the install steps in its README (github.com/MT-SUPER-POWER/claude-win-notify; needs Windows 10 1809 or later, Node.js and git).
+
+**Tests take a while.** `flutter test` takes about **8–9 minutes** on a laptop, and all four checks before a PR about 10. That is normal: the suite is mostly backend tests, and it must run in full. Let it finish (don't close the terminal), and let the notifier tell you when Claude Code is done instead of watching it. **DO NOT PLAY RESOURCE INTENSIVE GAMES WHILE THE TESTS RUN.**
+
+| Plugin | What it gives you |
+|--------|-------------------|
+| **superpowers** | the working method: `brainstorming` (design a screen with you before code), `writing-plans`, `executing-plans`, `systematic-debugging`, `test-driven-development`, `requesting-code-review`, `verification-before-completion` (run it and show the output before saying it's done) |
+| **frontend-design** | UI design guidance: a clear visual direction, typography, layout, so screens don't look like a default template |
+| **dart-flutter** | the Dart and Flutter MCP server: Claude Code sees analyzer errors, runs tests and inspects the running app (widget tree, hot reload) |
+| **claude-win-notify** | a Windows notification when Claude Code is done or needs you, so a long test run doesn't need watching |
+
+A good way to start a screen: *"Use brainstorming to design the <screen> screen from docs/handoff/screens/<file>.md"*. Claude Code reads `lib/ui/CLAUDE.md` (the UI rules) by itself.
 
 ## Checks before every PR
 
@@ -87,7 +125,7 @@ dart run tool/check_tutor_imports.dart
 dart run tool/check_vm_boundary.dart
 ```
 
-`dart analyze` must show no errors (old warnings are accepted). The other three must pass.
+`dart analyze` must show no errors (old warnings are accepted). The other three must pass. `flutter test` alone takes about 8–9 minutes.
 
 ## Opening a PR
 

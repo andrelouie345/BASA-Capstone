@@ -132,6 +132,7 @@ class TutorVms {
 AppViewModels appViewModels(AppContext ctx, SharedVms s, TutorVms t) => AppViewModels(
       auth: ctx.authVm,
       serverConfig: s.serverConfigVm,
+      theme: s.themeVm,
       sync: s.syncVm,
       school: s.schoolVm,
       section: s.sectionVm,

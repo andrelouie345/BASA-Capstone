@@ -10,6 +10,7 @@ import '../data/local/local_database.dart';
 import '../data/local/login_log_repository_sqlite.dart';
 import '../data/local/offline_credential_repository_sqlite.dart';
 import '../data/local/report_setting_repository_sqlite.dart';
+import '../data/local/theme_settings_store.dart';
 import '../data/local/user_repository_sqlite.dart';
 import '../data/remote/migration_ledger_repository_supabase.dart';
 import '../data/remote/supabase_config.dart';
@@ -20,6 +21,7 @@ class AppContext {
   final Database localDb;
   final String dataDir;
   final SupabaseConfigStore config;
+  final ThemeSettingsStore theme;
   final ConsoleSession session;
   final ConsoleRegistry registry;
   final ViewModelRegistry vmRegistry;
@@ -29,6 +31,7 @@ class AppContext {
     required this.localDb,
     required this.dataDir,
     required this.config,
+    required this.theme,
     required this.session,
     required this.registry,
     required this.vmRegistry,
@@ -40,6 +43,7 @@ class AppContext {
     final registry = ConsoleRegistry();
     final session = ConsoleSession(registry);
     final config = await SupabaseConfigStore.load(dataDir);
+    final theme = await ThemeSettingsStore.load(dataDir);
     final authVm = AuthViewModel(
       loginLogRepo: LoginLogRepositorySqlite(localDb),
       config: config,
@@ -54,6 +58,7 @@ class AppContext {
       localDb: localDb,
       dataDir: dataDir,
       config: config,
+      theme: theme,
       session: session,
       registry: registry,
       vmRegistry: ViewModelRegistry(),
