@@ -1,6 +1,6 @@
 # Screen checklist
 
-One row per screen. Write your name in **Assigned** when you take a screen, and keep **Status** up to date: `not started`, `in progress`, `PR open`, `merged`. Each **Doc** link opens the screen block with the ViewModel calls it needs.
+One row per screen. Write your name in **Assigned** when you take a screen, and keep **Status** up to date: `not started`, `in progress`, `pushed`, `done`. Each **Doc** link opens the screen block with the ViewModel calls it needs.
 
 **Kind:** `screen` = a screen of its own; `menu item` = an action in a menu, not a screen; `shared part` = something every screen uses (build it once, reuse it); `app-wide` = a whole-app job.
 

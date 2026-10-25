@@ -12,7 +12,8 @@ For the UI team and their Claude Code. Start with `docs/handoff/README.md` (the 
 - **Admin screens only under `lib/ui/admin/`.** The tutor build must not reach them (`dart run tool/check_tutor_imports.dart` fails). A screen in both builds never imports from `lib/ui/admin/`.
 - **Debug-only code behind `basaHasConsole`** (`lib/app_shell.dart`). Release builds have no console and no example screen.
 - **Light and dark mode, customizable colours.** The app needs both (not built yet: `theme` + `darkTheme` + `themeMode` on the `MaterialApp` in `lib/app_shell.dart`), built from the UI's default colours plus the user's saved changes (`ThemeSettingsViewModel`, per device; see `docs/handoff/screens/auth.md#colours-light-and-dark-mode`). Screens take colours from `Theme.of(context).colorScheme`, never hard-coded colours.
-- **The checks pass before every PR** (below), and PRs go into `excelsior`, not `main`.
+- **The checks pass before every push** (below). UI work is pushed to `frontend_dev` (not `main`, not `excelsior`).
+- **One screen per conversation.** Suggest `/clear` (or a new chat) once a screen is pushed; the docs carry what the next one needs.
 
 ## Yours to decide
 
