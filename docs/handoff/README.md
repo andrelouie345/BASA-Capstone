@@ -114,6 +114,15 @@ Also install **claude-win-notify** (Windows notifications when Claude Code finis
 
 A good way to start a screen: *"Use brainstorming to design the <screen> screen from docs/handoff/screens/<file>.md"*. Claude Code reads `lib/ui/CLAUDE.md` (the UI rules) by itself.
 
+## Not using Claude Code?
+
+Everything here still works with another AI tool (Copilot, Cursor, Gemini, a free-tier chat) or with no AI at all. The guide, `checklist.md`, `screens/` and the example screen are plain files for people to read.
+
+- **Give it the UI rules.** Only Claude Code reads `lib/ui/CLAUDE.md` by itself. Paste it into the chat when you start, or copy it into your tool's own instruction file (Copilot: `.github/copilot-instructions.md`; Cursor: `.cursor/rules/`; many tools: `AGENTS.md`). Don't commit those copies: keep `lib/ui/CLAUDE.md` the one source.
+- **Keep the context small.** Free tiers forget long conversations. For each screen, give it only `lib/ui/CLAUDE.md`, that screen's block from `screens/<module>.md`, and `lib/ui/example/example_screen.dart`. Not the whole repo.
+- **Trust the checks, not the AI.** Run the four checks below before every PR, whatever wrote the code. If the AI imports something a screen must not (a service, the database, an admin file), `check_vm_boundary` or `check_tutor_imports` fails and names it.
+- **Same branch rules.** Your work goes on your own branch made from `excelsior`, and the PR goes into `excelsior` (see *Opening a PR*).
+
 ## Checks before every PR
 
 **DO NOT PLAY RESOURCE INTENSIVE GAMES WHILE THESE RUN.** A busy computer can slow the tests down or crash them.
