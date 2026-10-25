@@ -4,6 +4,7 @@
 
 import '../console_command.dart';
 import '../console_registry.dart';
+import '../../models/aral_enrollment.dart' show AralBasisSource;
 import '../../../viewmodels/learner_history_viewmodel.dart';
 
 class _Usage implements Exception {
@@ -50,7 +51,8 @@ String _text(LearnerHistory h) {
   for (final y in h.years) {
     out.write('\n== ${y.schoolYear} ==');
     for (final e in y.enrollments) {
-      out.write('\n  Section: Grade ${e.gradeLevel} ${e.sectionName} (${e.schoolName}), ${e.status}');
+      out.write('\n  Section: Grade ${e.gradeLevel} ${e.sectionName} (${e.schoolName ?? 'school not on this device'}), '
+          '${e.status}');
     }
     for (final round in y.crla.entries) {
       for (final lang in round.value.entries) {
@@ -59,6 +61,10 @@ String _text(LearnerHistory h) {
     }
     for (final p in y.philIri) {
       final r = p.results;
+      if (r == null) {
+        out.write('\n  Phil-IRI ${p.sectionName ?? 'section'} (section ${p.sectionId}): ${p.unavailable}');
+        continue;
+      }
       final g = r.gst;
       final rounds = [
         for (final round in r.rounds)
@@ -72,9 +78,13 @@ String _text(LearnerHistory h) {
     for (final a in y.aral) {
       final e = a.enrollment;
       final exited = e.exitedOn == null ? '' : ', exited ${e.exitedOn} (${e.exitReason?.value})';
+      final referral = e.basisSource == AralBasisSource.referral
+          ? ' (referred by ${e.referredBy ?? '-'}: ${e.referralReason ?? '-'})'
+          : '';
       out.write('\n  ARAL ${e.programLabel}: class ${a.className ?? 'waiting for a class'}, '
-          'tutor ${a.tutorName ?? 'none'}, entered ${e.enteredOn}$exited; ${a.attendance.label}; '
-          'check-in 16 ${_checkin(a.checkin16)}, 32 ${_checkin(a.checkin32)}');
+          'tutor ${a.tutorName ?? 'none'}, basis ${e.basisSource.value}$referral, entered ${e.enteredOn}$exited; '
+          '${a.attendance.label}; check-in 16 ${_checkin(a.checkin16)}, 32 ${_checkin(a.checkin32)}');
+      if (a.unavailable != null) out.write('\n    ${a.unavailable}');
     }
     final srp = y.srp;
     if (srp != null) {
@@ -89,4 +99,5 @@ String _checkin(LearnerHistoryCheckin c) => switch (c) {
       LearnerHistoryCheckin.passed => 'passed',
       LearnerHistoryCheckin.failed => 'failed',
       LearnerHistoryCheckin.notTaken => 'not taken',
+      LearnerHistoryCheckin.unavailable => 'not available',
     };

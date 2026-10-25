@@ -81,6 +81,7 @@ Module checklist: Login/user management (done), Learner Management (covered by s
 - `crla_stories` is seeded only for region 13 (Northern Mindanao), grades 1–3. A section in another region gets no story match, so the view returns NULL for `pct_correct_words_read` and `reading_profile`. This is expected, not a bug. CRLA assessments for sections outside Grades 1–3 are refused by the cloud insert policy (M4).
 - Story import from source workbooks is planned (see the language normalization note in `lib/core/CLAUDE.md`).
 - `config-set-*-url` commands don't validate the URL.
+- CRLA "latest attempt" for a learner moved mid-year: `crla_assessments.attempt_no` restarts per section, so the learner history and `aralCrlaLearnerProfile` (ARAL report, dashboard trend) can pick the old section's attempt. Fix both together (date, then attempt) so they stay consistent.
 
 ## Commands
 - `dart analyze` — run after every piece. Existing lint warnings (unused imports, underscore names) are accepted; errors are not.

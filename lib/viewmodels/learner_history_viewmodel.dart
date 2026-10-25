@@ -5,9 +5,12 @@
 // learner. Admin build only. Read-only, from the device copy (pull-cloud
 // copies every year the user can read). Built from what other modules
 // already score: nothing here re-implements a rule.
-//  * Per year: section enrollment(s), CRLA profile per round and language
-//    (latest attempt), Phil-IRI results per section (PhilIriViewModel.learnerResults),
-//    each ARAL entry (class, tutor, attendance, 16th/32nd check-in), SRP class.
+//  * Per year: section enrollment, CRLA profile per round and test (MT /
+//    Filipino / English, latest attempt), Phil-IRI results per section
+//    (PhilIriViewModel.learnerResults), the ARAL entry (class, tutor,
+//    attendance, 16th/32nd check-in as the check-in report picks it), SRP class.
+//  * A part that can't be read on this device (section or check-in tool
+//    missing, section grade changed) gets a note; the rest still shows.
 //  * Tutors are refused; a school-bound admin/coordinator reads only their
 //    school's learners and gets a fixed scope note (other schools' rows never
 //    reach the device, so their absence can't be detected).
@@ -36,13 +39,18 @@ import 'viewmodel_exception.dart';
 /// Shown to a school-bound viewer (null for a superadmin).
 const learnerHistoryScopeNote = "Only your school's records are shown.";
 
-/// A check-in (after session 16 or 32) as the history shows it: the latest attempt.
-enum LearnerHistoryCheckin { passed, failed, notTaken }
+/// A check-in (after session 16 or 32) as the history shows it: the latest
+/// attempt (aralLatestCheckin). unavailable = the check-ins can't be read on
+/// this device (LearnerHistoryAral.unavailable says why).
+enum LearnerHistoryCheckin { passed, failed, notTaken, unavailable }
+
+/// Start of the note on a part that can't be read on this device.
+const learnerHistoryUnavailable = 'Not available on this device: ';
 
 class LearnerHistoryEnrollment {
   final String sectionName;
   final String gradeLevel;
-  final String schoolName;
+  final String? schoolName; // null when the school is not on this device
   final String status;
 
   const LearnerHistoryEnrollment(
@@ -66,6 +74,8 @@ class LearnerHistoryAral {
   final AralAttendanceSummary attendance;
   final LearnerHistoryCheckin checkin16;
   final LearnerHistoryCheckin checkin32;
+  /// Set when the check-ins can't be read on this device ("Not available on this device: ...").
+  final String? unavailable;
 
   const LearnerHistoryAral({
     required this.enrollment,
@@ -74,27 +84,35 @@ class LearnerHistoryAral {
     required this.attendance,
     required this.checkin16,
     required this.checkin32,
+    this.unavailable,
   });
 }
 
 /// The year's Phil-IRI results in one section. The GST counts for the whole
 /// year (PhilIriViewModel.learnerResults), so a learner moved between sections
-/// shows the same GST under each.
+/// shows the same GST under each. When the results can't be read on this
+/// device (section missing, or no longer Grade 4-10), [results] is null and
+/// [unavailable] says why.
 class LearnerHistoryPhilIri {
   final int sectionId;
   final String? sectionName; // null when the section is not on this device
-  final PhilIriLearnerResults results;
+  final PhilIriLearnerResults? results;
+  final String? unavailable;
 
-  const LearnerHistoryPhilIri({required this.sectionId, required this.sectionName, required this.results});
+  const LearnerHistoryPhilIri(
+      {required this.sectionId, required this.sectionName, required this.results, this.unavailable});
 }
 
 class LearnerHistoryYear {
   final String schoolYear;
   final List<LearnerHistoryEnrollment> enrollments;
-  /// Round -> language -> reading profile of the latest attempt (null = no profile).
+  /// Round -> test -> reading profile of the latest attempt (null = no
+  /// profile). Tests in the order "MT (language)", "Filipino", "English".
   final Map<CrlaRound, Map<String, String?>> crla;
-  /// One per section the learner has Phil-IRI rows in that year (usually one).
+  /// One per section the learner has Phil-IRI rows in that year (usually one;
+  /// two after a section move).
   final List<LearnerHistoryPhilIri> philIri;
+  /// At most one (one ARAL entry per learner per year).
   final List<LearnerHistoryAral> aral;
   final LearnerHistorySrp? srp;
 
@@ -107,7 +125,7 @@ class LearnerHistoryYear {
     required this.srp,
   });
 
-  /// Nothing but the enrollment ("No assessments recorded").
+  /// No CRLA, Phil-IRI, ARAL or SRP in the year, only the enrollment ("No assessments recorded").
   bool get isEmpty => crla.isEmpty && philIri.isEmpty && aral.isEmpty && srp == null;
 }
 
@@ -175,6 +193,7 @@ class LearnerHistoryViewModel {
   Future<LearnerHistory> historyByLrn(String lrn) async {
     _log('historyByLrn($lrn)');
     final me = _requireManager();
+    if (lrn.trim().isEmpty) throw const ViewModelException('Enter an LRN.');
     final s = await _history.studentByLrn(lrn);
     if (s == null) {
       throw ViewModelException(
@@ -230,14 +249,7 @@ class LearnerHistoryViewModel {
                 sectionName: r.sectionName, gradeLevel: r.gradeLevel, schoolName: r.schoolName, status: r.status),
         ],
         crla: _crlaByRound(crla.where((r) => r.schoolYear == year)),
-        philIri: [
-          for (final sectionId in philIriSections)
-            LearnerHistoryPhilIri(
-              sectionId: sectionId,
-              sectionName: (await _sections.getById(sectionId))?.sectionName,
-              results: await _philIri.learnerResults(studentId: id, sectionId: sectionId, schoolYear: year),
-            ),
-        ],
+        philIri: [for (final sectionId in philIriSections) await _philIriIn(id, sectionId, year)],
         aral: [for (final e in aral.where((e) => e.schoolYear == year)) await _aral(e)],
         srp: yearSrp == null
             ? null
@@ -248,11 +260,26 @@ class LearnerHistoryViewModel {
     return LearnerHistory(student: s, years: out, scopeNote: me.schoolId == null ? null : learnerHistoryScopeNote);
   }
 
-  /// Latest attempt per round and language (highest attempt number, then the latest date).
+  Future<LearnerHistoryPhilIri> _philIriIn(int studentId, int sectionId, String year) async {
+    final sectionName = (await _sections.getById(sectionId))?.sectionName;
+    try {
+      return LearnerHistoryPhilIri(
+        sectionId: sectionId,
+        sectionName: sectionName,
+        results: await _philIri.learnerResults(studentId: studentId, sectionId: sectionId, schoolYear: year),
+      );
+    } on ViewModelException catch (e) {
+      return LearnerHistoryPhilIri(
+          sectionId: sectionId, sectionName: sectionName, results: null, unavailable: '$learnerHistoryUnavailable${e.message}');
+    }
+  }
+
+  /// Latest attempt per round and test (subject variant; attempt numbers count
+  /// per variant): highest attempt number, then the latest date.
   Map<CrlaRound, Map<String, String?>> _crlaByRound(Iterable<CrlaResult> results) {
     final latest = <(CrlaRound, String), CrlaResult>{};
     for (final r in results) {
-      final key = (r.round, r.language);
+      final key = (r.round, r.subjectVariant);
       final prev = latest[key];
       if (prev == null ||
           r.attemptNo > prev.attemptNo ||
@@ -260,23 +287,41 @@ class LearnerHistoryViewModel {
         latest[key] = r;
       }
     }
+    const order = ['mt', 'fil', 'eng'];
+    int rank(String variant) => order.contains(variant) ? order.indexOf(variant) : order.length;
     final out = <CrlaRound, Map<String, String?>>{};
     for (final round in CrlaRound.values) {
-      final byLanguage = {
-        for (final e in latest.entries.where((e) => e.key.$1 == round)) e.key.$2: e.value.readingProfile,
-      };
-      if (byLanguage.isNotEmpty) out[round] = byLanguage;
+      final inRound = latest.entries.where((e) => e.key.$1 == round).toList()
+        ..sort((a, b) => rank(a.key.$2).compareTo(rank(b.key.$2)));
+      if (inRound.isNotEmpty) {
+        out[round] = {for (final e in inRound) _crlaTestLabel(e.value): e.value.readingProfile};
+      }
     }
     return out;
   }
 
+  /// "MT (language)", "Filipino" or "English". The fil test stores its
+  /// language as "Tagalog" (normalizeCrlaLanguage), so the label comes from the variant.
+  static String _crlaTestLabel(CrlaResult r) => switch (r.subjectVariant) {
+        'mt' => 'MT (${r.language})',
+        'fil' => 'Filipino',
+        'eng' => 'English',
+        _ => r.subjectVariant,
+      };
+
   Future<LearnerHistoryAral> _aral(AralEnrollment e) async {
     final cls = e.classId == null ? null : await _classes.findById(e.classId!);
-    final checkins = await _checkins.learnerCheckins(e.id!);
+    AralLearnerCheckins? checkins;
+    String? unavailable;
+    try {
+      checkins = await _checkins.learnerCheckins(e.id!);
+    } on ViewModelException catch (err) {
+      unavailable = '$learnerHistoryUnavailable${err.message}';
+    }
     LearnerHistoryCheckin at(int checkpoint) {
-      final taken = checkins.results.where((r) => r.tool.checkpoint == checkpoint);
-      if (taken.isEmpty) return LearnerHistoryCheckin.notTaken;
-      final last = taken.reduce((a, b) => b.checkin.attemptNo > a.checkin.attemptNo ? b : a);
+      final last = checkins?.latestAt(checkpoint);
+      if (checkins == null) return LearnerHistoryCheckin.unavailable;
+      if (last == null) return LearnerHistoryCheckin.notTaken;
       return last.passed ? LearnerHistoryCheckin.passed : LearnerHistoryCheckin.failed;
     }
 
@@ -287,6 +332,7 @@ class LearnerHistoryViewModel {
       attendance: AralAttendanceSummary.of(await _sessions.getAttendanceForEnrollment(e.id!)),
       checkin16: at(16),
       checkin32: at(32),
+      unavailable: unavailable,
     );
   }
 

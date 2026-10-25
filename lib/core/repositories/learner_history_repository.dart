@@ -14,7 +14,7 @@ class LearnerSectionRow {
   final String sectionName;
   final String gradeLevel;   // bare numeric string
   final int schoolId;
-  final String schoolName;
+  final String? schoolName;  // null when the school row is not on this device
 
   const LearnerSectionRow({
     required this.schoolYear,
@@ -30,7 +30,8 @@ class LearnerSectionRow {
 abstract class LearnerHistoryRepository {
   Future<Student?> student(int id);
   Future<Student?> studentByLrn(String lrn);
-  /// Every enrollments row of the learner joined to sections and schools; school_year DESC.
+  /// Every enrollments row of the learner joined to sections (and schools, when on
+  /// the device); school_year DESC. At most one per year (UNIQUE student, year).
   Future<List<LearnerSectionRow>> sectionEnrollments(int studentId);
   /// Every aral_enrollments row of the learner, all years; school_year DESC, entered_on ASC.
   Future<List<AralEnrollment>> aralEntries(int studentId);

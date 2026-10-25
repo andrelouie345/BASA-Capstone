@@ -74,6 +74,27 @@ class AralLearnerCheckins {
   AralCheckinResult? latest(int toolId) =>
       results.where((r) => r.tool.id == toolId).fold<AralCheckinResult?>(
           null, (best, r) => best == null || r.checkin.attemptNo > best.checkin.attemptNo ? r : best);
+
+  /// The latest check-in after session [checkpoint] (any tool of that
+  /// checkpoint), as the check-in report picks it; null when not taken.
+  AralCheckinResult? latestAt(int checkpoint) =>
+      aralLatestCheckin(results.where((r) => r.tool.checkpoint == checkpoint));
+}
+
+/// The latest of [results] (one checkpoint): latest date, then highest
+/// attempt. Attempt numbers count per tool, so after a program change the
+/// date decides. Shared by the check-in report and the learner history.
+AralCheckinResult? aralLatestCheckin(Iterable<AralCheckinResult> results) {
+  AralCheckinResult? latest;
+  for (final r in results) {
+    final c = r.checkin;
+    if (latest == null ||
+        c.takenOn.compareTo(latest.checkin.takenOn) > 0 ||
+        (c.takenOn == latest.checkin.takenOn && c.attemptNo > latest.checkin.attemptNo)) {
+      latest = r;
+    }
+  }
+  return latest;
 }
 
 /// One learner of the check-in report: the latest attempt after session 16
@@ -276,16 +297,9 @@ class AralCheckinViewModel {
       };
       final learners = <AralCheckinReportLearner>[];
       for (final e in bySection[s.id] ?? const <AralEnrollment>[]) {
-        final latest = <int, AralCheckinResult>{};
-        for (final c in await _checkins.checkins(e.id!)) {
-          final r = await _result(c, passPct);
-          final prev = latest[r.tool.checkpoint];
-          final newer = prev == null ||
-              c.takenOn.compareTo(prev.checkin.takenOn) > 0 ||
-              (c.takenOn == prev.checkin.takenOn && c.attemptNo > prev.checkin.attemptNo);
-          if (newer) latest[r.tool.checkpoint] = r;
-        }
-        learners.add(AralCheckinReportLearner(e, names[e.studentId] ?? 'student ${e.studentId}', latest[16], latest[32]));
+        final results = [for (final c in await _checkins.checkins(e.id!)) await _result(c, passPct)];
+        AralCheckinResult? at(int checkpoint) => aralLatestCheckin(results.where((r) => r.tool.checkpoint == checkpoint));
+        learners.add(AralCheckinReportLearner(e, names[e.studentId] ?? 'student ${e.studentId}', at(16), at(32)));
       }
       learners.sort((a, b) => a.name.compareTo(b.name));
       out.add(AralCheckinReportSection(s, learners));

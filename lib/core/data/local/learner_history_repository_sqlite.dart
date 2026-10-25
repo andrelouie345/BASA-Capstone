@@ -25,10 +25,10 @@ class LearnerHistoryRepositorySqlite implements LearnerHistoryRepository {
   Future<List<LearnerSectionRow>> sectionEnrollments(int studentId) async {
     final rows = await db.rawQuery('''
       SELECT e.school_year, e.status, s.id AS section_id, s.section_name, s.grade_level,
-             sc.id AS school_id, sc.school_name
+             s.school_id, sc.school_name
       FROM enrollments e
       JOIN sections s ON s.id = e.section_id
-      JOIN schools sc ON sc.id = s.school_id
+      LEFT JOIN schools sc ON sc.id = s.school_id
       WHERE e.student_id = ?
       ORDER BY e.school_year DESC, s.section_name COLLATE NOCASE
     ''', [studentId]);
@@ -41,7 +41,7 @@ class LearnerHistoryRepositorySqlite implements LearnerHistoryRepository {
           sectionName: r['section_name'] as String,
           gradeLevel: r['grade_level'] as String,
           schoolId: r['school_id'] as int,
-          schoolName: r['school_name'] as String,
+          schoolName: r['school_name'] as String?,
         ),
     ];
   }
