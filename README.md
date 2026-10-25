@@ -35,8 +35,9 @@ self-hosted LAN instance. Note its **URL** and **anon key**.
 
 Run `supabase/migrations/20261018040000_baseline.sql` in the new project's SQL
 editor (or `supabase db push` from a linked project). It creates every table,
-view, function, trigger, RLS policy and privilege BASA uses. It is idempotent,
-so running it twice does no harm.
+view, function, trigger and RLS policy BASA uses. It is idempotent, so running
+it twice does no harm. The API grants come last, from `20261025010000` in 2b:
+until it runs, a project created after 2026-10-30 refuses every table.
 
 An **existing** project that already has this schema (the original BASA
 project) runs nothing here.
@@ -79,7 +80,11 @@ school year and school, and marks attendance in a class session only for that
 class's learners; app update required: no) and `20261024050000` (an upload is
 checked against the 15-learner class cap and one session per class per date
 as a whole, so offline swaps of places or dates apply; app update required:
-no). Each is idempotent.
+no) and `20261025010000` (explicit Data API grants on every table, view and
+sequence: since 2026-10-30 Supabase no longer grants new tables to the API
+roles, so a database built from these files refuses every table without it;
+anon keeps only the failed sign-in log; app update required: no). Each is
+idempotent.
 Do **not** run
 `supabase/migrations_archive/`.
 
@@ -95,6 +100,12 @@ values ('<id>', '<name>', <true|false>) on conflict (id) do nothing;
 A migration marked **yes** also says, in its header, `Apply only when all work
 is finalized: every device synced, every upload decided (README "Keeping BASA
 up to date")`, and its line in the list above says the same.
+
+A migration that creates a table or view also **grants it** in the same file
+(select, insert, update, delete to `authenticated` and `service_role`, select
+only for a view; nothing to `anon`): Supabase no longer does it automatically
+(2026-10-30). `flutter test` fails on a newer migration that forgets
+(`test/supabase/migration_grants_test.dart`).
 
 The same commit adds `'<id>': '<name>'` to `lib/core/release.dart`. Without the
 ledger row, every app built with that migration refuses to sign in to the
@@ -248,6 +259,18 @@ select c.relname, c.relrowsecurity
 from pg_class c
 join pg_namespace n on n.oid = c.relnamespace
 where n.nspname = 'public' and c.relkind = 'r'
+order by c.relname;
+
+-- API grants (migration 20261025010000): every row false = OK.
+-- anon may only insert into login_logs; authenticated must read every
+-- table and view.
+select c.relname,
+       has_table_privilege('anon', c.oid, 'select') as anon_reads,
+       c.relname <> 'login_logs' and has_table_privilege('anon', c.oid, 'insert') as anon_writes,
+       not has_table_privilege('authenticated', c.oid, 'select') as auth_cannot_read
+from pg_class c
+join pg_namespace n on n.oid = c.relnamespace
+where n.nspname = 'public' and c.relkind in ('r', 'v') and c.relname <> 'testTable'
 order by c.relname;
 ```
 
