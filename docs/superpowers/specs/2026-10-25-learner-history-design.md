@@ -1,6 +1,6 @@
 # Learner history — design
 
-Status: design approved in brainstorming 2026-10-25 (owner). Plan: to be written (`docs/superpowers/plans/2026-10-25-learner-history.md`).
+Status: built 2026-10-25 (plan `docs/superpowers/plans/2026-10-25-learner-history.md`). Changes made while building are listed at the end.
 
 ## Goal
 
@@ -91,3 +91,9 @@ Output: the scope note, then one block per school year: enrollment line(s), CRLA
 
 1. **Cross-school history (Q2-B):** let a school read a transferred-in learner's past assessment results from their old school (results only, not ARAL details). Needs new read policies, pull/sync changes, and a data-sharing decision by ma / the division.
 2. **Academic history:** age, elementary school graduated from, address (deferred to the next version on 2026-10-19). Needs new columns, so a migration.
+
+## Changes made while building (2026-10-25)
+
+- The new reads live in their own `LearnerHistoryRepository` (interface + SQLite: student by id/LRN, section enrollments, ARAL entries, SRP classes) instead of new methods on `StudentRepository` / `AralEnrollmentRepository`, which have Supabase versions and test fakes that would never use them.
+- The console file needs no entry in `tool/check_tutor_imports.dart`: a `*_admin_commands.dart` file is admin by name.
+- `philIri` is a list of `LearnerHistoryPhilIri` (`sectionId`, `sectionName`, `results`): `PhilIriLearnerResults` does not say which section it is for. `learnerResults` counts the GST for the whole year (Phil-IRI's rule), so a learner moved between sections shows the same GST under each.

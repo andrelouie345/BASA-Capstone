@@ -38,6 +38,8 @@ dashboard
 dashboard-years
 export-section
 help
+learner-history
+learner-history-lrn
 list-conflicts
 list-section-tutors
 list-sections

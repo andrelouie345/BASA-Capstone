@@ -120,6 +120,8 @@ help
 import-preview
 import-students
 import-trial
+learner-history
+learner-history-lrn
 list-conflicts
 list-section-tutors
 list-sections

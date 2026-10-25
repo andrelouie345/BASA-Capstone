@@ -29,6 +29,19 @@ sql select count(distinct student_id) from phil_iri_assessments where section_id
 sql select count(*) from phil_iri_assessments where section_id = {sec_g7} and round = 'bosy' => 0
 sql select count(*) from enrollments e join sections s on s.id = e.section_id where s.school_id = {school} and s.grade_level = '7' and s.school_year = '{year}' => 20
 
+# --- Learner history (spec 2026-10-25-learner-history) -----------------------------
+# s_g2_3: Grade 2 CRLA Filipino BOSY High Emerging, MOSY Developing (header above).
+run learner-history {s_g2_3}
+expect Only your school's records are shown.
+expect == {year} ==
+expect~ CRLA BOSY \S+: High Emerging Reader
+expect~ CRLA MOSY \S+: Developing Reader
+# s_c4: A4's GST 10/40 in ZZTEST-G7C (she has no ARAL entry by now).
+run learner-history {s_c4}
+expect~ Phil-IRI .*\(section {sec_g7c}\): GST 10/40
+run learner-history-lrn ZZNOLRN
+expect No learner with LRN ZZNOLRN on this device. Download the latest data first (pull-cloud).
+
 # --- Calendar ----------------------------------------------------------------------
 run calendar-show {school} {year}
 expect Phil-IRI BOSY     {past} .. {future}  OPEN  (school override)

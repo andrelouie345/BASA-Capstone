@@ -34,7 +34,7 @@ The debug console (`lib/ui/debug/`) is a developer tool, not an app screen: leav
 | 14 | Schools | screen | both (list) / admin (edit) | [admin.md](screens/admin.md#schools) |  |  |
 | 15 | Sections | screen | both (list) / admin (edit) | [admin.md](screens/admin.md#sections) |  |  |
 | 16 | Learners and roster CSV | screen | both | [admin.md](screens/admin.md#learners-and-roster-csv) |  |  |
-| 17 | Learner history (pending backend) | screen | both (planned) | [admin.md](screens/admin.md#learner-history-pending-backend) |  |  |
+| 17 | Learner history | screen | admin | [admin.md](screens/admin.md#learner-history) |  |  |
 | 18 | SF1 import (also in the hub) | screen | admin | [admin.md](screens/admin.md#sf1-import) |  |  |
 | 19 | Login logs | screen | admin | [admin.md](screens/admin.md#login-logs) |  |  |
 | 20 | First admin (bootstrap) | screen | admin | [admin.md](screens/admin.md#first-admin-bootstrap) |  |  |

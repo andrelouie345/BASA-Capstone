@@ -43,12 +43,14 @@ Calls:
 - `StudentViewModel.rosterCsv(sectionId)` → `String` (the screen saves it)
 Console: `student-list`, `student-list-section`, `list-students`, `export-section`
 
-### Learner history (pending backend)
-Build: both (planned)    Roles: those who may read the learner
-Purpose: one learner's timeline from the records BASA already keeps (assessments, ARAL enrollment and classes, sessions, check-ins).
+### Learner history
+Build: admin    Roles: admin / coordinator (own school; superadmin: any learner)
+Purpose: one learner's progress by school year, from the records on this device: section, CRLA profile per round and language, Phil-IRI results, each ARAL entry (class, tutor, attendance, 16th/32nd check-in), Summer Remediation class. Open it from the Learners screen (student id) or a search box (LRN). IRIP and the readability log are not repeated: link to their screens.
 Calls:
-- Not available yet: the backend builds it after the handoff.
-Console: none yet.
+- `AdminScope.of(context).learnerHistory.history(studentId)` / `historyByLrn(lrn)` → `LearnerHistory`: `student`, `years` (latest first), `scopeNote` (show it when not null: "Only your school's records are shown.")
+- Each `LearnerHistoryYear`: `schoolYear`, `enrollments` (section name, grade, school, status), `crla` (round → language → profile; null profile = "no profile"), `philIri` (one `LearnerHistoryPhilIri` per section: `sectionName`, `results` = `PhilIriLearnerResults`), `aral` (`LearnerHistoryAral`: `enrollment`, `className` (null = waiting for a class), `tutorName`, `attendance.label`, `checkin16`/`checkin32` = passed / failed / notTaken), `srp` (class, tutor, room) and `isEmpty` (show "No assessments recorded")
+Errors: not signed in; `Forbidden: only an admin or coordinator can view learner history.`; `Forbidden: that learner is not in your school.`; `Learner not found on this device. Download the latest data first (pull-cloud).` (ViewModelException).
+Console: `learner-history`, `learner-history-lrn`
 
 ### SF1 import
 Build: admin    Roles: admin / coordinator (own school)

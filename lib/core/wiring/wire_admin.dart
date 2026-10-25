@@ -24,6 +24,7 @@ import '../console/commands/calendar_admin_commands.dart';
 import '../console/commands/crla_import_admin_commands.dart';
 import '../console/commands/crla_threshold_admin_commands.dart';
 import '../console/commands/import_commands.dart';
+import '../console/commands/learner_history_admin_commands.dart';
 import '../console/commands/login_commands.dart';
 import '../console/commands/nla_report_commands.dart';
 import '../console/commands/phil_iri_admin_commands.dart';
@@ -246,4 +247,5 @@ void registerAdminCommands(AppContext ctx, SharedVms s, TutorVms t, AdminVms a) 
   registerAralReportCommands(r, a.aralReportVm);
   registerAralExportCommands(r, t.aralVm, a.aralReportVm, t.aralCheckinVm);
   registerAralRosterImportCommands(r, a.aralRosterImportVm);
+  registerLearnerHistoryCommands(r, a.learnerHistoryVm);
 }
