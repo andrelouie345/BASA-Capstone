@@ -120,7 +120,7 @@ void main() {
 
     await vm.setActive('00000000-0000-0000-0000-00000000aaaa', false);
 
-    expect(vm.lastMirrorWarning, 'Saved online, but not copied onto this device; run pull-cloud.');
+    expect(vm.lastMirrorWarning, 'Saved online, but the copy on this device was not updated. Download the latest data (pull-cloud).');
   });
 
   test('TutorSectionAssignmentViewModel mirror warning has no exception text', () async {
@@ -131,7 +131,7 @@ void main() {
 
     await vm.unassign(1);
 
-    expect(vm.lastMirrorWarning, 'Saved online, but not copied onto this device; run pull-cloud.');
+    expect(vm.lastMirrorWarning, 'Saved online, but the copy on this device was not updated. Download the latest data (pull-cloud).');
   });
 
   test('CrlaThresholdViewModel mirror warning has no exception text', () async {
@@ -150,7 +150,7 @@ void main() {
 
     await vm.resetSchoolThresholds(1);
 
-    expect(vm.lastMirrorWarning, 'CRLA thresholds saved online, but the local copy was not updated. Run pull-cloud.');
+    expect(vm.lastMirrorWarning, 'CRLA thresholds saved online, but the copy on this device was not updated. Download the latest data (pull-cloud).');
   });
 
   test('PhilIriContentViewModel mirror warning has no exception text', () async {
@@ -165,6 +165,6 @@ void main() {
 
     await vm.resetSchoolThresholds(1);
 
-    expect(vm.lastMirrorWarning, 'Thresholds saved online, but the local copy was not updated. Run pull-cloud.');
+    expect(vm.lastMirrorWarning, 'Thresholds saved online, but the copy on this device was not updated. Download the latest data (pull-cloud).');
   });
 }

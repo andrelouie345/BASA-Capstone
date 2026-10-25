@@ -201,7 +201,7 @@ class SyncViewModel {
                 uploadId: id,
                 status: 'conflict',
                 records: records,
-                reason: 'it could not be withdrawn on the server (${_plain(e)}); run sync-status again',
+                reason: 'it could not be withdrawn on the server (${_plain(e)}); check the upload status again (sync-status)',
                 conflicts: row.conflicts));
             continue;
           }
@@ -259,7 +259,7 @@ class SyncViewModel {
         found = await remote.uploadByClientId(clientId);
       } catch (_) {
         throw ViewModelException('Upload state unknown (the server did not answer): ${_plain(e)}\n'
-            'Its rows stay locked; run sync-status when online.');
+            'Its rows stay locked; check the upload status when online (sync-status).');
       }
       if (found == null) {
         await _uploadLocal.abandonUpload();
@@ -349,7 +349,7 @@ class SyncViewModel {
       found = await remote.uploadByClientId(f.clientUploadId);
     } catch (e) {
       throw ViewModelException('Upload state unknown (the server did not answer): ${_plain(e)}\n'
-          'Its ${f.recordCount} row(s) stay locked; run sync-status when online.');
+          'Its ${f.recordCount} row(s) stay locked; check the upload status when online (sync-status).');
     }
     if (found == null) {
       await _uploadLocal.abandonUpload();

@@ -81,7 +81,7 @@ void main() {
     await vm.deleteMaterial(7);
 
     expect(vm.lastMirrorWarning,
-        'The catalog was changed online, but the local copy was not updated. Run pull-cloud.');
+        'The catalog was changed online, but the copy on this device was not updated. Download the latest data (pull-cloud).');
     expect(log.lines.any((l) => l.contains('locked db')), isTrue);
   });
 

@@ -233,7 +233,7 @@ class RoundCalendarViewModel {
     try {
       await write();
     } catch (e) {
-      lastMirrorWarning = 'The calendar was changed online, but the local copy was not updated. Run pull-cloud.';
+      lastMirrorWarning = 'The calendar was changed online, but the copy on this device was not updated. Download the latest data (pull-cloud).';
       _log('calendar mirror failed: $e');
     }
   }

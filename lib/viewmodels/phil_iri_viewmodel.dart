@@ -925,7 +925,7 @@ class PhilIriViewModel {
 
   Future<PhilIriPassage> _requirePassage(int id) async {
     final p = await _passages.findById(id);
-    if (p == null) throw ViewModelException('No passage with id $id (run pull-cloud to get the latest passages).');
+    if (p == null) throw ViewModelException('No passage with id $id on this device. Download the latest data (pull-cloud).');
     return p;
   }
 

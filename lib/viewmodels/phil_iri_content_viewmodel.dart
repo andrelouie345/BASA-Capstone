@@ -682,7 +682,7 @@ class PhilIriContentViewModel {
     try {
       await write();
     } catch (e) {
-      lastMirrorWarning = '$what saved online, but the local copy was not updated. Run pull-cloud.';
+      lastMirrorWarning = '$what saved online, but the copy on this device was not updated. Download the latest data (pull-cloud).';
       _log('WARNING: $what mirror failed: $e');
     }
   }

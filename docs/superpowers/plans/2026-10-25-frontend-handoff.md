@@ -18,6 +18,9 @@
 - Screens reach ViewModels only through `BasaScope.of(context)` / `AdminScope.of(context)`; `lib/ui/**` imports only `lib/viewmodels/`, `lib/core/models/`, Dart SDK, Flutter (`dart run tool/check_vm_boundary.dart`).
 - Docs say nothing about the groupmates' skill level. PR target is `excelsior`, never `main`.
 - After every task: `dart analyze` (no errors), `flutter test`, `dart run tool/check_tutor_imports.dart`, `dart run tool/check_vm_boundary.dart`. Owner: before any console / command-pass run, ask the owner to close any open BASA console.
+- Owner addition 2026-10-25: the docs name every placeholder/example screen and say it is to be restyled or replaced in the groupmates' own style: `ExampleScreen` (`lib/ui/example/example_screen.dart`, replace), `BasaHomeScreen` (`lib/app_shell.dart`, placeholder home showing the text ViewModel, replace with the real home), `BasaStartupErrorApp` (`lib/app_shell.dart`, data-folder failure screen: keep its job, restyle freely). The debug console (`lib/ui/debug/`) is a developer tool, not an app screen: leave it.
+- Owner addition 2026-10-25: the app needs a light mode and a dark mode. Not built yet (`MaterialApp` in `lib/app_shell.dart` sets no `theme` / `darkTheme`); the groupmates build it. The docs remind of it, the checklist has a row for it, and screens use theme colours (`Theme.of(context).colorScheme`), never hard-coded ones.
+- Owner addition 2026-10-25: wherever a doc step runs tests or heavy work (`flutter test`, `dart analyze`, the import checks, the command pass, `build_release.ps1`, `flutter run`/`build`), it carries the line **DO NOT PLAY RESOURCE INTENSIVE GAMES WHILE THIS RUNS.** (bold, all caps): a busy machine can slow or crash the tests. In the guide's *Checks before every PR* and in `lib/ui/CLAUDE.md`'s checks section; the owner's own verify steps carry it too.
 - Git: the owner commits. Each task ends with what to verify + a commit message; no git commands are run.
 
 ## Review Focus
@@ -110,10 +113,12 @@ refactor(viewmodels): messages read in the app, command name in brackets
 
 - [ ] **Step 5: Checklist** `docs/handoff/checklist.md`: one-line intro (fill `Assigned` with a name, `Status` with `not started` / `in progress` / `PR open` / `merged`), then a table `| # | Screen | Kind | Build | Doc | Assigned | Status |` with one row per `### ` heading in the module files (Kind = `screen`, or `menu item` for *Sign out* and *About / version*) and per `### ` heading in `common.md` (Kind = `shared part`). Doc = relative link `screens/<file>.md#<anchor>`. Import rows in modules get `also in the hub` in Screen.
 
+- [ ] **Step 5b: App-wide row.** Last checklist row: `Light and dark mode (whole app)`, Kind `app-wide`, Build `both`, Doc `../README.md#light-and-dark-mode`. Above the table, a short *Examples to replace* list (the three screens of Global Constraints).
+
 - [ ] **Step 6: Checks**
 
 Run: `grep -nE "G[0-9]+|🆕|⏸|baseline|✅" docs/handoff/screens/*.md | grep -v gap-history.md` → no output.
-Run: `cat docs/handoff/screens/{common,auth,admin,crla,phil-iri,aral,reports,dashboard,sync}.md | grep -c "^### "` → `56`; `grep -cE "^\| [0-9]+ \|" docs/handoff/checklist.md` → `56` (49 screens + 2 menu items + 5 shared parts).
+Run: `cat docs/handoff/screens/{common,auth,admin,crla,phil-iri,aral,reports,dashboard,sync}.md | grep -c "^### "` → `56`; `grep -cE "^\| [0-9]+ \|" docs/handoff/checklist.md` → `57` (49 screens + 2 menu items + 5 shared parts + 1 app-wide).
 
 - [ ] **Step 7: Stop — verify list + commit message**
 ```
@@ -122,7 +127,7 @@ docs(handoff): screen docs for groupmates, gap history archived, checklist
 - gap lists, index and statuses moved to screens/gap-history.md (history only)
 - screen files hold only screen blocks; deferred calls read "Not available yet"
 - new blocks: Reports & files hub (admin), Learner history (pending backend)
-- checklist.md: 49 screens + 2 menu items + 5 shared parts, Assigned/Status blank
+- checklist.md: 49 screens + 2 menu items + 5 shared parts + light/dark mode row, Assigned/Status blank
 ```
 
 ---
@@ -137,7 +142,7 @@ docs(handoff): screen docs for groupmates, gap history archived, checklist
 - Consumes: `docs/handoff/checklist.md`, `docs/handoff/screens/` (Task 2).
 - Produces: the guide links `lib/ui/example/example_screen.dart` and `lib/ui/CLAUDE.md` (written in Task 4; link them now with "(added with the example screen)").
 
-- [ ] **Step 1: Write `docs/handoff/README.md`** with the sections, in order: *What BASA is* (≤5 lines: tutors' reading assessments, CRLA G1-3, Phil-IRI G4-10, ARAL-Reading; offline-first); *Two apps* (admin build `lib/main.dart` for admins/coordinators, tutor build `lib/main_tutor.dart`; tutor build never imports admin files); *How a screen talks to the backend* (BasaScope / AdminScope → ViewModel method → model; request/response, screen owns loading/error state; error rule from `common.md`; forbidden imports); *Offline in user terms* (sign in online → download → work offline → upload → approver decides); *See the real output* (debug console: `dart run lib/console/main.dart` / `main_tutor.dart`, or the in-app console in debug builds; the `Console:` line of each block); *Checks before every PR* (the 4 commands); *Opening a PR* (make your branch from `excelsior`; push it; on GitHub open a pull request into `excelsior`, not `main`; run the checks first; the backend owner reviews); *Next* (checklist, screens, example screen, `lib/ui/CLAUDE.md`). Reader: knows some Flutter, MVVM new. No git command walkthrough beyond those five plain lines.
+- [ ] **Step 1: Write `docs/handoff/README.md`** with the sections, in order: *What BASA is* (≤5 lines: tutors' reading assessments, CRLA G1-3, Phil-IRI G4-10, ARAL-Reading; offline-first); *Two apps* (admin build `lib/main.dart` for admins/coordinators, tutor build `lib/main_tutor.dart`; tutor build never imports admin files); *How a screen talks to the backend* (BasaScope / AdminScope → ViewModel method → model; request/response, screen owns loading/error state; error rule from `common.md`; forbidden imports); *Offline in user terms* (sign in online → download → work offline → upload → approver decides); *See the real output* (debug console: `dart run lib/console/main.dart` / `main_tutor.dart`, or the in-app console in debug builds; the `Console:` line of each block); *Examples to replace* (the three screens of Global Constraints, each with what to do; the debug console is left alone); *Light and dark mode* (the app needs both, not built yet: `theme` + `darkTheme` on the `MaterialApp` in `lib/app_shell.dart`, following the system setting; screens use `Theme.of(context).colorScheme`, no hard-coded colours; checklist row); *Checks before every PR* (the 4 commands); *Opening a PR* (make your branch from `excelsior`; push it; on GitHub open a pull request into `excelsior`, not `main`; run the checks first; the backend owner reviews); *Next* (checklist, screens, example screen, `lib/ui/CLAUDE.md`). Reader: knows some Flutter, MVVM new. No git command walkthrough beyond those five plain lines.
 
 - [ ] **Step 2: Wording.** `CLAUDE.md:3`: "**this repo's owner works on the backend only**" → "**the backend owner (not the GitHub repo owner) works on the backend only**". Run `grep -rn "repo's owner\|repo owner" CLAUDE.md CLAUDE.local.md lib/core/CLAUDE.md "C:/Users/Ethan Campomanes/.claude/projects/d--0-CAPSTONE-Code-BASA-Capstone/memory/"`; show each other hit to the owner before changing it.
 
@@ -170,13 +175,13 @@ docs(handoff): start-here guide for the UI team
 
 - [ ] **Step 2: Owner decision — which screen.** (a) Dashboard home — recommended: both builds, a year picker (`dashboard.schoolYears()`), a result (`dashboard.summary(year)`), a real refusal when not signed in; (b) About / version (`auth.versionReport()`): smallest, needs online sign-in; (c) Section CRLA list: needs a section picker first. The steps below assume (a); for (b)/(c) swap the calls only.
 
-- [ ] **Step 3: Write `lib/ui/example/example_screen.dart`.** Top comment: "Example, replace me. Debug build only: opened from the debug console; never in a release build." `ExampleScreen` loads `schoolYears()` in `initState`, shows a dropdown of years, calls `summary(year)` on change; states: loading (progress indicator), error (`ViewModelException` → `e.message`; anything else → `unexpectedErrorMessage`, detail via `debugPrint`), empty (no years: "No school years on this device yet."), result (a few `DashboardSummary` fields as list tiles). AppBar title: `Example screen (replace me)`. Imports: Flutter, `../basa_scope.dart`, `lib/viewmodels/` and `lib/core/models/` files only.
+- [ ] **Step 3: Write `lib/ui/example/example_screen.dart`.** Top comment: "Example, replace me. Debug build only: opened from the debug console; never in a release build." `ExampleScreen` loads `schoolYears()` in `initState`, shows a dropdown of years, calls `summary(year)` on change; states: loading (progress indicator), error (`ViewModelException` → `e.message`; anything else → `unexpectedErrorMessage`, detail via `debugPrint`), empty (no years: "No school years on this device yet."), result (a few `DashboardSummary` fields as list tiles). AppBar title: `Example screen (replace me)`. Colours only from `Theme.of(context)` (works in light and dark mode). Imports: Flutter, `../basa_scope.dart`, `lib/viewmodels/` and `lib/core/models/` files only.
 
 - [ ] **Step 4: Debug overlay entry.** In the console header row of `debug_overlay.dart`, an `IconButton` (tooltip `Example screen (debug build only)`) that does `Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ExampleScreen()))`. No other file references `ExampleScreen`.
 
 - [ ] **Step 5: Marker.** Add `Example screen (replace me)` to the `[debug]` section of `tool/admin_markers.txt`.
 
-- [ ] **Step 6: Write `lib/ui/CLAUDE.md`** for the groupmates' Claude Code: the fixed conventions from Step 1 (as the owner decided them), the example's path + "debug build only, replace me", the import rule, where screen needs are documented (`docs/handoff/screens/`, `checklist.md`), the 4 checks, PR into `excelsior`. Update the guide link and root `CLAUDE.md` *Layout*.
+- [ ] **Step 6: Write `lib/ui/CLAUDE.md`** for the groupmates' Claude Code: the fixed conventions from Step 1 (as the owner decided them), the examples-to-replace list and the light/dark mode rule (Global Constraints), the example's path + "debug build only, replace me", the import rule, where screen needs are documented (`docs/handoff/screens/`, `checklist.md`), the 4 checks, PR into `excelsior`. Update the guide link and root `CLAUDE.md` *Layout*.
 
 - [ ] **Step 7: Checks**
 

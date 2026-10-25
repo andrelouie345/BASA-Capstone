@@ -216,7 +216,7 @@ class AralCheckinViewModel {
 
   Future<AralCheckinResult> _result(AralCheckin c, int passPct) async {
     final tool = await _checkins.findTool(c.toolId);
-    if (tool == null) throw ViewModelException('Check-in tool ${c.toolId} is not on this device; run pull-cloud.');
+    if (tool == null) throw ViewModelException('Check-in tool ${c.toolId} is not on this device. Download the latest data (pull-cloud).');
     final items = await _checkins.items(tool.id);
     final answers = await _checkins.answers(c.id!);
     return AralCheckinResult(
@@ -337,7 +337,7 @@ class AralCheckinViewModel {
     if (!e.isActive) throw const ViewModelException('The learner is not active in ARAL.');
     final tool = await _checkins.toolFor(e.keyStage, e.track!, checkpoint);
     if (tool == null) {
-      throw ViewModelException('No ${e.programLabel} check-in tool for session $checkpoint on this device; run pull-cloud.');
+      throw ViewModelException('No ${e.programLabel} check-in tool for session $checkpoint on this device. Download the latest data (pull-cloud).');
     }
     final date = _checkDate(on, e);
     return _write(() => _checkins.insertCheckin(AralCheckin(
@@ -689,7 +689,7 @@ class AralCheckinViewModel {
       await write();
     } catch (e) {
       // The detail goes to the log only: raw database text is no message for a screen (F20).
-      lastMirrorWarning = 'ARAL settings saved online, but the local copy was not updated. Run pull-cloud.';
+      lastMirrorWarning = 'ARAL settings saved online, but the copy on this device was not updated. Download the latest data (pull-cloud).';
       _log('WARNING: $lastMirrorWarning ($e)');
     }
   }

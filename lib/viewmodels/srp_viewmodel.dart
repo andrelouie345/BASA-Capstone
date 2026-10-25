@@ -367,7 +367,7 @@ class SrpViewModel {
     String? tutorId;
     if (tutorEmail != null) {
       final u = await _users.getByEmail(tutorEmail.trim());
-      if (u == null) throw ViewModelException('No user $tutorEmail on this device (run pull-cloud).');
+      if (u == null) throw ViewModelException('No user $tutorEmail on this device. Download the latest data (pull-cloud).');
       if (u.role != UserRole.tutor || !u.isActive || u.schoolId != current.schoolId) {
         throw ViewModelException('${u.email} is not an active tutor of school ${current.schoolId}.');
       }
@@ -502,7 +502,7 @@ class SrpViewModel {
 
   Future<SrpClass> _class(int id) async {
     final c = await _local.findClass(id);
-    if (c == null) throw ViewModelException('No SRP class with id $id on this device (run pull-cloud).');
+    if (c == null) throw ViewModelException('No SRP class with id $id on this device. Download the latest data (pull-cloud).');
     return c;
   }
 
@@ -540,7 +540,7 @@ class SrpViewModel {
     try {
       await write();
     } catch (e) {
-      lastMirrorWarning = 'The SRP classes were changed online, but the local copy was not updated. Run pull-cloud.';
+      lastMirrorWarning = 'The SRP classes were changed online, but the copy on this device was not updated. Download the latest data (pull-cloud).';
       _log('SRP classes mirror failed: $e');
     }
   }

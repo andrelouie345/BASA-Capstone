@@ -382,7 +382,7 @@ expect~ Saved:\n7-4Z \(#{srp_b}\) · Grade 4 · 8 learner\(s\) · room - · no s
 run srp-class-set {srp_a} colour=red
 refuse Unknown option "colour". Options: name= room= schedule= tutor=
 run srp-class-set {srp_a} tutor=nobody@basa.test
-refuse No user nobody@basa.test on this device (run pull-cloud).
+refuse No user nobody@basa.test on this device. Download the latest data (pull-cloud).
 run srp-class-set {srp_a}
 refuse Usage: srp-class-set <classId|name> [name=..] [room=..|-] [schedule=..|-] [tutor=<email>|-]
 # s_c4 (not recommended) added by hand, moved, then taken out again.

@@ -68,7 +68,7 @@ class SyncApproveResult {
 
   @override
   String toString() => switch (status) {
-        'applied' => 'Upload $uploadId applied. Run pull-cloud to see it on this device.',
+        'applied' => 'Upload $uploadId applied. Download the latest data to see it on this device (pull-cloud).',
         'conflict' => 'Upload $uploadId stopped on ${conflicts.length} conflict(s), sent back to $uploader:\n'
             '${conflicts.map((c) => '  $c').join('\n')}',
         'release' => 'Upload $uploadId was made by an older BASA release: reject it so $uploader updates BASA '

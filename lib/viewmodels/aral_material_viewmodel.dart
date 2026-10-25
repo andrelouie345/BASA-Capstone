@@ -104,7 +104,7 @@ class AralMaterialViewModel {
   Future<AralMaterial> material(int id) async {
     _requireSignIn();
     final m = await _local.findById(id);
-    if (m == null) throw ViewModelException('No ARAL material with id $id on this device (run pull-cloud).');
+    if (m == null) throw ViewModelException('No ARAL material with id $id on this device. Download the latest data (pull-cloud).');
     return m;
   }
 
@@ -262,8 +262,8 @@ class AralMaterialViewModel {
     final program = await _programSettings(e.schoolId);
     if (e.keyStage == AralKeyStage.foundational && !program.foundationalProgram) {
       return AralRecommendation(e, grade, const [],
-          'The foundational literacy program (SHARP) is switched off for this school: run aral-update to move '
-          'the learner to KS1.');
+          'The foundational literacy program (SHARP) is switched off for this school: move the learner to KS1 '
+          '(aral-update).');
     }
     final schoolLinks = {for (final l in await _local.linksForSchool(e.schoolId)) l.materialId: l.link};
     final list = [
@@ -278,8 +278,8 @@ class AralMaterialViewModel {
     if (list.isEmpty) {
       note = grade < aralMaterialDefaultMinGrade
           ? 'No ARAL materials for Grade $grade learners yet (the ARAL materials are for Grades 7-10).'
-          : 'No active ${e.programLabel} materials for Grade $grade in the catalog on this device '
-              '(add some, or run pull-cloud).';
+          : 'No active ${e.programLabel} materials for Grade $grade in the catalog on this device'
+              '. Add some, or download the latest data (pull-cloud).';
     }
     return AralRecommendation(e, grade, list, note);
   }
@@ -383,7 +383,7 @@ class AralMaterialViewModel {
     try {
       await write();
     } catch (e) {
-      lastMirrorWarning = 'The catalog was changed online, but the local copy was not updated. Run pull-cloud.';
+      lastMirrorWarning = 'The catalog was changed online, but the copy on this device was not updated. Download the latest data (pull-cloud).';
       _log('catalog mirror failed: $e');
     }
   }

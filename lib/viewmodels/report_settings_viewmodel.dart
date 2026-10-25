@@ -201,8 +201,8 @@ class ReportSettingsViewModel {
       await write();
     } catch (e) {
       // The detail goes to the log only: raw database text is no message for a screen (F20).
-      lastMirrorWarning = 'The report settings were changed online, but the local copy was not updated. '
-          'Run pull-cloud.';
+      lastMirrorWarning = 'The report settings were changed online, but the copy on this device was not updated. '
+          'Download the latest data (pull-cloud).';
       _log('WARNING: $lastMirrorWarning ($e)');
     }
   }

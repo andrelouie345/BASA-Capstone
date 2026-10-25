@@ -115,7 +115,7 @@ void main() {
     await vm.clearClasses(schoolId: 1, schoolYear: '2026-2027');
 
     expect(vm.lastMirrorWarning,
-        'The SRP classes were changed online, but the local copy was not updated. Run pull-cloud.');
+        'The SRP classes were changed online, but the copy on this device was not updated. Download the latest data (pull-cloud).');
     expect(log.lines.any((l) => l.contains('locked db')), isTrue);
   });
 
@@ -132,7 +132,7 @@ void main() {
 
     await vm.setWindow(1, '2026-2027', CalendarInstrument.philIri, 'bosy', DateTime(2026, 6, 15), DateTime(2026, 7, 3));
 
-    expect(vm.lastMirrorWarning, 'The calendar was changed online, but the local copy was not updated. Run pull-cloud.');
+    expect(vm.lastMirrorWarning, 'The calendar was changed online, but the copy on this device was not updated. Download the latest data (pull-cloud).');
     expect(log.lines.any((l) => l.contains('locked db')), isTrue);
   });
 }

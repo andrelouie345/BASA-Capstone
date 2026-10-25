@@ -106,7 +106,7 @@ class TutorSectionAssignmentViewModel {
     try {
       await write();
     } catch (e) {
-      lastMirrorWarning = 'Saved online, but not copied onto this device; run pull-cloud.';
+      lastMirrorWarning = 'Saved online, but the copy on this device was not updated. Download the latest data (pull-cloud).';
       _log('mirror failed: $e');
     }
   }
