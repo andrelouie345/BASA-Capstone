@@ -25,7 +25,7 @@ core/                              pure Dart — NEVER imports Flutter
   services/                        sf1_importer, sf1_column_map, roster_exporter, xls_to_xlsx_converter, ...
   viewmodels/viewmodel_registry.dart
 viewmodels/                        ViewModels (also never import Flutter); app_viewmodels.dart / admin_viewmodels.dart = what screens get
-ui/                                basa_scope.dart, admin/admin_scope.dart (admin build only), debug overlay, mobile/, windows/  (screens: not the owner's area)
+ui/                                basa_scope.dart, admin/admin_scope.dart (admin build only), debug overlay, example/ (debug-only worked example, replace me), mobile/, windows/; CLAUDE.md = UI rules  (screens: not the owner's area)
 ```
 `tool/` (repo root): `check_tutor_imports.dart` (+ `import_walk.dart`), `check_vm_boundary.dart` (+ `vm_boundary.dart`), `scan_markers.dart` + `admin_markers.txt`, `build_release.ps1`, `command_pass/` (runner + `scenarios/*.pass` that run every console command of both builds against the dev cloud).
 

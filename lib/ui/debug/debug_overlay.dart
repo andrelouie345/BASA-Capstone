@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../core/console/console_session.dart';
 import 'tilde_trigger.dart';
 import 'record_commands.dart';
+import '../example/example_screen.dart';
 
 /// Console panel colors per build, so the tutor app's console can't be
 /// mistaken for the admin one.
@@ -133,6 +134,16 @@ class _DebugConsoleShellState extends State<DebugConsoleShell> {
                         Text(widget.theme.title,
                             style: const TextStyle(color: Colors.white)),
                         const Spacer(),
+                        // The worked example for the UI team: only here, so
+                        // only in debug builds (docs/handoff/README.md).
+                        IconButton(
+                          tooltip: 'Example screen (debug build only)',
+                          icon: const Icon(Icons.widgets_outlined, color: Colors.white, size: 18),
+                          onPressed: () {
+                            setState(() => _visible = false);
+                            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ExampleScreen()));
+                          },
+                        ),
                         IconButton(
                           icon: const Icon(Icons.close, color: Colors.white, size: 18),
                           onPressed: () => setState(() => _visible = false),

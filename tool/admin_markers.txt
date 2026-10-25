@@ -64,4 +64,6 @@ TutorSectionAssignmentViewModel
 
 [debug]
 BASA Debug Console
+# the UI team's worked example (lib/ui/example/), opened only from the debug console
+Example screen (replace me)
 mark a session done (needs the timed reading)

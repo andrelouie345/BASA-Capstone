@@ -66,7 +66,7 @@ Release builds have no console.
 ## Examples to replace
 
 These exist only to show how things fit together. Restyle or replace them in your own style:
-- **`ExampleScreen`** (`lib/ui/example/example_screen.dart`, added with the example screen): the worked example (Dashboard home) — scope lookup, a ViewModel call, loading / error / result states. Debug build only, opened from the debug console. Replace it with the real screen.
+- **`ExampleScreen`** (`lib/ui/example/example_screen.dart`): the worked example (Dashboard home) — scope lookup, a ViewModel call, loading / error / result states. Debug build only, opened from the debug console. Replace it with the real screen.
 - **`BasaHomeScreen`** (`lib/app_shell.dart`): placeholder home that shows one text value. Replace it with the real home screen and navigation.
 - **`BasaStartupErrorApp`** (`lib/app_shell.dart`): shown when the data folder cannot be prepared. Keep what it does; restyle it freely.
 
@@ -101,5 +101,5 @@ dart run tool/check_vm_boundary.dart
 
 - `checklist.md` — pick a screen, put your name on it.
 - `screens/` — what that screen needs.
-- `lib/ui/example/example_screen.dart` — the worked example (added with the example screen).
-- `lib/ui/CLAUDE.md` — the UI rules for Claude Code (added with the example screen).
+- `lib/ui/example/example_screen.dart` — the worked example.
+- `lib/ui/CLAUDE.md` — the UI rules for Claude Code.
