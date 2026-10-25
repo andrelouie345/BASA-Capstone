@@ -1,6 +1,6 @@
 # BASA (ARAL-Read) — project guide
 
-Flutter/Dart reading-assessment app for tutors (DepEd ARAL-Reading program, Phil-IRI / CRLA instruments; CRLA is administered to Grades 1–3 only). Capstone project, team of several; **this repo's owner works on the backend only** (models, repositories, ViewModels, console, SQL). Groupmates own UI — do not build or restyle UI unless explicitly asked.
+Flutter/Dart reading-assessment app for tutors (DepEd ARAL-Reading program, Phil-IRI / CRLA instruments; CRLA is administered to Grades 1–3 only). Capstone project, team of several; **the backend owner (not the GitHub repo owner) works on the backend only** (models, repositories, ViewModels, console, SQL). Groupmates own UI — do not build or restyle UI unless explicitly asked.
 
 > These guides were assembled from working notes, not generated from the code. If anything here disagrees with the repo, the repo wins: tell the user about the mismatch and fix the doc.
 
