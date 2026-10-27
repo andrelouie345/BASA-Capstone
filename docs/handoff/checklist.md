@@ -18,17 +18,17 @@ The debug console (`lib/ui/debug/`) is a developer tool, not an app screen: leav
 
 | # | Screen | Kind | Build | Doc | Assigned | Status |
 |---|--------|------|-------|-----|----------|--------|
-| 1 | Signed-in user | shared part | both | [common.md](screens/common.md#signed-in-user) |  |  |
-| 2 | Pickers | shared part | both | [common.md](screens/common.md#pickers) |  |  |
-| 3 | Online / offline and pending work | shared part | both | [common.md](screens/common.md#online--offline-and-pending-work) |  |  |
-| 4 | Version refusal | shared part | both | [common.md](screens/common.md#version-refusal) |  |  |
-| 5 | Error display | shared part | both | [common.md](screens/common.md#error-display) |  |  |
-| 6 | Sign in (online), with the server settings dropdown | screen | both | [auth.md](screens/auth.md#sign-in-online) |  |  |
-| 7 | Sign in offline | screen | both | [auth.md](screens/auth.md#sign-in-offline) |  |  |
-| 8 | Change password | screen | both | [auth.md](screens/auth.md#change-password) |  |  |
-| 9 | Sign out | menu item | both | [auth.md](screens/auth.md#sign-out) |  |  |
-| 10 | Server settings | screen | both | [auth.md](screens/auth.md#server-settings) |  |  |
-| 11 | About / version | menu item | both | [auth.md](screens/auth.md#about--version) |  |  |
+| 1 | Signed-in user | shared part | both | [common.md](screens/common.md#signed-in-user) | Andre | in progress |
+| 2 | Pickers | shared part | both | [common.md](screens/common.md#pickers) | Andre | in progress |
+| 3 | Online / offline and pending work | shared part | both | [common.md](screens/common.md#online--offline-and-pending-work) | Andre | in progress |
+| 4 | Version refusal | shared part | both | [common.md](screens/common.md#version-refusal) | Andre | in progress |
+| 5 | Error display | shared part | both | [common.md](screens/common.md#error-display) | Andre | in progress |
+| 6 | Sign in (online), with the server settings dropdown | screen | both | [auth.md](screens/auth.md#sign-in-online) | Andre | in progress |
+| 7 | Sign in offline | screen | both | [auth.md](screens/auth.md#sign-in-offline) | Andre | in progress |
+| 8 | Change password | screen | both | [auth.md](screens/auth.md#change-password) | Andre | in progress |
+| 9 | Sign out | menu item | both | [auth.md](screens/auth.md#sign-out) | Andre | in progress |
+| 10 | Server settings | screen | both | [auth.md](screens/auth.md#server-settings) | Andre | in progress |
+| 11 | About / version | menu item | both | [auth.md](screens/auth.md#about--version) | Andre | in progress |
 | 12 | Users | screen | admin | [admin.md](screens/admin.md#users) |  |  |
 | 13 | Tutor assignments | screen | admin | [admin.md](screens/admin.md#tutor-assignments) |  |  |
 | 14 | Schools | screen | both (list) / admin (edit) | [admin.md](screens/admin.md#schools) |  |  |
@@ -74,5 +74,5 @@ The debug console (`lib/ui/debug/`) is a developer tool, not an app screen: leav
 | 54 | Get the latest from the server (pull) | screen | both | [sync.md](screens/sync.md#get-the-latest-from-the-server-pull) |  |  |
 | 55 | Send my work (upload) | screen | both | [sync.md](screens/sync.md#send-my-work-upload) |  |  |
 | 56 | Review uploads (approver) | screen | admin | [sync.md](screens/sync.md#review-uploads-approver) |  |  |
-| 57 | Light and dark mode (whole app) | app-wide | both | [README.md](README.md#light-and-dark-mode) |  |  |
-| 58 | Colours (customize light and dark, defaults preset) | screen | both | [auth.md](screens/auth.md#colours-light-and-dark-mode) |  |  |
+| 57 | Light and dark mode (whole app) | app-wide | both | [README.md](README.md#light-and-dark-mode) | Andre | in progress |
+| 58 | Colours (customize light and dark, defaults preset) | screen | both | [auth.md](screens/auth.md#colours-light-and-dark-mode) | Andre | in progress |
