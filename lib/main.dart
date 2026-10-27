@@ -14,6 +14,7 @@ import 'core/wiring/data_dir.dart';
 import 'core/wiring/wire_admin.dart';
 import 'core/wiring/wire_shared.dart';
 import 'core/wiring/wire_tutor.dart';
+import 'ui/admin/admin_home_sections.dart';
 import 'ui/admin/admin_scope.dart';
 
 const _title = 'BASA';
@@ -69,7 +70,7 @@ Future <void> main() async{
       title: _title,
       session: ctx.session,
       vms: appViewModels(ctx, shared, tutor),
-      textVm: shared.textVm,
+      homeSections: adminHomeSections(),
     ),
   ));
 }

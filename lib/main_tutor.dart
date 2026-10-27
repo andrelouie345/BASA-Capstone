@@ -12,6 +12,7 @@ import 'core/wiring/app_context.dart';
 import 'core/wiring/data_dir.dart';
 import 'core/wiring/wire_shared.dart';
 import 'core/wiring/wire_tutor.dart';
+import 'ui/home/home_sections.dart';
 
 const _title = 'BASA Tutor';
 
@@ -50,7 +51,7 @@ Future<void> main() async {
     title: _title,
     session: ctx.session,
     vms: appViewModels(ctx, shared, tutor),
-    textVm: shared.textVm,
+    homeSections: basaHomeSections(),
     isTutorBuild: true,
   ));
 }

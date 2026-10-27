@@ -1,22 +1,20 @@
 // lib/app_shell.dart
 // The app shell both builds share (admin lib/main.dart, tutor lib/main_tutor.dart):
-// the ViewModels for every screen (BasaScope), the placeholder home screen, the
-// debug console around it (debug builds only), and the screen shown when the
-// data folder can't be prepared.
+// the ViewModels for every screen (BasaScope), sign-in, the home screen and its
+// navigation (lib/ui/home/), the debug console around it (debug builds only),
+// and the screen shown when the data folder can't be prepared.
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'core/console/console_session.dart';
-import 'ui/auth/account_menu.dart';
 import 'ui/auth/change_password_screen.dart';
 import 'ui/auth/sign_in_screen.dart';
 import 'ui/basa_scope.dart';
-import 'ui/common/connection_status.dart';
-import 'ui/common/signed_in_user.dart';
 import 'ui/debug/debug_overlay.dart';
+import 'ui/home/home_screen.dart';
+import 'ui/home/home_sections.dart';
 import 'ui/theme/basa_theme.dart';
 import 'viewmodels/app_viewmodels.dart';
-import 'viewmodels/text_viewmodel.dart';
 
 /// Set only by tool/build_release.ps1 for its scan builds (never shipped). A
 /// scan build has the console (commands + overlay) compiled in, so every
@@ -34,8 +32,10 @@ class BasaApp extends StatefulWidget {
   /// What every screen reaches through `BasaScope.of(context)`.
   final AppViewModels vms;
 
-  /// Placeholder home and the console's text commands only (dev).
-  final TextViewModel textVm;
+  /// The home screen's navigation: basaHomeSections() in the tutor build,
+  /// adminHomeSections() (lib/ui/admin/) in the admin build, handed in by the
+  /// entry point so this shell never imports an admin file.
+  final List<HomeSection> homeSections;
 
   /// The tutor build: its debug console is dark green. A bool on purpose: the
   /// console's theme (and its title, a [debug] marker in
@@ -47,7 +47,7 @@ class BasaApp extends StatefulWidget {
     required this.title,
     required this.session,
     required this.vms,
-    required this.textVm,
+    required this.homeSections,
     this.isTutorBuild = false,
   });
 
@@ -67,7 +67,7 @@ class _BasaAppState extends State<BasaApp> {
         ? SignInScreen(appTitle: widget.title, onSignedIn: refresh)
         : auth.mustChangePassword
         ? ChangePasswordScreen(forced: true, onChanged: refresh, onSignedOut: refresh)
-        : BasaHomeScreen(title: widget.title, textVm: widget.textVm, onSignedOut: refresh);
+        : HomeScreen(title: widget.title, sections: widget.homeSections, onSignedOut: refresh);
     // Read on every build (a synchronous read of the saved file's copy), so a
     // change from the Colours screen or a theme-* console command both show.
     final theme = widget.vms.theme.current();
@@ -94,48 +94,6 @@ class _BasaAppState extends State<BasaApp> {
                 )
               : home,
         ),
-      ),
-    );
-  }
-}
-
-/// PLACEHOLDER, REPLACE ME with the real home screen and navigation. Shows the
-/// shared parts (signed-in user, online/offline) and the account menu.
-class BasaHomeScreen extends StatefulWidget {
-  final String title;
-  final TextViewModel textVm;
-  final VoidCallback onSignedOut;
-  const BasaHomeScreen({super.key, required this.title, required this.textVm, required this.onSignedOut});
-
-  @override
-  State<BasaHomeScreen> createState() => _BasaHomeScreenState();
-}
-
-class _BasaHomeScreenState extends State<BasaHomeScreen> {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-        actions: [
-          const ConnectionStatusChip(),
-          AccountMenu(appTitle: widget.title, onSignedOut: widget.onSignedOut),
-          const SizedBox(width: 4),
-        ],
-      ),
-      body: Column(
-        children: [
-          const SignedInUserTile(),
-          const PendingWorkBanner(),
-          Expanded(
-            child: Center(
-              child: Text(
-                widget.textVm.value.isEmpty ? '(empty)' : widget.textVm.value,
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

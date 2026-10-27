@@ -109,10 +109,12 @@ class _AsyncPickerState<T> extends State<AsyncPicker<T>> {
   @override
   void didUpdateWidget(covariant AsyncPicker<T> old) {
     super.didUpdateWidget(old);
-    if (old.reloadKey != widget.reloadKey) _load();
+    // After this frame: a ViewModel logs at once, and the debug console redraws on every log line.
+    if (old.reloadKey != widget.reloadKey) WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
   Future<void> _load() async {
+    if (!mounted) return;
     final vms = BasaScope.of(context);
     setState(() {
       _items = null;

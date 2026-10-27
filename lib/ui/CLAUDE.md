@@ -19,10 +19,15 @@ For the UI team and their Claude Code. Start with `docs/handoff/README.md` (the 
 
 Layout, widgets, theming (colours, fonts, the light and dark themes themselves), navigation and routing, the home screen, how a screen keeps its state, folders under `lib/ui/mobile/` and `lib/ui/windows/`, how big screens are split.
 
+## Home and navigation
+
+`lib/ui/home/`: `HomeScreen` (the signed-in home: a navigation rail on wide screens, a bottom bar or drawer on phones) shows the sections and screen cards listed in `home_sections.dart` (`basaHomeSections()`, both builds); the admin build adds its own in `lib/ui/admin/admin_home_sections.dart` (`adminHomeSections()`, passed in by `lib/main.dart`). Every checklist screen has a `HomeEntry` with a `builder`; an entry without one opens "Coming soon". Don't import `lib/ui/admin/` from `home_sections.dart`.
+
+**"Both (view) / admin (edit)" screens.** Several admin-only methods live in shared ViewModels (school/section edits, calendar, thresholds, ARAL roster and classes, settings, materials, SRP, Phil-IRI content). A screen in both builds must not call them, or they are compiled into the tutor build (`tool/admin_markers.txt`, checked by `build_release.ps1`). So the shared screen only shows data and takes an optional editor (e.g. `SchoolsScreen({SchoolsEditor? editor})`); the editor is implemented under `lib/ui/admin/` (`AdminSchoolsEditor`) and the admin home entry passes it (`_adminVersions` in `admin_home_sections.dart`). Shared helpers: `lib/ui/common/screen_kit.dart` (`LoadView`, `runAction`/`runStep`, dialogs, export folder), `csv_table.dart`, `school_year_scope.dart`. Tests: `test/ui/screens_smoke_test.dart` opens every entry of both builds; `screens_data_test.dart` checks lists with data.
+
 ## Examples to replace
 
 - `lib/ui/example/example_screen.dart` — **`ExampleScreen`**, the worked example (Dashboard home): scope lookup, a ViewModel call, loading / error / empty / result states, a refusal shown as is, theme colours only. **Debug build only**: opened from the debug console's header button. Replace it with the real screen.
-- `lib/app_shell.dart` — **`BasaHomeScreen`**: placeholder home showing one text value. Replace it with the real home screen.
 - `lib/app_shell.dart` — **`BasaStartupErrorApp`**: shown when the data folder can't be prepared. Keep what it does, restyle it freely.
 
 Leave `lib/ui/debug/` (the developer console) as it is.

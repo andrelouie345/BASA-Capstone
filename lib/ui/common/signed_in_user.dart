@@ -85,6 +85,9 @@ class _SignedInUserTileState extends State<SignedInUserTile> {
       return;
     }
     try {
+      // After this frame: loadAll logs at once, and the debug console redraws
+      // on every log line, which must not happen while this tile is building.
+      await WidgetsBinding.instance.endOfFrame;
       await schools.loadAll();
       if (mounted) setState(() => _schoolName = nameIn(schools.items));
     } catch (e) {

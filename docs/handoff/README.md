@@ -63,11 +63,16 @@ Every screen block ends with a `Console:` line. Run that command to see what the
 
 Release builds have no console.
 
+## Home and navigation
+
+`lib/ui/home/`: `HomeScreen` (the signed-in home: a navigation rail on wide screens, a bottom bar or drawer on phones) shows the sections and screen cards listed in `home_sections.dart` (`basaHomeSections()`, both builds); the admin build adds its own in `lib/ui/admin/admin_home_sections.dart` (`adminHomeSections()`, passed in by `lib/main.dart`). Every checklist screen has a `HomeEntry` with a `builder`; an entry without one opens "Coming soon". Don't import `lib/ui/admin/` from `home_sections.dart`.
+
+**"Both (view) / admin (edit)" screens.** Several admin-only methods live in shared ViewModels (school/section edits, calendar, thresholds, ARAL roster and classes, settings, materials, SRP, Phil-IRI content). A screen in both builds must not call them, or they are compiled into the tutor build (`tool/admin_markers.txt`, checked by `build_release.ps1`). So the shared screen only shows data and takes an optional editor (e.g. `SchoolsScreen({SchoolsEditor? editor})`); the editor is implemented under `lib/ui/admin/` (`AdminSchoolsEditor`) and the admin home entry passes it (`_adminVersions` in `admin_home_sections.dart`). Shared helpers: `lib/ui/common/screen_kit.dart` (`LoadView`, `runAction`/`runStep`, dialogs, export folder), `csv_table.dart`, `school_year_scope.dart`. Tests: `test/ui/screens_smoke_test.dart` opens every entry of both builds; `screens_data_test.dart` checks lists with data.
+
 ## Examples to replace
 
 These exist only to show how things fit together. Restyle or replace them in your own style:
 - **`ExampleScreen`** (`lib/ui/example/example_screen.dart`): the worked example (Dashboard home) — scope lookup, a ViewModel call, loading / error / result states. Debug build only, opened from the debug console. Replace it with the real screen.
-- **`BasaHomeScreen`** (`lib/app_shell.dart`): placeholder home that shows one text value. Replace it with the real home screen and navigation.
 - **`BasaStartupErrorApp`** (`lib/app_shell.dart`): shown when the data folder cannot be prepared. Keep what it does; restyle it freely.
 
 The debug console (`lib/ui/debug/`) is a developer tool, not an app screen: leave it as it is.
