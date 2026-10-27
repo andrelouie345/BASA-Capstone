@@ -7,14 +7,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'core/console/console_session.dart';
+import 'ui/auth/account_menu.dart';
+import 'ui/auth/change_password_screen.dart';
 import 'ui/auth/sign_in_screen.dart';
 import 'ui/basa_scope.dart';
 import 'ui/common/connection_status.dart';
-import 'ui/common/error_display.dart';
 import 'ui/common/signed_in_user.dart';
 import 'ui/debug/debug_overlay.dart';
 import 'ui/theme/basa_theme.dart';
-import 'ui/theme/colours_screen.dart';
 import 'viewmodels/app_viewmodels.dart';
 import 'viewmodels/text_viewmodel.dart';
 
@@ -60,10 +60,14 @@ class _BasaAppState extends State<BasaApp> {
   Widget build(BuildContext context) {
     // Not signed in: the sign-in screen. Signing in or out rebuilds here, and
     // so does a console command (sign-in from the console shows the home).
+    // An admin-made account's first sign-in must set a password before anything else.
     final auth = widget.vms.auth;
-    final Widget home = auth.isSignedIn
-        ? BasaHomeScreen(title: widget.title, textVm: widget.textVm, onSignedOut: () => setState(() {}))
-        : SignInScreen(appTitle: widget.title, onSignedIn: () => setState(() {}));
+    void refresh() => setState(() {});
+    final Widget home = !auth.isSignedIn
+        ? SignInScreen(appTitle: widget.title, onSignedIn: refresh)
+        : auth.mustChangePassword
+        ? ChangePasswordScreen(forced: true, onChanged: refresh, onSignedOut: refresh)
+        : BasaHomeScreen(title: widget.title, textVm: widget.textVm, onSignedOut: refresh);
     // Read on every build (a synchronous read of the saved file's copy), so a
     // change from the Colours screen or a theme-* console command both show.
     final theme = widget.vms.theme.current();
@@ -96,8 +100,7 @@ class _BasaAppState extends State<BasaApp> {
 }
 
 /// PLACEHOLDER, REPLACE ME with the real home screen and navigation. Shows the
-/// shared parts (signed-in user, online/offline) and a plain sign-out until
-/// the Sign out item (checklist row 9) is built.
+/// shared parts (signed-in user, online/offline) and the account menu.
 class BasaHomeScreen extends StatefulWidget {
   final String title;
   final TextViewModel textVm;
@@ -116,23 +119,8 @@ class _BasaHomeScreenState extends State<BasaHomeScreen> {
         title: Text(widget.title),
         actions: [
           const ConnectionStatusChip(),
-          IconButton(
-            tooltip: 'Colours',
-            icon: const Icon(Icons.palette_outlined),
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ColoursScreen())),
-          ),
-          IconButton(
-            tooltip: 'Sign out',
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              try {
-                await BasaScope.of(context).auth.signOut();
-              } catch (e) {
-                if (context.mounted) showErrorSnackBar(context, e, where: 'BasaHomeScreen');
-              }
-              widget.onSignedOut();
-            },
-          ),
+          AccountMenu(appTitle: widget.title, onSignedOut: widget.onSignedOut),
+          const SizedBox(width: 4),
         ],
       ),
       body: Column(

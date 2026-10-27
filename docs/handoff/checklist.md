@@ -24,11 +24,11 @@ The debug console (`lib/ui/debug/`) is a developer tool, not an app screen: leav
 | 4 | Version refusal | shared part | both | [common.md](screens/common.md#version-refusal) | Andre | in progress |
 | 5 | Error display | shared part | both | [common.md](screens/common.md#error-display) | Andre | in progress |
 | 6 | Sign in (online), with the server settings dropdown | screen | both | [auth.md](screens/auth.md#sign-in-online) | Andre | in progress |
-| 7 | Sign in offline | screen | both | [auth.md](screens/auth.md#sign-in-offline) |  |  |
-| 8 | Change password | screen | both | [auth.md](screens/auth.md#change-password) |  |  |
-| 9 | Sign out | menu item | both | [auth.md](screens/auth.md#sign-out) |  |  |
-| 10 | Server settings | screen | both | [auth.md](screens/auth.md#server-settings) |  |  |
-| 11 | About / version | menu item | both | [auth.md](screens/auth.md#about--version) |  |  |
+| 7 | Sign in offline | screen | both | [auth.md](screens/auth.md#sign-in-offline) | Andre | in progress |
+| 8 | Change password | screen | both | [auth.md](screens/auth.md#change-password) | Andre | in progress |
+| 9 | Sign out | menu item | both | [auth.md](screens/auth.md#sign-out) | Andre | in progress |
+| 10 | Server settings | screen | both | [auth.md](screens/auth.md#server-settings) | Andre | in progress |
+| 11 | About / version | menu item | both | [auth.md](screens/auth.md#about--version) | Andre | in progress |
 | 12 | Users | screen | admin | [admin.md](screens/admin.md#users) |  |  |
 | 13 | Tutor assignments | screen | admin | [admin.md](screens/admin.md#tutor-assignments) |  |  |
 | 14 | Schools | screen | both (list) / admin (edit) | [admin.md](screens/admin.md#schools) |  |  |

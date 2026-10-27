@@ -12,6 +12,7 @@ import '../common/error_display.dart';
 import '../common/version_notice.dart';
 import '../theme/colours_screen.dart';
 import 'server_settings_form.dart';
+import 'sign_in_offline_screen.dart';
 
 enum _Target { cloud, lan }
 
@@ -208,6 +209,16 @@ class _SignInScreenState extends State<SignInScreen> {
                                     textAlign: TextAlign.center,
                                   ),
                                 ],
+                                const SizedBox(height: 4),
+                                TextButton.icon(
+                                  onPressed: _busy
+                                      ? null
+                                      : () => Navigator.of(context).push(MaterialPageRoute(
+                                            builder: (_) => SignInOfflineScreen(onSignedIn: widget.onSignedIn),
+                                          )),
+                                  icon: const Icon(Icons.cloud_off),
+                                  label: const Text('No connection? Sign in offline'),
+                                ),
                               ],
                             ),
                           ),
