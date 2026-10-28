@@ -115,7 +115,14 @@ class _PhilIriReadingScreenState extends State<PhilIriReadingScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Reading'),
-        actions: [IconButton(tooltip: 'Delete reading', onPressed: _delete, icon: const Icon(Icons.delete_outline))],
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (_) => _delete(),
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'delete', child: ListTile(leading: Icon(Icons.delete_outline), title: Text('Delete reading'))),
+            ],
+          ),
+        ],
       ),
       body: LoadView<_ReadingData?>(
         where: 'PhilIriReading',
@@ -147,110 +154,226 @@ class _PhilIriReadingScreenState extends State<PhilIriReadingScreen> {
           );
         },
         builder: (context, d, _) {
-          if (d == null) return const EmptyNote('This reading is not on this device.');
+          if (d == null) return const EmptyNote('This reading is not on this device.', icon: Icons.cloud_off_outlined);
           final r = d.reading;
           final theme = Theme.of(context);
           final colors = theme.colorScheme;
           final byWord = {for (final m in d.miscues) m.wordIndex: m};
           final words = d.passage.words;
-          return PageBody(
+          final oneMinute = r.method == PhilIriReadingMethod.oneMinute;
+          final summary = SectionCard(
+            title: d.passage.title,
+            icon: Icons.menu_book_outlined,
+            trailing: FilledButton.tonalIcon(onPressed: () => _timing(r), icon: const Icon(Icons.timer_outlined), label: const Text('Set timing')),
             children: [
-              SectionCard(
-                title: d.passage.title,
-                children: [
-                  InfoRow('Method', readingMethodLabel(r.method)),
-                  InfoRow(
-                    r.method == PhilIriReadingMethod.oneMinute ? 'Words read' : 'Time',
-                    r.method == PhilIriReadingMethod.oneMinute
-                        ? (r.wordsRead?.toString() ?? 'not yet')
-                        : (r.readingSeconds == null ? 'not yet' : '${r.readingSeconds} s'),
-                  ),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: OutlinedButton.icon(onPressed: () => _timing(r), icon: const Icon(Icons.timer_outlined), label: const Text('Set timing')),
-                  ),
-                ],
-              ),
-              if (d.result != null)
-                Card(
+              StatGrid(tileWidth: 170, tiles: [
+                StatTile(label: 'Method', value: readingMethodLabel(r.method), icon: Icons.record_voice_over_outlined),
+                StatTile(
+                  label: oneMinute ? 'Words read' : 'Time',
+                  value: oneMinute
+                      ? (r.wordsRead?.toString() ?? 'not yet')
+                      : (r.readingSeconds == null ? 'not yet' : '${r.readingSeconds} s'),
+                  icon: Icons.timer_outlined,
+                ),
+                if (r.method.isOral)
+                  StatTile(label: 'Miscues', value: '${d.miscues.where((m) => m.counts).length}', icon: Icons.spellcheck),
+              ]),
+            ],
+          );
+          final res = d.result;
+          final result = res == null
+              ? null
+              : Card(
                   color: colors.primaryContainer,
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: DefaultTextStyle.merge(
                       style: TextStyle(color: colors.onPrimaryContainer),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('Result: ${d.result!.profile.label}', style: theme.textTheme.titleMedium?.copyWith(color: colors.onPrimaryContainer)),
-                        if (!d.result!.silent) Text('Word reading ${d.result!.wordReadingPercent}% (${d.result!.wordReadingLevel.label})'),
-                        Text('${d.result!.wordsPerMinute.toStringAsFixed(0)} words per minute (${d.result!.speed.label})'),
-                        Text(d.result!.comprehensionPercent == null
+                        Row(children: [
+                          IconBadge(Icons.insights, size: 36, background: colors.primary, foreground: colors.onPrimary),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text('Result: ${res.profile.label}',
+                                style: theme.textTheme.titleMedium?.copyWith(color: colors.onPrimaryContainer)),
+                          ),
+                        ]),
+                        const SizedBox(height: 12),
+                        if (!res.silent) Text('Word reading ${res.wordReadingPercent}% (${res.wordReadingLevel.label})'),
+                        Text('${res.wordsPerMinute.toStringAsFixed(0)} words per minute (${res.speed.label})'),
+                        Text(res.comprehensionPercent == null
                             ? 'Comprehension: blank'
-                            : 'Comprehension ${d.result!.comprehensionPercent}% (${d.result!.comprehensionLevel.label})'),
-                        if (d.result!.isStrugglingReader) const Text('Struggling reader'),
+                            : 'Comprehension ${res.comprehensionPercent}% (${res.comprehensionLevel.label})'),
+                        const SizedBox(height: 8),
+                        Wrap(spacing: 8, runSpacing: 8, children: [
+                          StatusChip(res.profile.label, tone: philIriLevelTone(res.profile)),
+                          if (res.isStrugglingReader)
+                            const StatusChip('Struggling reader', tone: StatusTone.bad, icon: Icons.flag_outlined),
+                        ]),
                       ]),
                     ),
                   ),
-                ),
-              if (d.resultNote != null) Text('No result yet.', style: TextStyle(color: colors.onSurfaceVariant)),
-              if (r.method.isOral)
-                SectionCard(
+                );
+          final miscues = !r.method.isOral
+              ? null
+              : SectionCard(
                   title: 'Miscues (${d.miscues.where((m) => m.counts).length}) · tap a word',
+                  icon: Icons.spellcheck,
                   children: [
                     if (d.passage.motivation != null)
-                      Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(d.passage.motivation!, style: theme.textTheme.bodySmall)),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(d.passage.motivation!,
+                            style: theme.textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant)),
+                      ),
+                    const _Legend(),
+                    const SizedBox(height: 12),
                     Wrap(
-                      spacing: 2,
-                      runSpacing: 4,
+                      spacing: 6,
+                      runSpacing: 6,
                       children: [
                         for (var i = 0; i < words.length; i++)
-                          InkWell(
-                            onTap: () => _word(i, words[i], byWord[i]),
-                            borderRadius: BorderRadius.circular(4),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: byWord[i] == null
-                                    ? null
-                                    : byWord[i]!.selfCorrected
-                                    ? colors.secondaryContainer
-                                    : colors.errorContainer,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                words[i],
-                                style: theme.textTheme.bodyLarge?.copyWith(
-                                  color: byWord[i] == null ? null : byWord[i]!.selfCorrected ? colors.onSecondaryContainer : colors.onErrorContainer,
-                                ),
-                              ),
-                            ),
-                          ),
+                          _WordTarget(word: words[i], miscue: byWord[i], onTap: () => _word(i, words[i], byWord[i])),
                       ],
                     ),
-                    for (final m in d.miscues)
-                      Text('“${m.wordIndex < words.length ? words[m.wordIndex] : '?'}”: ${m.type.label}'
-                          '${m.spokenText == null ? '' : ' (said “${m.spokenText}”)'}${m.selfCorrected ? ' · self-corrected' : ''}'),
+                    if (d.miscues.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      const Divider(),
+                      for (final m in d.miscues)
+                        ListRow(
+                          leading: IconBadge(
+                            m.selfCorrected ? Icons.undo : Icons.close,
+                            size: 32,
+                            background: m.selfCorrected ? colors.tertiaryContainer : colors.errorContainer,
+                            foreground: m.selfCorrected ? colors.onTertiaryContainer : colors.onErrorContainer,
+                          ),
+                          title: '“${m.wordIndex < words.length ? words[m.wordIndex] : '?'}”: ${m.type.label}'
+                              '${m.spokenText == null ? '' : ' (said “${m.spokenText}”)'}${m.selfCorrected ? ' · self-corrected' : ''}',
+                          onTap: m.wordIndex < words.length ? () => _word(m.wordIndex, words[m.wordIndex], m) : null,
+                        ),
+                    ],
                   ],
-                ),
-              SectionCard(
-                title: 'Observations',
-                children: [_Observations(value: r.observation, onChanged: _observe)],
-              ),
-              if (d.questions.isNotEmpty)
-                SectionCard(
-                  title: 'Comprehension',
-                  children: [
-                    for (final q in d.questions)
-                      _QuestionTile(
-                        question: q,
-                        answer: d.answers.where((a) => a.questionId == q.id).firstOrNull,
-                        onAnswer: (chosen, lb) => _answer(q, chosen, lb),
-                      ),
-                  ],
-                ),
-            ],
+                );
+          final observations = SectionCard(
+            title: 'Observations',
+            icon: Icons.visibility_outlined,
+            children: [_Observations(value: r.observation, onChanged: _observe)],
           );
+          final comprehension = d.questions.isEmpty
+              ? null
+              : SectionCard(
+                  title: 'Comprehension',
+                  icon: Icons.quiz_outlined,
+                  children: [
+                    for (var i = 0; i < d.questions.length; i++) ...[
+                      if (i > 0) const Divider(),
+                      _QuestionTile(
+                        question: d.questions[i],
+                        answer: d.answers.where((a) => a.questionId == d.questions[i].id).firstOrNull,
+                        onAnswer: (chosen, lb) => _answer(d.questions[i], chosen, lb),
+                      ),
+                    ],
+                  ],
+                );
+          final noResult = d.resultNote == null
+              ? null
+              : const NoticeBanner('No result yet.', icon: Icons.hourglass_empty, tone: StatusTone.neutral);
+          return LayoutBuilder(builder: (context, c) {
+            // Wide: the passage and its miscues left, observations and answers right.
+            if (c.maxWidth >= 1000) {
+              Widget column(List<Widget?> items) {
+                final list = items.whereType<Widget>().toList();
+                return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  for (var i = 0; i < list.length; i++) ...[if (i > 0) const SizedBox(height: 16), list[i]],
+                ]);
+              }
+
+              return PageBody(
+                maxWidth: 1280,
+                children: [
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Expanded(flex: 3, child: column([summary, result, noResult, miscues])),
+                    const SizedBox(width: 16),
+                    Expanded(flex: 2, child: column([observations, comprehension])),
+                  ]),
+                ],
+              );
+            }
+            return PageBody(children: [summary, ?result, ?noResult, ?miscues, observations, ?comprehension]);
+          });
         },
       ),
     );
+  }
+}
+
+/// One passage word, a comfortable tap target, tinted when it has a miscue.
+class _WordTarget extends StatelessWidget {
+  final String word;
+  final PhilIriMiscue? miscue;
+  final VoidCallback onTap;
+  const _WordTarget({required this.word, required this.miscue, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final m = miscue;
+    final (bg, fg, border) = m == null
+        ? (colors.surfaceContainerLowest, colors.onSurface, colors.outlineVariant)
+        : m.selfCorrected
+        ? (colors.tertiaryContainer, colors.onTertiaryContainer, colors.tertiary)
+        : (colors.errorContainer, colors.onErrorContainer, colors.error);
+    final target = Material(
+        color: bg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: border)),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              child: Text(
+                word,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: fg,
+                  fontWeight: m == null ? null : FontWeight.w600,
+                  decoration: m != null && !m.selfCorrected ? TextDecoration.lineThrough : null,
+                  decorationColor: fg,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    return m == null ? target : Tooltip(message: m.type.label, child: target);
+  }
+}
+
+/// What the word colours mean.
+class _Legend extends StatelessWidget {
+  const _Legend();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    Widget item(String label, Color bg, Color border) => Row(mainAxisSize: MainAxisSize.min, children: [
+      Container(
+        width: 16,
+        height: 16,
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4), border: Border.all(color: border)),
+      ),
+      const SizedBox(width: 6),
+      Text(label, style: theme.textTheme.labelMedium?.copyWith(color: colors.onSurfaceVariant)),
+    ]);
+    return Wrap(spacing: 16, runSpacing: 8, children: [
+      item('Not marked', colors.surfaceContainerLowest, colors.outlineVariant),
+      item('Miscue (counted)', colors.errorContainer, colors.error),
+      item('Self-corrected', colors.tertiaryContainer, colors.tertiary),
+    ]);
   }
 }
 
@@ -368,7 +491,7 @@ class _QuestionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
     final a = answer;
     final letters = [for (var i = 0; i < question.choices.length; i++) String.fromCharCode(97 + i)];
     return Padding(
@@ -376,8 +499,17 @@ class _QuestionTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('${question.questionNo}. ${question.prompt}${question.questionType == null ? '' : ' (${question.questionType!.code})'}'),
-          const SizedBox(height: 4),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            LetterBadge('${question.questionNo}', size: 28),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                '${question.questionNo}. ${question.prompt}${question.questionType == null ? '' : ' (${question.questionType!.code})'}',
+                style: theme.textTheme.titleSmall,
+              ),
+            ),
+          ]),
+          const SizedBox(height: 8),
           Wrap(spacing: 6, runSpacing: 6, children: [
             for (var i = 0; i < letters.length; i++)
               ChoiceChip(
@@ -391,12 +523,17 @@ class _QuestionTile extends StatelessWidget {
               onSelected: (_) => onAnswer(null, a?.lookedBack ?? false),
             ),
           ]),
-          if (a != null)
-            Row(children: [
-              Text(a.isCorrect ? 'Correct' : 'Wrong', style: TextStyle(color: a.isCorrect ? colors.tertiary : colors.error)),
-              const SizedBox(width: 12),
+          if (a != null) ...[
+            const SizedBox(height: 8),
+            Wrap(spacing: 12, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
+              StatusChip(
+                a.isCorrect ? 'Correct' : 'Wrong',
+                tone: a.isCorrect ? StatusTone.good : StatusTone.bad,
+                icon: a.isCorrect ? Icons.check : Icons.close,
+              ),
               FilterChip(label: const Text('Looked back'), selected: a.lookedBack, onSelected: (v) => onAnswer(a.chosen, v)),
             ]),
+          ],
         ],
       ),
     );

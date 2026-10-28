@@ -35,22 +35,24 @@ class _SectionsScreenState extends State<SectionsScreen> {
   Widget build(BuildContext context) {
     final editor = widget.editor;
     final canEdit = editor != null && editor.canEdit(context);
+    final wide = isWideScreen(context);
+    void add() => _after(editor!.add(context));
     return Scaffold(
-      appBar: AppBar(title: const Text('Sections')),
-      floatingActionButton: canEdit
-          ? FloatingActionButton.extended(
-              onPressed: () => _after(editor.add(context)),
-              icon: const Icon(Icons.add),
-              label: const Text('Add section'),
-            )
-          : null,
+      appBar: AppBar(
+        title: const Text('Sections'),
+        actions: [if (canEdit && wide) mainActionButton(onPressed: add, icon: Icons.add, label: 'Add section')],
+      ),
+      floatingActionButton: canEdit && !wide ? mainActionFab(onPressed: add, icon: Icons.add, label: 'Add section') : null,
       body: LoadView<List<Section>>(
         where: 'SectionsScreen',
         reloadKey: _reload,
         load: (vms) => vms.section.localSections(),
         builder: (context, items, _) {
           if (items.isEmpty) {
-            return const EmptyNote('No sections on this device yet. Download the latest data first.');
+            return const EmptyNote(
+              'No sections on this device yet. Download the latest data first.',
+              icon: Icons.cloud_download_outlined,
+            );
           }
           final byYear = <String, List<Section>>{};
           for (final s in items) {
@@ -60,25 +62,30 @@ class _SectionsScreenState extends State<SectionsScreen> {
           int grade(Section s) => int.tryParse(s.gradeLevel) ?? 0;
           return PageBody(
             children: [
+              StatGrid(tileWidth: 180, tiles: [
+                StatTile(label: 'Sections', value: '${items.length}', icon: Icons.class_outlined),
+                StatTile(label: 'School years', value: '${years.length}', icon: Icons.calendar_month_outlined),
+              ]),
               for (final y in years)
-                SectionCard(
+                ListCard(
                   title: 'School year $y',
+                  trailing: StatusChip('${byYear[y]!.length} section(s)'),
                   children: [
                     for (final s in byYear[y]!..sort((a, b) => grade(a).compareTo(grade(b))))
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: CircleAvatar(child: Text(s.gradeLevel)),
-                        title: Text(s.sectionName),
-                        subtitle: Text('Grade ${s.gradeLevel} · school #${s.schoolId}'),
-                        trailing: canEdit
-                            ? PopupMenuButton<String>(
-                                onSelected: (v) => _after(v == 'edit' ? editor.edit(context, s) : editor.delete(context, s)),
-                                itemBuilder: (_) => const [
-                                  PopupMenuItem(value: 'edit', child: Text('Edit')),
-                                  PopupMenuItem(value: 'delete', child: Text('Delete')),
-                                ],
-                              )
-                            : null,
+                      ListRow(
+                        leading: LetterBadge(s.gradeLevel),
+                        title: s.sectionName,
+                        subtitle: 'Grade ${s.gradeLevel} · school #${s.schoolId}',
+                        trailing: [
+                          if (canEdit)
+                            PopupMenuButton<String>(
+                              onSelected: (v) => _after(v == 'edit' ? editor.edit(context, s) : editor.delete(context, s)),
+                              itemBuilder: (_) => const [
+                                PopupMenuItem(value: 'edit', child: Text('Edit')),
+                                PopupMenuItem(value: 'delete', child: Text('Delete')),
+                              ],
+                            ),
+                        ],
                       ),
                   ],
                 ),

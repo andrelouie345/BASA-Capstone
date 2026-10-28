@@ -21,6 +21,7 @@ class _PhilIriFinalizeScreenState extends State<PhilIriFinalizeScreen> {
   Section? _section;
   PhilIriRound _round = PhilIriRound.values.first;
   String? _result;
+  (int, int, int)? _counts;
   bool _busy = false;
 
   Future<void> _finalize() async {
@@ -42,6 +43,7 @@ class _PhilIriFinalizeScreenState extends State<PhilIriFinalizeScreen> {
     setState(() {
       _busy = false;
       if (r != null) {
+        _counts = (r.finalized.length, r.alreadyFinalized.length, r.stillInProgress.length);
         _result = 'Finalized: ${r.finalized.length}\nAlready finalized: ${r.alreadyFinalized.length}\n'
             'Still in progress (left open): ${r.stillInProgress.length}';
       }
@@ -50,19 +52,63 @@ class _PhilIriFinalizeScreenState extends State<PhilIriFinalizeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final wide = isWideScreen(context);
+    final ready = !_busy && _section != null;
     return Scaffold(
-      appBar: AppBar(title: const Text('Finalize Phil-IRI')),
+      appBar: AppBar(
+        title: const Text('Finalize Phil-IRI'),
+        actions: [
+          if (wide)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: FilledButton.icon(
+                onPressed: ready ? _finalize : null,
+                icon: const Icon(Icons.task_alt),
+                label: const Text('Finalize the round'),
+                style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
+              ),
+            ),
+        ],
+      ),
+      floatingActionButton: wide || _section == null
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: ready ? _finalize : null,
+              icon: _busy
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.task_alt),
+              label: const Text('Finalize the round'),
+            ),
       body: PageBody(
-        maxWidth: 640,
+        maxWidth: 720,
         children: [
-          SectionPicker(value: _section, onChanged: (s) => setState(() => _section = s), where: philIriGrade),
-          PhilIriRoundPicker(value: _round, onChanged: (r) => setState(() => _round = r ?? _round)),
-          FilledButton.icon(
-            onPressed: _busy || _section == null ? null : _finalize,
-            icon: const Icon(Icons.task_alt),
-            label: const Text('Finalize the round'),
+          FilterBar(children: [
+            SectionPicker(value: _section, onChanged: (s) => setState(() => _section = s), where: philIriGrade),
+            PhilIriRoundPicker(value: _round, onChanged: (r) => setState(() => _round = r ?? _round)),
+          ]),
+          const NoticeBanner(
+            'Finalizing locks every completed session of the round. Sessions still in progress stay open.',
+            icon: Icons.lock_outline,
           ),
-          if (_result != null) SectionCard(title: 'Done', children: [Text(_result!)]),
+          if (_busy) const LinearProgressIndicator(),
+          if (_section == null && _result == null)
+            const EmptyNote('Pick a section and a round to finalize.', icon: Icons.task_alt),
+          if (_result != null)
+            SectionCard(
+              title: 'Done',
+              icon: Icons.task_alt,
+              children: [
+                if (_counts != null) ...[
+                  StatGrid(tileWidth: 180, tiles: [
+                    StatTile(label: 'Finalized', value: '${_counts!.$1}', icon: Icons.lock_outline),
+                    StatTile(label: 'Already finalized', value: '${_counts!.$2}', icon: Icons.history),
+                    StatTile(label: 'Still in progress (left open)', value: '${_counts!.$3}', icon: Icons.pending_outlined),
+                  ]),
+                  const SizedBox(height: 12),
+                ],
+                Text(_result!, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+              ],
+            ),
         ],
       ),
     );

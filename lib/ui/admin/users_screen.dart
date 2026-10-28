@@ -23,6 +23,9 @@ class _UsersScreenState extends State<UsersScreen> {
   int _reload = 0;
   String _filter = '';
 
+  /// Only this role; null = all.
+  UserRole? _role;
+
   Future<void> _create() async {
     final users = AdminScope.of(context).users;
     final r = await showDialog<_NewUser>(context: context, builder: (_) => const _NewUserDialog());
@@ -50,13 +53,16 @@ class _UsersScreenState extends State<UsersScreen> {
   @override
   Widget build(BuildContext context) {
     final users = AdminScope.of(context).users;
+    final wide = isWideScreen(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Users')),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _create,
-        icon: const Icon(Icons.person_add_alt_1),
-        label: const Text('New account'),
+      appBar: AppBar(
+        title: const Text('Users'),
+        actions: [
+          if (wide) mainActionButton(onPressed: _create, icon: Icons.person_add_alt_1, label: 'New account'),
+        ],
       ),
+      floatingActionButton:
+          wide ? null : mainActionFab(onPressed: _create, icon: Icons.person_add_alt_1, label: 'New account'),
       body: LoadView<List<User>>(
         where: 'UsersScreen',
         reloadKey: _reload,
@@ -67,31 +73,61 @@ class _UsersScreenState extends State<UsersScreen> {
         builder: (context, items, reload) {
           final q = _filter.toLowerCase();
           final shown = items
+              .where((u) => _role == null || u.role == _role)
               .where((u) => q.isEmpty || u.email.toLowerCase().contains(q) || u.fullName.toLowerCase().contains(q))
               .toList();
+          final active = items.where((u) => u.isActive).length;
           return PageBody(
             children: [
-              TextField(
-                decoration: const InputDecoration(prefixIcon: Icon(Icons.search), labelText: 'Search name or email'),
-                onChanged: (v) => setState(() => _filter = v),
-              ),
-              if (shown.isEmpty) const EmptyNote('No accounts match.'),
-              for (final u in shown)
-                Card(
-                  child: SwitchListTile(
-                    secondary: UserAvatar(user: u),
-                    title: Text(u.fullName.isEmpty ? u.email : u.fullName),
-                    subtitle: Text(
-                        '${roleLabel(u)} · ${u.email}${u.schoolId == null ? '' : ' · school #${u.schoolId}'}'),
-                    value: u.isActive,
-                    onChanged: (on) async {
-                      await runAction(context, () => users.setActive(u.id, on),
-                          done: on ? 'Account turned on.' : 'Account turned off.', where: 'UsersScreen');
-                      reload();
-                    },
-                  ),
+              StatGrid(tileWidth: 170, tiles: [
+                StatTile(label: 'Accounts', value: '${items.length}', icon: Icons.manage_accounts_outlined),
+                StatTile(label: 'Active', value: '$active', icon: Icons.check_circle_outline),
+                StatTile(label: 'Turned off', value: '${items.length - active}', icon: Icons.block),
+                StatTile(
+                  label: 'Tutors',
+                  value: '${items.where((u) => u.role == UserRole.tutor).length}',
+                  icon: Icons.school_outlined,
                 ),
-              const SizedBox(height: 72),
+              ]),
+              FilterBar(children: [
+                TextField(
+                  decoration: const InputDecoration(prefixIcon: Icon(Icons.search), labelText: 'Search name or email'),
+                  onChanged: (v) => setState(() => _filter = v),
+                ),
+                Wrap(spacing: 8, runSpacing: 8, children: [
+                  for (final r in <UserRole?>[null, ...UserRole.values])
+                    ChoiceChip(
+                      label: Text(r == null ? 'All' : _roleName(r)),
+                      selected: _role == r,
+                      onSelected: (_) => setState(() => _role = r),
+                    ),
+                ]),
+              ]),
+              if (shown.isEmpty)
+                const EmptyNote('No accounts match.', icon: Icons.person_search_outlined)
+              else
+                ListCard(
+                  children: [
+                    for (final u in shown)
+                      ListRow(
+                        leading: UserAvatar(user: u),
+                        title: u.fullName.isEmpty ? u.email : u.fullName,
+                        subtitle: '${roleLabel(u)} · ${u.email}${u.schoolId == null ? '' : ' · school #${u.schoolId}'}',
+                        trailing: [
+                          StatusChip(u.isActive ? 'Active' : 'Off', tone: u.isActive ? StatusTone.good : StatusTone.neutral),
+                          Switch(
+                            value: u.isActive,
+                            onChanged: (on) async {
+                              await runAction(context, () => users.setActive(u.id, on),
+                                  done: on ? 'Account turned on.' : 'Account turned off.', where: 'UsersScreen');
+                              reload();
+                            },
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              if (!wide) const SizedBox(height: 72),
             ],
           );
         },
@@ -99,6 +135,12 @@ class _UsersScreenState extends State<UsersScreen> {
     );
   }
 }
+
+String _roleName(UserRole r) => switch (r) {
+  UserRole.admin => 'Admin',
+  UserRole.coordinator => 'Coordinator',
+  UserRole.tutor => 'Tutor',
+};
 
 class _NewUser {
   final String email;
@@ -148,11 +190,7 @@ class _NewUserDialogState extends State<_NewUserDialog> {
                 label: 'Role',
                 items: UserRole.values,
                 value: _role,
-                itemLabel: (r) => switch (r) {
-                  UserRole.admin => 'Admin',
-                  UserRole.coordinator => 'Coordinator',
-                  UserRole.tutor => 'Tutor',
-                },
+                itemLabel: _roleName,
                 onChanged: (r) => setState(() => _role = r ?? _role),
               ),
               if (superadmin) ...[

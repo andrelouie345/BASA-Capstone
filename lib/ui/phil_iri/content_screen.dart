@@ -43,14 +43,17 @@ class _PhilIriContentScreenState extends State<PhilIriContentScreen> {
   Widget build(BuildContext context) {
     final editor = widget.editor;
     final canEdit = editor != null && editor.canEdit(context);
+    final wide = isWideScreen(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Passages and questions')),
-      floatingActionButton: canEdit
-          ? FloatingActionButton.extended(
-              onPressed: () => _after(editor.addCollection(context)),
-              icon: const Icon(Icons.add),
-              label: const Text('Add collection'),
-            )
+      appBar: AppBar(
+        title: const Text('Passages and questions'),
+        actions: [
+          if (canEdit && wide)
+            mainActionButton(onPressed: () => _after(editor.addCollection(context)), icon: Icons.add, label: 'Add collection'),
+        ],
+      ),
+      floatingActionButton: canEdit && !wide
+          ? mainActionFab(onPressed: () => _after(editor.addCollection(context)), icon: Icons.add, label: 'Add collection')
           : null,
       body: LoadView<List<PhilIriCollection>>(
         where: 'PhilIriContent',
@@ -59,35 +62,82 @@ class _PhilIriContentScreenState extends State<PhilIriContentScreen> {
           await vms.philIriContent.loadCollections();
           return List.of(vms.philIriContent.collections);
         },
-        builder: (context, items, _) => PageBody(
-          children: [
-            if (items.isEmpty) const EmptyNote('No collections on this device. Download the latest data first.'),
-            for (final c in items)
-              Card(
-                child: ListTile(
-                  leading: Icon(c.isActive ? Icons.collections_bookmark_outlined : Icons.visibility_off_outlined),
-                  title: Text(c.name),
-                  subtitle: Text([
-                    c.schoolId == null ? 'Region-wide' : 'School #${c.schoolId}',
-                    if (c.isPrescribed) 'DepEd-prescribed',
-                    if (!c.isActive) 'inactive',
-                    ?c.description,
-                  ].join(' · ')),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () async {
-                    await Navigator.of(context)
-                        .push(MaterialPageRoute(builder: (_) => _CollectionScreen(collection: c, editor: canEdit ? editor : null)));
-                    if (mounted) setState(() => _reload++);
-                  },
+        builder: (context, items, _) {
+          final colors = Theme.of(context).colorScheme;
+          return PageBody(
+            children: [
+              if (items.isEmpty)
+                const EmptyNote('No collections on this device. Download the latest data first.', icon: Icons.collections_bookmark_outlined),
+              if (items.isNotEmpty) ...[
+                StatGrid(tileWidth: 170, tiles: [
+                  StatTile(label: 'Collections', value: '${items.length}', icon: Icons.collections_bookmark_outlined),
+                  StatTile(label: 'Active', value: '${items.where((c) => c.isActive).length}', icon: Icons.check_circle_outline),
+                  StatTile(label: 'Region-wide', value: '${items.where((c) => c.schoolId == null).length}', icon: Icons.public),
+                  StatTile(label: 'DepEd-prescribed', value: '${items.where((c) => c.isPrescribed).length}', icon: Icons.verified_outlined),
+                ]),
+                const SizedBox(height: 4),
+                ListCard(
+                  title: 'Collections',
+                  children: [
+                    for (final c in items)
+                      ListRow(
+                        leading: c.isActive
+                            ? const IconBadge(Icons.collections_bookmark_outlined)
+                            : IconBadge(Icons.visibility_off_outlined, background: colors.surfaceContainerHighest, foreground: colors.onSurfaceVariant),
+                        title: c.name,
+                        subtitle: [
+                          c.schoolId == null ? 'Region-wide' : 'School #${c.schoolId}',
+                          ?c.description,
+                        ].join(' · '),
+                        footer: c.isPrescribed || !c.isActive
+                            ? Wrap(spacing: 6, runSpacing: 6, children: [
+                                if (c.isPrescribed) const StatusChip('DepEd-prescribed', tone: StatusTone.good, icon: Icons.verified_outlined),
+                                if (!c.isActive) const StatusChip('inactive', tone: StatusTone.bad),
+                              ])
+                            : null,
+                        trailing: const [Icon(Icons.chevron_right)],
+                        onTap: () async {
+                          await Navigator.of(context)
+                              .push(MaterialPageRoute(builder: (_) => _CollectionScreen(collection: c, editor: canEdit ? editor : null)));
+                          if (mounted) setState(() => _reload++);
+                        },
+                      ),
+                  ],
                 ),
-              ),
-            const SizedBox(height: 72),
-          ],
-        ),
+              ],
+              if (canEdit && !wide) const SizedBox(height: 72),
+            ],
+          );
+        },
       ),
     );
   }
 }
+
+/// A tonal "Add" for a card header.
+Widget _addButton(VoidCallback onPressed) =>
+    FilledButton.tonalIcon(onPressed: onPressed, icon: const Icon(Icons.add), label: const Text('Add'));
+
+/// A row's ⋮ menu holding its one destructive action.
+Widget _deleteMenu(VoidCallback onDelete) => PopupMenuButton<String>(
+  onSelected: (_) => onDelete(),
+  itemBuilder: (_) => const [
+    PopupMenuItem(value: 'delete', child: ListTile(leading: Icon(Icons.delete_outline), title: Text('Delete'))),
+  ],
+);
+
+/// Two columns from 1000 px ([left] wider), else one.
+Widget _twoColumns(List<Widget> left, List<Widget> right) => LayoutBuilder(builder: (context, c) {
+  List<Widget> spaced(List<Widget> l) => [for (var i = 0; i < l.length; i++) ...[if (i > 0) const SizedBox(height: 16), l[i]]];
+  if (c.maxWidth < 1000) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: spaced([...left, ...right]));
+  }
+  return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    Expanded(flex: 3, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: spaced(left))),
+    const SizedBox(width: 16),
+    Expanded(flex: 2, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: spaced(right))),
+  ]);
+});
 
 class _CollectionScreen extends StatefulWidget {
   final PhilIriCollection collection;
@@ -130,48 +180,67 @@ class _CollectionScreenState extends State<_CollectionScreen> {
         load: (vms) async => (await vms.philIriContent.criteria(c.id!), await vms.philIriContent.passages(c.id!)),
         builder: (context, data, _) {
           final (criteria, passages) = data;
-          return PageBody(
+          final colors = Theme.of(context).colorScheme;
+          final rubric = ListCard(
+            title: 'Rubric',
+            trailing: editor == null ? null : _addButton(() => _after(editor.addCriterion(context, c))),
             children: [
-              SectionCard(
-                title: 'Rubric',
-                trailing: editor == null ? null : IconButton(icon: const Icon(Icons.add), onPressed: () => _after(editor.addCriterion(context, c))),
-                children: [
-                  if (criteria.isEmpty) const Text('No rubric criteria.'),
-                  for (final k in criteria)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text('${k.criterionNo}. ${k.name}'),
-                      subtitle: Text('${k.scaleMin} to ${k.scaleMax}'),
-                      trailing: editor == null
-                          ? null
-                          : IconButton(icon: const Icon(Icons.delete_outline), onPressed: () => _after(editor.deleteCriterion(context, k))),
-                    ),
-                ],
-              ),
-              SectionCard(
-                title: 'Passages (${passages.length})',
-                trailing: editor == null ? null : IconButton(icon: const Icon(Icons.add), onPressed: () => _after(editor.addPassage(context, c))),
-                children: [
-                  if (passages.isEmpty) const Text('No passages.'),
-                  for (final p in passages)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(p.title),
-                      subtitle: Text([
-                        if (p.level != null) 'Grade ${p.level}',
-                        if (p.setCode != null) 'Set ${p.setCode}',
-                        ?p.testType,
-                        '${p.wordCount} words',
-                        if (!p.isActive) 'inactive',
-                      ].join(' · ')),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () async {
-                        await Navigator.of(context).push(MaterialPageRoute(builder: (_) => _PassageScreen(passage: p, editor: editor)));
-                        if (mounted) setState(() => _reload++);
-                      },
-                    ),
-                ],
-              ),
+              if (criteria.isEmpty) const EmptyNote('No rubric criteria.', icon: Icons.rule),
+              for (final k in criteria)
+                ListRow(
+                  leading: LetterBadge('${k.criterionNo}', size: 36),
+                  title: '${k.criterionNo}. ${k.name}',
+                  subtitle: '${k.scaleMin} to ${k.scaleMax}',
+                  trailing: [if (editor != null) _deleteMenu(() => _after(editor.deleteCriterion(context, k)))],
+                ),
+            ],
+          );
+          final passageList = ListCard(
+            title: 'Passages (${passages.length})',
+            trailing: editor == null ? null : _addButton(() => _after(editor.addPassage(context, c))),
+            children: [
+              if (passages.isEmpty) const EmptyNote('No passages.', icon: Icons.auto_stories_outlined),
+              for (final p in passages)
+                ListRow(
+                  leading: p.level != null
+                      ? LetterBadge(
+                          'G${p.level}',
+                          background: p.isActive ? null : colors.surfaceContainerHighest,
+                          foreground: p.isActive ? null : colors.onSurfaceVariant,
+                        )
+                      : IconBadge(
+                          Icons.menu_book_outlined,
+                          background: p.isActive ? null : colors.surfaceContainerHighest,
+                          foreground: p.isActive ? null : colors.onSurfaceVariant,
+                        ),
+                  title: p.title,
+                  subtitle: [
+                    if (p.level != null) 'Grade ${p.level}',
+                    if (p.setCode != null) 'Set ${p.setCode}',
+                    ?p.testType,
+                    '${p.wordCount} words',
+                  ].join(' · '),
+                  trailing: [
+                    if (!p.isActive) const StatusChip('inactive', tone: StatusTone.bad),
+                    const Icon(Icons.chevron_right),
+                  ],
+                  onTap: () async {
+                    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => _PassageScreen(passage: p, editor: editor)));
+                    if (mounted) setState(() => _reload++);
+                  },
+                ),
+            ],
+          );
+          return PageBody(
+            maxWidth: 1200,
+            children: [
+              StatGrid(tileWidth: 170, tiles: [
+                StatTile(label: 'Passages', value: '${passages.length}', icon: Icons.auto_stories_outlined),
+                StatTile(label: 'Active passages', value: '${passages.where((p) => p.isActive).length}', icon: Icons.check_circle_outline),
+                StatTile(label: 'Rubric criteria', value: '${criteria.length}', icon: Icons.rule),
+                StatTile(label: 'Total words', value: '${passages.fold<int>(0, (n, p) => n + p.wordCount)}', icon: Icons.notes),
+              ]),
+              _twoColumns([passageList], [rubric]),
             ],
           );
         },
@@ -219,38 +288,111 @@ class _PassageScreenState extends State<_PassageScreen> {
         where: 'PhilIriContent',
         reloadKey: _reload,
         load: (vms) => vms.philIriContent.questions(p.id!),
-        builder: (context, questions, _) => PageBody(
-          children: [
-            SectionCard(
-              title: 'Text',
-              children: [
-                if (p.motivation != null) Text(p.motivation!, style: Theme.of(context).textTheme.bodySmall),
-                SelectableText(p.body),
-                if (!p.wordCountMatches) Text('Note: the text has ${p.words.length} words; the count says ${p.wordCount}.'),
+        builder: (context, questions, _) {
+          final theme = Theme.of(context);
+          final colors = theme.colorScheme;
+          final text = SectionCard(
+            title: 'Text',
+            icon: Icons.menu_book_outlined,
+            trailing: p.isActive ? null : const StatusChip('inactive', tone: StatusTone.bad),
+            children: [
+              if (p.motivation != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: colors.secondaryContainer, borderRadius: BorderRadius.circular(12)),
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Icon(Icons.lightbulb_outline, size: 18, color: colors.onSecondaryContainer),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(p.motivation!,
+                          style: theme.textTheme.bodySmall?.copyWith(color: colors.onSecondaryContainer, fontStyle: FontStyle.italic)),
+                    ),
+                  ]),
+                ),
+                const SizedBox(height: 12),
               ],
-            ),
-            SectionCard(
-              title: 'Questions',
-              trailing: editor == null ? null : IconButton(icon: const Icon(Icons.add), onPressed: () => _after(editor.addQuestion(context, p))),
-              children: [
-                if (questions.isEmpty) const Text('No questions.'),
-                for (final q in questions)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text('${q.questionNo}. ${q.prompt}'),
-                    subtitle: Text([
-                      for (var i = 0; i < q.choices.length; i++) '${String.fromCharCode(97 + i)}. ${q.choices[i]}',
-                      'Answer: ${q.answerKey}${q.questionType == null ? '' : ' · ${q.questionType!.name}'}',
-                    ].join('\n')),
-                    trailing: editor == null
-                        ? null
-                        : IconButton(icon: const Icon(Icons.delete_outline), onPressed: () => _after(editor.deleteQuestion(context, q))),
-                  ),
-              ],
-            ),
-          ],
-        ),
+              SelectableText(p.body, style: theme.textTheme.bodyLarge?.copyWith(height: 1.6)),
+            ],
+          );
+          final questionList = ListCard(
+            title: 'Questions',
+            trailing: editor == null ? null : _addButton(() => _after(editor.addQuestion(context, p))),
+            children: [
+              if (questions.isEmpty) const EmptyNote('No questions.', icon: Icons.quiz_outlined),
+              for (final q in questions)
+                _QuestionRow(question: q, onDelete: editor == null ? null : () => _after(editor.deleteQuestion(context, q))),
+            ],
+          );
+          return PageBody(
+            maxWidth: 1200,
+            children: [
+              StatGrid(tileWidth: 150, tiles: [
+                StatTile(label: 'Words', value: '${p.wordCount}', icon: Icons.notes),
+                StatTile(label: 'Questions', value: '${questions.length}', icon: Icons.quiz_outlined),
+                StatTile(label: 'Grade', value: p.level == null ? '—' : '${p.level}', icon: Icons.school_outlined),
+                StatTile(label: 'Set', value: p.setCode ?? '—', icon: Icons.layers_outlined),
+              ]),
+              if (!p.wordCountMatches)
+                NoticeBanner('Note: the text has ${p.words.length} words; the count says ${p.wordCount}.', icon: Icons.warning_amber_outlined),
+              _twoColumns([text], [questionList]),
+            ],
+          );
+        },
       ),
+    );
+  }
+}
+
+/// A question: number badge, prompt, its choices (the key ticked) and chips.
+class _QuestionRow extends StatelessWidget {
+  final PhilIriQuestion question;
+  final VoidCallback? onDelete;
+  const _QuestionRow({required this.question, this.onDelete});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final q = question;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        LetterBadge('${q.questionNo}', size: 36),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('${q.questionNo}. ${q.prompt}', style: theme.textTheme.titleSmall),
+            const SizedBox(height: 6),
+            for (var i = 0; i < q.choices.length; i++)
+              Builder(builder: (context) {
+                final letter = String.fromCharCode(97 + i);
+                final key = letter == q.answerKey;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Icon(key ? Icons.check_circle : Icons.circle_outlined, size: 16, color: key ? colors.tertiary : colors.outline),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        '$letter. ${q.choices[i]}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: key ? colors.onSurface : colors.onSurfaceVariant,
+                          fontWeight: key ? FontWeight.w600 : null,
+                        ),
+                      ),
+                    ),
+                  ]),
+                );
+              }),
+            const SizedBox(height: 6),
+            Wrap(spacing: 6, runSpacing: 6, children: [
+              StatusChip('Answer: ${q.answerKey}', tone: StatusTone.good),
+              if (q.questionType != null) StatusChip(q.questionType!.name),
+            ]),
+          ]),
+        ),
+        if (onDelete != null) ...[const SizedBox(width: 8), _deleteMenu(onDelete!)],
+      ]),
     );
   }
 }

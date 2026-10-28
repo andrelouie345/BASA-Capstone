@@ -69,57 +69,105 @@ class _CrlaImportScreenState extends State<CrlaImportScreen> {
       appBar: AppBar(title: const Text('Scoresheet import')),
       body: PageBody(
         children: [
-          SectionPicker(
-            value: _section,
-            onChanged: (s) => setState(() => _section = s),
-            where: (s) => const {'1', '2', '3'}.contains(s.gradeLevel),
-          ),
-          BasaDropdown<CrlaRound>(
-            label: 'Round (empty = from the scoresheet)',
-            items: CrlaRound.values,
-            value: _round,
-            allowNone: true,
-            hint: 'From the scoresheet',
-            itemLabel: (r) => r.label,
-            onChanged: (r) => setState(() => _round = r),
-          ),
-          FilePathField(controller: _path, label: 'Filled CRLA2 scoresheet (.xlsx)'),
-          CheckboxListTile(
-            contentPadding: EdgeInsets.zero,
-            value: _again,
-            onChanged: (v) => setState(() => _again = v ?? false),
-            title: const Text('Import again for learners already assessed this round (a new attempt)'),
-          ),
-          Wrap(spacing: 12, runSpacing: 8, children: [
-            OutlinedButton(onPressed: _busy ? null : () => _run(false), child: const Text('Preview')),
-            FilledButton(onPressed: _busy || p == null ? null : () => _run(true), child: const Text('Import')),
-          ]),
-          if (_done != null) SectionCard(title: 'Import done', children: [SelectableText(_done!)]),
-          if (p != null)
-            SectionCard(
-              title: '${p.section} · ${p.round.label}',
-              children: [
-                for (final w in p.warnings) Text('Note: $w'),
-                InfoRow('To import', '${p.count(CrlaImportOutcome.import)}'),
-                InfoRow('Already assessed', '${p.count(CrlaImportOutcome.alreadyAssessed)}'),
-                InfoRow('With problems', '${p.count(CrlaImportOutcome.error)}'),
-                const Divider(),
-                for (final r in p.rows)
-                  ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(switch (r.outcome) {
-                      CrlaImportOutcome.import => Icons.check,
-                      CrlaImportOutcome.alreadyAssessed => Icons.repeat,
-                      CrlaImportOutcome.error => Icons.error_outline,
-                    }),
-                    title: Text('${r.row.sheet} row ${r.row.rowNo}: ${r.row.name ?? '?'} (${r.row.variant})'),
-                    subtitle: r.problems.isEmpty ? null : Text(r.problems.join('; ')),
+          SectionCard(
+            title: 'Scoresheet',
+            icon: Icons.upload_file_outlined,
+            children: [
+              FilterBar(fieldWidth: 280, children: [
+                SectionPicker(
+                  value: _section,
+                  onChanged: (s) => setState(() => _section = s),
+                  where: (s) => const {'1', '2', '3'}.contains(s.gradeLevel),
+                ),
+                BasaDropdown<CrlaRound>(
+                  label: 'Round (empty = from the scoresheet)',
+                  items: CrlaRound.values,
+                  value: _round,
+                  allowNone: true,
+                  hint: 'From the scoresheet',
+                  itemLabel: (r) => r.label,
+                  onChanged: (r) => setState(() => _round = r),
+                ),
+              ]),
+              const SizedBox(height: 12),
+              FilePathField(controller: _path, label: 'Filled CRLA2 scoresheet (.xlsx)'),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _again,
+                onChanged: (v) => setState(() => _again = v ?? false),
+                title: const Text('Import again for learners already assessed this round (a new attempt)'),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Wrap(spacing: 12, runSpacing: 8, children: [
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : () => _run(false),
+                    icon: const Icon(Icons.visibility_outlined),
+                    label: const Text('Preview'),
                   ),
-              ],
+                  FilledButton.icon(
+                    onPressed: _busy || p == null ? null : () => _run(true),
+                    icon: const Icon(Icons.download_done),
+                    label: const Text('Import'),
+                  ),
+                ]),
+              ),
+            ],
+          ),
+          if (_done != null)
+            SectionCard(
+              title: 'Import done',
+              icon: Icons.task_alt,
+              trailing: const StatusChip('Done', tone: StatusTone.good),
+              children: [SelectableText(_done!)],
             ),
+          if (p != null) ...[
+            Text('${p.section} · ${p.round.label}', style: Theme.of(context).textTheme.titleMedium),
+            for (final w in p.warnings) NoticeBanner('Note: $w'),
+            StatGrid(tileWidth: 170, tiles: [
+              StatTile(label: 'To import', value: '${p.count(CrlaImportOutcome.import)}', icon: Icons.check_rounded),
+              StatTile(
+                label: 'Already assessed',
+                value: '${p.count(CrlaImportOutcome.alreadyAssessed)}',
+                icon: Icons.repeat,
+              ),
+              StatTile(label: 'With problems', value: '${p.count(CrlaImportOutcome.error)}', icon: Icons.error_outline),
+            ]),
+            if (p.rows.isNotEmpty)
+              ListCard(children: [
+                for (final r in p.rows) _PreviewRow(row: r),
+              ]),
+          ],
         ],
       ),
+    );
+  }
+}
+
+/// One scoresheet row of the preview: its outcome as a coloured badge and chip.
+class _PreviewRow extends StatelessWidget {
+  final CrlaImportRow row;
+  const _PreviewRow({required this.row});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final r = row;
+    final (icon, tone, label) = switch (r.outcome) {
+      CrlaImportOutcome.import => (Icons.check_rounded, StatusTone.good, 'To import'),
+      CrlaImportOutcome.alreadyAssessed => (Icons.repeat, StatusTone.warn, 'Already assessed'),
+      CrlaImportOutcome.error => (Icons.error_outline, StatusTone.bad, 'Problem'),
+    };
+    final accent = switch (tone) {
+      StatusTone.good => colors.tertiary,
+      StatusTone.warn => colors.secondary,
+      _ => colors.error,
+    };
+    return ListRow(
+      leading: IconBadge(icon, size: 36, background: accent.withValues(alpha: 0.14), foreground: accent),
+      title: '${r.row.sheet} row ${r.row.rowNo}: ${r.row.name ?? '?'} (${r.row.variant})',
+      subtitle: r.problems.isEmpty ? null : r.problems.join('; '),
+      footer: StatusChip(label, tone: tone),
     );
   }
 }

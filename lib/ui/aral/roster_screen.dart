@@ -57,33 +57,37 @@ class _AralRosterScreenState extends State<AralRosterScreen> {
       _View.school => schoolId != null && _year != null,
       _View.mine => _year != null,
     };
+    final canEnroll = canEdit && _view == _View.section && _section != null;
+    final wide = isWideScreen(context);
+    void enroll() => _after(editor!.sectionActions(context, _section!));
     return Scaffold(
       appBar: AppBar(
         title: const Text('ARAL roster'),
         actions: [
-          if (canEdit && _view == _View.section && _section != null)
-            IconButton(
-              tooltip: 'Enroll and update',
-              icon: const Icon(Icons.group_add_outlined),
-              onPressed: () => _after(editor.sectionActions(context, _section!)),
-            ),
+          if (canEnroll && wide) mainActionButton(onPressed: enroll, icon: Icons.group_add_outlined, label: 'Enroll and update'),
         ],
       ),
+      floatingActionButton:
+          canEnroll && !wide ? mainActionFab(onPressed: enroll, icon: Icons.group_add_outlined, label: 'Enroll and update') : null,
       body: PageBody(
         children: [
-          SegmentedButton<_View>(
-            segments: [
-              const ButtonSegment(value: _View.section, label: Text('Section')),
-              if (schoolId != null) const ButtonSegment(value: _View.school, label: Text('School')),
-              if (tutor) const ButtonSegment(value: _View.mine, label: Text('My classes')),
-            ],
-            selected: {_view},
-            onSelectionChanged: (s) => setState(() => _view = s.first),
-          ),
-          if (_view == _View.section)
-            SectionPicker(value: _section, onChanged: (s) => setState(() => _section = s))
-          else
-            SchoolYearPicker(value: _year, onChanged: (y) => setState(() => _year = y)),
+          FilterBar(children: [
+            SegmentedButton<_View>(
+              segments: [
+                const ButtonSegment(value: _View.section, label: Text('Section')),
+                if (schoolId != null) const ButtonSegment(value: _View.school, label: Text('School')),
+                if (tutor) const ButtonSegment(value: _View.mine, label: Text('My classes')),
+              ],
+              selected: {_view},
+              onSelectionChanged: (s) => setState(() => _view = s.first),
+            ),
+            if (_view == _View.section)
+              SectionPicker(value: _section, onChanged: (s) => setState(() => _section = s))
+            else
+              SchoolYearPicker(value: _year, onChanged: (y) => setState(() => _year = y)),
+          ]),
+          if (!ready && _view == _View.section)
+            const EmptyNote('Pick a section to see its ARAL learners.', icon: Icons.groups_outlined),
           if (ready)
             LoadView<(List<AralEnrollment>, Map<int, String>, Map<int, String>)>(
               where: 'AralRoster',
@@ -101,32 +105,57 @@ class _AralRosterScreenState extends State<AralRosterScreen> {
               },
               builder: (context, data, reload) {
                 final (list, names, classes) = data;
-                if (list.isEmpty) return const EmptyNote('No ARAL learners here yet.');
+                if (list.isEmpty) {
+                  return EmptyNote(
+                    'No ARAL learners here yet.${canEnroll ? ' Add some with Enroll and update.' : ''}',
+                    icon: Icons.groups_outlined,
+                  );
+                }
                 final active = list.where((e) => e.status == AralStatus.active).length;
-                return SectionCard(
-                  title: '$active active · ${list.length - active} exited',
+                bool referred(AralEnrollment e) => e.basisSource == AralBasisSource.manual && e.referredBy != null;
+                bool waiting(AralEnrollment e) => e.classId == null && e.status == AralStatus.active;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    for (final e in list)
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(names[e.studentId] ?? 'Learner #${e.studentId}'),
-                        subtitle: Text([
-                          aralProgramLabel(e),
-                          e.classId == null ? 'waiting for a class' : (classes[e.classId] ?? 'class #${e.classId}'),
-                          aralStatusLabel(e),
-                          if (e.basisSource == AralBasisSource.manual && e.referredBy != null) 'referred',
-                        ].join(' · ')),
-                        trailing: canEdit
-                            ? IconButton(
-                                tooltip: 'Change',
-                                icon: const Icon(Icons.more_vert),
-                                onPressed: () => _after(editor.enrollmentActions(context, e)),
-                              )
-                            : const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                          builder: (_) => LearnerAralScreen(enrollmentId: e.id!, name: names[e.studentId] ?? 'Learner'),
-                        )),
-                      ),
+                    StatGrid(tileWidth: 180, tiles: [
+                      StatTile(label: 'Active', value: '$active', icon: Icons.how_to_reg_outlined),
+                      StatTile(label: 'Exited', value: '${list.length - active}', icon: Icons.logout),
+                      StatTile(label: 'Waiting for a class', value: '${list.where(waiting).length}', icon: Icons.hourglass_empty),
+                      StatTile(label: 'Referred', value: '${list.where(referred).length}', icon: Icons.forward_to_inbox_outlined),
+                    ]),
+                    const SizedBox(height: 16),
+                    ListCard(
+                      title: '$active active · ${list.length - active} exited',
+                      children: [
+                        for (final e in list)
+                          ListRow(
+                            leading: LetterBadge(initialOf(names[e.studentId] ?? '')),
+                            title: names[e.studentId] ?? 'Learner #${e.studentId}',
+                            subtitle: [
+                              aralProgramLabel(e),
+                              e.classId == null ? 'waiting for a class' : (classes[e.classId] ?? 'class #${e.classId}'),
+                            ].join(' · '),
+                            footer: Wrap(spacing: 8, runSpacing: 6, children: [
+                              aralStatusChip(e),
+                              if (waiting(e)) const StatusChip('waiting', tone: StatusTone.warn, icon: Icons.hourglass_empty),
+                              if (referred(e)) const StatusChip('referred', icon: Icons.forward_to_inbox_outlined),
+                            ]),
+                            trailing: [
+                              canEdit
+                                  ? IconButton(
+                                      tooltip: 'Change',
+                                      icon: const Icon(Icons.more_vert),
+                                      onPressed: () => _after(editor.enrollmentActions(context, e)),
+                                    )
+                                  : const Icon(Icons.chevron_right),
+                            ],
+                            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                              builder: (_) => LearnerAralScreen(enrollmentId: e.id!, name: names[e.studentId] ?? 'Learner'),
+                            )),
+                          ),
+                      ],
+                    ),
+                    if (canEnroll && !wide) const SizedBox(height: 72),
                   ],
                 );
               },

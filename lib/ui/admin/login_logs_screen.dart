@@ -35,32 +35,41 @@ class _LoginLogsScreenState extends State<LoginLogsScreen> {
         builder: (context, data, _) {
           final (items, cloudError) = data;
           final colors = Theme.of(context).colorScheme;
+          final ok = items.where((s) => s.log.success).length;
           return PageBody(
             children: [
               if (cloudError != null)
-                Card(
-                  color: colors.secondaryContainer,
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Text('The server\'s log could not be read; showing this device\'s only.',
-                        style: TextStyle(color: colors.onSecondaryContainer)),
-                  ),
+                const NoticeBanner(
+                  'The server\'s log could not be read; showing this device\'s only.',
+                  icon: Icons.cloud_off_outlined,
                 ),
-              if (items.isEmpty) const EmptyNote('No sign-in attempts recorded.'),
-              for (final s in items)
-                Card(
-                  child: ListTile(
-                    leading: Icon(s.log.success ? Icons.check_circle_outline : Icons.cancel_outlined,
-                        color: s.log.success ? colors.tertiary : colors.error),
-                    title: Text(s.log.emailAttempted),
-                    subtitle: Text([
-                      '${isoDate(s.log.timestamp.toLocal())} ${_time(s.log.timestamp.toLocal())}',
-                      s.log.method.name,
-                      if (!s.log.success) s.log.failureReason ?? 'failed',
-                    ].join(' · ')),
-                    trailing: Text(s.sourceLabel, style: Theme.of(context).textTheme.labelSmall),
-                  ),
+              if (items.isEmpty) const EmptyNote('No sign-in attempts recorded.', icon: Icons.login),
+              if (items.isNotEmpty) ...[
+                StatGrid(tileWidth: 170, tiles: [
+                  StatTile(label: 'Attempts', value: '${items.length}', icon: Icons.login),
+                  StatTile(label: 'Successful', value: '$ok', icon: Icons.check_circle_outline),
+                  StatTile(label: 'Failed', value: '${items.length - ok}', icon: Icons.cancel_outlined),
+                ]),
+                ListCard(
+                  children: [
+                    for (final s in items)
+                      ListRow(
+                        leading: IconBadge(
+                          s.log.success ? Icons.check_rounded : Icons.close_rounded,
+                          background: (s.log.success ? colors.tertiary : colors.error).withValues(alpha: 0.14),
+                          foreground: s.log.success ? colors.tertiary : colors.error,
+                        ),
+                        title: s.log.emailAttempted,
+                        subtitle: [
+                          '${isoDate(s.log.timestamp.toLocal())} ${_time(s.log.timestamp.toLocal())}',
+                          s.log.method.name,
+                          if (!s.log.success) s.log.failureReason ?? 'failed',
+                        ].join(' · '),
+                        trailing: [StatusChip(s.sourceLabel)],
+                      ),
+                  ],
                 ),
+              ],
             ],
           );
         },

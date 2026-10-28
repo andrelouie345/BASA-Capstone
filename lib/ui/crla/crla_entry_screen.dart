@@ -115,49 +115,139 @@ class _CrlaEntryScreenState extends State<CrlaEntryScreen> {
           final (a, r) = data;
           if (a == null) return const EmptyNote('This attempt is not on this device.');
           String v(Object? x) => x == null ? '—' : '$x';
-          return PageBody(
-            maxWidth: 720,
+          final theme = Theme.of(context);
+          final profile = r?.readingProfile ?? a.readingProfile;
+          final part1Done = r?.part1TotalScore != null;
+          final part2Done = r?.storyNo != null;
+          Widget doneChip(bool done) =>
+              StatusChip(done ? 'Done' : 'To do', tone: done ? StatusTone.good : StatusTone.warn);
+          Widget enter(VoidCallback onPressed, bool done) => OutlinedButton(
+            onPressed: onPressed,
+            style: OutlinedButton.styleFrom(minimumSize: const Size(0, 36)),
+            child: Text(done ? 'Change' : 'Enter'),
+          );
+          final part1 = SectionCard(
+            title: 'Part 1',
+            icon: Icons.abc,
+            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+              doneChip(part1Done),
+              const SizedBox(width: 8),
+              enter(() => _part1(a), part1Done),
+            ]),
             children: [
-              SectionCard(
-                title: '${a.round.label} · ${crlaVariantLabel(a.subjectVariant)} (${a.language})',
-                children: [
-                  InfoRow('Attempt', v(a.attemptNo)),
-                  InfoRow('Assessed', a.assessedAt),
-                  if (a.administeredBy != null) InfoRow('By', a.administeredBy!),
-                ],
-              ),
-              SectionCard(
-                title: 'Part 1',
-                trailing: TextButton(onPressed: () => _part1(a), child: Text(r?.part1TotalScore == null ? 'Enter' : 'Change')),
-                children: [
-                  InfoRow('Total score', v(r?.part1TotalScore)),
-                  InfoRow('Reading level', v(r?.part1ReadingLevel)),
-                ],
-              ),
-              SectionCard(
-                title: 'Part 2',
-                trailing: TextButton(onPressed: () => _part2(a, r), child: Text(r?.storyNo == null ? 'Enter' : 'Change')),
-                children: [
-                  InfoRow('Story', v(r?.storyNo)),
-                  InfoRow('Words read', v(r?.wordsRead)),
-                  InfoRow('Miscues', v(r?.miscues)),
-                  InfoRow('Words per minute', r?.wpm == null ? '—' : r!.wpm!.toStringAsFixed(1)),
-                  InfoRow('Correct words', r?.pctCorrectWordsRead == null ? '—' : '${r!.pctCorrectWordsRead!.toStringAsFixed(1)}%'),
-                  InfoRow('Comprehension', v(r?.comprehensionCorrect)),
-                ],
-              ),
-              Card(
-                color: Theme.of(context).colorScheme.primaryContainer,
-                child: ListTile(
-                  leading: const Icon(Icons.auto_graph),
-                  title: const Text('Reading profile'),
-                  subtitle: Text(r?.readingProfile ?? a.readingProfile ?? 'Not yet: enter Part 1 and Part 2.'),
+              InfoRow('Total score', v(r?.part1TotalScore)),
+              InfoRow('Reading level', v(r?.part1ReadingLevel)),
+            ],
+          );
+          final part2 = SectionCard(
+            title: 'Part 2',
+            icon: Icons.menu_book_outlined,
+            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+              doneChip(part2Done),
+              const SizedBox(width: 8),
+              enter(() => _part2(a, r), part2Done),
+            ]),
+            children: [
+              StatGrid(tileWidth: 140, tiles: [
+                StatTile(label: 'Words per minute', value: r?.wpm == null ? '—' : r!.wpm!.toStringAsFixed(1)),
+                StatTile(
+                  label: 'Correct words',
+                  value: r?.pctCorrectWordsRead == null ? '—' : '${r!.pctCorrectWordsRead!.toStringAsFixed(1)}%',
                 ),
+                StatTile(label: 'Comprehension', value: v(r?.comprehensionCorrect)),
+                StatTile(label: 'Miscues', value: v(r?.miscues)),
+              ]),
+              const SizedBox(height: 8),
+              InfoRow('Story', v(r?.storyNo)),
+              InfoRow('Words read', v(r?.wordsRead)),
+            ],
+          );
+          return PageBody(
+            maxWidth: 1100,
+            children: [
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Row(children: [
+                    const IconBadge(Icons.record_voice_over_outlined, size: 48),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(
+                          '${a.round.label} · ${crlaVariantLabel(a.subjectVariant)} (${a.language})',
+                          style: theme.textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(spacing: 6, runSpacing: 6, children: [
+                          StatusChip('Attempt ${v(a.attemptNo)}', icon: Icons.replay),
+                          StatusChip(a.assessedAt, icon: Icons.event_outlined),
+                          if (a.administeredBy != null) StatusChip(a.administeredBy!, icon: Icons.person_outline),
+                        ]),
+                      ]),
+                    ),
+                  ]),
+                ),
+              ),
+              _ProfileCard(profile: profile),
+              LayoutBuilder(
+                builder: (context, c) => c.maxWidth >= 1000
+                    ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Expanded(child: part1),
+                        const SizedBox(width: 12),
+                        Expanded(child: part2),
+                      ])
+                    : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                        part1,
+                        const SizedBox(height: 12),
+                        part2,
+                      ]),
               ),
             ],
           );
         },
       ),
+    );
+  }
+}
+
+/// The attempt's reading profile, tinted by how it reads (crlaProfileTone).
+class _ProfileCard extends StatelessWidget {
+  final String? profile;
+  const _ProfileCard({required this.profile});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final accent = switch (crlaProfileTone(profile)) {
+      StatusTone.good => colors.tertiary,
+      StatusTone.warn => colors.secondary,
+      StatusTone.bad => colors.error,
+      StatusTone.neutral => colors.primary,
+    };
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        color: Color.alphaBlend(accent.withValues(alpha: 0.10), colors.surfaceContainerLowest),
+        border: Border.all(color: accent.withValues(alpha: 0.35)),
+      ),
+      child: Row(children: [
+        IconBadge(Icons.auto_graph, size: 48, background: accent.withValues(alpha: 0.16), foreground: accent),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Reading profile', style: theme.textTheme.labelLarge?.copyWith(color: colors.onSurfaceVariant)),
+            const SizedBox(height: 2),
+            Text(
+              profile ?? 'Not yet: enter Part 1 and Part 2.',
+              style: profile == null
+                  ? theme.textTheme.bodyLarge?.copyWith(color: colors.onSurfaceVariant)
+                  : theme.textTheme.titleLarge?.copyWith(color: accent),
+            ),
+          ]),
+        ),
+      ]),
     );
   }
 }

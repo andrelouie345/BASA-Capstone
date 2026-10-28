@@ -77,9 +77,15 @@ class _LoadViewState<T> extends State<LoadView<T>> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()));
-    if (_error != null) return ErrorMessage(message: _error!, onRetry: _load, fill: true);
-    return widget.builder(context, _data as T, _load);
+    final Widget child;
+    if (_loading) {
+      child = const LoadingNote(key: ValueKey('loading'));
+    } else if (_error != null) {
+      child = ErrorMessage(key: const ValueKey('error'), message: _error!, onRetry: _load, fill: true);
+    } else {
+      child = KeyedSubtree(key: const ValueKey('data'), child: widget.builder(context, _data as T, _load));
+    }
+    return AnimatedSwitcher(duration: const Duration(milliseconds: 180), child: child);
   }
 }
 
@@ -273,51 +279,421 @@ class InfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 160,
-            child: Text(label, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+    final labelStyle = theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant);
+    final valueStyle = theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500);
+    return LayoutBuilder(
+      builder: (context, c) {
+        // Narrow (a phone card): the label above its value.
+        if (c.maxWidth < 360) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 5),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                const SizedBox(height: 2),
+                SelectableText(value, style: valueStyle),
+              ],
+            ),
+          );
+        }
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 5),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(width: 170, child: Text(label, style: labelStyle)),
+              const SizedBox(width: 8),
+              Expanded(child: SelectableText(value, style: valueStyle)),
+            ],
           ),
-          Expanded(child: SelectableText(value, style: theme.textTheme.bodyMedium)),
-        ],
-      ),
+        );
+      },
     );
   }
 }
 
-/// A titled card around [children].
+/// A rounded, tinted square holding an icon: the leading mark of cards and tiles.
+class IconBadge extends StatelessWidget {
+  final IconData icon;
+  final double size;
+
+  /// Background and icon colour; primaryContainer / onPrimaryContainer when null.
+  final Color? background;
+  final Color? foreground;
+
+  const IconBadge(this.icon, {super.key, this.size = 40, this.background, this.foreground});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: background ?? colors.primaryContainer,
+        borderRadius: BorderRadius.circular(size * 0.3),
+      ),
+      child: Icon(icon, size: size * 0.52, color: foreground ?? colors.onPrimaryContainer),
+    );
+  }
+}
+
+/// A titled card around [children], with an optional leading [icon].
 class SectionCard extends StatelessWidget {
   final String title;
   final List<Widget> children;
   final Widget? trailing;
-  const SectionCard({super.key, required this.title, required this.children, this.trailing});
+  final IconData? icon;
+  const SectionCard({super.key, required this.title, required this.children, this.trailing, this.icon});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Card(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
               children: [
+                if (icon != null) ...[IconBadge(icon!, size: 34), const SizedBox(width: 12)],
                 Expanded(child: Text(title, style: theme.textTheme.titleMedium)),
                 ?trailing,
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             ...children,
           ],
         ),
       ),
     );
   }
+}
+
+/// A big figure with its label, for summaries.
+class StatTile extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData? icon;
+  const StatTile({super.key, required this.label, required this.value, this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            if (icon != null) ...[IconBadge(icon!, size: 42), const SizedBox(width: 14)],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    value,
+                    style: theme.textTheme.headlineSmall?.copyWith(color: colors.onSurface, height: 1.1),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    label,
+                    style: theme.textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// [StatTile]s in as many columns as fit (about [tileWidth] px each).
+class StatGrid extends StatelessWidget {
+  final List<StatTile> tiles;
+  final double tileWidth;
+  const StatGrid({super.key, required this.tiles, this.tileWidth = 220});
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, c) {
+      const gap = 12.0;
+      final columns = (c.maxWidth / tileWidth).floor().clamp(1, 6);
+      final w = (c.maxWidth - gap * (columns - 1)) / columns;
+      return Wrap(
+        spacing: gap,
+        runSpacing: gap,
+        children: [for (final t in tiles) SizedBox(width: w, child: t)],
+      );
+    },
+  );
+}
+
+/// What a [StatusChip] says about its item.
+enum StatusTone { neutral, good, warn, bad }
+
+/// A small rounded label for an item's state (active, failed, passed, ...),
+/// coloured from the scheme: good = tertiary, warn = secondary, bad = error.
+class StatusChip extends StatelessWidget {
+  final String label;
+  final StatusTone tone;
+  final IconData? icon;
+  const StatusChip(this.label, {super.key, this.tone = StatusTone.neutral, this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final fg = switch (tone) {
+      StatusTone.neutral => colors.onSurfaceVariant,
+      StatusTone.good => colors.tertiary,
+      StatusTone.warn => colors.secondary,
+      StatusTone.bad => colors.error,
+    };
+    final bg = tone == StatusTone.neutral ? colors.surfaceContainerHigh : fg.withValues(alpha: 0.12);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[Icon(icon, size: 14, color: fg), const SizedBox(width: 4)],
+          Text(label, style: theme.textTheme.labelSmall?.copyWith(color: fg, fontWeight: FontWeight.w700)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Pickers and search fields in one light panel: side by side when there is
+/// room (each about [fieldWidth] px), stacked on phones.
+class FilterBar extends StatelessWidget {
+  final List<Widget> children;
+  final double fieldWidth;
+  const FilterBar({super.key, required this.children, this.fieldWidth = 300});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: LayoutBuilder(
+        builder: (context, c) {
+          const gap = 12.0;
+          final columns = (c.maxWidth / fieldWidth).floor().clamp(1, children.isEmpty ? 1 : children.length);
+          final w = (c.maxWidth - gap * (columns - 1)) / columns;
+          return Wrap(
+            spacing: gap,
+            runSpacing: gap,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [for (final f in children) SizedBox(width: w, child: f)],
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Rows of one list in one card, with dividers between them.
+class ListCard extends StatelessWidget {
+  final List<Widget> children;
+
+  /// Shown above the rows, with an optional [trailing] (a count chip, a button).
+  final String? title;
+  final Widget? trailing;
+  const ListCard({super.key, required this.children, this.title, this.trailing});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (title != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 14, 14, 6),
+              child: Row(children: [
+                Expanded(child: Text(title!, style: theme.textTheme.titleMedium)),
+                ?trailing,
+              ]),
+            ),
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0) const Divider(indent: 72),
+            children[i],
+          ],
+          if (children.isNotEmpty) const SizedBox(height: 4),
+        ],
+      ),
+    );
+  }
+}
+
+/// A list row: leading badge, bold title, muted subtitle, trailing widgets.
+class ListRow extends StatelessWidget {
+  final Widget leading;
+  final String title;
+  final String? subtitle;
+  final List<Widget> trailing;
+  final VoidCallback? onTap;
+
+  /// Under the subtitle (chips that are too long for the right side).
+  final Widget? footer;
+  const ListRow({
+    super.key,
+    required this.leading,
+    required this.title,
+    this.subtitle,
+    this.trailing = const [],
+    this.onTap,
+    this.footer,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+        child: Row(
+          children: [
+            leading,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: theme.textTheme.titleSmall, maxLines: 2, overflow: TextOverflow.ellipsis),
+                  if (subtitle != null && subtitle!.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle!,
+                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                  if (footer != null) ...[const SizedBox(height: 6), footer!],
+                ],
+              ),
+            ),
+            for (final t in trailing) ...[const SizedBox(width: 8), t],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A notice inside the page (a warning, a note), tinted by [tone].
+class NoticeBanner extends StatelessWidget {
+  final String text;
+  final IconData icon;
+  final StatusTone tone;
+  const NoticeBanner(this.text, {super.key, this.icon = Icons.info_outline, this.tone = StatusTone.warn});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final (bg, fg) = switch (tone) {
+      StatusTone.bad => (colors.errorContainer, colors.onErrorContainer),
+      StatusTone.good => (colors.tertiary.withValues(alpha: 0.12), colors.onSurface),
+      StatusTone.warn => (colors.secondaryContainer, colors.onSecondaryContainer),
+      StatusTone.neutral => (colors.surfaceContainerHigh, colors.onSurface),
+    };
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14)),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(icon, size: 20, color: fg),
+        const SizedBox(width: 10),
+        Expanded(child: Text(text, style: TextStyle(color: fg))),
+      ]),
+    );
+  }
+}
+
+/// At least this wide: the main action sits in the app bar, not a floating button.
+const wideActionWidth = 600.0;
+
+/// Whether the screen is wide enough for the main action in the app bar.
+bool isWideScreen(BuildContext context) => MediaQuery.sizeOf(context).width >= wideActionWidth;
+
+/// The main action as an app-bar button (wide screens); pair with [mainActionFab].
+Widget mainActionButton({required VoidCallback onPressed, required IconData icon, required String label}) => Padding(
+  padding: const EdgeInsets.symmetric(horizontal: 8),
+  child: FilledButton.icon(
+    onPressed: onPressed,
+    icon: Icon(icon),
+    label: Text(label),
+    style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
+  ),
+);
+
+/// The main action as a floating button (phones).
+Widget mainActionFab({required VoidCallback onPressed, required IconData icon, required String label}) =>
+    FloatingActionButton.extended(onPressed: onPressed, icon: Icon(icon), label: Text(label));
+
+/// The first letter of [s], upper case, or "?".
+String initialOf(String s) => s.trim().isEmpty ? '?' : s.trim()[0].toUpperCase();
+
+/// A badge with a letter or a short number instead of an icon.
+class LetterBadge extends StatelessWidget {
+  final String text;
+  final double size;
+  final Color? background;
+  final Color? foreground;
+  const LetterBadge(this.text, {super.key, this.size = 40, this.background, this.foreground});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: background ?? colors.primaryContainer,
+        borderRadius: BorderRadius.circular(size * 0.3),
+      ),
+      child: Text(
+        text,
+        style: theme.textTheme.titleMedium?.copyWith(
+          color: foreground ?? colors.onPrimaryContainer,
+          fontSize: size * 0.42,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+/// The spinner a loading body shows.
+class LoadingNote extends StatelessWidget {
+  const LoadingNote({super.key});
+
+  @override
+  Widget build(BuildContext context) => const Center(
+    child: Padding(
+      padding: EdgeInsets.all(32),
+      child: SizedBox(width: 32, height: 32, child: CircularProgressIndicator(strokeWidth: 3)),
+    ),
+  );
 }
 
 /// Centered text for an empty list.
@@ -328,16 +704,29 @@ class EmptyNote extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 40, color: colors.onSurfaceVariant),
-            const SizedBox(height: 12),
-            Text(text, textAlign: TextAlign.center, style: TextStyle(color: colors.onSurfaceVariant)),
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(color: colors.surfaceContainerHigh, shape: BoxShape.circle),
+              child: Icon(icon, size: 34, color: colors.onSurfaceVariant),
+            ),
+            const SizedBox(height: 16),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 360),
+              child: Text(
+                text,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
+              ),
+            ),
           ],
         ),
       ),

@@ -38,15 +38,14 @@ class _SchoolsScreenState extends State<SchoolsScreen> {
   Widget build(BuildContext context) {
     final editor = widget.editor;
     final canEdit = editor != null && editor.canEdit(context);
+    final wide = isWideScreen(context);
+    void add() => _after(editor!.add(context));
     return Scaffold(
-      appBar: AppBar(title: const Text('Schools')),
-      floatingActionButton: canEdit
-          ? FloatingActionButton.extended(
-              onPressed: () => _after(editor.add(context)),
-              icon: const Icon(Icons.add),
-              label: const Text('Add school'),
-            )
-          : null,
+      appBar: AppBar(
+        title: const Text('Schools'),
+        actions: [if (canEdit && wide) mainActionButton(onPressed: add, icon: Icons.add, label: 'Add school')],
+      ),
+      floatingActionButton: canEdit && !wide ? mainActionFab(onPressed: add, icon: Icons.add, label: 'Add school') : null,
       body: LoadView<List<School>>(
         where: 'SchoolsScreen',
         reloadKey: _reload,
@@ -56,28 +55,42 @@ class _SchoolsScreenState extends State<SchoolsScreen> {
         },
         builder: (context, items, _) => PageBody(
           children: [
-            if (items.isEmpty) const EmptyNote('No schools to show.'),
-            for (final s in items)
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.school_outlined),
-                  title: Text(s.schoolName),
-                  subtitle: Text([
-                    'School ID ${s.schoolId}',
-                    if (s.regionId != null) Region.byId(s.regionId!)?.name ?? 'Region ${s.regionId}',
-                    ?s.division,
-                  ].join(' · ')),
-                  trailing: canEdit
-                      ? PopupMenuButton<String>(
-                          onSelected: (v) => _after(v == 'edit' ? editor.edit(context, s) : editor.delete(context, s)),
-                          itemBuilder: (_) => const [
-                            PopupMenuItem(value: 'edit', child: Text('Edit')),
-                            PopupMenuItem(value: 'delete', child: Text('Delete')),
-                          ],
-                        )
-                      : null,
+            if (items.isEmpty) const EmptyNote('No schools to show.', icon: Icons.school_outlined),
+            if (items.isNotEmpty) ...[
+              StatGrid(tileWidth: 180, tiles: [
+                StatTile(label: 'Schools', value: '${items.length}', icon: Icons.school_outlined),
+                StatTile(
+                  label: 'Regions',
+                  value: '${items.map((s) => s.regionId).whereType<int>().toSet().length}',
+                  icon: Icons.map_outlined,
                 ),
+              ]),
+              ListCard(
+                children: [
+                  for (final s in items)
+                    ListRow(
+                      leading: const IconBadge(Icons.school_outlined),
+                      title: s.schoolName,
+                      subtitle: [
+                        'School ID ${s.schoolId}',
+                        if (s.regionId != null) Region.byId(s.regionId!)?.name ?? 'Region ${s.regionId}',
+                        ?s.division,
+                      ].join(' · '),
+                      trailing: [
+                        if (canEdit)
+                          PopupMenuButton<String>(
+                            onSelected: (v) => _after(v == 'edit' ? editor.edit(context, s) : editor.delete(context, s)),
+                            itemBuilder: (_) => const [
+                              PopupMenuItem(value: 'edit', child: Text('Edit')),
+                              PopupMenuItem(value: 'delete', child: Text('Delete')),
+                            ],
+                          ),
+                      ],
+                    ),
+                ],
               ),
+            ],
+            if (canEdit && !wide) const SizedBox(height: 72),
           ],
         ),
       ),

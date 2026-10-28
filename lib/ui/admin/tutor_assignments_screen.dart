@@ -56,39 +56,46 @@ class _TutorAssignmentsScreenState extends State<TutorAssignmentsScreen> {
   Widget build(BuildContext context) {
     final admin = AdminScope.of(context);
     final ready = _byTutor ? _tutor != null : _section != null;
+    final wide = isWideScreen(context);
+    final actionLabel = _byTutor ? 'Assign a section' : 'Assign a tutor';
     return Scaffold(
-      appBar: AppBar(title: const Text('Tutor assignments')),
-      floatingActionButton: ready
-          ? FloatingActionButton.extended(
-              onPressed: _assign,
-              icon: const Icon(Icons.add_link),
-              label: Text(_byTutor ? 'Assign a section' : 'Assign a tutor'),
-            )
-          : null,
+      appBar: AppBar(
+        title: const Text('Tutor assignments'),
+        actions: [if (ready && wide) mainActionButton(onPressed: _assign, icon: Icons.add_link, label: actionLabel)],
+      ),
+      floatingActionButton:
+          ready && !wide ? mainActionFab(onPressed: _assign, icon: Icons.add_link, label: actionLabel) : null,
       body: PageBody(
         children: [
-          SegmentedButton<bool>(
-            segments: const [
-              ButtonSegment(value: true, label: Text('By tutor'), icon: Icon(Icons.person)),
-              ButtonSegment(value: false, label: Text('By section'), icon: Icon(Icons.class_)),
-            ],
-            selected: {_byTutor},
-            onSelectionChanged: (s) => setState(() => _byTutor = s.first),
-          ),
-          if (_byTutor)
-            AsyncPicker<User>(
-              label: 'Tutor',
-              load: (_) async {
-                await admin.users.loadAll();
-                return admin.users.items.where((u) => u.role == UserRole.tutor).toList();
-              },
-              value: _tutor,
-              same: (a, b) => a.id == b.id,
-              itemLabel: (u) => u.fullName.isEmpty ? u.email : '${u.fullName} (${u.email})',
-              onChanged: (u) => setState(() => _tutor = u),
-            )
-          else
-            SectionPicker(value: _section, onChanged: (s) => setState(() => _section = s)),
+          FilterBar(children: [
+            SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(value: true, label: Text('By tutor'), icon: Icon(Icons.person)),
+                ButtonSegment(value: false, label: Text('By section'), icon: Icon(Icons.class_)),
+              ],
+              selected: {_byTutor},
+              onSelectionChanged: (s) => setState(() => _byTutor = s.first),
+            ),
+            if (_byTutor)
+              AsyncPicker<User>(
+                label: 'Tutor',
+                load: (_) async {
+                  await admin.users.loadAll();
+                  return admin.users.items.where((u) => u.role == UserRole.tutor).toList();
+                },
+                value: _tutor,
+                same: (a, b) => a.id == b.id,
+                itemLabel: (u) => u.fullName.isEmpty ? u.email : '${u.fullName} (${u.email})',
+                onChanged: (u) => setState(() => _tutor = u),
+              )
+            else
+              SectionPicker(value: _section, onChanged: (s) => setState(() => _section = s)),
+          ]),
+          if (!ready)
+            EmptyNote(
+              _byTutor ? 'Pick a tutor to see their sections.' : 'Pick a section to see its tutors.',
+              icon: _byTutor ? Icons.person_search_outlined : Icons.class_outlined,
+            ),
           if (ready)
             LoadView<List<TutorSectionAssignment>>(
               where: 'TutorAssignments',
@@ -101,32 +108,37 @@ class _TutorAssignmentsScreenState extends State<TutorAssignmentsScreen> {
                 }
                 return List.of(admin.tutorSections.items);
               },
-              builder: (context, items, reload) => SectionCard(
-                title: _byTutor ? 'Sections' : 'Tutors',
-                children: items.isEmpty
-                    ? [const Text('No assignments yet.')]
-                    : [
+              builder: (context, items, reload) => items.isEmpty
+                  ? const EmptyNote('No assignments yet.', icon: Icons.link_off)
+                  : ListCard(
+                      title: _byTutor ? 'Sections' : 'Tutors',
+                      trailing: StatusChip('${items.length}'),
+                      children: [
                         for (final a in items)
-                          ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(_byTutor
+                          ListRow(
+                            leading: _byTutor
+                                ? const IconBadge(Icons.class_outlined)
+                                : LetterBadge(initialOf(a.tutorFullName ?? a.tutorEmail ?? a.tutorId)),
+                            title: _byTutor
                                 ? (a.section?.toString() ?? 'Section #${a.sectionId}')
-                                : (a.tutorFullName ?? a.tutorEmail ?? a.tutorId)),
-                            subtitle: _byTutor ? null : Text(a.tutorEmail ?? ''),
-                            trailing: IconButton(
-                              tooltip: 'Remove',
-                              icon: const Icon(Icons.link_off),
-                              onPressed: () async {
-                                if (!await confirm(context, title: 'Remove this assignment?', action: 'Remove')) return;
-                                if (!context.mounted) return;
-                                await runAction(context, () => admin.tutorSections.unassign(a.id!),
-                                    done: 'Removed.', where: 'TutorAssignments');
-                                reload();
-                              },
-                            ),
+                                : (a.tutorFullName ?? a.tutorEmail ?? a.tutorId),
+                            subtitle: _byTutor ? null : a.tutorEmail,
+                            trailing: [
+                              IconButton(
+                                tooltip: 'Remove',
+                                icon: const Icon(Icons.link_off),
+                                onPressed: () async {
+                                  if (!await confirm(context, title: 'Remove this assignment?', action: 'Remove')) return;
+                                  if (!context.mounted) return;
+                                  await runAction(context, () => admin.tutorSections.unassign(a.id!),
+                                      done: 'Removed.', where: 'TutorAssignments');
+                                  reload();
+                                },
+                              ),
+                            ],
                           ),
                       ],
-              ),
+                    ),
             ),
         ],
       ),

@@ -45,12 +45,16 @@ class _LearnersScreenState extends State<LearnersScreen> {
       ),
       body: PageBody(
         children: [
-          SectionPicker(value: _section, onChanged: (s) => setState(() => _section = s)),
-          if (_section != null) ...[
-            TextField(
-              decoration: const InputDecoration(prefixIcon: Icon(Icons.search), labelText: 'Search name or LRN'),
-              onChanged: (v) => setState(() => _filter = v.toLowerCase()),
-            ),
+          FilterBar(children: [
+            SectionPicker(value: _section, onChanged: (s) => setState(() => _section = s)),
+            if (_section != null)
+              TextField(
+                decoration: const InputDecoration(prefixIcon: Icon(Icons.search), labelText: 'Search name or LRN'),
+                onChanged: (v) => setState(() => _filter = v.toLowerCase()),
+              ),
+          ]),
+          if (_section == null) const EmptyNote('Pick a section to see its learners.', icon: Icons.class_outlined),
+          if (_section != null)
             LoadView<List<Student>>(
               where: 'LearnersScreen',
               reloadKey: _section!.id,
@@ -60,24 +64,41 @@ class _LearnersScreenState extends State<LearnersScreen> {
                     .where((s) => _filter.isEmpty || studentLabel(s).toLowerCase().contains(_filter) || s.lrn.contains(_filter))
                     .toList();
                 if (items.isEmpty) return const EmptyNote('No learners in this section on this device.');
-                return SectionCard(
-                  title: '${shown.length} of ${items.length} learner(s)',
+                int sex(String letter) => items.where((s) => (s.sex ?? '').toUpperCase().startsWith(letter)).length;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    for (final s in shown)
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: CircleAvatar(child: Text(s.sex == null || s.sex!.isEmpty ? '?' : s.sex![0].toUpperCase())),
-                        title: Text(studentLabel(s)),
-                        subtitle: Text('LRN ${s.lrn}'),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () =>
-                            widget.onOpenLearner != null ? widget.onOpenLearner!(context, s) : _details(context, s),
+                    StatGrid(tileWidth: 160, tiles: [
+                      StatTile(label: 'Learners', value: '${items.length}', icon: Icons.people_alt_outlined),
+                      StatTile(label: 'Female', value: '${sex('F')}', icon: Icons.face_3_outlined),
+                      StatTile(label: 'Male', value: '${sex('M')}', icon: Icons.face_outlined),
+                      StatTile(label: 'Shown', value: '${shown.length}', icon: Icons.filter_list),
+                    ]),
+                    const SizedBox(height: 16),
+                    if (shown.isEmpty)
+                      const EmptyNote('No learners match.', icon: Icons.search_off)
+                    else
+                      ListCard(
+                        title: '${shown.length} of ${items.length} learner(s)',
+                        children: [
+                          for (final s in shown)
+                            ListRow(
+                              leading: LetterBadge(initialOf(s.lastName.isNotEmpty ? s.lastName : s.firstName)),
+                              title: [s.lastName, s.firstName].where((p) => p.isNotEmpty).join(', '),
+                              subtitle: 'LRN ${s.lrn}',
+                              trailing: [
+                                if (s.sex != null && s.sex!.isNotEmpty) StatusChip(s.sex![0].toUpperCase()),
+                                const Icon(Icons.chevron_right),
+                              ],
+                              onTap: () =>
+                                  widget.onOpenLearner != null ? widget.onOpenLearner!(context, s) : _details(context, s),
+                            ),
+                        ],
                       ),
                   ],
                 );
               },
             ),
-          ],
         ],
       ),
     );

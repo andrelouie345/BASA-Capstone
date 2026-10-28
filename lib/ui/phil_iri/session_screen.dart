@@ -21,6 +21,15 @@ String readingMethodLabel(PhilIriReadingMethod m) => switch (m) {
   PhilIriReadingMethod.silent => 'Silent',
 };
 
+/// How a Phil-IRI level reads at a glance: independent = good,
+/// instructional = warn, frustration / non-reader = bad.
+StatusTone philIriLevelTone(PhilIriLevel? l) => switch (l) {
+  PhilIriLevel.independent => StatusTone.good,
+  PhilIriLevel.instructional => StatusTone.warn,
+  PhilIriLevel.frustration || PhilIriLevel.nonReader => StatusTone.bad,
+  null => StatusTone.neutral,
+};
+
 class PhilIriSessionScreen extends StatefulWidget {
   final int assessmentId;
   const PhilIriSessionScreen({super.key, required this.assessmentId});
@@ -40,6 +49,15 @@ class _SessionData {
 class _PhilIriSessionScreenState extends State<PhilIriSessionScreen> {
   int _reload = 0;
   void _again() => setState(() => _reload++);
+
+  /// The loaded session, for the app bar and the floating button.
+  final _session = ValueNotifier<PhilIriAssessment?>(null);
+
+  @override
+  void dispose() {
+    _session.dispose();
+    super.dispose();
+  }
 
   Future<void> _openReading(int readingId) async {
     await Navigator.of(context).push(MaterialPageRoute(
@@ -105,10 +123,36 @@ class _PhilIriSessionScreenState extends State<PhilIriSessionScreen> {
     _again();
   }
 
+  /// "Add" (a reading) while the session is open: app bar on wide screens, floating on phones.
+  Widget _mainAction({required bool fab}) => ValueListenableBuilder<PhilIriAssessment?>(
+    valueListenable: _session,
+    builder: (context, s, _) {
+      if (s == null || s.status != PhilIriStatus.inProgress) return const SizedBox.shrink();
+      return fab
+          ? mainActionFab(onPressed: _addReading, icon: Icons.add, label: 'Add')
+          : mainActionButton(onPressed: _addReading, icon: Icons.add, label: 'Add');
+    },
+  );
+
+  Widget _overflow() => ValueListenableBuilder<PhilIriAssessment?>(
+    valueListenable: _session,
+    builder: (context, s, _) {
+      if (s == null || s.isFinalized) return const SizedBox.shrink();
+      return PopupMenuButton<String>(
+        onSelected: _status,
+        itemBuilder: (_) => const [
+          PopupMenuItem(value: 'discard', child: ListTile(leading: Icon(Icons.delete_outline), title: Text('Discard'))),
+        ],
+      );
+    },
+  );
+
   @override
   Widget build(BuildContext context) {
+    final wide = isWideScreen(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Phil-IRI session')),
+      appBar: AppBar(title: const Text('Phil-IRI session'), actions: [if (wide) _mainAction(fab: false), _overflow()]),
+      floatingActionButton: wide ? null : _mainAction(fab: true),
       body: LoadView<_SessionData?>(
         where: 'PhilIriSession',
         reloadKey: _reload,
@@ -135,61 +179,120 @@ class _PhilIriSessionScreenState extends State<PhilIriSessionScreen> {
           return _SessionData(session, readings, criteria, await vm.rubricScores(widget.assessmentId));
         },
         builder: (context, d, _) {
-          if (d == null) return const EmptyNote('This session is not on this device.');
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _session.value = d?.session;
+          });
+          if (d == null) return const EmptyNote('This session is not on this device.', icon: Icons.cloud_off_outlined);
           final s = d.session;
           final open = s.status == PhilIriStatus.inProgress;
-          return PageBody(
+          final theme = Theme.of(context);
+          final scored = d.criteria.where((c) => d.scores.any((x) => x.criterionId == c.id)).length;
+          final header = SectionCard(
+            title: '${s.round.label} · ${s.assessedAt}',
+            icon: Icons.assignment_outlined,
+            trailing: philIriStatusChip(s.status),
             children: [
-              SectionCard(
-                title: '${s.round.label} · ${s.assessedAt}',
-                children: [
-                  InfoRow('Status', philIriStatusLabel(s.status)),
-                  Wrap(spacing: 8, runSpacing: 8, children: [
-                    if (open) FilledButton(onPressed: () => _status('complete'), child: const Text('Complete')),
-                    if (s.status == PhilIriStatus.completed) OutlinedButton(onPressed: () => _status('reopen'), child: const Text('Reopen')),
-                    if (!s.isFinalized) TextButton(onPressed: () => _status('discard'), child: const Text('Discard')),
-                  ]),
-                ],
-              ),
-              SectionCard(
-                title: 'Readings',
-                trailing: open ? TextButton.icon(onPressed: _addReading, icon: const Icon(Icons.add), label: const Text('Add')) : null,
-                children: [
-                  if (d.readings.isEmpty) const Text('No passage read yet.'),
-                  for (final (r, p, score) in d.readings)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: CircleAvatar(child: Text('${r.sequenceNo}')),
-                      title: Text(p?.title ?? 'Passage #${r.passageId}'),
-                      subtitle: Text([
-                        readingMethodLabel(r.method),
-                        if (!r.isTimed) 'not timed yet',
-                        if (score != null) score.profile.label,
-                      ].join(' · ')),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => _openReading(r.id!),
-                    ),
-                ],
-              ),
-              if (d.criteria.isNotEmpty)
-                SectionCard(
+              StatGrid(tileWidth: 160, tiles: [
+                StatTile(label: 'Readings', value: '${d.readings.length}', icon: Icons.menu_book_outlined),
+                StatTile(label: 'Timed', value: '${d.readings.where((x) => x.$1.isTimed).length}', icon: Icons.timer_outlined),
+                if (d.criteria.isNotEmpty)
+                  StatTile(label: 'Rubric scored', value: '$scored/${d.criteria.length}', icon: Icons.rule),
+              ]),
+              const SizedBox(height: 12),
+              InfoRow('Status', philIriStatusLabel(s.status)),
+              if (open || s.status == PhilIriStatus.completed) ...[
+                const SizedBox(height: 8),
+                Wrap(spacing: 8, runSpacing: 8, children: [
+                  if (open)
+                    FilledButton.icon(onPressed: () => _status('complete'), icon: const Icon(Icons.task_alt), label: const Text('Complete')),
+                  if (s.status == PhilIriStatus.completed)
+                    OutlinedButton.icon(onPressed: () => _status('reopen'), icon: const Icon(Icons.lock_open), label: const Text('Reopen')),
+                ]),
+              ],
+            ],
+          );
+          final readings = d.readings.isEmpty
+              ? SectionCard(
+                  title: 'Readings',
+                  icon: Icons.menu_book_outlined,
+                  children: [
+                    const EmptyNote('No passage read yet.', icon: Icons.auto_stories_outlined),
+                    if (open)
+                      Text(
+                        'Tap Add to pick a passage.',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                  ],
+                )
+              : ListCard(
+                  title: 'Readings',
+                  children: [
+                    for (final (r, p, score) in d.readings)
+                      ListRow(
+                        leading: LetterBadge('${r.sequenceNo}', size: 36),
+                        title: p?.title ?? 'Passage #${r.passageId}',
+                        subtitle: readingMethodLabel(r.method),
+                        footer: !r.isTimed
+                            ? const StatusChip('not timed yet', tone: StatusTone.warn, icon: Icons.timer_off_outlined)
+                            : score != null
+                            ? StatusChip(score.profile.label, tone: philIriLevelTone(score.profile))
+                            : null,
+                        trailing: const [Icon(Icons.chevron_right)],
+                        onTap: () => _openReading(r.id!),
+                      ),
+                  ],
+                );
+          final rubric = d.criteria.isEmpty
+              ? null
+              : ListCard(
                   title: 'Rubric',
                   children: [
                     for (final c in d.criteria)
                       Builder(builder: (context) {
                         final score = d.scores.where((x) => x.criterionId == c.id).firstOrNull;
-                        return ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(c.name),
-                          subtitle: Text('${c.scaleMin} to ${c.scaleMax}'),
-                          trailing: Text(score == null ? '—' : '${score.score}', style: Theme.of(context).textTheme.titleMedium),
+                        return ListRow(
+                          leading: const IconBadge(Icons.rule, size: 36),
+                          title: c.name,
+                          subtitle: '${c.scaleMin} to ${c.scaleMax}',
+                          trailing: [
+                            score == null
+                                ? Text('—', style: theme.textTheme.titleMedium)
+                                : LetterBadge(
+                                    '${score.score}',
+                                    size: 36,
+                                    background: theme.colorScheme.secondaryContainer,
+                                    foreground: theme.colorScheme.onSecondaryContainer,
+                                  ),
+                            if (open) const Icon(Icons.edit_outlined, size: 18),
+                          ],
                           onTap: open ? () => _score(c, score) : null,
                         );
                       }),
                   ],
-                ),
-            ],
-          );
+                );
+          return LayoutBuilder(builder: (context, c) {
+            // Wide: readings left, status and rubric right.
+            if (c.maxWidth >= 1000) {
+              return PageBody(
+                maxWidth: 1200,
+                children: [
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Expanded(flex: 3, child: readings),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      flex: 2,
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                        header,
+                        if (rubric != null) ...[const SizedBox(height: 16), rubric],
+                      ]),
+                    ),
+                  ]),
+                ],
+              );
+            }
+            return PageBody(children: [header, readings, ?rubric]);
+          });
         },
       ),
     );

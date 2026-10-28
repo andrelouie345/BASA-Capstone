@@ -56,7 +56,7 @@ class AdminPhilIriContentEditor extends PhilIriContentEditor {
   @override
   Future<bool> collectionAction(BuildContext context, PhilIriCollection c) async {
     final vm = vmsOf(context).philIriContent;
-    final a = await pickOne<String>(
+    final a = await _pickAction(
       context,
       title: c.name,
       options: [c.isActive ? 'off' : 'on', if (c.schoolId != null) 'promote', 'delete'],
@@ -145,7 +145,7 @@ class AdminPhilIriContentEditor extends PhilIriContentEditor {
   @override
   Future<bool> passageAction(BuildContext context, PhilIriPassage p) async {
     final vm = vmsOf(context).philIriContent;
-    final a = await pickOne<String>(
+    final a = await _pickAction(
       context,
       title: p.title,
       options: [p.isActive ? 'off' : 'on', 'delete'],
@@ -193,4 +193,40 @@ class AdminPhilIriContentEditor extends PhilIriContentEditor {
     final vm = vmsOf(context).philIriContent;
     return runStep(context, () => vm.deleteQuestion(q.passageId, q.id!), done: 'Question deleted.', where: 'PhilIriContent');
   }
+}
+
+/// Picks one of a collection's or passage's actions ('on', 'off', 'promote',
+/// 'delete'): each with its icon, Delete in the error colour. Null when cancelled.
+Future<String?> _pickAction(BuildContext context,
+    {required String title, required List<String> options, required String Function(String) label}) {
+  return showDialog<String>(
+    context: context,
+    builder: (context) {
+      final colors = Theme.of(context).colorScheme;
+      return SimpleDialog(
+        title: Text(title),
+        children: [
+          for (final o in options)
+            Builder(builder: (context) {
+              final delete = o == 'delete';
+              final icon = switch (o) {
+                'off' => Icons.visibility_off_outlined,
+                'on' => Icons.visibility_outlined,
+                'promote' => Icons.public,
+                _ => Icons.delete_outline,
+              };
+              return SimpleDialogOption(
+                onPressed: () => Navigator.of(context).pop(o),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                child: Row(children: [
+                  Icon(icon, size: 20, color: delete ? colors.error : colors.onSurfaceVariant),
+                  const SizedBox(width: 14),
+                  Expanded(child: Text(label(o), style: delete ? TextStyle(color: colors.error) : null)),
+                ]),
+              );
+            }),
+        ],
+      );
+    },
+  );
 }

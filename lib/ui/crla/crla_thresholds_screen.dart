@@ -48,28 +48,43 @@ class _CrlaThresholdsScreenState extends State<CrlaThresholdsScreen> {
           final region = layers.region?.settings ?? const {};
           return PageBody(
             children: [
-              Text(schoolId == null ? 'Region defaults.' : 'In force at your school.'),
+              NoticeBanner(
+                schoolId == null ? 'Region defaults.' : 'In force at your school.',
+                icon: schoolId == null ? Icons.map_outlined : Icons.school_outlined,
+                tone: StatusTone.neutral,
+              ),
               if (canEdit)
-                Wrap(spacing: 12, runSpacing: 8, children: [
-                  FilledButton.icon(
-                    onPressed: () => _after(editor.edit(context, schoolId, layers)),
-                    icon: const Icon(Icons.edit),
-                    label: const Text('Change'),
-                  ),
-                  if (schoolId != null && school.isNotEmpty)
-                    OutlinedButton.icon(
-                      onPressed: () => _after(editor.reset(context, schoolId)),
-                      icon: const Icon(Icons.restart_alt),
-                      label: const Text("Use the region's values"),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Wrap(spacing: 12, runSpacing: 8, alignment: WrapAlignment.end, children: [
+                    if (schoolId != null && school.isNotEmpty)
+                      OutlinedButton.icon(
+                        onPressed: () => _after(editor.reset(context, schoolId)),
+                        icon: const Icon(Icons.restart_alt),
+                        label: const Text("Use the region's values"),
+                      ),
+                    FilledButton.icon(
+                      onPressed: () => _after(editor.edit(context, schoolId, layers)),
+                      icon: const Icon(Icons.edit),
+                      label: const Text('Change'),
                     ),
-                ]),
-              SectionCard(
+                  ]),
+                ),
+              ListCard(
                 title: 'Cut-offs',
                 children: [
                   for (final e in effective.entries)
-                    InfoRow(
-                      thresholdLabel(e.key),
-                      '${e.value}  (${school.containsKey(e.key) ? 'school' : region.containsKey(e.key) ? 'region' : 'default'})',
+                    ListRow(
+                      leading: const IconBadge(Icons.tune, size: 36),
+                      title: thresholdLabel(e.key),
+                      trailing: [
+                        Text('${e.value}', style: Theme.of(context).textTheme.titleMedium),
+                        _sourceChip(school.containsKey(e.key)
+                            ? 'school'
+                            : region.containsKey(e.key)
+                            ? 'region'
+                            : 'default'),
+                      ],
                     ),
                 ],
               ),
@@ -80,6 +95,10 @@ class _CrlaThresholdsScreenState extends State<CrlaThresholdsScreen> {
     );
   }
 }
+
+/// Where a cut-off comes from, as a chip: school = good, region and default neutral.
+Widget _sourceChip(String source) =>
+    SizedBox(width: 64, child: Center(child: StatusChip(source, tone: source == 'school' ? StatusTone.good : StatusTone.neutral)));
 
 /// "part1_std_full_max" → "Part1 std full max".
 String thresholdLabel(String key) {

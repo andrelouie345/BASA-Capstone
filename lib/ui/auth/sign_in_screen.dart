@@ -11,6 +11,7 @@ import '../basa_scope.dart';
 import '../common/error_display.dart';
 import '../common/version_notice.dart';
 import '../theme/colours_screen.dart';
+import 'auth_backdrop.dart';
 import 'server_settings_form.dart';
 import 'sign_in_offline_screen.dart';
 
@@ -100,166 +101,170 @@ class _SignInScreenState extends State<SignInScreen> {
     final error = _error;
 
     return Scaffold(
-      body: SafeArea(
-        child: Stack(
-          children: [
-            Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 32, 20, 32),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 440),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _Masthead(appTitle: widget.appTitle),
-                        const SizedBox(height: 28),
-                        Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(20),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Text('Sign in', style: text.titleLarge),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'The first sign-in on a device needs a connection.',
-                                  style: text.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
-                                ),
-                                const SizedBox(height: 20),
-                                SegmentedButton<_Target>(
-                                  segments: const [
-                                    ButtonSegment(
-                                      value: _Target.cloud,
-                                      icon: Icon(Icons.cloud_outlined),
-                                      label: Text('Cloud'),
+      body: AuthBackdrop(
+        child: SafeArea(
+          child: Stack(
+            children: [
+              Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 32, 20, 32),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 440),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _Masthead(appTitle: widget.appTitle),
+                          const SizedBox(height: 28),
+                          Card(
+                            elevation: 8,
+                            shadowColor: colors.shadow.withValues(alpha: 0.18),
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Text('Sign in', style: text.titleLarge),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'The first sign-in on a device needs a connection.',
+                                    style: text.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
+                                  ),
+                                  const SizedBox(height: 20),
+                                  SegmentedButton<_Target>(
+                                    segments: const [
+                                      ButtonSegment(
+                                        value: _Target.cloud,
+                                        icon: Icon(Icons.cloud_outlined),
+                                        label: Text('Cloud'),
+                                      ),
+                                      ButtonSegment(
+                                        value: _Target.lan,
+                                        icon: Icon(Icons.lan_outlined),
+                                        label: Text('School LAN'),
+                                      ),
+                                    ],
+                                    selected: {_target},
+                                    onSelectionChanged: _busy
+                                        ? null
+                                        : (s) => setState(() {
+                                            _target = s.first;
+                                            _error = null;
+                                          }),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  TextFormField(
+                                    controller: _email,
+                                    enabled: !_busy,
+                                    keyboardType: TextInputType.emailAddress,
+                                    autofillHints: const [AutofillHints.email],
+                                    autocorrect: false,
+                                    textInputAction: TextInputAction.next,
+                                    onFieldSubmitted: (_) => _passwordFocus.requestFocus(),
+                                    decoration: const InputDecoration(
+                                      labelText: 'Email',
+                                      prefixIcon: Icon(Icons.alternate_email),
                                     ),
-                                    ButtonSegment(
-                                      value: _Target.lan,
-                                      icon: Icon(Icons.lan_outlined),
-                                      label: Text('School LAN'),
+                                    validator: (v) => (v ?? '').trim().isEmpty ? 'Enter your email.' : null,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  TextFormField(
+                                    controller: _password,
+                                    focusNode: _passwordFocus,
+                                    enabled: !_busy,
+                                    obscureText: !_showPassword,
+                                    autofillHints: const [AutofillHints.password],
+                                    textInputAction: TextInputAction.done,
+                                    onFieldSubmitted: (_) => _signIn(),
+                                    decoration: InputDecoration(
+                                      labelText: 'Password',
+                                      prefixIcon: const Icon(Icons.lock_outline),
+                                      suffixIcon: IconButton(
+                                        tooltip: _showPassword ? 'Hide password' : 'Show password',
+                                        icon: Icon(_showPassword ? Icons.visibility_off : Icons.visibility),
+                                        onPressed: () => setState(() => _showPassword = !_showPassword),
+                                      ),
+                                    ),
+                                    validator: (v) => (v ?? '').isEmpty ? 'Enter your password.' : null,
+                                  ),
+                                  if (error != null) ...[
+                                    const SizedBox(height: 16),
+                                    versionRefusalKind(error) != null
+                                        ? VersionRefusalCard(message: error)
+                                        : ErrorMessage(message: error),
+                                  ],
+                                  const SizedBox(height: 20),
+                                  FilledButton(
+                                    onPressed: _busy || noUrl ? null : _signIn,
+                                    child: _busy
+                                        ? SizedBox.square(
+                                            dimension: 20,
+                                            child: CircularProgressIndicator(strokeWidth: 2.5, color: colors.onPrimary),
+                                          )
+                                        : const Text('Sign in'),
+                                  ),
+                                  if (noUrl) ...[
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'No ${_target == _Target.cloud ? 'cloud' : 'LAN'} server is set on this device yet. '
+                                      'Set it in Server settings below.',
+                                      style: text.bodySmall?.copyWith(color: colors.secondary),
+                                      textAlign: TextAlign.center,
                                     ),
                                   ],
-                                  selected: {_target},
-                                  onSelectionChanged: _busy
-                                      ? null
-                                      : (s) => setState(() {
-                                          _target = s.first;
-                                          _error = null;
-                                        }),
-                                ),
-                                const SizedBox(height: 16),
-                                TextFormField(
-                                  controller: _email,
-                                  enabled: !_busy,
-                                  keyboardType: TextInputType.emailAddress,
-                                  autofillHints: const [AutofillHints.email],
-                                  autocorrect: false,
-                                  textInputAction: TextInputAction.next,
-                                  onFieldSubmitted: (_) => _passwordFocus.requestFocus(),
-                                  decoration: const InputDecoration(
-                                    labelText: 'Email',
-                                    prefixIcon: Icon(Icons.alternate_email),
-                                  ),
-                                  validator: (v) => (v ?? '').trim().isEmpty ? 'Enter your email.' : null,
-                                ),
-                                const SizedBox(height: 12),
-                                TextFormField(
-                                  controller: _password,
-                                  focusNode: _passwordFocus,
-                                  enabled: !_busy,
-                                  obscureText: !_showPassword,
-                                  autofillHints: const [AutofillHints.password],
-                                  textInputAction: TextInputAction.done,
-                                  onFieldSubmitted: (_) => _signIn(),
-                                  decoration: InputDecoration(
-                                    labelText: 'Password',
-                                    prefixIcon: const Icon(Icons.lock_outline),
-                                    suffixIcon: IconButton(
-                                      tooltip: _showPassword ? 'Hide password' : 'Show password',
-                                      icon: Icon(_showPassword ? Icons.visibility_off : Icons.visibility),
-                                      onPressed: () => setState(() => _showPassword = !_showPassword),
-                                    ),
-                                  ),
-                                  validator: (v) => (v ?? '').isEmpty ? 'Enter your password.' : null,
-                                ),
-                                if (error != null) ...[
-                                  const SizedBox(height: 16),
-                                  versionRefusalKind(error) != null
-                                      ? VersionRefusalCard(message: error)
-                                      : ErrorMessage(message: error),
-                                ],
-                                const SizedBox(height: 20),
-                                FilledButton(
-                                  onPressed: _busy || noUrl ? null : _signIn,
-                                  child: _busy
-                                      ? SizedBox.square(
-                                          dimension: 20,
-                                          child: CircularProgressIndicator(strokeWidth: 2.5, color: colors.onPrimary),
-                                        )
-                                      : const Text('Sign in'),
-                                ),
-                                if (noUrl) ...[
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'No ${_target == _Target.cloud ? 'cloud' : 'LAN'} server is set on this device yet. '
-                                    'Set it in Server settings below.',
-                                    style: text.bodySmall?.copyWith(color: colors.secondary),
-                                    textAlign: TextAlign.center,
+                                  const SizedBox(height: 4),
+                                  TextButton.icon(
+                                    onPressed: _busy
+                                        ? null
+                                        : () => Navigator.of(context).push(MaterialPageRoute(
+                                              builder: (_) => SignInOfflineScreen(onSignedIn: widget.onSignedIn),
+                                            )),
+                                    icon: const Icon(Icons.cloud_off),
+                                    label: const Text('No connection? Sign in offline'),
                                   ),
                                 ],
-                                const SizedBox(height: 4),
-                                TextButton.icon(
-                                  onPressed: _busy
-                                      ? null
-                                      : () => Navigator.of(context).push(MaterialPageRoute(
-                                            builder: (_) => SignInOfflineScreen(onSignedIn: widget.onSignedIn),
-                                          )),
-                                  icon: const Icon(Icons.cloud_off),
-                                  label: const Text('No connection? Sign in offline'),
-                                ),
-                              ],
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        Card(
-                          clipBehavior: Clip.antiAlias,
-                          child: ExpansionTile(
-                            // A new key per server, so choosing one with no URL opens it;
-                            // saving a URL doesn't close it under the user.
-                            key: ValueKey('servers-${_target.name}'),
-                            initiallyExpanded: noUrl,
-                            leading: const Icon(Icons.settings_ethernet),
-                            title: const Text('Server settings'),
-                            subtitle: Text(
-                              noUrl ? 'Needed before the first sign-in' : _urlOf(_target),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                          const SizedBox(height: 12),
+                          Card(
+                            clipBehavior: Clip.antiAlias,
+                            child: ExpansionTile(
+                              // A new key per server, so choosing one with no URL opens it;
+                              // saving a URL doesn't close it under the user.
+                              key: ValueKey('servers-${_target.name}'),
+                              initiallyExpanded: noUrl,
+                              leading: const Icon(Icons.settings_ethernet),
+                              title: const Text('Server settings'),
+                              subtitle: Text(
+                                noUrl ? 'Needed before the first sign-in' : _urlOf(_target),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              shape: const Border(),
+                              collapsedShape: const Border(),
+                              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                              children: [ServerSettingsForm(onSaved: (v) => setState(() => _servers = v))],
                             ),
-                            shape: const Border(),
-                            collapsedShape: const Border(),
-                            childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                            children: [ServerSettingsForm(onSaved: (v) => setState(() => _servers = v))],
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-            Positioned(
-              top: 4,
-              right: 4,
-              child: IconButton(
-                tooltip: 'Colours',
-                icon: const Icon(Icons.palette_outlined),
-                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ColoursScreen())),
+              Positioned(
+                top: 4,
+                right: 4,
+                child: IconButton(
+                  tooltip: 'Colours',
+                  icon: const Icon(Icons.palette_outlined),
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ColoursScreen())),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -11,7 +11,9 @@ import 'package:flutter/material.dart';
 import '../auth/account_menu.dart';
 import '../basa_scope.dart';
 import '../common/connection_status.dart';
+import '../common/screen_kit.dart';
 import '../common/signed_in_user.dart';
+import '../theme/basa_theme.dart';
 import 'home_sections.dart';
 
 /// At least this wide: a navigation rail instead of the bottom bar.
@@ -225,54 +227,81 @@ class _EntryGrid extends StatelessWidget {
   }
 }
 
-class _EntryCard extends StatelessWidget {
+/// A screen card; it lifts and its border takes the primary colour under the pointer.
+class _EntryCard extends StatefulWidget {
   final HomeEntry entry;
   final VoidCallback onTap;
   const _EntryCard({required this.entry, required this.onTap});
 
   @override
+  State<_EntryCard> createState() => _EntryCardState();
+}
+
+class _EntryCardState extends State<_EntryCard> {
+  bool _hover = false;
+
+  @override
   Widget build(BuildContext context) {
+    final entry = widget.entry;
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final built = entry.builder != null;
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: built ? colors.primaryContainer : colors.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(12),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOut,
+      transform: Matrix4.translationValues(0, _hover ? -2 : 0, 0),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(BasaRadius.large),
+        boxShadow: [
+          if (_hover)
+            BoxShadow(color: colors.shadow.withValues(alpha: 0.10), blurRadius: 18, offset: const Offset(0, 6)),
+        ],
+      ),
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(BasaRadius.large),
+          side: BorderSide(color: _hover ? colors.primary.withValues(alpha: 0.5) : colors.outlineVariant.withValues(alpha: 0.7)),
+        ),
+        child: InkWell(
+          onTap: widget.onTap,
+          onHover: (h) => setState(() => _hover = h),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                IconBadge(
+                  entry.icon,
+                  size: 46,
+                  background: built ? colors.primaryContainer : colors.surfaceContainerHighest,
+                  foreground: built ? colors.onPrimaryContainer : colors.onSurfaceVariant,
                 ),
-                child: Icon(entry.icon, color: built ? colors.onPrimaryContainer : colors.onSurfaceVariant),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(entry.title, style: theme.textTheme.titleSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    const SizedBox(height: 2),
-                    Text(
-                      entry.description,
-                      style: theme.textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(entry.title, style: theme.textTheme.titleSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 2),
+                      Text(
+                        entry.description,
+                        style: theme.textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              built
-                  ? Icon(Icons.chevron_right, color: colors.onSurfaceVariant)
-                  : Text('Soon', style: theme.textTheme.labelSmall?.copyWith(color: colors.onSurfaceVariant)),
-            ],
+                const SizedBox(width: 8),
+                built
+                    ? AnimatedSlide(
+                        offset: Offset(_hover ? 0.15 : 0, 0),
+                        duration: const Duration(milliseconds: 160),
+                        child: Icon(Icons.arrow_forward_rounded, size: 20, color: _hover ? colors.primary : colors.onSurfaceVariant),
+                      )
+                    : Text('Soon', style: theme.textTheme.labelSmall?.copyWith(color: colors.onSurfaceVariant)),
+              ],
+            ),
           ),
         ),
       ),
@@ -289,43 +318,106 @@ class _WelcomeCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final auth = BasaScope.of(context).auth;
-    return Card(
-      color: colors.primaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                greetingFor(DateTime.now()),
-                style: theme.textTheme.headlineSmall?.copyWith(color: colors.onPrimaryContainer),
-              ),
-            ),
-            const SignedInUserTile(),
-            if (auth.isOffline)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: Row(
-                  children: [
-                    Icon(Icons.cloud_off, size: 18, color: colors.onPrimaryContainer),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Signed in offline: your work is saved on this device until you send it.',
-                        style: theme.textTheme.bodySmall?.copyWith(color: colors.onPrimaryContainer),
+    final now = DateTime.now();
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(BasaRadius.large + 4),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [colors.primaryContainer, Color.lerp(colors.primaryContainer, colors.secondaryContainer, 0.55)!],
+        ),
+      ),
+      child: Stack(
+        children: [
+          // Two soft rings in the corner: decoration only.
+          Positioned(right: -40, top: -50, child: _Ring(size: 180, color: colors.onPrimaryContainer)),
+          Positioned(right: 70, bottom: -70, child: _Ring(size: 120, color: colors.onPrimaryContainer)),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 20, 8, 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _longDate(now).toUpperCase(),
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: colors.onPrimaryContainer.withValues(alpha: 0.75),
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.1,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        greetingFor(now),
+                        style: theme.textTheme.headlineMedium?.copyWith(color: colors.onPrimaryContainer),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const SignedInUserTile(),
+                if (auth.isOffline)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: colors.surface.withValues(alpha: 0.55),
+                        borderRadius: BorderRadius.circular(BasaRadius.small),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.cloud_off, size: 18, color: colors.onPrimaryContainer),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Signed in offline: your work is saved on this device until you send it.',
+                              style: theme.textTheme.bodySmall?.copyWith(color: colors.onPrimaryContainer),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-          ],
-        ),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 }
+
+class _Ring extends StatelessWidget {
+  final double size;
+  final Color color;
+  const _Ring({required this.size, required this.color});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: size,
+    height: size,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      border: Border.all(color: color.withValues(alpha: 0.08), width: 22),
+    ),
+  );
+}
+
+const _weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const _months = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+/// "Thursday, 29 October".
+String _longDate(DateTime d) => '${_weekdays[d.weekday - 1]}, ${d.day} ${_months[d.month - 1]}';
 
 /// "Good morning" before noon, "Good afternoon" before six, else "Good evening".
 String greetingFor(DateTime now) => now.hour < 12

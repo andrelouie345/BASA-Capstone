@@ -24,6 +24,15 @@ class _GstScreenState extends State<GstScreen> {
   Section? _section;
   int _reload = 0;
 
+  /// The loaded section's learners, for the main action outside the loaded body.
+  final _learners = ValueNotifier<List<Student>?>(null);
+
+  @override
+  void dispose() {
+    _learners.dispose();
+    super.dispose();
+  }
+
   Future<void> _record(List<Student> learners) async {
     final section = _section!;
     final student = await pickOne<Student>(context, title: 'Learner', options: learners, label: studentLabel);
@@ -60,13 +69,36 @@ class _GstScreenState extends State<GstScreen> {
     setState(() => _reload++);
   }
 
+  void _pickSection(Section? s) {
+    _learners.value = null;
+    setState(() => _section = s);
+  }
+
+  /// "Record a score", once the section's learners are loaded.
+  Widget _mainAction({required bool fab}) => ValueListenableBuilder<List<Student>?>(
+    valueListenable: _learners,
+    builder: (context, learners, _) {
+      if (_section == null || learners == null || learners.isEmpty) return const SizedBox.shrink();
+      void go() => _record(learners);
+      return fab
+          ? mainActionFab(onPressed: go, icon: Icons.add, label: 'Record a score')
+          : mainActionButton(onPressed: go, icon: Icons.add, label: 'Record a score');
+    },
+  );
+
   @override
   Widget build(BuildContext context) {
+    final wide = isWideScreen(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Group Screening Test')),
+      appBar: AppBar(title: const Text('Group Screening Test'), actions: [if (wide) _mainAction(fab: false)]),
+      floatingActionButton: wide ? null : _mainAction(fab: true),
       body: PageBody(
         children: [
-          SectionPicker(value: _section, onChanged: (s) => setState(() => _section = s), where: philIriGrade),
+          FilterBar(children: [
+            SectionPicker(value: _section, onChanged: _pickSection, where: philIriGrade),
+          ]),
+          if (_section == null)
+            const EmptyNote('Pick a Grade 4–10 section to see its GST scores.', icon: Icons.class_outlined),
           if (_section != null)
             LoadView<(List<PhilIriGstResult>, List<Student>, Map<int, bool>)>(
               where: 'GstScreen',
@@ -79,29 +111,48 @@ class _GstScreenState extends State<GstScreen> {
               },
               builder: (context, data, _) {
                 final (results, learners, passed) = data;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _learners.value = learners;
+                });
                 final names = {for (final s in learners) s.id: studentLabel(s)};
-                final colors = Theme.of(context).colorScheme;
+                final passCount = results.where((g) => passed[g.id ?? 0] == true).length;
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    FilledButton.icon(
-                      onPressed: learners.isEmpty ? null : () => _record(learners),
-                      icon: const Icon(Icons.add),
-                      label: const Text('Record a score'),
-                    ),
-                    const SizedBox(height: 12),
-                    if (results.isEmpty) const EmptyNote('No GST scores in this section yet.'),
-                    for (final g in results)
-                      Card(
-                        child: ListTile(
-                          title: Text(names[g.studentId] ?? 'Learner #${g.studentId}'),
-                          subtitle: Text([
-                            '${g.totalScore}/${g.maxScore} (${g.wholePercent}%) on ${g.takenAt}',
-                            if (g.literalCorrect != null) 'L ${g.literalCorrect} · I ${g.inferentialCorrect ?? '-'} · C ${g.criticalCorrect ?? '-'}',
-                          ].join('\n')),
-                          trailing: Text(passed[g.id ?? 0] == true ? 'Passed' : 'Below',
-                              style: TextStyle(color: passed[g.id ?? 0] == true ? colors.tertiary : colors.error)),
-                        ),
+                    StatGrid(tileWidth: 160, tiles: [
+                      StatTile(label: 'Learners', value: '${learners.length}', icon: Icons.people_alt_outlined),
+                      StatTile(label: 'Scores recorded', value: '${results.length}', icon: Icons.fact_check_outlined),
+                      StatTile(label: 'Passed', value: '$passCount', icon: Icons.verified_outlined),
+                      StatTile(label: 'Below', value: '${results.length - passCount}', icon: Icons.trending_down),
+                    ]),
+                    const SizedBox(height: 16),
+                    if (results.isEmpty)
+                      const EmptyNote('No GST scores in this section yet.', icon: Icons.quiz_outlined),
+                    if (results.isNotEmpty)
+                      ListCard(
+                        title: 'Scores',
+                        children: [
+                          for (final g in results)
+                            Builder(builder: (context) {
+                              final name = names[g.studentId] ?? 'Learner #${g.studentId}';
+                              final ok = passed[g.id ?? 0] == true;
+                              return ListRow(
+                                leading: LetterBadge(initialOf(name)),
+                                title: name,
+                                subtitle: [
+                                  '${g.totalScore}/${g.maxScore} (${g.wholePercent}%) on ${g.takenAt}',
+                                  if (g.literalCorrect != null) 'L ${g.literalCorrect} · I ${g.inferentialCorrect ?? '-'} · C ${g.criticalCorrect ?? '-'}',
+                                ].join('\n'),
+                                trailing: [
+                                  StatusChip(
+                                    ok ? 'Passed' : 'Below',
+                                    tone: ok ? StatusTone.good : StatusTone.bad,
+                                    icon: ok ? Icons.check : Icons.arrow_downward,
+                                  ),
+                                ],
+                              );
+                            }),
+                        ],
                       ),
                   ],
                 );

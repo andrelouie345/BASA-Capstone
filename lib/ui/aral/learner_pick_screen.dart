@@ -33,11 +33,13 @@ class _AralLearnerPickScreenState extends State<AralLearnerPickScreen> {
       appBar: AppBar(title: Text(widget.title)),
       body: PageBody(
         children: [
-          SchoolYearPicker(value: _year, onChanged: (y) => setState(() => _year = y)),
-          TextField(
-            decoration: const InputDecoration(prefixIcon: Icon(Icons.search), labelText: 'Search'),
-            onChanged: (v) => setState(() => _filter = v.toLowerCase()),
-          ),
+          FilterBar(children: [
+            SchoolYearPicker(value: _year, onChanged: (y) => setState(() => _year = y)),
+            TextField(
+              decoration: const InputDecoration(prefixIcon: Icon(Icons.search), labelText: 'Search'),
+              onChanged: (v) => setState(() => _filter = v.toLowerCase()),
+            ),
+          ]),
           if (_year != null)
             LoadView<(List<AralEnrollment>, Map<int, String>)>(
               where: 'AralLearnerPick',
@@ -52,20 +54,26 @@ class _AralLearnerPickScreenState extends State<AralLearnerPickScreen> {
               builder: (context, data, _) {
                 final (list, names) = data;
                 final shown = list.where((e) => _filter.isEmpty || (names[e.studentId] ?? '').toLowerCase().contains(_filter)).toList();
-                if (list.isEmpty) return const EmptyNote('No active ARAL learners for you this school year.');
-                return Column(children: [
-                  for (final e in shown)
-                    Card(
-                      child: ListTile(
-                        title: Text(names[e.studentId] ?? 'Learner #${e.studentId}'),
-                        subtitle: Text(aralProgramLabel(e)),
-                        trailing: const Icon(Icons.chevron_right),
+                if (list.isEmpty) return const EmptyNote('No active ARAL learners for you this school year.', icon: Icons.groups_outlined);
+                if (shown.isEmpty) return const EmptyNote('No learner matches this search. Try part of the last name.', icon: Icons.search_off);
+                return ListCard(
+                  title: '${shown.length} learner(s)',
+                  children: [
+                    for (final e in shown)
+                      ListRow(
+                        leading: LetterBadge(initialOf(names[e.studentId] ?? '')),
+                        title: names[e.studentId] ?? 'Learner #${e.studentId}',
+                        subtitle: aralProgramLabel(e),
+                        trailing: [
+                          if (e.classId == null) const StatusChip('waiting', tone: StatusTone.warn),
+                          const Icon(Icons.chevron_right),
+                        ],
                         onTap: () => Navigator.of(context).push(MaterialPageRoute(
                           builder: (_) => LearnerAralScreen(enrollmentId: e.id!, name: names[e.studentId] ?? 'Learner', initial: widget.tab),
                         )),
                       ),
-                    ),
-                ]);
+                  ],
+                );
               },
             ),
         ],
