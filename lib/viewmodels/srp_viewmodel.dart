@@ -32,7 +32,7 @@ import '../core/repositories/user_repository.dart';
 import '../core/services/auth_messages.dart';
 import '../core/services/csv.dart';
 import '../core/services/normalizers.dart';
-import '../core/services/phil_iri_results.dart' show philIriNotAssessedResult;
+import '../core/services/phil_iri_results.dart' show philIriNotAssessedResult, philIriNotGradeReady;
 import '../core/services/phil_iri_rules.dart' show PhilIriLevel;
 import '../core/services/srp_rules.dart';
 import 'auth_viewmodel.dart';
@@ -212,7 +212,7 @@ class SrpViewModel {
         }
         final eosy = res.round(PhilIriRound.eosy); // carries the latest round when EOSY was not given
         final profile = eosy.profile;
-        if (profile != PhilIriLevel.frustration && profile != PhilIriLevel.nonReader) continue;
+        if (!philIriNotGradeReady(profile)) continue;
         final own = res.counted.contains(PhilIriRound.eosy) ? eosy.actual?.comprehensionScore : null;
         drafts.add(_Draft(
           st,

@@ -436,15 +436,14 @@ String _resultText(PhilIriPassageResult r) =>
     '${r.silent ? 'silent · ' : ''}word reading ${_pct(r.wordReadingPercent)} (${r.accuracyLevel.label}), '
     '${r.wordsPerMinute.round()} wpm '
     '(${r.speed.label}) -> ${r.wordReadingLevel.label}; comprehension ${_pct(r.comprehensionPercent)} '
-    '(${r.comprehensionLevel.label}); profile ${r.profile.label}${r.isStrugglingReader ? ' · Struggling Reader' : ''}';
+    '(${r.comprehensionLevel.label}); profile ${r.profile.label}';
 
 String _roundText(PhilIriRoundResult r) {
   if (r.profile == null) return 'no result yet';
   final level = r.adjustedLevel == null ? '' : ' · adjusted ${r.adjustedLevelLabel} · ${r.levelsDownLabel}';
   return 'WR ${_pct(r.wordReadingPercent)} ${r.wordReadingLevel?.label ?? '-'}, '
       '${r.wordsPerMinute?.round() ?? '-'} wpm ${r.speed?.label ?? '-'}, '
-      'comp ${_pct(r.comprehensionPercent)} ${r.comprehensionLevel?.label ?? '-'} -> ${r.profile!.label}'
-      '${r.isStrugglingReader ? ' · Struggling Reader' : ''}$level';
+      'comp ${_pct(r.comprehensionPercent)} ${r.comprehensionLevel?.label ?? '-'} -> ${r.profile!.label}$level';
 }
 
 String _sessionLine(PhilIriAssessment s) =>
