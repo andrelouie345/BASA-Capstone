@@ -22,11 +22,11 @@ String readingMethodLabel(PhilIriReadingMethod m) => switch (m) {
 };
 
 /// How a Phil-IRI level reads at a glance: independent = good,
-/// instructional = warn, frustration / non-reader = bad.
+/// instructional = warn, frustration / struggling / non-reader = bad.
 StatusTone philIriLevelTone(PhilIriLevel? l) => switch (l) {
   PhilIriLevel.independent => StatusTone.good,
   PhilIriLevel.instructional => StatusTone.warn,
-  PhilIriLevel.frustration || PhilIriLevel.nonReader => StatusTone.bad,
+  PhilIriLevel.frustration || PhilIriLevel.struggling || PhilIriLevel.nonReader => StatusTone.bad,
   null => StatusTone.neutral,
 };
 

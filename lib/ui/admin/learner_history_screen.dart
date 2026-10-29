@@ -209,7 +209,6 @@ class _YearCard extends StatelessWidget {
                       : [
                           r.profile?.label ?? 'no profile',
                           if (r.adjustedLevelLabel != null) r.adjustedLevelLabel!,
-                          if (r.isStrugglingReader) 'struggling reader',
                         ].join(' · '),
                 ),
           ],

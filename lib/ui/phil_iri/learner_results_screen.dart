@@ -122,7 +122,7 @@ class _LearnerResultsPickScreenState extends State<LearnerResultsPickScreen> {
 /// One line for a round's result.
 String roundResultText(PhilIriRoundResult x) => x.notAssessed
     ? 'not assessed'
-    : [x.profile?.label ?? 'no profile', ?x.adjustedLevelLabel, if (x.isStrugglingReader) 'struggling reader'].join(' · ');
+    : [x.profile?.label ?? 'no profile', ?x.adjustedLevelLabel].join(' · ');
 
 /// A round's profile as a chip ("not assessed" when it wasn't).
 StatusChip roundResultChip(PhilIriRoundResult x) => x.notAssessed
@@ -138,7 +138,6 @@ List<Widget> roundResultRows(PhilIriRoundResult x) {
     InfoRow('Comprehension', x.comprehensionPercent == null ? 'blank' : '${x.comprehensionPercent}% (${x.comprehensionLevel?.label ?? '—'})'),
     if (x.adjustedLevelLabel != null) InfoRow('Level', '${x.adjustedLevelLabel} (${x.levelsDownLabel ?? ''})'),
     if (x.actualAdjustedLevelLabel != null) InfoRow('This round alone', '${x.actualAdjustedLevelLabel} (${x.actualLevelsDownLabel ?? ''})'),
-    if (x.isStrugglingReader) const InfoRow('Note', 'Struggling reader'),
     if (!x.given) const InfoRow('Note', 'Carried from an earlier round'),
   ];
 }
