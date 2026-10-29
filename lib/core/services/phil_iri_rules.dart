@@ -12,14 +12,14 @@
 //
 // Owner decisions (2026-10-13): the rules follow the reading coordinator's
 // workbook where it differs from the manual:
-// - the reading profile is the comprehension level (Non-Reader word reading
-//   overrides), as in her sheets 01-40 (2026-10-18; the earlier word +
-//   comprehension table from "Bases" H4:J12 is no longer used);
-// - non-reader when word recognition is at or below a cut-off (Sample!AF);
-// - reading speed bands (Sample!AH), and accuracy-Independent only counts as
-//   Independent word reading when the speed is Fast (Sample!AI).
+// - word recognition bands (DepEd, 2026-10-29): Non-Reader <= 35%,
+//   Struggling 36-55%, Frustration 56-89%, Instructional, Independent;
+// - reading speed bands (Sample!AH);
+// - the word reading profile and the reading profile follow the fixed
+//   "Table 8. Student's Reading Profile Per Passage" (two lookups below; spec
+//   docs/superpowers/specs/2026-10-29-phil-iri-word-recognition-bands-design.md).
 // Every range is adjustable through PhilIriThresholds, because DepEd changes
-// acceptable ranges; the defaults are the workbook's values.
+// acceptable ranges; Table 8 itself is not.
 //
 // Percentages are classified after rounding to a whole percent (half up),
 // because the bands are whole numbers (e.g. 96.5% -> 97 -> Independent).
@@ -28,6 +28,7 @@ enum PhilIriLevel {
   independent('Independent'),
   instructional('Instructional'),
   frustration('Frustration'),
+  struggling('Struggling'),
   nonReader('Non-Reader');
 
   final String label;
@@ -63,6 +64,7 @@ enum PhilIriSpeed {
 /// is Non-Reader, wordReadingInstructionalMin 90 means 90% and up.
 class PhilIriThresholds {
   final int nonReaderMax;                   // word recognition ≤ this: Non-Reader
+  final int wordReadingStrugglingMax;       // ≤ this: Struggling (above Non-Reader)
   final int wordReadingInstructionalMin;    // ≥ this: Instructional (below: Frustration)
   final int wordReadingIndependentMin;      // ≥ this: Independent
   final int comprehensionInstructionalMin;  // ≥ this: Instructional (below: Frustration)
@@ -86,7 +88,8 @@ class PhilIriThresholds {
   final List<int> levelsDownGroups;
 
   const PhilIriThresholds({
-    this.nonReaderMax = 50,
+    this.nonReaderMax = 35,
+    this.wordReadingStrugglingMax = 55,
     this.wordReadingInstructionalMin = 90,
     this.wordReadingIndependentMin = 97,
     this.comprehensionInstructionalMin = 59,
@@ -111,6 +114,7 @@ class PhilIriThresholds {
   /// before a new threshold existed still loads.
   Map<String, Object?> toMap() => {
         'non_reader_max': nonReaderMax,
+        'word_reading_struggling_max': wordReadingStrugglingMax,
         'word_reading_instructional_min': wordReadingInstructionalMin,
         'word_reading_independent_min': wordReadingIndependentMin,
         'comprehension_instructional_min': comprehensionInstructionalMin,
@@ -133,6 +137,7 @@ class PhilIriThresholds {
     int v(String key, int fallback) => (m[key] as num?)?.toInt() ?? fallback;
     return PhilIriThresholds(
       nonReaderMax: v('non_reader_max', d.nonReaderMax),
+      wordReadingStrugglingMax: v('word_reading_struggling_max', d.wordReadingStrugglingMax),
       wordReadingInstructionalMin: v('word_reading_instructional_min', d.wordReadingInstructionalMin),
       wordReadingIndependentMin: v('word_reading_independent_min', d.wordReadingIndependentMin),
       comprehensionInstructionalMin: v('comprehension_instructional_min', d.comprehensionInstructionalMin),
@@ -172,7 +177,7 @@ class PhilIriThresholds {
     }
 
     ordered('Word reading',
-        [nonReaderMax, wordReadingInstructionalMin, wordReadingIndependentMin], 0, 100);
+        [nonReaderMax, wordReadingStrugglingMax, wordReadingInstructionalMin, wordReadingIndependentMin], 0, 100);
     ordered('Comprehension',
         [comprehensionInstructionalMin, comprehensionIndependentMin], 0, 100);
     ordered('Speed', [speedStrugglingMax, speedSlowMax, speedFastMin], 0, 1000);
@@ -227,12 +232,13 @@ double philIriWordsPerMinute(int wordCount, int readingSeconds) {
   return (wordCount * 60 / readingSeconds * 100).round() / 100;
 }
 
-/// Accuracy band (workbook "Word Recognition Desc"): Non-Reader, Frustration,
-/// Instructional or Independent.
+/// Word recognition band: Non-Reader, Struggling, Frustration, Instructional
+/// or Independent. Word recognition only; speed plays no part.
 PhilIriLevel philIriAccuracyLevel(double score,
     [PhilIriThresholds t = PhilIriThresholds.defaults]) {
   final pct = philIriWholePercent(score);
   if (pct <= t.nonReaderMax) return PhilIriLevel.nonReader;
+  if (pct <= t.wordReadingStrugglingMax) return PhilIriLevel.struggling;
   if (pct >= t.wordReadingIndependentMin) return PhilIriLevel.independent;
   if (pct >= t.wordReadingInstructionalMin) return PhilIriLevel.instructional;
   return PhilIriLevel.frustration;
@@ -247,25 +253,30 @@ PhilIriSpeed philIriSpeed(double wpm,
   return PhilIriSpeed.average;
 }
 
-/// Word reading profile (workbook "Word Reading Profile"): accuracy
-/// Independent needs a Fast speed to stay Independent, otherwise it is
-/// Instructional. Frustration and Non-Reader stay as they are.
-PhilIriLevel philIriWordReadingLevel(PhilIriLevel accuracy, PhilIriSpeed speed) {
-  if (accuracy == PhilIriLevel.independent) {
-    return speed == PhilIriSpeed.fast
-        ? PhilIriLevel.independent
-        : PhilIriLevel.instructional;
-  }
-  return accuracy;
-}
+const _f = PhilIriLevel.frustration, _i = PhilIriLevel.instructional, _d = PhilIriLevel.independent;
+const _s = PhilIriLevel.struggling, _n = PhilIriLevel.nonReader;
 
-/// "Struggling Reader" label (SHARP paper): Frustration-level word recognition
-/// above the non-reader cut-off (default 51–89%) AND a Struggling reading
-/// speed (default 75 wpm and below). Non-Readers are not Struggling Readers;
-/// they have their own level. A Frustration reader faster than the speed
-/// cut-off gets no label (owner decision 2026-10-14: speed is required).
-bool philIriIsStrugglingReader(PhilIriLevel accuracy, PhilIriSpeed speed) =>
-    accuracy == PhilIriLevel.frustration && speed == PhilIriSpeed.struggling;
+/// Table 8, word recognition x reading speed -> word reading profile.
+const _wordReadingTable = <PhilIriLevel, Map<PhilIriSpeed, PhilIriLevel>>{
+  _d: {PhilIriSpeed.fast: _d, PhilIriSpeed.average: _d, PhilIriSpeed.slow: _i, PhilIriSpeed.struggling: _f},
+  _i: {PhilIriSpeed.fast: _i, PhilIriSpeed.average: _i, PhilIriSpeed.slow: _i, PhilIriSpeed.struggling: _s},
+  _f: {PhilIriSpeed.fast: _f, PhilIriSpeed.average: _f, PhilIriSpeed.slow: _f, PhilIriSpeed.struggling: _s},
+  _s: {PhilIriSpeed.fast: _s, PhilIriSpeed.average: _s, PhilIriSpeed.slow: _s, PhilIriSpeed.struggling: _s},
+  _n: {PhilIriSpeed.fast: _n, PhilIriSpeed.average: _n, PhilIriSpeed.slow: _n, PhilIriSpeed.struggling: _n},
+};
+
+/// Table 8, word reading profile x comprehension -> reading profile.
+const _profileTable = <PhilIriLevel, Map<PhilIriLevel, PhilIriLevel>>{
+  _d: {_d: _d, _i: _i, _f: _f},
+  _i: {_d: _d, _i: _i, _f: _f},
+  _f: {_d: _i, _i: _f, _f: _f},
+  _s: {_d: _s, _i: _s, _f: _s},
+  _n: {_d: _n, _i: _n, _f: _n},
+};
+
+/// Word reading profile: Table 8, word recognition band x reading speed.
+PhilIriLevel philIriWordReadingLevel(PhilIriLevel accuracy, PhilIriSpeed speed) =>
+    _wordReadingTable[accuracy]![speed]!;
 
 /// Comprehension band. There is no comprehension Non-Reader: Non-Reader
 /// comes from word recognition only.
@@ -277,17 +288,15 @@ PhilIriLevel philIriComprehensionLevel(double score,
   return PhilIriLevel.frustration;
 }
 
-/// Reading profile for one passage: the COMPREHENSION level, except that a
-/// Non-Reader word reading makes the passage Non-Reader (reading coordinator's
-/// workbook sheets 01-40, columns AM/BP/CS/DV/EY; adopted 2026-10-18). The
-/// word+comprehension table on the workbook's "Bases" sheet (H4:J13) is not
-/// used by any of her formulas, so BASA dropped it too. Word reading still
-/// gives the word reading level, Non-Reader and Struggling Reader.
+/// Reading profile for one passage: Table 8, word reading profile x
+/// comprehension level. Comprehension has no Struggling or Non-Reader level.
 PhilIriLevel philIriPassageProfile(PhilIriLevel wordReading, PhilIriLevel comprehension) {
-  if (comprehension == PhilIriLevel.nonReader) {
-    throw ArgumentError('comprehension has no Non-Reader level');
+  final row = _profileTable[wordReading]!;
+  final profile = row[comprehension];
+  if (profile == null) {
+    throw ArgumentError('comprehension has no ${comprehension.label} level');
   }
-  return wordReading == PhilIriLevel.nonReader ? PhilIriLevel.nonReader : comprehension;
+  return profile;
 }
 
 /// GST "starting grade level" (workbook column M): the learner's grade moved by

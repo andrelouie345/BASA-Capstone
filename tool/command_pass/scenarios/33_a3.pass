@@ -15,9 +15,9 @@
 #   word reading 18/18 = 100% Independent, 18 words / 9 s = 120 wpm,
 #   comprehension 2/2 = 100% Independent.
 #   Default speed_slow_max 120 -> 120 wpm is Slow; with the school's
-#   speed_slow_max 100 it is Average (Fast starts at 151). Either way the
-#   word reading profile is Instructional (Independent needs Fast, as in T4)
-#   and the profile Independent.
+#   speed_slow_max 100 it is Average (Fast starts at 151). Table 8: Independent
+#   x Average = word reading profile Independent, Independent x Slow =
+#   Instructional; the profile is Independent either way.
 # pi_g is finalized while the school override is on (snapshot = Average);
 # the override is then removed and pi_f is finalized by finalize-round
 # (snapshot = defaults = Slow).
@@ -201,7 +201,7 @@ run phil-iri-start {s_g7_2} {sec_g7} {year} mosy1
 capture pi_h = Started session (-?\d+)
 # Live score with the school's override: Average.
 run phil-iri-score {rd_g}
-expect word reading 100% (Independent), 120 wpm (Average) -> Instructional; comprehension 100% (Independent); profile Independent
+expect word reading 100% (Independent), 120 wpm (Average) -> Independent; comprehension 100% (Independent); profile Independent
 
 # --- Finalize --------------------------------------------------------------------
 run phil-iri-finalize {pi_h}
@@ -225,7 +225,7 @@ refuse Round is bosy, mosy1, mosy2, mosy3 or eosy (got "mosy9")
 # The snapshot keeps the thresholds of the day it was finalized: pi_g Average
 # (override), pi_f Slow (defaults).
 run phil-iri-score {rd_g}
-expect word reading 100% (Independent), 120 wpm (Average) -> Instructional; comprehension 100% (Independent); profile Independent
+expect word reading 100% (Independent), 120 wpm (Average) -> Independent; comprehension 100% (Independent); profile Independent
 run phil-iri-score {rd_f}
 expect word reading 100% (Independent), 120 wpm (Slow) -> Instructional; comprehension 100% (Independent); profile Independent
 # The lock: a finalized session can't change.
