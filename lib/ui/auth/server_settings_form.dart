@@ -9,11 +9,15 @@ import 'package:flutter/material.dart';
 import '../../viewmodels/server_config_viewmodel.dart';
 import '../basa_scope.dart';
 import '../common/error_display.dart';
+import '../common/screen_kit.dart';
 
 class ServerSettingsForm extends StatefulWidget {
   /// Called after a save, with the settings as saved.
   final ValueChanged<ServerConfigView>? onSaved;
-  const ServerSettingsForm({super.key, this.onSaved});
+
+  /// The two servers as two cards side by side (a wide Server settings screen).
+  final bool sideBySide;
+  const ServerSettingsForm({super.key, this.onSaved, this.sideBySide = false});
 
   @override
   State<ServerSettingsForm> createState() => _ServerSettingsFormState();
@@ -32,25 +36,29 @@ class _ServerSettingsFormState extends State<ServerSettingsForm> {
   Widget build(BuildContext context) {
     final view = _view;
     if (view == null) return const SizedBox.shrink();
+    final cloud = _ServerBlock(
+      title: 'Cloud server',
+      icon: Icons.cloud_outlined,
+      url: view.cloudUrl,
+      keyMasked: view.cloudKeyMasked,
+      save: (vm, url, key) => vm.setCloud(url: url, anonKey: key),
+      onSaved: _saved,
+    );
+    final lan = _ServerBlock(
+      title: 'LAN server (school network)',
+      icon: Icons.router_outlined,
+      url: view.lanUrl,
+      keyMasked: view.lanKeyMasked,
+      save: (vm, url, key) => vm.setLan(url: url, anonKey: key),
+      onSaved: _saved,
+    );
+    if (widget.sideBySide) {
+      Widget card(Widget block) => Expanded(child: Card(child: Padding(padding: const EdgeInsets.all(16), child: block)));
+      return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [card(cloud), const SizedBox(width: 12), card(lan)]);
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _ServerBlock(
-          title: 'Cloud server',
-          url: view.cloudUrl,
-          keyMasked: view.cloudKeyMasked,
-          save: (vm, url, key) => vm.setCloud(url: url, anonKey: key),
-          onSaved: _saved,
-        ),
-        const SizedBox(height: 16),
-        _ServerBlock(
-          title: 'LAN server (school network)',
-          url: view.lanUrl,
-          keyMasked: view.lanKeyMasked,
-          save: (vm, url, key) => vm.setLan(url: url, anonKey: key),
-          onSaved: _saved,
-        ),
-      ],
+      children: [cloud, const SizedBox(height: 12), const Divider(), const SizedBox(height: 12), lan],
     );
   }
 
@@ -62,6 +70,7 @@ class _ServerSettingsFormState extends State<ServerSettingsForm> {
 
 class _ServerBlock extends StatefulWidget {
   final String title;
+  final IconData icon;
   final String url;
   final String keyMasked;
   final Future<void> Function(ServerConfigViewModel vm, String? url, String? key) save;
@@ -69,6 +78,7 @@ class _ServerBlock extends StatefulWidget {
 
   const _ServerBlock({
     required this.title,
+    required this.icon,
     required this.url,
     required this.keyMasked,
     required this.save,
@@ -138,8 +148,13 @@ class _ServerBlockState extends State<_ServerBlock> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(widget.title, style: text.labelLarge?.copyWith(color: colors.onSurfaceVariant)),
-        const SizedBox(height: 8),
+        Row(children: [
+          IconBadge(widget.icon, size: 34),
+          const SizedBox(width: 12),
+          Expanded(child: Text(widget.title, style: text.titleSmall)),
+          StatusChip(keySet ? 'SET' : 'NOT SET', tone: keySet ? StatusTone.good : StatusTone.neutral, icon: Icons.key),
+        ]),
+        const SizedBox(height: 12),
         TextField(
           controller: _url,
           keyboardType: TextInputType.url,
@@ -168,7 +183,7 @@ class _ServerBlockState extends State<_ServerBlock> {
             const Spacer(),
             ListenableBuilder(
               listenable: Listenable.merge([_url, _key]),
-              builder: (context, _) => OutlinedButton(
+              builder: (context, _) => FilledButton.tonal(
                 onPressed: _saving || !_changed ? null : _save,
                 child: _saving
                     ? const SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2))

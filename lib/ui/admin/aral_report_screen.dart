@@ -7,6 +7,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../../viewmodels/app_viewmodels.dart';
 import '../../viewmodels/aral_roster_import_viewmodel.dart';
 import '../common/csv_table.dart';
 import '../common/screen_kit.dart';
@@ -116,41 +117,93 @@ class _BodyState extends State<_Body> {
           load: (_) => admin.aralReport.implementationReportCsv(schoolId: id, schoolYear: year),
           builder: (context, csv, _) => CsvTableView(csv: csv, fileName: 'ARAL_implementation_$year.csv', title: 'Implementation report'),
         ),
-        const SizedBox(height: 12),
-        SectionCard(title: 'Files', children: [
-          FilePathField(controller: _template, label: 'Implementation report template (.xlsx)'),
-          const SizedBox(height: 8),
-          Wrap(spacing: 12, runSpacing: 8, children: [
-            FilledButton.icon(onPressed: _xlsx, icon: const Icon(Icons.table_view), label: const Text('Fill the template')),
-            OutlinedButton.icon(
-              onPressed: () => _saveCsv('ARAL_roster_$year.csv', () => vms.aral.rosterCsv(schoolId: id, schoolYear: year)),
-              icon: const Icon(Icons.download),
-              label: const Text('Roster CSV'),
-            ),
-            OutlinedButton.icon(
-              onPressed: () => _saveCsv('ARAL_checkins_$year.csv', () => vms.aralCheckin.checkinReportCsv(schoolId: id, schoolYear: year)),
-              icon: const Icon(Icons.download),
-              label: const Text('Check-in report CSV'),
-            ),
-          ]),
-        ]),
-        const SizedBox(height: 12),
-        SectionCard(title: 'Roster import', children: [
-          FilePathField(controller: _rosterFile, label: 'Roster file (.csv or .xlsx)'),
-          const SizedBox(height: 8),
-          Wrap(spacing: 12, children: [
-            OutlinedButton(onPressed: () => _roster(false), child: const Text('Preview')),
-            FilledButton(onPressed: p == null ? null : () => _roster(true), child: const Text('Import')),
-          ]),
-          if (_imported != null) Padding(padding: const EdgeInsets.only(top: 8), child: SelectableText(_imported!)),
-          if (p != null) ...[
-            for (final n in p.notes) Text('Note: $n'),
-            for (final o in AralRosterImportOutcome.values) InfoRow(o.name, '${p.count(o)}'),
-            for (final r in p.rows.where((r) => r.problems.isNotEmpty))
-              Text('Row ${r.rowNo} ${r.name}: ${r.problems.join('; ')}'),
-          ],
-        ]),
+        const SizedBox(height: 16),
+        LayoutBuilder(builder: (context, c) {
+          final files = _filesCard(vms, id, year);
+          final import = _importCard(context, p);
+          return c.maxWidth >= 1000
+              ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Expanded(child: files),
+                  const SizedBox(width: 12),
+                  Expanded(child: import),
+                ])
+              : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [files, const SizedBox(height: 12), import]);
+        }),
       ],
     );
   }
+
+  Widget _filesCard(AppViewModels vms, int id, String year) => SectionCard(title: 'Files', icon: Icons.folder_outlined, children: [
+    FilePathField(controller: _template, label: 'Implementation report template (.xlsx)'),
+    const SizedBox(height: 12),
+    Wrap(spacing: 8, runSpacing: 8, children: [
+      FilledButton.icon(onPressed: _xlsx, icon: const Icon(Icons.table_view), label: const Text('Fill the template')),
+      FilledButton.tonalIcon(
+        onPressed: () => _saveCsv('ARAL_roster_$year.csv', () => vms.aral.rosterCsv(schoolId: id, schoolYear: year)),
+        icon: const Icon(Icons.download),
+        label: const Text('Roster CSV'),
+      ),
+      FilledButton.tonalIcon(
+        onPressed: () => _saveCsv('ARAL_checkins_$year.csv', () => vms.aralCheckin.checkinReportCsv(schoolId: id, schoolYear: year)),
+        icon: const Icon(Icons.download),
+        label: const Text('Check-in report CSV'),
+      ),
+    ]),
+  ]);
+
+  Widget _importCard(BuildContext context, AralRosterImportPreview? p) {
+    final colors = Theme.of(context).colorScheme;
+    return SectionCard(title: 'Roster import', icon: Icons.group_add_outlined, children: [
+      FilePathField(controller: _rosterFile, label: 'Roster file (.csv or .xlsx)'),
+      const SizedBox(height: 12),
+      Wrap(spacing: 8, runSpacing: 8, children: [
+        OutlinedButton(onPressed: () => _roster(false), child: const Text('Preview')),
+        FilledButton(onPressed: p == null ? null : () => _roster(true), child: const Text('Import')),
+      ]),
+      if (_imported != null) ...[
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          decoration: BoxDecoration(color: colors.tertiary.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(14)),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(Icons.check_circle_outline, size: 20, color: colors.tertiary),
+            const SizedBox(width: 10),
+            Expanded(child: SelectableText(_imported!)),
+          ]),
+        ),
+      ],
+      if (p != null) ...[
+        const SizedBox(height: 12),
+        for (final n in p.notes) ...[NoticeBanner('Note: $n', tone: StatusTone.neutral), const SizedBox(height: 8)],
+        StatGrid(tileWidth: 160, tiles: [
+          for (final o in AralRosterImportOutcome.values)
+            StatTile(label: o.name, value: '${p.count(o)}', icon: _outcomeIcon(o)),
+        ]),
+        if (p.rows.any((r) => r.problems.isNotEmpty)) ...[
+          const SizedBox(height: 12),
+          for (final r in p.rows.where((r) => r.problems.isNotEmpty))
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: colors.errorContainer.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(12)),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Icon(Icons.error_outline, size: 18, color: colors.error),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text('Row ${r.rowNo} ${r.name}: ${r.problems.join('; ')}')),
+                ]),
+              ),
+            ),
+        ],
+      ],
+    ]);
+  }
 }
+
+IconData _outcomeIcon(AralRosterImportOutcome o) => switch (o) {
+  AralRosterImportOutcome.add => Icons.person_add_alt_1,
+  AralRosterImportOutcome.addAndExit => Icons.logout,
+  AralRosterImportOutcome.alreadyOnRoster => Icons.how_to_reg_outlined,
+  AralRosterImportOutcome.skipGradeLevelReady => Icons.verified_outlined,
+  AralRosterImportOutcome.error => Icons.error_outline,
+};

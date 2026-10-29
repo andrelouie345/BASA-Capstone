@@ -55,52 +55,83 @@ class _PullScreenState extends State<PullScreen> {
         builder: (context, p, _) {
           final colors = Theme.of(context).colorScheme;
           final blocked = p.ownerSwitch && p.localTotal > 0;
-          return PageBody(
-            maxWidth: 720,
-            children: [
-              SectionCard(
-                title: 'This device',
-                children: [
-                  InfoRow('Signed in as', p.currentEmail ?? '—'),
-                  InfoRow('Last downloaded by', p.owner?.toString() ?? 'Nobody yet'),
-                  InfoRow('Unsent work', p.localTotal == 0 ? 'None' : '${p.localTotal} record(s)'),
-                  for (final l in p.localWork) Padding(padding: const EdgeInsets.only(left: 16), child: Text('• $l')),
-                ],
-              ),
-              if (blocked)
-                Card(
-                  color: colors.errorContainer,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      'This device holds work of ${p.owner!.email ?? 'another user'} that is not on the server yet. '
-                      'They should send it first. Downloading as you deletes it.',
-                      style: TextStyle(color: colors.onErrorContainer),
-                    ),
+          final wide = isWideScreen(context);
+          final onDownload = blocked ? null : () => _pull(discard: false);
+          const actionLabel = 'Download the latest data';
+          // The page's own Scaffold: the main action needs the preview.
+          return Scaffold(
+            backgroundColor: colors.surface.withValues(alpha: 0),
+            floatingActionButton: wide
+                ? null
+                : mainActionFab(onPressed: onDownload, icon: Icons.cloud_download, label: actionLabel, busy: _busy),
+            body: PageBody(
+              maxWidth: 760,
+              children: [
+                if (wide)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: mainActionButton(onPressed: onDownload, icon: Icons.cloud_download, label: actionLabel, busy: _busy),
                   ),
-                )
-              else
-                Text(
-                  p.localTotal == 0
-                      ? 'Downloading replaces this device\'s copy with the latest from the server.'
-                      : 'Your unsent work is kept; everything else is refreshed from the server.',
+                StatGrid(tiles: [
+                  StatTile(label: 'Unsent records', value: '${p.localTotal}', icon: Icons.cloud_off_outlined),
+                  StatTile(
+                    label: 'Owner of this device',
+                    value: p.owner == null ? 'Nobody yet' : p.ownerSwitch ? 'Another user' : 'You',
+                    icon: Icons.phone_android,
+                  ),
+                ]),
+                SectionCard(
+                  title: 'This device',
+                  icon: Icons.devices_outlined,
+                  trailing: p.localTotal > 0
+                      ? PopupMenuButton<void>(
+                          tooltip: 'More',
+                          enabled: !_busy,
+                          itemBuilder: (_) => [
+                            PopupMenuItem(
+                              onTap: () => _pull(discard: true),
+                              child: ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: Icon(Icons.delete_forever_outlined, color: colors.error),
+                                title: Text('Delete unsent work and download', style: TextStyle(color: colors.error)),
+                              ),
+                            ),
+                          ],
+                        )
+                      : null,
+                  children: [
+                    InfoRow('Signed in as', p.currentEmail ?? '—'),
+                    InfoRow('Last downloaded by', p.owner?.toString() ?? 'Nobody yet'),
+                    InfoRow('Unsent work', p.localTotal == 0 ? 'None' : '${p.localTotal} record(s)'),
+                  ],
                 ),
-              FilledButton.icon(
-                onPressed: _busy || blocked ? null : () => _pull(discard: false),
-                icon: _busy
-                    ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.cloud_download),
-                label: const Text('Download the latest data'),
-              ),
-              if (p.localTotal > 0)
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(foregroundColor: colors.error),
-                  onPressed: _busy ? null : () => _pull(discard: true),
-                  icon: const Icon(Icons.delete_forever_outlined),
-                  label: const Text('Delete unsent work and download'),
-                ),
-              if (_result != null) SectionCard(title: 'Last download', children: [SelectableText(_result!)]),
-            ],
+                if (p.localWork.isNotEmpty)
+                  ListCard(
+                    children: [
+                      for (final l in p.localWork)
+                        ListRow(leading: const IconBadge(Icons.edit_note), title: '$l'),
+                    ],
+                  ),
+                if (blocked)
+                  NoticeBanner(
+                    'This device holds work of ${p.owner!.email ?? 'another user'} that is not on the server yet. '
+                    'They should send it first. Downloading as you deletes it.',
+                    icon: Icons.warning_amber,
+                    tone: StatusTone.bad,
+                  )
+                else
+                  NoticeBanner(
+                    p.localTotal == 0
+                        ? 'Downloading replaces this device\'s copy with the latest from the server.'
+                        : 'Your unsent work is kept; everything else is refreshed from the server.',
+                    tone: StatusTone.neutral,
+                  ),
+                if (_result != null)
+                  SectionCard(title: 'Last download', icon: Icons.cloud_done_outlined, children: [SelectableText(_result!)]),
+                // Room for the floating button.
+                if (!wide) const SizedBox(height: 72),
+              ],
+            ),
           );
         },
       ),

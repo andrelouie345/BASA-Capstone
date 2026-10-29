@@ -73,6 +73,7 @@ class _Sf1ImportScreenState extends State<Sf1ImportScreen> {
   Widget build(BuildContext context) {
     final sf1 = AdminScope.of(context).sf1Import;
     final t = _trial;
+    final colors = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: const Text('SF1 import'),
@@ -82,38 +83,69 @@ class _Sf1ImportScreenState extends State<Sf1ImportScreen> {
       ),
       body: PageBody(
         children: [
-          FilePathField(controller: _path, label: 'SF1 workbook (.xls or .xlsx)'),
-          Wrap(
-            spacing: 12,
-            runSpacing: 8,
+          SectionCard(
+            title: 'Workbook',
+            icon: Icons.upload_file,
             children: [
-              OutlinedButton.icon(
-                onPressed: _busy ? null : () => _run(false),
-                icon: const Icon(Icons.science_outlined),
-                label: const Text('Try it (nothing is saved)'),
+              FilePathField(controller: _path, label: 'SF1 workbook (.xls or .xlsx)'),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : () => _run(false),
+                    icon: const Icon(Icons.science_outlined),
+                    label: const Text('Try it (nothing is saved)'),
+                  ),
+                  FilledButton.icon(
+                    onPressed: _busy ? null : () => _run(true),
+                    icon: _busy
+                        ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.upload_file),
+                    label: const Text('Import'),
+                  ),
+                ],
               ),
-              FilledButton.icon(
-                onPressed: _busy ? null : () => _run(true),
-                icon: const Icon(Icons.upload_file),
-                label: const Text('Import'),
-              ),
-              if (_busy) const SizedBox.square(dimension: 24, child: CircularProgressIndicator(strokeWidth: 2)),
             ],
           ),
-          if (_imported != null) SectionCard(title: 'Import done', children: [Text(_imported!)]),
+          if (_imported != null) _DoneBanner(_imported!),
           if (t != null)
             SectionCard(
               title: 'Trial: Grade ${t.gradeLevel} ${t.sectionName} (${t.schoolYear})',
+              icon: Icons.science_outlined,
               children: [
+                StatGrid(tileWidth: 160, tiles: [
+                  StatTile(label: 'Would add', value: '${t.wouldInsert}', icon: Icons.person_add_alt_1),
+                  StatTile(label: 'Conflicts', value: '${t.wouldConflict}', icon: Icons.call_split),
+                  StatTile(label: 'Already enrolled', value: '${t.alreadyEnrolled}', icon: Icons.how_to_reg_outlined),
+                  StatTile(label: 'Skipped', value: '${t.wouldSkip}', icon: Icons.redo),
+                ]),
+                const SizedBox(height: 12),
                 InfoRow('School', '${t.schoolName} (${t.schoolIdCode})'),
-                InfoRow('Region', t.regionError ?? t.rawRegion ?? '—'),
-                InfoRow('Would add', '${t.wouldInsert} learner(s)'),
-                InfoRow('Conflicts', '${t.wouldConflict}'),
-                InfoRow('Already enrolled', '${t.alreadyEnrolled}'),
-                InfoRow('Skipped', '${t.wouldSkip}'),
-                const Divider(),
-                for (final r in t.rows.where((r) => r.outcome != 'insert'))
-                  Text('Row ${r.rowIndex + 1}: ${r.name} ${r.lrn ?? ''} — ${r.outcome}${r.reason == null ? '' : ' (${r.reason})'}'),
+                if (t.regionError != null)
+                  // A region problem, tinted so it is not missed.
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: colors.errorContainer.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: InfoRow('Region', t.regionError!),
+                  )
+                else
+                  InfoRow('Region', t.rawRegion ?? '—'),
+                if (t.rows.any((r) => r.outcome != 'insert')) ...[
+                  const SizedBox(height: 8),
+                  const Divider(),
+                  for (final r in t.rows.where((r) => r.outcome != 'insert'))
+                    ListRow(
+                      leading: IconBadge(r.outcome == 'conflict' ? Icons.call_split : Icons.redo, size: 34),
+                      title: 'Row ${r.rowIndex + 1}: ${r.name} ${r.lrn ?? ''} — ${r.outcome}${r.reason == null ? '' : ' (${r.reason})'}',
+                      footer: StatusChip(r.outcome.toUpperCase(),
+                          tone: r.outcome == 'conflict' ? StatusTone.bad : StatusTone.neutral),
+                    ),
+                ],
               ],
             ),
           LoadView<List<ImportConflict>>(
@@ -123,7 +155,7 @@ class _Sf1ImportScreenState extends State<Sf1ImportScreen> {
               await sf1.loadPendingConflicts();
               return List.of(sf1.pendingConflicts);
             },
-            builder: (context, items, reload) => SectionCard(
+            builder: (context, items, reload) => ListCard(
               title: 'Conflicts to settle (${items.length})',
               trailing: items.isEmpty
                   ? null
@@ -143,14 +175,15 @@ class _Sf1ImportScreenState extends State<Sf1ImportScreen> {
                       ],
                     ),
               children: items.isEmpty
-                  ? [const Text('No conflicts waiting.')]
+                  ? [const EmptyNote('No conflicts waiting.', icon: Icons.task_alt)]
                   : [
                       for (final c in items)
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text('LRN ${c.lrn}'),
-                          subtitle: Text(c.reason),
-                          trailing: Wrap(spacing: 4, children: [
+                        ListRow(
+                          leading: IconBadge(Icons.warning_amber,
+                              background: colors.errorContainer, foreground: colors.onErrorContainer),
+                          title: 'LRN ${c.lrn}',
+                          subtitle: c.reason,
+                          trailing: [
                             TextButton(
                               onPressed: () async {
                                 await runAction(context, () => sf1.resolve(c.id!, 'skip'), done: 'Skipped.', where: 'Sf1Import');
@@ -165,13 +198,40 @@ class _Sf1ImportScreenState extends State<Sf1ImportScreen> {
                               },
                               child: const Text('Update'),
                             ),
-                          ]),
+                          ],
                         ),
                     ],
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The import's result, in a good-toned banner.
+class _DoneBanner extends StatelessWidget {
+  final String text;
+  const _DoneBanner(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(color: colors.tertiary.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(14)),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(Icons.check_circle_outline, size: 20, color: colors.tertiary),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Import done', style: theme.textTheme.titleSmall),
+            const SizedBox(height: 4),
+            Text(text),
+          ]),
+        ),
+      ]),
     );
   }
 }

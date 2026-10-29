@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 
 import '../basa_scope.dart';
+import '../common/screen_kit.dart';
 import 'server_settings_form.dart';
 
 class ServerSettingsScreen extends StatelessWidget {
@@ -12,9 +13,8 @@ class ServerSettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
     final signedIn = BasaScope.of(context).auth.isSignedIn;
+    final wide = MediaQuery.sizeOf(context).width >= 1000;
     return Scaffold(
       appBar: AppBar(title: const Text('Server settings')),
       body: SafeArea(
@@ -22,29 +22,31 @@ class ServerSettingsScreen extends StatelessWidget {
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
+              constraints: BoxConstraints(maxWidth: wide ? 1000 : 520),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
+                  const NoticeBanner(
                     'Saved on this device only. The anon key is the server\'s public key; '
                     'ask your coordinator for it.',
-                    style: text.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
+                    icon: Icons.info_outline,
+                    tone: StatusTone.neutral,
                   ),
                   if (signedIn) ...[
                     const SizedBox(height: 8),
-                    Text(
-                      'A change is used from the next sign-in.',
-                      style: text.bodyMedium?.copyWith(color: colors.secondary),
-                    ),
+                    const NoticeBanner('A change is used from the next sign-in.', icon: Icons.schedule),
                   ],
                   const SizedBox(height: 16),
-                  const Card(
-                    child: Padding(
-                      padding: EdgeInsets.all(16),
-                      child: ServerSettingsForm(),
+                  // Wide: the cloud and LAN blocks as two cards side by side.
+                  if (wide)
+                    const ServerSettingsForm(sideBySide: true)
+                  else
+                    const Card(
+                      child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: ServerSettingsForm(),
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),

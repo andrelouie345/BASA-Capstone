@@ -59,16 +59,22 @@ class CsvTableView extends StatelessWidget {
   Widget build(BuildContext context) {
     final rows = parseCsv(csv);
     final theme = Theme.of(context);
+    final colors = theme.colorScheme;
     final width = rows.fold(0, (n, r) => r.length > n ? r.length : n);
+    final dataRows = rows.length > 1 ? rows.length - 1 : 0;
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(children: [
-              Expanded(child: Text(title ?? '${rows.length > 1 ? rows.length - 1 : 0} row(s)', style: theme.textTheme.titleSmall)),
-              TextButton.icon(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+            child: Row(children: [
+              const IconBadge(Icons.table_chart_outlined, size: 34),
+              const SizedBox(width: 12),
+              Expanded(child: Text(title ?? '$dataRows row(s)', style: theme.textTheme.titleMedium)),
+              if (title != null) ...[StatusChip('$dataRows', icon: Icons.table_rows_outlined), const SizedBox(width: 8)],
+              FilledButton.tonalIcon(
                 icon: const Icon(Icons.download),
                 label: const Text('Save as CSV'),
                 onPressed: () async {
@@ -77,27 +83,31 @@ class CsvTableView extends StatelessWidget {
                 },
               ),
             ]),
-            if (rows.isEmpty)
-              const Padding(padding: EdgeInsets.all(12), child: Text('Nothing to show.'))
-            else
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: DataTable(
-                  headingTextStyle: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
-                  dataRowMinHeight: 32,
-                  dataRowMaxHeight: 48,
-                  columnSpacing: 18,
-                  columns: [
-                    for (var i = 0; i < width; i++) DataColumn(label: Text(i < rows.first.length ? rows.first[i] : '')),
-                  ],
-                  rows: [
-                    for (final r in rows.skip(1))
-                      DataRow(cells: [for (var i = 0; i < width; i++) DataCell(Text(i < r.length ? r[i] : ''))]),
-                  ],
-                ),
+          ),
+          if (rows.isEmpty)
+            const EmptyNote('Nothing to show.', icon: Icons.table_rows_outlined)
+          else
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                headingRowColor: WidgetStatePropertyAll(colors.surfaceContainerHigh),
+                dataRowMinHeight: 36,
+                dataRowMaxHeight: 52,
+                columnSpacing: 20,
+                columns: [
+                  for (var i = 0; i < width; i++) DataColumn(label: Text(i < rows.first.length ? rows.first[i] : '')),
+                ],
+                rows: [
+                  for (var n = 1; n < rows.length; n++)
+                    DataRow(
+                      // Zebra rows.
+                      color: WidgetStatePropertyAll(n.isOdd ? colors.surfaceContainerLowest : colors.surfaceContainerLow),
+                      cells: [for (var i = 0; i < width; i++) DataCell(Text(i < rows[n].length ? rows[n][i] : ''))],
+                    ),
+                ],
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }

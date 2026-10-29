@@ -78,78 +78,128 @@ class _UploadScreenState extends State<UploadScreen> {
         builder: (context, data, _) {
           final (p, uploads) = data;
           final colors = Theme.of(context).colorScheme;
-          return PageBody(
-            maxWidth: 760,
-            children: [
-              for (final o in p.settled)
-                Card(
-                  color: colors.secondaryContainer,
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Text(o.toString(), style: TextStyle(color: colors.onSecondaryContainer)),
+          final wide = isWideScreen(context);
+          final onSend = p.package.isEmpty || p.problems.isNotEmpty ? null : () => _send(p);
+          const actionLabel = 'Send my work';
+          // The page's own Scaffold: the main action needs the preview.
+          return Scaffold(
+            backgroundColor: colors.surface.withValues(alpha: 0),
+            floatingActionButton:
+                wide ? null : mainActionFab(onPressed: onSend, icon: Icons.cloud_upload, label: actionLabel, busy: _busy),
+            body: PageBody(
+              maxWidth: 760,
+              children: [
+                if (wide)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: mainActionButton(onPressed: onSend, icon: Icons.cloud_upload, label: actionLabel, busy: _busy),
                   ),
+                for (final o in p.settled)
+                  NoticeBanner(o.toString(), icon: _statusIcon(o.status), tone: _statusTone(o.status)),
+                StatGrid(tiles: [
+                  StatTile(label: 'Records to send', value: '${p.package.rowCount}', icon: Icons.cloud_upload_outlined),
+                  StatTile(label: 'Conflicts', value: '${p.problems.length}', icon: Icons.call_split),
+                  StatTile(
+                    label: 'Waiting for approval',
+                    value: '${uploads.where((u) => u.status == 'pending').length}',
+                    icon: Icons.hourglass_top,
+                  ),
+                ]),
+                ListCard(
+                  title: 'Not sent yet',
+                  children: p.package.isEmpty
+                      ? [
+                          const EmptyNote('Nothing to send: all your work is on the server or waiting for approval.',
+                              icon: Icons.cloud_done_outlined),
+                        ]
+                      : [
+                          for (final LocalWorkLine l in p.package.summary)
+                            ListRow(leading: const IconBadge(Icons.edit_note), title: '$l'),
+                        ],
                 ),
-              SectionCard(
-                title: 'Not sent yet',
-                children: p.package.isEmpty
-                    ? [const Text('Nothing to send: all your work is on the server or waiting for approval.')]
-                    : [for (final LocalWorkLine l in p.package.summary) Text('• $l')],
-              ),
-              if (p.problems.isNotEmpty)
-                SectionCard(
-                  title: 'Settle these first',
-                  children: [
-                    const Text('The server changed these records since your last download. Keep yours, or take '
-                        "the server's copy."),
-                    const SizedBox(height: 8),
-                    for (final x in p.problems)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 6),
-                        child: Wrap(
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          spacing: 8,
-                          runSpacing: 4,
-                          children: [
-                            Text(x.toString()),
-                            OutlinedButton(onPressed: () => _resolve(x, SyncChoice.mine), child: const Text('Keep mine')),
-                            OutlinedButton(
-                              onPressed: () => _resolve(x, SyncChoice.server),
-                              child: const Text("Take the server's"),
-                            ),
-                          ],
-                        ),
+                if (p.problems.isNotEmpty)
+                  SectionCard(
+                    title: 'Settle these first',
+                    icon: Icons.warning_amber,
+                    trailing: StatusChip('${p.problems.length}', tone: StatusTone.bad),
+                    children: [
+                      Text(
+                        'The server changed these records since your last download. Keep yours, or take '
+                        "the server's copy.",
+                        style: TextStyle(color: colors.onSurfaceVariant),
                       ),
-                  ],
-                ),
-              FilledButton.icon(
-                onPressed: _busy || p.package.isEmpty || p.problems.isNotEmpty ? null : () => _send(p),
-                icon: _busy
-                    ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.cloud_upload),
-                label: const Text('Send my work'),
-              ),
-              if (_result != null) SectionCard(title: 'Last upload', children: [SelectableText(_result!)]),
-              SectionCard(
-                title: 'My uploads',
-                children: uploads.isEmpty
-                    ? [const Text('No uploads yet.')]
-                    : [
-                        for (final u in uploads.reversed)
-                          ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            leading: Icon(_statusIcon(u.status)),
-                            title: Text('Upload ${u.id} · ${_statusLabel(u.status)}'),
-                            subtitle: Text([
-                              '${u.rows} record(s), sent ${isoDate(u.createdAt.toLocal())}',
-                              if (u.reason != null) u.reason!,
-                            ].join('\n')),
-                            trailing: u.status == 'pending'
-                                ? TextButton(onPressed: () => _withdraw(u), child: const Text('Withdraw'))
-                                : null,
+                      const SizedBox(height: 8),
+                      for (final x in p.problems)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(color: colors.surfaceContainerLow, borderRadius: BorderRadius.circular(12)),
+                            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              IconBadge(Icons.call_split,
+                                  size: 32, background: colors.errorContainer, foreground: colors.onErrorContainer),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Padding(padding: const EdgeInsets.only(top: 6), child: Text(x.toString())),
+                                    const SizedBox(height: 8),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children: [
+                                        OutlinedButton(
+                                            onPressed: () => _resolve(x, SyncChoice.mine), child: const Text('Keep mine')),
+                                        OutlinedButton(
+                                          onPressed: () => _resolve(x, SyncChoice.server),
+                                          child: const Text("Take the server's"),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ]),
                           ),
-                      ],
-              ),
-            ],
+                        ),
+                    ],
+                  ),
+                if (_result != null)
+                  SectionCard(title: 'Last upload', icon: Icons.cloud_done_outlined, children: [SelectableText(_result!)]),
+                ListCard(
+                  title: 'My uploads',
+                  children: uploads.isEmpty
+                      ? [const EmptyNote('No uploads yet.', icon: Icons.cloud_queue)]
+                      : [
+                          for (final u in uploads.reversed)
+                            ListRow(
+                              leading: IconBadge(
+                                _statusIcon(u.status),
+                                background: _badgeColors(colors, u.status).$1,
+                                foreground: _badgeColors(colors, u.status).$2,
+                              ),
+                              title: 'Upload ${u.id}',
+                              subtitle: '${u.rows} record(s), sent ${isoDate(u.createdAt.toLocal())}',
+                              // The reason in full (the subtitle is cut at two lines).
+                              footer: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  StatusChip(_statusLabel(u.status), tone: _statusTone(u.status)),
+                                  if (u.reason != null) ...[const SizedBox(height: 6), Text(u.reason!)],
+                                ],
+                              ),
+                              trailing: [
+                                if (u.status == 'pending')
+                                  TextButton(onPressed: () => _withdraw(u), child: const Text('Withdraw')),
+                              ],
+                            ),
+                        ],
+                ),
+                // Room for the floating button.
+                if (!wide) const SizedBox(height: 72),
+              ],
+            ),
           );
         },
       ),
@@ -174,4 +224,19 @@ IconData _statusIcon(String s) => switch (s) {
   'conflict' => Icons.call_split,
   'error' => Icons.error_outline,
   _ => Icons.undo,
+};
+
+StatusTone _statusTone(String s) => switch (s) {
+  'pending' => StatusTone.warn,
+  'applied' => StatusTone.good,
+  'rejected' || 'conflict' || 'error' => StatusTone.bad,
+  _ => StatusTone.neutral,
+};
+
+/// Badge background and icon colour for an upload's status.
+(Color, Color) _badgeColors(ColorScheme c, String s) => switch (_statusTone(s)) {
+  StatusTone.good => (c.tertiaryContainer, c.onTertiaryContainer),
+  StatusTone.warn => (c.secondaryContainer, c.onSecondaryContainer),
+  StatusTone.bad => (c.errorContainer, c.onErrorContainer),
+  StatusTone.neutral => (c.surfaceContainerHigh, c.onSurfaceVariant),
 };

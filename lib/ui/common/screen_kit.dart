@@ -634,19 +634,39 @@ const wideActionWidth = 600.0;
 bool isWideScreen(BuildContext context) => MediaQuery.sizeOf(context).width >= wideActionWidth;
 
 /// The main action as an app-bar button (wide screens); pair with [mainActionFab].
-Widget mainActionButton({required VoidCallback onPressed, required IconData icon, required String label}) => Padding(
-  padding: const EdgeInsets.symmetric(horizontal: 8),
-  child: FilledButton.icon(
-    onPressed: onPressed,
-    icon: Icon(icon),
-    label: Text(label),
-    style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
-  ),
-);
+/// A null [onPressed] disables it; [busy] shows a spinner in place of the icon.
+Widget mainActionButton({required VoidCallback? onPressed, required IconData icon, required String label, bool busy = false}) =>
+    Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: FilledButton.icon(
+        onPressed: busy ? null : onPressed,
+        icon: busy ? const _ActionSpinner() : Icon(icon),
+        label: Text(label),
+        style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
+      ),
+    );
 
-/// The main action as a floating button (phones).
-Widget mainActionFab({required VoidCallback onPressed, required IconData icon, required String label}) =>
-    FloatingActionButton.extended(onPressed: onPressed, icon: Icon(icon), label: Text(label));
+/// The main action as a floating button (phones), greyed out when disabled.
+Widget mainActionFab({required VoidCallback? onPressed, required IconData icon, required String label, bool busy = false}) =>
+    Builder(builder: (context) {
+      final colors = Theme.of(context).colorScheme;
+      final enabled = onPressed != null && !busy;
+      return FloatingActionButton.extended(
+        onPressed: enabled ? onPressed : null,
+        backgroundColor: enabled ? null : colors.surfaceContainerHighest,
+        foregroundColor: enabled ? null : colors.onSurfaceVariant,
+        icon: busy ? const _ActionSpinner() : Icon(icon),
+        label: Text(label),
+      );
+    });
+
+class _ActionSpinner extends StatelessWidget {
+  const _ActionSpinner();
+
+  @override
+  Widget build(BuildContext context) =>
+      const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2));
+}
 
 /// The first letter of [s], upper case, or "?".
 String initialOf(String s) => s.trim().isEmpty ? '?' : s.trim()[0].toUpperCase();

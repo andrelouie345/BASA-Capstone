@@ -27,13 +27,15 @@ class _SchoolYearScopeState extends State<SchoolYearScope> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (own == null) ...[
-          SchoolPicker(value: _school, onChanged: (s) => setState(() => _school = s)),
-          const SizedBox(height: 12),
-        ],
-        SchoolYearPicker(value: _year, onChanged: (y) => setState(() => _year = y)),
-        const SizedBox(height: 12),
-        if (schoolId != null && _year != null) widget.builder(context, schoolId, _year!),
+        FilterBar(children: [
+          if (own == null) SchoolPicker(value: _school, onChanged: (s) => setState(() => _school = s)),
+          SchoolYearPicker(value: _year, onChanged: (y) => setState(() => _year = y)),
+        ]),
+        const SizedBox(height: 16),
+        if (schoolId != null && _year != null)
+          widget.builder(context, schoolId, _year!)
+        else
+          const EmptyNote('Pick a school year to continue.', icon: Icons.filter_alt_outlined),
       ],
     );
   }

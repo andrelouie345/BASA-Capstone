@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 
 import '../basa_scope.dart';
 import '../common/error_display.dart';
+import '../common/screen_kit.dart';
+import 'auth_backdrop.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   /// The forced change: no back button, a "Sign out" instead.
@@ -93,8 +95,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     return PopScope(
       canPop: !widget.forced,
       child: Scaffold(
+        extendBodyBehindAppBar: true,
         appBar: AppBar(
           title: const Text('Change password'),
+          backgroundColor: colors.surface.withValues(alpha: 0),
           automaticallyImplyLeading: !widget.forced,
           actions: [
             if (widget.forced)
@@ -105,28 +109,36 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               ),
           ],
         ),
-        body: SafeArea(
+        body: AuthBackdrop(
+          child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 440),
                 child: Card(
+                  elevation: 6,
+                  shadowColor: colors.shadow.withValues(alpha: 0.25),
                   child: Padding(
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(24),
                     child: Form(
                       key: _formKey,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          if (!widget.forced) ...[
+                            const Align(alignment: Alignment.centerLeft, child: IconBadge(Icons.key, size: 48)),
+                            const SizedBox(height: 16),
+                          ],
                           if (widget.forced) ...[
                             Row(
                               children: [
-                                Icon(Icons.key, color: colors.primary),
-                                const SizedBox(width: 10),
+                                const IconBadge(Icons.key, size: 48),
+                                const SizedBox(width: 14),
                                 Expanded(child: Text('Choose your own password', style: text.titleMedium)),
                               ],
                             ),
+                            const SizedBox(height: 6),
                             const SizedBox(height: 6),
                             Text(
                               'Your account was made with a temporary password. '
@@ -136,8 +148,14 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                             const SizedBox(height: 16),
                           ],
                           if (user != null) ...[
-                            Text(user.email, style: text.bodySmall?.copyWith(color: colors.onSurfaceVariant)),
-                            const SizedBox(height: 12),
+                            Row(children: [
+                              Icon(Icons.person_outline, size: 18, color: colors.onSurfaceVariant),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(user.email, style: text.bodySmall?.copyWith(color: colors.onSurfaceVariant)),
+                              ),
+                            ]),
+                            const SizedBox(height: 16),
                           ],
                           TextFormField(
                             controller: _password,
@@ -186,11 +204,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                                   )
                                 : const Text('Save password'),
                           ),
-                          const SizedBox(height: 8),
-                          Text(
+                          const SizedBox(height: 12),
+                          const NoticeBanner(
                             'Needs a connection. Your offline sign-in uses the new password afterwards.',
-                            style: text.bodySmall?.copyWith(color: colors.onSurfaceVariant),
-                            textAlign: TextAlign.center,
+                            icon: Icons.wifi,
+                            tone: StatusTone.neutral,
                           ),
                         ],
                       ),
@@ -200,6 +218,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               ),
             ),
           ),
+        ),
         ),
       ),
     );

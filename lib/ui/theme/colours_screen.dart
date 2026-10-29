@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import '../../core/models/theme_settings.dart';
 import '../basa_scope.dart';
 import '../common/error_display.dart';
+import '../common/screen_kit.dart';
 import 'basa_colors.dart';
 import 'basa_theme.dart';
 
@@ -97,14 +98,12 @@ class _ColoursScreenState extends State<ColoursScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 640),
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-            children: [
-              Text('Appearance', style: text.titleMedium),
-              const SizedBox(height: 8),
+      body: LayoutBuilder(builder: (context, box) {
+        final wide = box.maxWidth >= 1000;
+        final appearance = SectionCard(
+          title: 'Appearance',
+          icon: Icons.contrast,
+          children: [
               SegmentedButton<ThemeModeChoice>(
                 segments: const [
                   ButtonSegment(
@@ -123,49 +122,91 @@ class _ColoursScreenState extends State<ColoursScreen> {
                         _change(() => vm.setMode(s.first));
                       },
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 8),
               Text(
                 'Saved on this device for everyone who uses it.',
                 style: text.bodySmall?.copyWith(color: colors.onSurfaceVariant),
               ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(child: Text('Colours', style: text.titleMedium)),
-                  SegmentedButton<ThemeBrightness>(
-                    showSelectedIcon: false,
-                    segments: const [
-                      ButtonSegment(value: ThemeBrightness.light, label: Text('Light mode')),
-                      ButtonSegment(value: ThemeBrightness.dark, label: Text('Dark mode')),
-                    ],
-                    selected: {editing},
-                    onSelectionChanged: (s) => setState(() => _editing = s.first),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              _SamplePreview(brightness: brightness, changes: changes),
-              const SizedBox(height: 12),
-              Card(
-                clipBehavior: Clip.antiAlias,
+          ],
+        );
+        final modeSwitch = SegmentedButton<ThemeBrightness>(
+          showSelectedIcon: false,
+          segments: const [
+            ButtonSegment(value: ThemeBrightness.light, label: Text('Light mode')),
+            ButtonSegment(value: ThemeBrightness.dark, label: Text('Dark mode')),
+          ],
+          selected: {editing},
+          onSelectionChanged: (s) => setState(() => _editing = s.first),
+        );
+        final changedCount = basaColors.where((c) => changes.containsKey(c.name)).length;
+        final colourList = Card(
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    for (final (i, c) in basaColors.indexed) ...[
-                      if (i > 0) const Divider(height: 1),
-                      _ColourRow(
-                        colour: c,
-                        value: changes[c.name] ?? c.defaultFor(brightness),
-                        changed: changes.containsKey(c.name),
-                        onTap: _busy ? null : () => _edit(c, editing, settings),
-                      ),
-                    ],
+                    Row(children: [
+                      const IconBadge(Icons.palette_outlined, size: 34),
+                      const SizedBox(width: 12),
+                      Expanded(child: Text('Colours', style: text.titleMedium)),
+                      if (changedCount > 0) StatusChip('$changedCount changed', tone: StatusTone.warn),
+                      // Wide enough: the mode switch beside the title.
+                      if (box.maxWidth >= 600) ...[const SizedBox(width: 12), modeSwitch],
+                    ]),
+                    if (box.maxWidth < 600) ...[const SizedBox(height: 12), modeSwitch],
                   ],
                 ),
               ),
+              for (final (i, c) in basaColors.indexed) ...[
+                if (i > 0) const Divider(height: 1),
+                _ColourRow(
+                  colour: c,
+                  value: changes[c.name] ?? c.defaultFor(brightness),
+                  changed: changes.containsKey(c.name),
+                  onTap: _busy ? null : () => _edit(c, editing, settings),
+                ),
+              ],
             ],
           ),
-        ),
-      ),
+        );
+        final preview = _SamplePreview(brightness: brightness, changes: changes);
+        if (wide) {
+          // The preview stays in view beside the scrolling list.
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1100),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 8, 32),
+                      children: [appearance, const SizedBox(height: 16), colourList],
+                    ),
+                  ),
+                  SizedBox(
+                    width: 400,
+                    child: Padding(padding: const EdgeInsets.fromLTRB(8, 16, 16, 16), child: preview),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 640),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+              children: [appearance, const SizedBox(height: 16), preview, const SizedBox(height: 12), colourList],
+            ),
+          ),
+        );
+      }),
     );
   }
 }
@@ -189,15 +230,9 @@ class _ColourRow extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (changed)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Chip(
-                label: const Text('Changed'),
-                visualDensity: VisualDensity.compact,
-                backgroundColor: colors.secondaryContainer,
-                labelStyle: TextStyle(color: colors.onSecondaryContainer, fontSize: 12),
-                side: BorderSide.none,
-              ),
+            const Padding(
+              padding: EdgeInsets.only(right: 8),
+              child: StatusChip('Changed', tone: StatusTone.warn),
             ),
           Text(hexOf(value), style: const TextStyle(fontFamily: 'monospace', fontSize: 13)),
         ],

@@ -5,6 +5,8 @@
 import 'package:flutter/material.dart';
 
 import '../../core/models/trend_chart.dart';
+import '../common/screen_kit.dart';
+import '../theme/basa_theme.dart';
 
 class TrendChartView extends StatelessWidget {
   final TrendChart chart;
@@ -12,7 +14,10 @@ class TrendChartView extends StatelessWidget {
   /// Values are shares (0–1) shown as percents.
   final bool percent;
 
-  const TrendChartView({super.key, required this.chart, this.percent = false});
+  /// Shown beside the title.
+  final IconData? icon;
+
+  const TrendChartView({super.key, required this.chart, this.percent = false, this.icon});
 
   @override
   Widget build(BuildContext context) {
@@ -20,8 +25,14 @@ class TrendChartView extends StatelessWidget {
     final colors = theme.colorScheme;
     final palette = [colors.primary, colors.tertiary, colors.secondary, colors.error, colors.outline, colors.inversePrimary];
     if (chart.isEmpty) {
-      return Text('No data yet for ${chart.title}.', style: TextStyle(color: colors.onSurfaceVariant));
+      return Row(children: [
+        IconBadge(icon ?? Icons.insights_outlined,
+            size: 34, background: colors.surfaceContainerHigh, foreground: colors.onSurfaceVariant),
+        const SizedBox(width: 12),
+        Expanded(child: Text('No data yet for ${chart.title}.', style: TextStyle(color: colors.onSurfaceVariant))),
+      ]);
     }
+    final labelWidth = MediaQuery.sizeOf(context).width < 400 ? 80.0 : 110.0;
     final values = [for (final s in chart.series) ...s.values.whereType<num>()];
     final maxValue = [
       if (percent) 1.0,
@@ -33,31 +44,38 @@ class TrendChartView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(chart.title, style: theme.textTheme.titleSmall),
-        const SizedBox(height: 6),
+        Row(children: [
+          if (icon != null) ...[IconBadge(icon!, size: 34), const SizedBox(width: 12)],
+          Expanded(child: Text(chart.title, style: theme.textTheme.titleMedium)),
+        ]),
+        const SizedBox(height: 10),
         if (chart.series.length > 1)
           Wrap(
-            spacing: 12,
-            runSpacing: 4,
+            spacing: 14,
+            runSpacing: 6,
             children: [
               for (var i = 0; i < chart.series.length; i++)
                 Row(mainAxisSize: MainAxisSize.min, children: [
-                  Container(width: 10, height: 10, color: palette[i % palette.length]),
-                  const SizedBox(width: 4),
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(color: palette[i % palette.length], shape: BoxShape.circle),
+                  ),
+                  const SizedBox(width: 6),
                   Text(chart.series[i].name, style: theme.textTheme.bodySmall),
                 ]),
             ],
           ),
         if (chart.referenceLine != null)
           Text('Line: ${fmt(chart.referenceLine)}', style: theme.textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant)),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         for (var x = 0; x < chart.xLabels.length; x++)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(width: 110, child: Text(chart.xLabels[x], style: theme.textTheme.bodySmall)),
+                SizedBox(width: labelWidth, child: Text(chart.xLabels[x], style: theme.textTheme.bodySmall)),
                 Expanded(
                   child: Column(
                     children: [
@@ -101,20 +119,31 @@ class _Bar extends StatelessWidget {
             child: LayoutBuilder(
               builder: (context, c) {
                 final share = max <= 0 || value == null ? 0.0 : (value!.toDouble() / max).clamp(0.0, 1.0);
-                return Stack(
-                  children: [
-                    Container(height: 12, decoration: BoxDecoration(color: colors.surfaceContainerHighest, borderRadius: BorderRadius.circular(3))),
-                    Container(
-                      height: 12,
-                      width: c.maxWidth * share,
-                      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3)),
-                    ),
-                    if (reference != null && max > 0)
-                      Positioned(
-                        left: (c.maxWidth * (reference! / max).clamp(0.0, 1.0)) - 1,
-                        child: Container(width: 2, height: 12, color: colors.onSurface),
+                final radius = BorderRadius.circular(BasaRadius.small / 2);
+                return SizedBox(
+                  height: 18,
+                  child: Stack(
+                    alignment: Alignment.centerLeft,
+                    children: [
+                      Container(height: 14, decoration: BoxDecoration(color: colors.surfaceContainerHighest, borderRadius: radius)),
+                      Container(
+                        height: 14,
+                        width: c.maxWidth * share,
+                        decoration: BoxDecoration(color: color, borderRadius: radius),
                       ),
-                  ],
+                      // The reference line, a little taller than the bar.
+                      if (reference != null && max > 0)
+                        Positioned(
+                          top: 0,
+                          bottom: 0,
+                          left: (c.maxWidth * (reference! / max).clamp(0.0, 1.0)) - 1,
+                          child: Container(
+                            width: 2,
+                            decoration: BoxDecoration(color: colors.onSurface, borderRadius: BorderRadius.circular(1)),
+                          ),
+                        ),
+                    ],
+                  ),
                 );
               },
             ),

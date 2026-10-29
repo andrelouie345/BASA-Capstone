@@ -50,18 +50,45 @@ class _FirstAdminScreenState extends State<FirstAdminScreen> {
       body: PageBody(
         maxWidth: 560,
         children: [
-          const Text('Creates the first admin account of a new server. It works only once per server, and uses the '
-              'server set in Server settings.'),
-          BasaDropdown<String>(
-            label: 'Server',
-            items: const ['cloud', 'lan'],
-            value: _target,
-            itemLabel: (t) => t == 'cloud' ? 'Cloud' : 'School LAN',
-            onChanged: (t) => setState(() => _target = t ?? _target),
+          const NoticeBanner(
+            'Creates the first admin account of a new server. It works only once per server, and uses the '
+            'server set in Server settings.',
+            icon: Icons.admin_panel_settings_outlined,
           ),
-          TextField(controller: _email, decoration: const InputDecoration(labelText: 'Email')),
-          TextField(controller: _name, decoration: const InputDecoration(labelText: 'Full name')),
-          FilledButton(onPressed: _busy ? null : _create, child: const Text('Create the first admin')),
+          SectionCard(
+            title: 'New admin account',
+            icon: Icons.person_add_alt_1,
+            children: [
+              BasaDropdown<String>(
+                label: 'Server',
+                items: const ['cloud', 'lan'],
+                value: _target,
+                itemLabel: (t) => t == 'cloud' ? 'Cloud' : 'School LAN',
+                onChanged: (t) => setState(() => _target = t ?? _target),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _email,
+                decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.alternate_email)),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _name,
+                decoration: const InputDecoration(labelText: 'Full name', prefixIcon: Icon(Icons.badge_outlined)),
+              ),
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton.icon(
+                  onPressed: _busy ? null : _create,
+                  icon: _busy
+                      ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.check),
+                  label: const Text('Create the first admin'),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
