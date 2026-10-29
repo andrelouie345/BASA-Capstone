@@ -133,6 +133,26 @@ void main() {
     expect(jsonDecode(settings), {'speed_slow_max': 120});
   }, timeout: const Timeout(Duration(minutes: 3))); // the creators are slow
 
+  test('a stale trigger on another table does not stop the rename', () async {
+    // v26-v36 devices: upgradeAralSessionsForV37 has dropped aral_tutor_settings,
+    // but check_aral_session_ins still mentions it until createAralLocalSchema.
+    final old = await databaseFactory.openDatabase(inMemoryDatabasePath);
+    await old.execute(_v38Readings);
+    await old.execute('CREATE TABLE aral_sessions (id INTEGER PRIMARY KEY)');
+    await old.execute('CREATE TABLE aral_tutor_settings (tutor_id INTEGER)');
+    await old.execute('''
+      CREATE TRIGGER check_aral_session_ins BEFORE INSERT ON aral_sessions
+      BEGIN SELECT 1 FROM aral_tutor_settings; END''');
+    await old.execute('DROP TABLE aral_tutor_settings');
+
+    await rebuildPhilIriReadingsForV39(old);
+    final checks = (await old.rawQuery(
+            "SELECT sql FROM sqlite_master WHERE name = 'phil_iri_readings'"))
+        .single['sql'] as String;
+    expect(checks, contains("'struggling'"));
+    await old.close();
+  });
+
   test('no-op without the tables', () async {
     final empty = await databaseFactory.openDatabase(inMemoryDatabasePath);
     await rebuildPhilIriReadingsForV39(empty);

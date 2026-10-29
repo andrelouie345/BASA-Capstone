@@ -170,10 +170,26 @@ Future<void> rebuildPhilIriReadingsForV26(Database db) async {
 /// row_version (added by the sync schema) is kept; stored levels are copied
 /// as they are (finalized results are never re-scored). Runs before the
 /// creators, which recreate the triggers it drops.
+///
+/// The rename runs with legacy_alter_table on: on a v26-v36 device the v37
+/// step has already dropped aral_tutor_settings while check_aral_session_ins
+/// still mentions it (createAralLocalSchema replaces it later), and a modern
+/// rename re-checks every trigger and would stop on it. Only v37+ devices are
+/// real upgrade paths (nothing older was released); this keeps old dev copies
+/// such as the verify database openable.
 Future<void> rebuildPhilIriReadingsForV39(Database db) async {
   final old = (await db.rawQuery('PRAGMA table_info(phil_iri_readings)')).map((c) => c['name'] as String).toList();
   if (old.isEmpty) return; // createPhilIriLocalSchema builds it fresh
 
+  await db.execute('PRAGMA legacy_alter_table = ON');
+  try {
+    await _copyReadingsForV39(db, old);
+  } finally {
+    await db.execute('PRAGMA legacy_alter_table = OFF');
+  }
+}
+
+Future<void> _copyReadingsForV39(Database db, List<String> old) async {
   await db.transaction((txn) async {
     final triggers = await txn.rawQuery(
       "SELECT name FROM sqlite_master WHERE type='trigger' AND sql LIKE '%phil_iri_readings%'",
