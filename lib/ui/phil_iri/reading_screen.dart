@@ -207,8 +207,6 @@ class _PhilIriReadingScreenState extends State<PhilIriReadingScreen> {
                         const SizedBox(height: 8),
                         Wrap(spacing: 8, runSpacing: 8, children: [
                           StatusChip(res.profile.label, tone: philIriLevelTone(res.profile)),
-                          if (res.isStrugglingReader)
-                            const StatusChip('Struggling reader', tone: StatusTone.bad, icon: Icons.flag_outlined),
                         ]),
                       ]),
                     ),
