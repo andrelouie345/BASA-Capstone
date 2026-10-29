@@ -66,7 +66,10 @@ class LocalDatabase {
         // v38: aral_classes rebuilt with a home grade (grade_level) and an
         // optional program (null = mixed), without grade_band
         // (rebuildAralClassesForV38; cloud 20261024010000).
-        version: 38,
+        // v39: phil_iri_readings levels also allow 'struggling'
+        // (rebuildPhilIriReadingsForV39) and the saved non_reader_max is
+        // dropped (stripSavedNonReaderMaxForV39); cloud 20261029010000.
+        version: 39,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
@@ -185,8 +188,11 @@ class LocalDatabase {
           // triggers this drops.
           if (oldVersion < 15) await rebuildPhilIriPassagesForV15(db);
           if (oldVersion < 26) await rebuildPhilIriReadingsForV26(db);
+          // v39. Older than v26: the v26 rebuild already uses the widened CHECKs.
+          if (oldVersion >= 26 && oldVersion < 39) await rebuildPhilIriReadingsForV39(db);
           // v13. IF NOT EXISTS + trigger recreate, so it runs on every upgrade.
           await createPhilIriLocalSchema(db);
+          if (oldVersion < 39) await stripSavedNonReaderMaxForV39(db);
           // v21. Must run before createAralLocalSchema, which recreates the
           // triggers and indexes this drops.
           if (oldVersion < 21) await rebuildAralEnrollmentsForV21(db);

@@ -14,7 +14,6 @@ void main() {
     comprehensionScore: 0.625,
     comprehensionLevel: PhilIriLevel.instructional,
     profile: PhilIriLevel.instructional,
-    isStrugglingReader: false,
   );
 
   test('passage result percents', () {
@@ -31,7 +30,6 @@ void main() {
       wordReadingLevel: PhilIriLevel.independent,
       comprehensionLevel: PhilIriLevel.frustration,
       profile: PhilIriLevel.frustration,
-      isStrugglingReader: false,
     );
 
     expect(blank.comprehensionPercent, isNull);

@@ -52,7 +52,6 @@ class PhilIriPassageResult {
   final double? comprehensionScore;     // 0–1; null = blank (not asked/recorded)
   final PhilIriLevel comprehensionLevel; // a blank counts as 0
   final PhilIriLevel profile;
-  final bool isStrugglingReader;
   final bool silent;                    // read silently: word reading not measured
 
   bool get comprehensionBlank => comprehensionScore == null;
@@ -71,7 +70,6 @@ class PhilIriPassageResult {
     this.comprehensionScore,
     required this.comprehensionLevel,
     required this.profile,
-    required this.isStrugglingReader,
   });
 }
 
@@ -130,7 +128,6 @@ PhilIriPassageResult philIriScorePassage({
     comprehensionScore: comp,
     comprehensionLevel: compLevel,
     profile: _profile(wordReading, compLevel)!,
-    isStrugglingReader: philIriIsStrugglingReader(accuracy, speed),
     silent: method == PhilIriReadingMethod.silent,
   );
 }
@@ -141,7 +138,8 @@ PhilIriPassageResult philIriScorePassage({
 /// starting grade (philIriGstStartingGrade), which can't put a Frustration
 /// reader at or above grade level.
 int _adjusted(PhilIriLevel profile, int grade, double? frustrationComp, double? gst, PhilIriThresholds t) {
-  if (profile == PhilIriLevel.frustration && frustrationComp == null && gst != null) {
+  if ((profile == PhilIriLevel.frustration || profile == PhilIriLevel.struggling) &&
+      frustrationComp == null && gst != null) {
     final start = philIriGstStartingGrade(grade, gst);
     return start >= grade ? (grade > 1 ? grade - 1 : 1) : start;
   }
@@ -171,7 +169,6 @@ class PhilIriRoundResult {
   final double? comprehensionScore;     // after carry-up; null = blank (counts as 0)
   final PhilIriLevel? comprehensionLevel;
   final PhilIriLevel? profile;          // null when nothing is known yet
-  final bool isStrugglingReader;
   final int? adjustedLevel;             // 1–12; 0 only for a Non-Reader
   final int? levelsDown;                // null for a Non-Reader
   final PhilIriPassageResult? actual;   // the round's own reading as scored
@@ -213,7 +210,6 @@ class PhilIriRoundResult {
     this.comprehensionScore,
     this.comprehensionLevel,
     this.profile,
-    this.isStrugglingReader = false,
     this.adjustedLevel,
     this.levelsDown,
   });
@@ -302,7 +298,6 @@ List<PhilIriRoundResult> philIriRoundResults({
       comprehensionScore: comp,
       comprehensionLevel: compLevel,
       profile: profile,
-      isStrugglingReader: accuracy != null && philIriIsStrugglingReader(accuracy, speed!),
       adjustedLevel: adjusted,
       levelsDown: adjusted == null
           ? null
@@ -316,6 +311,11 @@ List<PhilIriRoundResult> philIriRoundResults({
   }
   return results;
 }
+
+/// Not grade level ready for the reports (BOSY masterlist, SRP): Frustration,
+/// Struggling (counted with Frustration, spec D6) or Non-Reader.
+bool philIriNotGradeReady(PhilIriLevel? profile) =>
+    profile == PhilIriLevel.frustration || profile == PhilIriLevel.struggling || profile == PhilIriLevel.nonReader;
 
 /// Levels down assumed for a learner not assessed at all (reading coordinator).
 const philIriNotAssessedLevelsDown = 3;
@@ -347,9 +347,10 @@ PhilIriRoundResult philIriReportEndResult(List<PhilIriRoundResult> rounds, int l
     philIriEndResult(rounds) ?? philIriNotAssessedResult(PhilIriRound.bosy, learnerGrade);
 
 int _rank(PhilIriLevel? level) => switch (level) {
-      PhilIriLevel.independent => 3,
-      PhilIriLevel.instructional => 2,
-      PhilIriLevel.frustration => 1,
+      PhilIriLevel.independent => 4,
+      PhilIriLevel.instructional => 3,
+      PhilIriLevel.frustration => 2,
+      PhilIriLevel.struggling => 1,
       PhilIriLevel.nonReader => 0,
       null => -1,
     };
@@ -376,7 +377,7 @@ PhilIriRoundResult? philIriEndResult(List<PhilIriRoundResult> rounds) {
 /// comprehension (null) counts as 0.
 /// Bounds (owner 2026-10-14): never above Grade 12; below Grade 1 becomes
 /// Grade 1, the lowest grade. 0 is reserved for Non-Readers: a Struggling
-/// Reader is not a Non-Reader and also bottoms out at Grade 1.
+/// profile is computed like Frustration and also bottoms out at Grade 1.
 int philIriAdjustedLevel(
   PhilIriLevel profile,
   int learnerGrade,
@@ -391,7 +392,7 @@ int philIriAdjustedLevel(
       level = learnerGrade + 1;
     case PhilIriLevel.instructional:
       level = learnerGrade;
-    case PhilIriLevel.frustration:
+    case PhilIriLevel.frustration || PhilIriLevel.struggling: // Struggling: as Frustration (spec D6)
       final pct = philIriWholePercent(comprehensionScore ?? 0);
       if (pct >= t.frustrationKeepLevelMin) {
         level = learnerGrade;

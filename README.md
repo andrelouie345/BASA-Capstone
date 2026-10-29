@@ -83,7 +83,11 @@ as a whole, so offline swaps of places or dates apply; app update required:
 no) and `20261025010000` (explicit Data API grants on every table, view and
 sequence: since 2026-10-30 Supabase no longer grants new tables to the API
 roles, so a database built from these files refuses every table without it;
-anon keeps only the failed sign-in log; app update required: no). Each is
+anon keeps only the failed sign-in log; app update required: no) and
+`20261029010000` (Phil-IRI word recognition bands from DepEd: Non-Reader
+<= 35%, a new Struggling level 36-55%, Frustration 56-89%, and profiles from
+Table 8; saved non-reader cut-offs are removed; app update required: **yes**,
+apply only when every device has synced and every upload is decided). Each is
 idempotent.
 Do **not** run
 `supabase/migrations_archive/`.

@@ -4,9 +4,11 @@
 #
 #   session  reading                                  word recognition       speed                    comprehension   profile
 #   A s_g7_1 whole 357 w, 150 s, 5 miscues + 1 sc     352/357 = 98.6 -> 99%  142.8 wpm Average        8/10 = 80%      Independent
-#            -> word reading profile Instructional (Independent needs Fast)
-#   B s_g7_2 one minute, 60 words, 7 miscues          53/60 = 88.3 -> 88%    60 wpm Struggling       3/10 = 30%      Frustration
-#            -> Frustration + Struggling -> "Struggling Reader"
+#            -> Table 8: Independent x Average = word reading profile Independent
+#   B s_g7_2 one minute, 60 words, 7 miscues          53/60 = 88.3 -> 88%    60 wpm Struggling       3/10 = 30%      Struggling
+#            -> Table 8: Frustration x Struggling speed = word reading profile
+#               Struggling; Struggling x any comprehension = profile Struggling
+#   (spec docs/superpowers/specs/2026-10-29-phil-iri-word-recognition-bands-design.md)
 #   GST: s_g7_1 30/40 = 75% passed (>= 28); s_g7_2 20/40 = 50% not passed.
 
 device t4-phone tutor fresh
@@ -108,7 +110,7 @@ refuse Choose one of a, b, c, d (got "z").
 run phil-iri-rubric {pi_a} 1 3
 refuse No rubric criterion with id 1.
 run phil-iri-score {rd_a}
-expect word reading 99% (Independent), 143 wpm (Average) -> Instructional; comprehension 80% (Independent); profile Independent
+expect word reading 99% (Independent), 143 wpm (Average) -> Independent; comprehension 80% (Independent); profile Independent
 run phil-iri-complete {pi_a}
 expect Session {pi_a} is completed.
 run phil-iri-reopen {pi_a}
@@ -162,7 +164,7 @@ expect~ .
 run phil-iri-answer {rd_b} 912 x
 expect~ .
 run phil-iri-score {rd_b}
-expect word reading 88% (Frustration), 60 wpm (Struggling) -> Frustration; comprehension 30% (Frustration); profile Frustration
+expect word reading 88% (Frustration), 60 wpm (Struggling) -> Struggling; comprehension 30% (Frustration); profile Struggling
 run phil-iri-complete {pi_b}
 expect~ .
 
@@ -171,12 +173,12 @@ expect [{pi_a}] student {s_g7_1}
 expect [{pi_b}] student {s_g7_2}
 run phil-iri-results {s_g7_1} {sec_g7} {year}
 expect GST: 30/40 (75%, attempt 1)
-expect WR 99% Instructional, 143 wpm Average, comp 80% Independent -> Independent
+expect WR 99% Independent, 143 wpm Average, comp 80% Independent -> Independent
 # The year's comprehension starts at the GST and keeps the highest (ma's
 # workbook): GST 50% > the session's 30%. The true score keeps 30%.
 run phil-iri-results {s_g7_2} {sec_g7} {year} current
 expect regenerated with today's thresholds
-expect WR 88% Frustration, 60 wpm Struggling, comp 50% Frustration -> Frustration
+expect WR 88% Struggling, 60 wpm Struggling, comp 50% Frustration -> Struggling
 expect comprehension 30% (Frustration)
 
 # --- Delete a reading, discard a session ------------------------------------------

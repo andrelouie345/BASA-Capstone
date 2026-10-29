@@ -35,7 +35,7 @@ import '../core/services/auth_messages.dart';
 import '../core/services/csv.dart';
 import '../core/services/nla_form2b.dart';
 import '../core/services/normalizers.dart';
-import '../core/services/phil_iri_results.dart' show philIriNotAssessedResult;
+import '../core/services/phil_iri_results.dart' show philIriNotAssessedResult, philIriNotGradeReady;
 import '../core/services/phil_iri_rules.dart' show PhilIriLevel, philIriComprehensionLevel, philIriGradeOf;
 import 'auth_viewmodel.dart';
 import 'phil_iri_viewmodel.dart';
@@ -483,7 +483,7 @@ class NlaReportViewModel {
         }
         final bosy = res.round(PhilIriRound.bosy);
         final profile = bosy.profile;
-        if (profile != PhilIriLevel.frustration && profile != PhilIriLevel.nonReader) continue;
+        if (!philIriNotGradeReady(profile)) continue;
         listed.add(BosyMasterlistEntry(
             st, false, profile!, bosy.adjustedLevel ?? 0, bosy.levelsDown, bosy.comprehensionScore));
       }

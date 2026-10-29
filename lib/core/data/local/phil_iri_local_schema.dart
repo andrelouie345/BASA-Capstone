@@ -103,7 +103,7 @@ Future<void> rebuildPhilIriPassagesForV15(Database db) async {
 }
 
 /// phil_iri_readings under [table], so the v26 rebuild can create the new copy.
-/// method 'silent' (v26): timed like whole_text, no miscues.
+/// method 'silent' (v26): timed like whole_text, no miscues. Level 'struggling' (v39).
 String _readingsTableSql(String table) => '''
     CREATE TABLE IF NOT EXISTS $table (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -122,12 +122,12 @@ String _readingsTableSql(String table) => '''
       obs_other TEXT,
       word_reading_score REAL CHECK (word_reading_score BETWEEN 0 AND 1),
       words_per_minute REAL CHECK (words_per_minute >= 0),
-      accuracy_level TEXT CHECK (accuracy_level IN ('independent', 'instructional', 'frustration', 'nonReader')),
+      accuracy_level TEXT CHECK (accuracy_level IN ('independent', 'instructional', 'frustration', 'struggling', 'nonReader')),
       speed TEXT CHECK (speed IN ('struggling', 'slow', 'average', 'fast')),
-      word_reading_level TEXT CHECK (word_reading_level IN ('independent', 'instructional', 'frustration', 'nonReader')),
+      word_reading_level TEXT CHECK (word_reading_level IN ('independent', 'instructional', 'frustration', 'struggling', 'nonReader')),
       comprehension_score REAL CHECK (comprehension_score BETWEEN 0 AND 1),
       comprehension_level TEXT CHECK (comprehension_level IN ('independent', 'instructional', 'frustration')),
-      profile TEXT CHECK (profile IN ('independent', 'instructional', 'frustration', 'nonReader')),
+      profile TEXT CHECK (profile IN ('independent', 'instructional', 'frustration', 'struggling', 'nonReader')),
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE (assessment_id, sequence_no),
       CHECK ((method IN ('whole_text', 'silent') AND words_read IS NULL)
@@ -162,6 +162,46 @@ Future<void> rebuildPhilIriReadingsForV26(Database db) async {
     await txn.execute('DROP TABLE phil_iri_readings');
     await txn.execute('ALTER TABLE phil_iri_readings_v26 RENAME TO phil_iri_readings');
   });
+}
+
+/// v39 upgrade (cloud 20261029010000; spec 2026-10-29 word recognition
+/// bands): the three level columns also allow 'struggling'. Same
+/// copy-and-rename as v26, but the column list comes from the old table so
+/// row_version (added by the sync schema) is kept; stored levels are copied
+/// as they are (finalized results are never re-scored). Runs before the
+/// creators, which recreate the triggers it drops.
+Future<void> rebuildPhilIriReadingsForV39(Database db) async {
+  final old = (await db.rawQuery('PRAGMA table_info(phil_iri_readings)')).map((c) => c['name'] as String).toList();
+  if (old.isEmpty) return; // createPhilIriLocalSchema builds it fresh
+
+  await db.transaction((txn) async {
+    final triggers = await txn.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type='trigger' AND sql LIKE '%phil_iri_readings%'",
+    );
+    for (final t in triggers) {
+      await txn.execute('DROP TRIGGER IF EXISTS ${t['name']}');
+    }
+    await txn.execute(_readingsTableSql('phil_iri_readings_v39'));
+    if (old.contains('row_version')) {
+      await txn.execute('ALTER TABLE phil_iri_readings_v39 ADD COLUMN row_version INTEGER');
+    }
+    final columns = old.join(', ');
+    await txn.execute('INSERT INTO phil_iri_readings_v39 ($columns) SELECT $columns FROM phil_iri_readings');
+    await txn.execute('DROP TABLE phil_iri_readings');
+    await txn.execute('ALTER TABLE phil_iri_readings_v39 RENAME TO phil_iri_readings');
+  });
+}
+
+/// v39: a saved non_reader_max (the old 50) is dropped from the thresholds
+/// mirror so DepEd's new default applies (spec D3; the cloud migration does
+/// the same, and the next pull replaces these rows anyway).
+Future<void> stripSavedNonReaderMaxForV39(Database db) async {
+  final exists = (await db.rawQuery(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='phil_iri_thresholds'",
+  )).isNotEmpty;
+  if (!exists) return;
+  await db.execute(r"UPDATE phil_iri_thresholds SET settings = json_remove(settings, '$.non_reader_max') "
+      r"WHERE json_extract(settings, '$.non_reader_max') IS NOT NULL");
 }
 
 Future<void> createPhilIriLocalSchema(Database db) async {
