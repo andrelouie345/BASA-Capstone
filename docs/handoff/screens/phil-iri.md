@@ -40,6 +40,7 @@ Calls:
 - `PhilIriViewModel.learnerResults(...)` → `PhilIriLearnerResults` (rounds: `PhilIriRoundResult`; types from `core/models/phil_iri_types.dart`)
 - `wordReadingPercent`, `comprehensionPercent`, `adjustedLevelLabel`, `levelsDownLabel`, `actualAdjustedLevelLabel`, `actualLevelsDownLabel` (getters on `PhilIriPassageResult` / `PhilIriRoundResult`)
 Console: `phil-iri-results`
+Levels: `PhilIriLevel` has five values, shown with `.label`: Independent, Instructional, Frustration, **Struggling**, Non-Reader (since 2026-10-29). On a result, `accuracyLevel` is the word recognition band, `wordReadingLevel` the word reading profile, `profile` the reading profile. Show the label that comes back; don't hard-code a list of levels.
 
 ### Finalize
 Build: admin    Roles: admin / coordinator
