@@ -1,7 +1,8 @@
 # tool/build_release.ps1
 # Builds both BASA variants for Android and Windows into build\dist, plus two
 # scan APKs (build\scan, never shipped), then proves the tutor builds carry no
-# admin code (tool/admin_markers.txt).
+# admin code (tool/admin_markers.txt), then packs the Windows builds into
+# installers (BASA-Admin-Setup.exe, BASA-Tutor-Setup.exe; needs Inno Setup 6).
 #
 #   powershell -ExecutionPolicy Bypass -File tool\build_release.ps1 -CloudUrl <url> -CloudKey <anon key>
 #   (or -LanUrl/-LanKey, or set BASA_CLOUD_URL/BASA_CLOUD_KEY/BASA_LAN_URL/BASA_LAN_KEY)
@@ -83,8 +84,23 @@ Invoke-Step 'Scan builds: admin methods only in admin; console markers present' 
         --tutor "$scan\basa-tutor-scan.apk" --admin "$scan\basa-admin-scan.apk"
 }
 
+# Windows installers (tool\installer\basa.iss), after the checks so only checked
+# builds are packaged. Inno Setup 6: winget install JRSoftware.InnoSetup.
+$iscc = @("$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
+          "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+          "$env:ProgramFiles\Inno Setup 6\ISCC.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+if (-not $iscc) {
+    Write-Host 'Inno Setup 6 not found (winget install JRSoftware.InnoSetup): no installers made.' -ForegroundColor Yellow
+} else {
+    $appVersion = ((Select-String -Path pubspec.yaml -Pattern '^version:\s*([0-9.]+)').Matches[0].Groups[1].Value)
+    foreach ($n in @('admin', 'tutor')) {
+        Invoke-Step "Windows installer $n" { & $iscc /Q "/DVariant=$n" "/DAppVersion=$appVersion" tool\installer\basa.iss }
+    }
+}
+
 Write-Host '== Sizes'
-foreach ($f in @("$dist\basa-admin.apk", "$dist\basa-tutor.apk")) {
+foreach ($f in @("$dist\basa-admin.apk", "$dist\basa-tutor.apk", "$dist\BASA-Admin-Setup.exe", "$dist\BASA-Tutor-Setup.exe")) {
+    if (-not (Test-Path $f)) { continue }
     Write-Host ('{0,-28} {1,6:N1} MB' -f (Split-Path -Leaf $f), ((Get-Item $f).Length / 1MB))
 }
 foreach ($n in @('admin', 'tutor')) {
