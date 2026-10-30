@@ -16,9 +16,10 @@ const non = PhilIriLevel.nonReader;
 void main() {
   test('lookup 1 every cell', () {
     // word recognition -> [Fast, Average, Slow, Struggling]
+    // (Instructional x Struggling = Frustration: ma's completed table, 2026-10-30)
     const table = {
       ind: [ind, ind, ins, fru],
-      ins: [ins, ins, ins, str],
+      ins: [ins, ins, ins, fru],
       fru: [fru, fru, fru, str],
       str: [str, str, str, str],
       non: [non, non, non, non],
