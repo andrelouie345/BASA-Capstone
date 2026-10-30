@@ -1,7 +1,7 @@
 // SQLite v39: phil_iri_readings accepts the Struggling level (cloud
 // 20261029010000, spec 2026-10-29-phil-iri-word-recognition-bands). The table
 // is rebuilt with the widened CHECKs; rows, stored levels and row_version
-// survive (finalized results are never re-scored). The saved non-reader
+// survive (no backfill: spec D8). The saved non-reader
 // cut-off is removed from the thresholds mirror so the new default applies.
 import 'dart:convert';
 import 'dart:io';

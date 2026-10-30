@@ -77,7 +77,7 @@ class PhilIriPassageResult {
 /// Whole text: accuracy over the passage's words, wpm from the reading time.
 /// One minute: accuracy over the words read, wpm = words read.
 /// Silent: wpm from the reading time, no miscues allowed, word reading 100%
-/// (so accuracy is Independent and the profile follows the comprehension).
+/// (so accuracy is Independent; Table 8 then takes the speed and comprehension).
 /// Without comprehension (e.g. FLT) the comprehension counts as 0.
 PhilIriPassageResult philIriScorePassage({
   required int wordCount,
@@ -146,8 +146,8 @@ int _adjusted(PhilIriLevel profile, int grade, double? frustrationComp, double? 
   return philIriAdjustedLevel(profile, grade, frustrationComp, t);
 }
 
-/// Profile from whatever is known: the comprehension level (Non-Reader word
-/// reading wins); with only a word reading, its level.
+/// Profile from whatever is known: Table 8 (word reading profile x
+/// comprehension; Non-Reader word reading wins); with only one of the two, that one.
 PhilIriLevel? _profile(PhilIriLevel? wordReading, PhilIriLevel? comprehension) {
   if (wordReading == PhilIriLevel.nonReader) return PhilIriLevel.nonReader;
   if (wordReading == null) return comprehension;

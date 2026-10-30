@@ -60,7 +60,7 @@ enum PhilIriSpeed {
 }
 
 /// Adjustable ranges. Percentages are whole numbers (0–100), speeds are wpm.
-/// A value is the boundary itself: e.g. nonReaderMax 50 means 50% and below
+/// A value is the boundary itself: e.g. nonReaderMax 35 means 35% and below
 /// is Non-Reader, wordReadingInstructionalMin 90 means 90% and up.
 class PhilIriThresholds {
   final int nonReaderMax;                   // word recognition ≤ this: Non-Reader
