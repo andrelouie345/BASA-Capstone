@@ -17,7 +17,7 @@
 --  1. phil_iri_readings: accuracy_level, word_reading_level and profile also
 --     allow 'struggling' (comprehension_level is unchanged: comprehension has
 --     no Struggling level). Rows already stored are not touched: finalized
---     sessions keep the results they were scored with (spec D8).
+--     rows keep their stored levels (the app recomputes results; spec D8).
 --  2. phil_iri_thresholds: a saved non_reader_max is removed from every row,
 --     so the new default (35) applies everywhere (spec D3: the saved values
 --     were dev data).

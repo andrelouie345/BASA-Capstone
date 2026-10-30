@@ -168,7 +168,7 @@ Future<void> rebuildPhilIriReadingsForV26(Database db) async {
 /// bands): the three level columns also allow 'struggling'. Same
 /// copy-and-rename as v26, but the column list comes from the old table so
 /// row_version (added by the sync schema) is kept; stored levels are copied
-/// as they are (finalized results are never re-scored). Runs before the
+/// as they are (no backfill; results are recomputed on read, spec D8). Runs before the
 /// creators, which recreate the triggers it drops.
 ///
 /// The rename runs with legacy_alter_table on: on a v26-v36 device the v37

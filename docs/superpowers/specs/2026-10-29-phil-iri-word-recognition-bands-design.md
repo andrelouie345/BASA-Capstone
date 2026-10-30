@@ -22,7 +22,7 @@ Phil-IRI only (Grades 4–10). CRLA's Part 1 levels (Full / Moderate / Light Ref
 | D5 | Silent readings go through the lookups too (word recognition 100% = Independent, so their speed now matters). Intended: silent reading is for learners known to recognize words, and speed matters. |
 | D6 | A **Struggling** reading profile: adjusted grade level from the comprehension % exactly as Frustration (never below Grade 1). Reports count it **with Frustration**. |
 | D7 | A **Non-Reader** reading profile (≤ 35%) keeps today's treatment: adjusted grade 0, its own BOSY masterlist group, the furthest ARAL report group (ma, answer 1 = B). |
-| D8 | Sessions **finalized before** the update keep the results they were scored with (stored levels and threshold snapshot). Open and new sessions are scored with the new rules (owner, decision A). |
+| D8 | Amended 2026-10-30 (final review): results are always computed from the raw reading with the **current rules** and the session's threshold snapshot; the stored levels are not read back, so a session finalized before the update shows Table 8 results. Accepted because no real finalized sessions exist (the app is unreleased; dev data, as in D3). Follow-up before the next rule change after release: build a finalized round's result from its stored levels. |
 | D9 | The old "Struggling Reader" flag (Frustration word recognition + Struggling speed) is removed: Table 8's Struggling level replaces it. |
 | D10 | Struggling is stored as a level of its own (`struggling`), so finalized results keep it exactly. Rejected: storing it as `frustration` and re-deriving it on read (breaks D8 for frozen results). |
 
@@ -81,7 +81,7 @@ Comprehension levels stay Independent / Instructional / Frustration (no Struggli
   - `update phil_iri_thresholds set settings = settings - 'non_reader_max'` (D3).
   - No table or view created, so no new grants; RLS unchanged (no policy touched). Ledger row + `lib/core/release.dart`.
 - SQLite v39: rebuild `phil_iri_readings` with the widened CHECKs, the same copy-and-rename as v26 (`phil_iri_local_schema.dart`: copies every column, re-creates the triggers that read the table, runs before the creators). The local thresholds mirror drops `non_reader_max` from its rows too (the next pull replaces them anyway).
-- Finalized readings keep their stored levels and snapshot (D8): no backfill.
+- Stored levels are not backfilled; results are recomputed with the current rules on read (D8 as amended).
 
 ### Console and docs
 - `phil_iri_commands.dart`: the "· Struggling Reader" suffix goes; the levels print as before (Struggling appears as a level).
@@ -96,6 +96,6 @@ Comprehension levels stay Independent / Instructional / Frustration (no Struggli
 - Full command pass after the owner applies the migration on dev.
 
 ## Not included
-- Re-scoring finalized sessions (D8).
+- Building finalized results from their stored levels (D8 follow-up).
 - Any change to CRLA, the NLA band cut-offs or the GST conversion.
 - Showing the word recognition band separately from the word reading profile in reports (the level fields already carry both: `accuracyLevel` = band, `wordReadingLevel` = profile).
