@@ -33,10 +33,12 @@ Lookup 1: word recognition × reading speed → **word reading profile**.
 | Word recognition ↓ / Speed → | Fast | Average | Slow | Struggling |
 |---|---|---|---|---|
 | Independent | Independent | Independent | Instructional | Frustration |
-| Instructional | Instructional | Instructional | Instructional | Struggling |
+| Instructional | Instructional | Instructional | Instructional | Frustration |
 | Frustration | Frustration | Frustration | Frustration | Struggling |
 | Struggling | Struggling | Struggling | Struggling | Struggling |
 | Non-Reader | Non-Reader | Non-Reader | Non-Reader | Non-Reader |
+
+Instructional × Struggling was Struggling until ma's completed Table 8 (2026-10-30) made it Frustration. That table also lists a "Non-Reader" speed and "struggling"/"Non-reader" comprehension on Non-Reader rows; ma: they only fill the sheet's blanks (every Non-Reader row stays Non-Reader), so BASA records no such values.
 
 Lookup 2: word reading profile × comprehension level → **reading profile**.
 
