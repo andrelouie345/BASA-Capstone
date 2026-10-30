@@ -259,7 +259,7 @@ const _s = PhilIriLevel.struggling, _n = PhilIriLevel.nonReader;
 /// Table 8, word recognition x reading speed -> word reading profile.
 const _wordReadingTable = <PhilIriLevel, Map<PhilIriSpeed, PhilIriLevel>>{
   _d: {PhilIriSpeed.fast: _d, PhilIriSpeed.average: _d, PhilIriSpeed.slow: _i, PhilIriSpeed.struggling: _f},
-  _i: {PhilIriSpeed.fast: _i, PhilIriSpeed.average: _i, PhilIriSpeed.slow: _i, PhilIriSpeed.struggling: _s},
+  _i: {PhilIriSpeed.fast: _i, PhilIriSpeed.average: _i, PhilIriSpeed.slow: _i, PhilIriSpeed.struggling: _f},
   _f: {PhilIriSpeed.fast: _f, PhilIriSpeed.average: _f, PhilIriSpeed.slow: _f, PhilIriSpeed.struggling: _s},
   _s: {PhilIriSpeed.fast: _s, PhilIriSpeed.average: _s, PhilIriSpeed.slow: _s, PhilIriSpeed.struggling: _s},
   _n: {PhilIriSpeed.fast: _n, PhilIriSpeed.average: _n, PhilIriSpeed.slow: _n, PhilIriSpeed.struggling: _n},
