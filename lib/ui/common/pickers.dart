@@ -16,6 +16,7 @@ import '../../core/models/student.dart';
 import '../../viewmodels/app_viewmodels.dart';
 import '../basa_scope.dart';
 import 'error_display.dart';
+import 'search.dart';
 
 /// A dropdown over a fixed list.
 class BasaDropdown<T> extends StatelessWidget {
@@ -42,6 +43,17 @@ class BasaDropdown<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     // A value that is no longer in the list would assert; show nothing chosen.
     final current = items.contains(value) ? value : null;
+    if (items.length > kSearchableThreshold) {
+      return _SearchDropdown<T>(
+        label: label,
+        items: items,
+        value: current,
+        itemLabel: itemLabel,
+        onChanged: onChanged,
+        hint: hint,
+        allowNone: allowNone,
+      );
+    }
     return DropdownButtonFormField<T>(
       // The field keeps its first value: a new value is a new field.
       key: ValueKey<Object?>(current),
@@ -57,6 +69,104 @@ class BasaDropdown<T> extends StatelessWidget {
           ),
       ],
       onChanged: onChanged,
+    );
+  }
+}
+
+/// A dropdown with a search box (long lists): typing filters on any part of
+/// the label, arrow keys + Enter pick, Esc closes. The field shows the chosen
+/// item again when it loses focus, so a half-typed search never changes it.
+class _SearchDropdown<T> extends StatefulWidget {
+  final String label;
+  final List<T> items;
+  final T? value;
+  final String Function(T) itemLabel;
+  final ValueChanged<T?>? onChanged;
+  final String? hint;
+  final bool allowNone;
+
+  const _SearchDropdown({
+    super.key,
+    required this.label,
+    required this.items,
+    required this.value,
+    required this.itemLabel,
+    required this.onChanged,
+    required this.hint,
+    required this.allowNone,
+  });
+
+  @override
+  State<_SearchDropdown<T>> createState() => _SearchDropdownState<T>();
+}
+
+class _SearchDropdownState<T> extends State<_SearchDropdown<T>> {
+  late final _text = TextEditingController(text: _chosenLabel);
+  final _focus = FocusNode();
+
+  String get _chosenLabel {
+    final v = widget.value;
+    if (v != null) return widget.itemLabel(v);
+    return widget.allowNone ? (widget.hint ?? 'None') : '';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() {
+      if (!_focus.hasFocus && _text.text != _chosenLabel) _text.text = _chosenLabel;
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _SearchDropdown<T> old) {
+    super.didUpdateWidget(old);
+    if (!identical(old.value, widget.value) && !_focus.hasFocus) _text.text = _chosenLabel;
+  }
+
+  @override
+  void dispose() {
+    _text.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = [
+      if (widget.allowNone) DropdownMenuEntry<T?>(value: null, label: widget.hint ?? 'None'),
+      for (final item in widget.items) DropdownMenuEntry<T?>(value: item, label: widget.itemLabel(item)),
+    ];
+    return DropdownMenu<T?>(
+      controller: _text,
+      focusNode: _focus,
+      initialSelection: widget.value,
+      dropdownMenuEntries: entries,
+      label: Text(widget.label),
+      hintText: widget.hint,
+      leadingIcon: const Icon(Icons.search),
+      expandedInsets: EdgeInsets.zero,
+      menuHeight: 360,
+      enabled: widget.onChanged != null,
+      // Phones too: tapping the field opens the keyboard for the search.
+      requestFocusOnTap: true,
+      enableFilter: true,
+      filterCallback: (entries, query) {
+        final shown = [for (final e in entries) if (matchesSearch(query, [e.label])) e];
+        return shown.isNotEmpty ? shown : [DropdownMenuEntry<T?>(value: null, label: 'No matches', enabled: false)];
+      },
+      // Enter picks the first match (the default only finds labels that start with the text).
+      searchCallback: (entries, query) {
+        if (query.trim().isEmpty) return null;
+        final i = entries.indexWhere((e) => e.enabled);
+        return i < 0 ? null : i;
+      },
+      onSelected: (v) {
+        // Enter with no match also reports null: only the None entry clears the choice.
+        if (v == null && !(widget.allowNone && _text.text == (widget.hint ?? 'None'))) return;
+        _focus.unfocus();
+        widget.onChanged?.call(v);
+      },
     );
   }
 }

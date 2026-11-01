@@ -16,6 +16,7 @@ class LoginLogsScreen extends StatefulWidget {
 
 class _LoginLogsScreenState extends State<LoginLogsScreen> {
   int _reload = 0;
+  String _filter = '';
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +37,7 @@ class _LoginLogsScreenState extends State<LoginLogsScreen> {
           final (items, cloudError) = data;
           final colors = Theme.of(context).colorScheme;
           final ok = items.where((s) => s.log.success).length;
+          final shown = items.where((s) => matchesSearch(_filter, [s.log.emailAttempted])).toList();
           return PageBody(
             children: [
               if (cloudError != null)
@@ -50,25 +52,31 @@ class _LoginLogsScreenState extends State<LoginLogsScreen> {
                   StatTile(label: 'Successful', value: '$ok', icon: Icons.check_circle_outline),
                   StatTile(label: 'Failed', value: '${items.length - ok}', icon: Icons.cancel_outlined),
                 ]),
-                ListCard(
-                  children: [
-                    for (final s in items)
-                      ListRow(
-                        leading: IconBadge(
-                          s.log.success ? Icons.check_rounded : Icons.close_rounded,
-                          background: (s.log.success ? colors.tertiary : colors.error).withValues(alpha: 0.14),
-                          foreground: s.log.success ? colors.tertiary : colors.error,
+                FilterBar(children: [
+                  SearchField(label: 'Search email', onChanged: (v) => setState(() => _filter = v)),
+                ]),
+                if (shown.isEmpty)
+                  const EmptyNote('No sign-in attempts match.', icon: Icons.search_off)
+                else
+                  ListCard(
+                    children: [
+                      for (final s in shown)
+                        ListRow(
+                          leading: IconBadge(
+                            s.log.success ? Icons.check_rounded : Icons.close_rounded,
+                            background: (s.log.success ? colors.tertiary : colors.error).withValues(alpha: 0.14),
+                            foreground: s.log.success ? colors.tertiary : colors.error,
+                          ),
+                          title: s.log.emailAttempted,
+                          subtitle: [
+                            '${isoDate(s.log.timestamp.toLocal())} ${_time(s.log.timestamp.toLocal())}',
+                            s.log.method.name,
+                            if (!s.log.success) s.log.failureReason ?? 'failed',
+                          ].join(' · '),
+                          trailing: [StatusChip(s.sourceLabel)],
                         ),
-                        title: s.log.emailAttempted,
-                        subtitle: [
-                          '${isoDate(s.log.timestamp.toLocal())} ${_time(s.log.timestamp.toLocal())}',
-                          s.log.method.name,
-                          if (!s.log.success) s.log.failureReason ?? 'failed',
-                        ].join(' · '),
-                        trailing: [StatusChip(s.sourceLabel)],
-                      ),
-                  ],
-                ),
+                    ],
+                  ),
               ],
             ],
           );

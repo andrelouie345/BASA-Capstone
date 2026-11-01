@@ -74,6 +74,7 @@ class LearnerResultsPickScreen extends StatefulWidget {
 
 class _LearnerResultsPickScreenState extends State<LearnerResultsPickScreen> {
   Section? _section;
+  String _filter = '';
 
   @override
   Widget build(BuildContext context) {
@@ -87,6 +88,8 @@ class _LearnerResultsPickScreenState extends State<LearnerResultsPickScreen> {
               onChanged: (s) => setState(() => _section = s),
               where: (s) => (int.tryParse(s.gradeLevel) ?? 0) >= 4,
             ),
+            if (_section != null)
+              SearchField(label: 'Search name or LRN', onChanged: (v) => setState(() => _filter = v)),
           ]),
           if (_section == null)
             const EmptyNote('Pick a Grade 4–10 section, then a learner to see their results.', icon: Icons.class_outlined),
@@ -95,23 +98,28 @@ class _LearnerResultsPickScreenState extends State<LearnerResultsPickScreen> {
               where: 'LearnerResults',
               reloadKey: _section!.id,
               load: (vms) => vms.student.localStudents(_section!.id!),
-              builder: (context, learners, _) => learners.isEmpty
-                  ? const EmptyNote('No learners in this section on this device.', icon: Icons.person_search_outlined)
-                  : ListCard(
-                      title: 'Learners',
-                      trailing: StatusChip('${learners.length}'),
-                      children: [
-                        for (final s in learners)
-                          ListRow(
-                            leading: LetterBadge(initialOf(studentLabel(s))),
-                            title: studentLabel(s),
-                            trailing: const [Icon(Icons.chevron_right)],
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => LearnerResultsScreen(student: s, section: _section!)),
-                            ),
-                          ),
-                      ],
-                    ),
+              builder: (context, learners, _) {
+                final shown = learners.where((s) => matchesSearch(_filter, [studentLabel(s)])).toList();
+                if (learners.isEmpty) {
+                  return const EmptyNote('No learners in this section on this device.', icon: Icons.person_search_outlined);
+                }
+                if (shown.isEmpty) return const EmptyNote('No learners match.', icon: Icons.search_off);
+                return ListCard(
+                  title: 'Learners',
+                  trailing: StatusChip('${shown.length} of ${learners.length}'),
+                  children: [
+                    for (final s in shown)
+                      ListRow(
+                        leading: LetterBadge(initialOf(studentLabel(s))),
+                        title: studentLabel(s),
+                        trailing: const [Icon(Icons.chevron_right)],
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => LearnerResultsScreen(student: s, section: _section!)),
+                        ),
+                      ),
+                  ],
+                );
+              },
             ),
         ],
       ),

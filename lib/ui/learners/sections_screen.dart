@@ -26,6 +26,7 @@ class SectionsScreen extends StatefulWidget {
 
 class _SectionsScreenState extends State<SectionsScreen> {
   int _reload = 0;
+  String _filter = '';
 
   Future<void> _after(Future<bool> change) async {
     if (await change && mounted) setState(() => _reload++);
@@ -54,8 +55,11 @@ class _SectionsScreenState extends State<SectionsScreen> {
               icon: Icons.cloud_download_outlined,
             );
           }
+          final shown = items
+              .where((s) => matchesSearch(_filter, [s.sectionName, s.gradeLevel, 'Grade ${s.gradeLevel}', s.schoolYear]))
+              .toList();
           final byYear = <String, List<Section>>{};
-          for (final s in items) {
+          for (final s in shown) {
             byYear.putIfAbsent(s.schoolYear, () => []).add(s);
           }
           final years = byYear.keys.toList()..sort((a, b) => b.compareTo(a));
@@ -64,8 +68,16 @@ class _SectionsScreenState extends State<SectionsScreen> {
             children: [
               StatGrid(tileWidth: 180, tiles: [
                 StatTile(label: 'Sections', value: '${items.length}', icon: Icons.class_outlined),
-                StatTile(label: 'School years', value: '${years.length}', icon: Icons.calendar_month_outlined),
+                StatTile(
+                  label: 'School years',
+                  value: '${items.map((s) => s.schoolYear).toSet().length}',
+                  icon: Icons.calendar_month_outlined,
+                ),
               ]),
+              FilterBar(children: [
+                SearchField(label: 'Search grade or section name', onChanged: (v) => setState(() => _filter = v)),
+              ]),
+              if (shown.isEmpty) const EmptyNote('No sections match.', icon: Icons.search_off),
               for (final y in years)
                 ListCard(
                   title: 'School year $y',

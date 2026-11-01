@@ -150,6 +150,7 @@ class _CollectionScreen extends StatefulWidget {
 
 class _CollectionScreenState extends State<_CollectionScreen> {
   int _reload = 0;
+  String _filter = '';
 
   Future<void> _after(Future<bool> change) async {
     if (await change && mounted) setState(() => _reload++);
@@ -181,6 +182,9 @@ class _CollectionScreenState extends State<_CollectionScreen> {
         builder: (context, data, _) {
           final (criteria, passages) = data;
           final colors = Theme.of(context).colorScheme;
+          final shown = passages
+              .where((p) => matchesSearch(_filter, [p.title, if (p.level != null) 'Grade ${p.level}', p.setCode, p.testType]))
+              .toList();
           final rubric = ListCard(
             title: 'Rubric',
             trailing: editor == null ? null : _addButton(() => _after(editor.addCriterion(context, c))),
@@ -200,7 +204,8 @@ class _CollectionScreenState extends State<_CollectionScreen> {
             trailing: editor == null ? null : _addButton(() => _after(editor.addPassage(context, c))),
             children: [
               if (passages.isEmpty) const EmptyNote('No passages.', icon: Icons.auto_stories_outlined),
-              for (final p in passages)
+              if (passages.isNotEmpty && shown.isEmpty) const EmptyNote('No passages match.', icon: Icons.search_off),
+              for (final p in shown)
                 ListRow(
                   leading: p.level != null
                       ? LetterBadge(
@@ -239,6 +244,9 @@ class _CollectionScreenState extends State<_CollectionScreen> {
                 StatTile(label: 'Active passages', value: '${passages.where((p) => p.isActive).length}', icon: Icons.check_circle_outline),
                 StatTile(label: 'Rubric criteria', value: '${criteria.length}', icon: Icons.rule),
                 StatTile(label: 'Total words', value: '${passages.fold<int>(0, (n, p) => n + p.wordCount)}', icon: Icons.notes),
+              ]),
+              FilterBar(children: [
+                SearchField(label: 'Search passage title, grade or set', onChanged: (v) => setState(() => _filter = v)),
               ]),
               _twoColumns([passageList], [rubric]),
             ],

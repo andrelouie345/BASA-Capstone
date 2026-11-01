@@ -38,6 +38,7 @@ class _PhilIriSectionScreenState extends State<PhilIriSectionScreen> {
   Section? _section;
   PhilIriRound _round = PhilIriRound.values.first;
   int _reload = 0;
+  String _filter = '';
 
   /// The loaded section's learners, for the main action outside the loaded body.
   final _learners = ValueNotifier<List<Student>?>(null);
@@ -96,6 +97,8 @@ class _PhilIriSectionScreenState extends State<PhilIriSectionScreen> {
           FilterBar(children: [
             SectionPicker(value: _section, onChanged: _pickSection, where: philIriGrade),
             PhilIriRoundPicker(value: _round, onChanged: (r) => setState(() => _round = r ?? _round)),
+            if (_section != null)
+              SearchField(label: 'Search name or LRN', onChanged: (v) => setState(() => _filter = v)),
           ]),
           if (_section == null)
             const EmptyNote('Pick a Grade 4–10 section to see its Phil-IRI sessions.', icon: Icons.class_outlined),
@@ -118,8 +121,9 @@ class _PhilIriSectionScreenState extends State<PhilIriSectionScreen> {
                   byStudent.putIfAbsent(a.studentId, () => []).add(a);
                 }
                 final done = sessions.where((a) => a.status != PhilIriStatus.inProgress).length;
+                final shown = learners.where((s) => matchesSearch(_filter, [studentLabel(s)])).toList();
                 final cards = [
-                  for (final s in learners)
+                  for (final s in shown)
                     ListCard(
                       children: [
                         ListRow(
@@ -157,7 +161,9 @@ class _PhilIriSectionScreenState extends State<PhilIriSectionScreen> {
                     ]),
                     const SizedBox(height: 16),
                     if (learners.isEmpty)
-                      const EmptyNote('No learners in this section on this device.', icon: Icons.person_search_outlined),
+                      const EmptyNote('No learners in this section on this device.', icon: Icons.person_search_outlined)
+                    else if (shown.isEmpty)
+                      const EmptyNote('No learners match.', icon: Icons.search_off),
                     LayoutBuilder(builder: (context, c) {
                       // Wide: the learner cards in two columns.
                       if (c.maxWidth < 1000) {

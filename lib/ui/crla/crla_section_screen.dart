@@ -42,6 +42,7 @@ class CrlaSectionScreen extends StatefulWidget {
 class _CrlaSectionScreenState extends State<CrlaSectionScreen> {
   Section? _section;
   int _reload = 0;
+  String _filter = '';
 
   Future<void> _open(int assessmentId) async {
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => CrlaEntryScreen(assessmentId: assessmentId)));
@@ -82,6 +83,8 @@ class _CrlaSectionScreenState extends State<CrlaSectionScreen> {
               onChanged: (s) => setState(() => _section = s),
               where: (s) => const {'1', '2', '3'}.contains(s.gradeLevel),
             ),
+            if (_section != null)
+              SearchField(label: 'Search name or LRN', onChanged: (v) => setState(() => _filter = v)),
           ]),
           if (_section == null)
             const EmptyNote('Pick a Grade 1–3 section to see its CRLA attempts.', icon: Icons.class_outlined),
@@ -104,6 +107,7 @@ class _CrlaSectionScreenState extends State<CrlaSectionScreen> {
                 for (final a in assessments) {
                   byStudent.putIfAbsent(a.studentId, () => []).add(a);
                 }
+                final shown = byStudent.entries.where((e) => matchesSearch(_filter, [names[e.key]])).toList();
                 String? profileOf(CrlaAssessment a) => byId[a.id]?.readingProfile ?? a.readingProfile;
                 final profiled = byStudent.values.where((l) => l.any((a) => profileOf(a) != null)).length;
                 final theme = Theme.of(context);
@@ -127,8 +131,10 @@ class _CrlaSectionScreenState extends State<CrlaSectionScreen> {
                     ]),
                     const SizedBox(height: 12),
                     if (assessments.isEmpty)
-                      const EmptyNote('No CRLA attempts in this section yet.', icon: Icons.record_voice_over_outlined),
-                    for (final e in byStudent.entries) ...[
+                      const EmptyNote('No CRLA attempts in this section yet.', icon: Icons.record_voice_over_outlined)
+                    else if (shown.isEmpty)
+                      const EmptyNote('No learners match.', icon: Icons.search_off),
+                    for (final e in shown) ...[
                       ListCard(
                         children: [
                           ListRow(

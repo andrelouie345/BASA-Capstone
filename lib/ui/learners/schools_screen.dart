@@ -29,6 +29,10 @@ class SchoolsScreen extends StatefulWidget {
 
 class _SchoolsScreenState extends State<SchoolsScreen> {
   int _reload = 0;
+  String _filter = '';
+
+  List<School> _matching(List<School> items) =>
+      items.where((s) => matchesSearch(_filter, [s.schoolName, s.schoolId])).toList();
 
   Future<void> _after(Future<bool> change) async {
     if (await change && mounted) setState(() => _reload++);
@@ -65,30 +69,35 @@ class _SchoolsScreenState extends State<SchoolsScreen> {
                   icon: Icons.map_outlined,
                 ),
               ]),
-              ListCard(
-                children: [
-                  for (final s in items)
-                    ListRow(
-                      leading: const IconBadge(Icons.school_outlined),
-                      title: s.schoolName,
-                      subtitle: [
-                        'School ID ${s.schoolId}',
-                        if (s.regionId != null) Region.byId(s.regionId!)?.name ?? 'Region ${s.regionId}',
-                        ?s.division,
-                      ].join(' · '),
-                      trailing: [
-                        if (canEdit)
-                          PopupMenuButton<String>(
-                            onSelected: (v) => _after(v == 'edit' ? editor.edit(context, s) : editor.delete(context, s)),
-                            itemBuilder: (_) => const [
-                              PopupMenuItem(value: 'edit', child: Text('Edit')),
-                              PopupMenuItem(value: 'delete', child: Text('Delete')),
-                            ],
-                          ),
-                      ],
-                    ),
-                ],
-              ),
+              FilterBar(children: [
+                SearchField(label: 'Search name or school ID', onChanged: (v) => setState(() => _filter = v)),
+              ]),
+              if (_matching(items).isEmpty) const EmptyNote('No schools match.', icon: Icons.search_off),
+              if (_matching(items).isNotEmpty)
+                ListCard(
+                  children: [
+                    for (final s in _matching(items))
+                      ListRow(
+                        leading: const IconBadge(Icons.school_outlined),
+                        title: s.schoolName,
+                        subtitle: [
+                          'School ID ${s.schoolId}',
+                          if (s.regionId != null) Region.byId(s.regionId!)?.name ?? 'Region ${s.regionId}',
+                          ?s.division,
+                        ].join(' · '),
+                        trailing: [
+                          if (canEdit)
+                            PopupMenuButton<String>(
+                              onSelected: (v) => _after(v == 'edit' ? editor.edit(context, s) : editor.delete(context, s)),
+                              itemBuilder: (_) => const [
+                                PopupMenuItem(value: 'edit', child: Text('Edit')),
+                                PopupMenuItem(value: 'delete', child: Text('Delete')),
+                              ],
+                            ),
+                        ],
+                      ),
+                  ],
+                ),
             ],
             if (canEdit && !wide) const SizedBox(height: 72),
           ],
