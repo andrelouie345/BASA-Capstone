@@ -1,0 +1,17 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.6
+Creation-Date: 2026-11-08T00:00:00+08:00
+
+====== School-year checklist ======
+Work through these pages in order. Tick a box when a step is done: click it, or put the cursor on it and press **F12**. The ticks stay in this guide when BASA is updated.
+
+[ ] [[+01 First-time setup|First-time setup]]
+[ ] [[+02 Before the school year|Before the school year]]
+[ ] [[+03 BOSY assessments|BOSY assessments]]
+[ ] [[+04 After BOSY - ARAL enrollment|After BOSY - ARAL enrollment]]
+[ ] [[+05 During the year - ARAL sessions|During the year - ARAL sessions]]
+[ ] [[+06 MOSY rounds|MOSY rounds]]
+[ ] [[+07 Reports during the year|Reports during the year]]
+[ ] [[+08 EOSY assessments|EOSY assessments]]
+[ ] [[+09 Summer Remediation Program|Summer Remediation Program]]
+[ ] [[+10 Closing the school year|Closing the school year]]

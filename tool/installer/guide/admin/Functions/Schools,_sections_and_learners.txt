@@ -1,0 +1,20 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.6
+Creation-Date: 2026-11-08T00:00:00+08:00
+
+====== Schools, sections and learners ======
+
+===== Schools =====
+//To be written.//
+
+===== Sections =====
+//To be written.//
+
+===== SF1 import =====
+//To be written.//
+
+===== Learners and roster CSV =====
+//To be written.//
+
+===== Learner history =====
+//To be written.//

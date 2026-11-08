@@ -1,0 +1,23 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.6
+Creation-Date: 2026-11-08T00:00:00+08:00
+
+====== CRLA ======
+
+===== Section CRLA list =====
+//To be written.//
+
+===== Start a CRLA attempt =====
+//To be written.//
+
+===== Part 1 and Part 2 entry =====
+//To be written.//
+
+===== CRLA thresholds =====
+//To be written.//
+
+===== Scoresheet export (CRLA2 template) =====
+//To be written.//
+
+===== Scoresheet import =====
+//To be written.//

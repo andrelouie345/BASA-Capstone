@@ -1,0 +1,17 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.6
+Creation-Date: 2026-11-08T00:00:00+08:00
+
+====== Sharing a device and switching users ======
+
+===== Why a device holds one user's data =====
+//To be written.//
+
+===== Before you lend the device =====
+//To be written.//
+
+===== Signing in as someone else =====
+//To be written.//
+
+===== When sign-in is refused =====
+//To be written.//

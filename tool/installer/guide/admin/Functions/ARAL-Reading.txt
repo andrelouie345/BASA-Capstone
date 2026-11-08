@@ -1,0 +1,35 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.6
+Creation-Date: 2026-11-08T00:00:00+08:00
+
+====== ARAL-Reading ======
+
+===== Roster =====
+//To be written.//
+
+===== Tutors =====
+//To be written.//
+
+===== Classes =====
+//To be written.//
+
+===== Sessions and attendance =====
+//To be written.//
+
+===== IRIP =====
+//To be written.//
+
+===== Check-ins =====
+//To be written.//
+
+===== ARAL settings =====
+//To be written.//
+
+===== Materials and recommendations =====
+//To be written.//
+
+===== Readability log (SHARP) =====
+//To be written.//
+
+===== Implementation report and roster files =====
+//To be written.//

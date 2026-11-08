@@ -1,0 +1,26 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.6
+Creation-Date: 2026-11-08T00:00:00+08:00
+
+====== Signing in and your account ======
+
+===== Sign in =====
+//To be written.//
+
+===== Sign in offline =====
+//To be written.//
+
+===== Change password =====
+//To be written.//
+
+===== Sign out =====
+//To be written.//
+
+===== Server settings =====
+//To be written.//
+
+===== Colours (light and dark mode) =====
+//To be written.//
+
+===== About and version =====
+//To be written.//

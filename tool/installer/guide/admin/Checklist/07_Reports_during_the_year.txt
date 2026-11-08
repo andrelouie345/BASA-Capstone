@@ -1,0 +1,20 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.6
+Creation-Date: 2026-11-08T00:00:00+08:00
+
+====== Reports during the year ======
+
+===== Event =====
+Progress monitoring, the NLA portal report and the ARAL implementation report.
+
+===== Who =====
+Coordinator; superadmin for the region
+
+===== Required =====
+//To be written.//
+
+===== What to do in BASA =====
+//To be written.//
+
+===== Steps =====
+[ ] //To be written.//
