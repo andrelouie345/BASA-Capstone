@@ -1,17 +1,19 @@
 // lib/ui/admin/learner_history_screen.dart
 // Learner history (docs/handoff/screens/admin.md): one learner's progress by
-// school year from this device's records, found by LRN or opened from the
-// Learners screen. A part this device can't read shows its note in place.
-// Admin build only.
+// school year from this device's records, picked by section and name, found
+// by LRN, or opened from the Learners screen. A part this device can't read
+// shows its note in place. Admin build only.
 import 'package:flutter/material.dart';
 
+import '../../core/models/section.dart';
+import '../../core/models/student.dart';
 import '../../viewmodels/learner_history_viewmodel.dart';
 import '../common/pickers.dart';
 import '../common/screen_kit.dart';
 import 'admin_scope.dart';
 
 class LearnerHistoryScreen extends StatefulWidget {
-  /// Opened from the Learners screen; null = search by LRN.
+  /// Opened from the Learners screen; null = pick a learner or search by LRN.
   final int? studentId;
   const LearnerHistoryScreen({super.key, this.studentId});
 
@@ -22,6 +24,30 @@ class LearnerHistoryScreen extends StatefulWidget {
 class _LearnerHistoryScreenState extends State<LearnerHistoryScreen> {
   final _lrn = TextEditingController();
   String? _search;
+  Section? _section;
+  Student? _picked;
+  // School names when the device holds more than one school (see schoolNamesIfSeveral).
+  Map<int, String>? _schoolNames;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final vms = vmsOf(context);
+      try {
+        final names = await schoolNamesIfSeveral(vms);
+        if (mounted) setState(() => _schoolNames = names);
+      } catch (_) {
+        // The section picker shows the same error in place.
+      }
+    });
+  }
+
+  void _findAnother() => setState(() {
+    _search = null;
+    _picked = null;
+  });
 
   @override
   void dispose() {
@@ -32,7 +58,8 @@ class _LearnerHistoryScreenState extends State<LearnerHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     final history = AdminScope.of(context).learnerHistory;
-    final id = widget.studentId;
+    final id = widget.studentId ?? _picked?.id;
+    final section = _section;
     return Scaffold(
       appBar: AppBar(title: const Text('Learner history')),
       body: id == null && _search == null
@@ -48,6 +75,29 @@ class _LearnerHistoryScreenState extends State<LearnerHistoryScreen> {
                       children: [
                         const Center(child: IconBadge(Icons.history_edu_outlined, size: 56)),
                         const SizedBox(height: 16),
+                        SectionPicker(
+                          value: section,
+                          onChanged: (s) => setState(() => _section = s),
+                        ),
+                        if (section != null) ...[
+                          const SizedBox(height: 12),
+                          StudentPicker(
+                            sectionId: section.id!,
+                            value: null,
+                            schoolName: _schoolNames?[section.schoolId],
+                            onChanged: (s) => setState(() => _picked = s),
+                          ),
+                        ],
+                        const SizedBox(height: 20),
+                        Row(children: [
+                          const Expanded(child: Divider()),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Text('or type an LRN', style: Theme.of(context).textTheme.labelMedium),
+                          ),
+                          const Expanded(child: Divider()),
+                        ]),
+                        const SizedBox(height: 12),
                         TextField(
                           controller: _lrn,
                           decoration: const InputDecoration(labelText: 'LRN', prefixIcon: Icon(Icons.search)),
@@ -64,21 +114,21 @@ class _LearnerHistoryScreenState extends State<LearnerHistoryScreen> {
             )
           : LoadView<LearnerHistory>(
               where: 'LearnerHistory',
-              reloadKey: _search,
+              reloadKey: id ?? _search,
               load: (_) => id != null ? history.history(id) : history.historyByLrn(_search!),
               builder: (context, h, _) => PageBody(
                 maxWidth: 1200,
                 children: [
-                  if (id == null)
+                  if (widget.studentId == null)
                     Align(
                       alignment: Alignment.centerLeft,
                       child: TextButton.icon(
-                        onPressed: () => setState(() => _search = null),
+                        onPressed: _findAnother,
                         icon: const Icon(Icons.search),
                         label: const Text('Find another learner'),
                       ),
                     ),
-                  _LearnerHeader(history: h),
+                  _LearnerHeader(history: h, schoolNames: _schoolNames),
                   if (h.years.isEmpty) const EmptyNote('No records for this learner on this device.', icon: Icons.history),
                   if (h.years.isNotEmpty)
                     LayoutBuilder(
@@ -103,7 +153,8 @@ class _LearnerHistoryScreenState extends State<LearnerHistoryScreen> {
 /// The learner's initial, name, LRN and sex, and the device's scope note.
 class _LearnerHeader extends StatelessWidget {
   final LearnerHistory history;
-  const _LearnerHeader({required this.history});
+  final Map<int, String>? schoolNames;
+  const _LearnerHeader({required this.history, this.schoolNames});
 
   @override
   Widget build(BuildContext context) {
@@ -128,6 +179,8 @@ class _LearnerHeader extends StatelessWidget {
                       Wrap(spacing: 6, runSpacing: 6, children: [
                         StatusChip('LRN ${s.lrn}', icon: Icons.badge_outlined),
                         if (s.sex != null) StatusChip('Sex ${s.sex!}'),
+                        if (schoolNames?[s.schoolId] case final school?)
+                          StatusChip(school, icon: Icons.school_outlined),
                       ]),
                     ],
                   ),

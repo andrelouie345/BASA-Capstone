@@ -39,6 +39,7 @@ class AralClassesScreen extends StatefulWidget {
 class _AralClassesScreenState extends State<AralClassesScreen> {
   String? _year;
   int _reload = 0;
+  String _filter = '';
 
   Future<void> _after(Future<bool> change) async {
     if (await change && mounted) setState(() => _reload++);
@@ -62,7 +63,10 @@ class _AralClassesScreenState extends State<AralClassesScreen> {
           ? const NeedsSchoolNote()
           : PageBody(
               children: [
-                FilterBar(children: [SchoolYearPicker(value: _year, onChanged: (y) => setState(() => _year = y))]),
+                FilterBar(children: [
+                  SchoolYearPicker(value: _year, onChanged: (y) => setState(() => _year = y)),
+                  if (_year != null) SearchField(label: 'Search class name', onChanged: (v) => setState(() => _filter = v)),
+                ]),
                 if (_year != null)
                   LoadView<List<AralClassSummary>>(
                     where: 'AralClasses',
@@ -83,6 +87,7 @@ class _AralClassesScreenState extends State<AralClassesScreen> {
                       final sessions = list.fold<int>(0, (n, s) => n + s.sessions);
                       final present = list.fold<int>(0, (n, s) => n + s.attendance.present);
                       final counted = list.fold<int>(0, (n, s) => n + s.attendance.present + s.attendance.absent);
+                      final shown = list.where((s) => matchesSearch(_filter, [s.aralClass.className])).toList();
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -97,46 +102,49 @@ class _AralClassesScreenState extends State<AralClassesScreen> {
                             ),
                           ]),
                           const SizedBox(height: 16),
-                          ListCard(
-                            children: [
-                              for (final s in list)
-                                ListRow(
-                                  leading: LetterBadge('${s.aralClass.gradeLevel}'),
-                                  title: s.aralClass.className,
-                                  subtitle: [
-                                    'Grade ${s.aralClass.gradeLevel} · ${s.aralClass.program?.label ?? 'mixed programs'}',
-                                    '${s.activeLearners}/$cap active · ${s.sessions} session(s) · attendance ${s.attendance.label}',
-                                  ].join('\n'),
-                                  footer: s.nextCheckInAfter == null && s.aralClass.room == null && s.aralClass.schedule == null
-                                      ? null
-                                      : Wrap(spacing: 8, runSpacing: 6, children: [
-                                          if (s.aralClass.room != null || s.aralClass.schedule != null)
-                                            Text(
-                                              [s.aralClass.room, s.aralClass.schedule].whereType<String>().join(' · '),
-                                              style: Theme.of(context).textTheme.bodySmall
-                                                  ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                                            ),
-                                          if (s.nextCheckInAfter != null)
-                                            StatusChip('Check-in after session ${s.nextCheckInAfter}',
-                                                tone: StatusTone.warn, icon: Icons.assignment_outlined),
-                                        ]),
-                                  trailing: [
-                                    StatusChip(
-                                      '${s.activeLearners}/$cap',
-                                      tone: s.activeLearners >= cap ? StatusTone.warn : StatusTone.neutral,
-                                      icon: Icons.person_outline,
-                                    ),
-                                    const Icon(Icons.chevron_right),
-                                  ],
-                                  onTap: () async {
-                                    await Navigator.of(context).push(MaterialPageRoute(
-                                      builder: (_) => AralClassScreen(classId: s.aralClass.id!, editor: canEdit ? editor : null),
-                                    ));
-                                    if (mounted) setState(() => _reload++);
-                                  },
-                                ),
-                            ],
-                          ),
+                          if (shown.isEmpty)
+                            const EmptyNote('No classes match.', icon: Icons.search_off)
+                          else
+                            ListCard(
+                              children: [
+                                for (final s in shown)
+                                  ListRow(
+                                    leading: LetterBadge('${s.aralClass.gradeLevel}'),
+                                    title: s.aralClass.className,
+                                    subtitle: [
+                                      'Grade ${s.aralClass.gradeLevel} · ${s.aralClass.program?.label ?? 'mixed programs'}',
+                                      '${s.activeLearners}/$cap active · ${s.sessions} session(s) · attendance ${s.attendance.label}',
+                                    ].join('\n'),
+                                    footer: s.nextCheckInAfter == null && s.aralClass.room == null && s.aralClass.schedule == null
+                                        ? null
+                                        : Wrap(spacing: 8, runSpacing: 6, children: [
+                                            if (s.aralClass.room != null || s.aralClass.schedule != null)
+                                              Text(
+                                                [s.aralClass.room, s.aralClass.schedule].whereType<String>().join(' · '),
+                                                style: Theme.of(context).textTheme.bodySmall
+                                                    ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                                              ),
+                                            if (s.nextCheckInAfter != null)
+                                              StatusChip('Check-in after session ${s.nextCheckInAfter}',
+                                                  tone: StatusTone.warn, icon: Icons.assignment_outlined),
+                                          ]),
+                                    trailing: [
+                                      StatusChip(
+                                        '${s.activeLearners}/$cap',
+                                        tone: s.activeLearners >= cap ? StatusTone.warn : StatusTone.neutral,
+                                        icon: Icons.person_outline,
+                                      ),
+                                      const Icon(Icons.chevron_right),
+                                    ],
+                                    onTap: () async {
+                                      await Navigator.of(context).push(MaterialPageRoute(
+                                        builder: (_) => AralClassScreen(classId: s.aralClass.id!, editor: canEdit ? editor : null),
+                                      ));
+                                      if (mounted) setState(() => _reload++);
+                                    },
+                                  ),
+                              ],
+                            ),
                           if (canAdd && !wide) const SizedBox(height: 72),
                         ],
                       );
@@ -159,6 +167,7 @@ class AralClassScreen extends StatefulWidget {
 
 class _AralClassScreenState extends State<AralClassScreen> {
   int _reload = 0;
+  String _filter = '';
 
   Future<void> _after(Future<bool> change) async {
     if (await change && mounted) setState(() => _reload++);
@@ -180,6 +189,7 @@ class _AralClassScreenState extends State<AralClassScreen> {
         final (c, roster, names) = data;
         final active = roster.where((e) => e.status == AralStatus.active).length;
         final cap = vmsOf(context).aralClass.classCap;
+        final shown = roster.where((e) => matchesSearch(_filter, [names[e.studentId]])).toList();
         void place() => _after(editor!.place(context, c));
         return Scaffold(
           appBar: AppBar(
@@ -221,31 +231,38 @@ class _AralClassScreenState extends State<AralClassScreen> {
                   'No learners placed yet.${editor != null ? ' Add one with Place a learner.' : ''}',
                   icon: Icons.person_add_alt_outlined,
                 )
-              else
-                ListCard(
-                  title: 'Learners ($active active)',
-                  children: [
-                    for (final e in roster)
-                      ListRow(
-                        leading: LetterBadge(initialOf(names[e.studentId] ?? '')),
-                        title: names[e.studentId] ?? 'Learner #${e.studentId}',
-                        subtitle: aralProgramLabel(e),
-                        trailing: [
-                          aralStatusChip(e),
-                          editor == null
-                              ? const Icon(Icons.chevron_right)
-                              : IconButton(
-                                  tooltip: 'Take out of the class',
-                                  icon: const Icon(Icons.person_remove_outlined),
-                                  onPressed: () => _after(editor.unplace(context, e)),
-                                ),
-                        ],
-                        onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                          builder: (_) => LearnerAralScreen(enrollmentId: e.id!, name: names[e.studentId] ?? 'Learner'),
-                        )),
-                      ),
-                  ],
-                ),
+              else ...[
+                FilterBar(children: [
+                  SearchField(label: 'Search learner name', onChanged: (v) => setState(() => _filter = v)),
+                ]),
+                if (shown.isEmpty)
+                  const EmptyNote('No learners match.', icon: Icons.search_off)
+                else
+                  ListCard(
+                    title: 'Learners ($active active)',
+                    children: [
+                      for (final e in shown)
+                        ListRow(
+                          leading: LetterBadge(initialOf(names[e.studentId] ?? '')),
+                          title: names[e.studentId] ?? 'Learner #${e.studentId}',
+                          subtitle: aralProgramLabel(e),
+                          trailing: [
+                            aralStatusChip(e),
+                            editor == null
+                                ? const Icon(Icons.chevron_right)
+                                : IconButton(
+                                    tooltip: 'Take out of the class',
+                                    icon: const Icon(Icons.person_remove_outlined),
+                                    onPressed: () => _after(editor.unplace(context, e)),
+                                  ),
+                          ],
+                          onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                            builder: (_) => LearnerAralScreen(enrollmentId: e.id!, name: names[e.studentId] ?? 'Learner'),
+                          )),
+                        ),
+                    ],
+                  ),
+              ],
               if (editor != null && !wide) const SizedBox(height: 72),
             ],
           ),
@@ -266,6 +283,7 @@ class AralTutorsScreen extends StatefulWidget {
 
 class _AralTutorsScreenState extends State<AralTutorsScreen> {
   String? _year;
+  String _filter = '';
 
   @override
   Widget build(BuildContext context) {
@@ -276,7 +294,10 @@ class _AralTutorsScreenState extends State<AralTutorsScreen> {
           ? const NeedsSchoolNote()
           : PageBody(
               children: [
-                FilterBar(children: [SchoolYearPicker(value: _year, onChanged: (y) => setState(() => _year = y))]),
+                FilterBar(children: [
+                  SchoolYearPicker(value: _year, onChanged: (y) => setState(() => _year = y)),
+                  if (_year != null) SearchField(label: 'Search name or email', onChanged: (v) => setState(() => _filter = v)),
+                ]),
                 if (_year != null)
                   LoadView<List<({User tutor, int classes, int activeLearners})>>(
                     where: 'AralTutors',
@@ -284,6 +305,7 @@ class _AralTutorsScreenState extends State<AralTutorsScreen> {
                     load: (vms) => vms.aral.tutors(schoolId: schoolId, schoolYear: _year!),
                     builder: (context, list, _) {
                       if (list.isEmpty) return const EmptyNote('No tutors at this school.', icon: Icons.badge_outlined);
+                      final shown = list.where((t) => matchesSearch(_filter, [t.tutor.fullName, t.tutor.email])).toList();
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -301,20 +323,23 @@ class _AralTutorsScreenState extends State<AralTutorsScreen> {
                             ),
                           ]),
                           const SizedBox(height: 16),
-                          ListCard(children: [
-                            for (final t in list)
-                              ListRow(
-                                leading: UserAvatar(user: t.tutor),
-                                title: t.tutor.fullName.isEmpty ? t.tutor.email : t.tutor.fullName,
-                                subtitle: '${t.classes} class(es) · ${t.activeLearners} active learner(s)',
-                                trailing: [
-                                  StatusChip(
-                                    t.classes == 0 ? 'no class' : 'teaching',
-                                    tone: t.classes == 0 ? StatusTone.neutral : StatusTone.good,
-                                  ),
-                                ],
-                              ),
-                          ]),
+                          if (shown.isEmpty)
+                            const EmptyNote('No tutors match.', icon: Icons.search_off)
+                          else
+                            ListCard(children: [
+                              for (final t in shown)
+                                ListRow(
+                                  leading: UserAvatar(user: t.tutor),
+                                  title: t.tutor.fullName.isEmpty ? t.tutor.email : t.tutor.fullName,
+                                  subtitle: '${t.classes} class(es) · ${t.activeLearners} active learner(s)',
+                                  trailing: [
+                                    StatusChip(
+                                      t.classes == 0 ? 'no class' : 'teaching',
+                                      tone: t.classes == 0 ? StatusTone.neutral : StatusTone.good,
+                                    ),
+                                  ],
+                                ),
+                            ]),
                         ],
                       );
                     },

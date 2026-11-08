@@ -11,6 +11,9 @@ import 'package:path_provider/path_provider.dart';
 import '../../viewmodels/app_viewmodels.dart';
 import '../basa_scope.dart';
 import 'error_display.dart';
+import 'search.dart';
+
+export 'search.dart';
 
 /// The ViewModels (both builds). Read before any await.
 AppViewModels vmsOf(BuildContext context) => BasaScope.of(context);
@@ -255,9 +258,14 @@ class _FieldsDialogState extends State<_FieldsDialog> {
   }
 }
 
-/// Picks one of [options] in a dialog; null when cancelled.
+/// Picks one of [options] in a dialog; null when cancelled. More than
+/// [kSearchableThreshold] options get a search box, unless [searchable] is
+/// false (an action menu).
 Future<T?> pickOne<T>(BuildContext context,
-    {required String title, required List<T> options, required String Function(T) label}) {
+    {required String title, required List<T> options, required String Function(T) label, bool? searchable}) {
+  if (searchable ?? options.length > kSearchableThreshold) {
+    return showSearchPick<T>(context, title: title, options: options, label: label);
+  }
   return showDialog<T>(
     context: context,
     builder: (context) => SimpleDialog(

@@ -47,6 +47,7 @@ class _IripViewState extends State<IripView> {
       context,
       title: 'Cycle ${w.cycleNo}, week ${w.weekNo}',
       options: [...AralIripStatus.values.map((s) => s.value), if (w.isRated) 'clear', 'notes', 'target', 'delete'],
+      searchable: false,
       label: (a) => switch (a) {
         'clear' => 'Clear the rating',
         'notes' => 'Notes',

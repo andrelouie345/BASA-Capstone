@@ -23,6 +23,7 @@ class GstScreen extends StatefulWidget {
 class _GstScreenState extends State<GstScreen> {
   Section? _section;
   int _reload = 0;
+  String _filter = '';
 
   /// The loaded section's learners, for the main action outside the loaded body.
   final _learners = ValueNotifier<List<Student>?>(null);
@@ -96,6 +97,8 @@ class _GstScreenState extends State<GstScreen> {
         children: [
           FilterBar(children: [
             SectionPicker(value: _section, onChanged: _pickSection, where: philIriGrade),
+            if (_section != null)
+              SearchField(label: 'Search name or LRN', onChanged: (v) => setState(() => _filter = v)),
           ]),
           if (_section == null)
             const EmptyNote('Pick a Grade 4–10 section to see its GST scores.', icon: Icons.class_outlined),
@@ -116,6 +119,7 @@ class _GstScreenState extends State<GstScreen> {
                 });
                 final names = {for (final s in learners) s.id: studentLabel(s)};
                 final passCount = results.where((g) => passed[g.id ?? 0] == true).length;
+                final shown = results.where((g) => matchesSearch(_filter, [names[g.studentId]])).toList();
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -128,11 +132,13 @@ class _GstScreenState extends State<GstScreen> {
                     const SizedBox(height: 16),
                     if (results.isEmpty)
                       const EmptyNote('No GST scores in this section yet.', icon: Icons.quiz_outlined),
-                    if (results.isNotEmpty)
+                    if (results.isNotEmpty && shown.isEmpty)
+                      const EmptyNote('No learners match.', icon: Icons.search_off),
+                    if (shown.isNotEmpty)
                       ListCard(
                         title: 'Scores',
                         children: [
-                          for (final g in results)
+                          for (final g in shown)
                             Builder(builder: (context) {
                               final name = names[g.studentId] ?? 'Learner #${g.studentId}';
                               final ok = passed[g.id ?? 0] == true;
