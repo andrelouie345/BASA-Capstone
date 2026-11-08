@@ -38,7 +38,7 @@ Forbidden: only an admin or coordinator sets the report settings.
 Forbidden: you can only manage the CRLA thresholds of your own school.
 Forbidden: only the superadmin marks a collection as prescribed.
 Forbidden: only the superadmin manages region-wide materials.
-Forbidden: you can only set the cut-off of your own school.
+Forbidden: you can only change your own school's ARAL settings.
 Forbidden: only an admin or coordinator of the school manages its SRP classes.
 Forbidden: can only manage sections for your own school.
 Forbidden: can only update your own school.
@@ -63,7 +63,9 @@ AralRosterImportViewModel
 TutorSectionAssignmentViewModel
 
 [debug]
-BASA Debug Console
+# both console titles ("BASA Debug Console", "BASA Tutor Debug Console"): each
+# scan build keeps only its own, so the marker is the part they share
+Debug Console
 # the UI team's worked example (lib/ui/example/), opened only from the debug console
 Example screen (replace me)
 mark a session done (needs the timed reading)
