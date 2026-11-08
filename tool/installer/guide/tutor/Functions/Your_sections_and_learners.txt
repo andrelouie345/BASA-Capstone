@@ -1,0 +1,15 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.6
+Creation-Date: 2026-11-08T00:00:00+08:00
+
+====== Your sections and learners ======
+===== Sections =====
+**Learners → Sections**. The sections your coordinator assigned you. If one is missing, ask your coordinator.
+
+===== Learners =====
+**Learners → Learners**. Pick a section to see its learners; search by name or LRN. You can save the section's roster as a CSV file.
+
+You also see the learners of the ARAL classes you teach, whatever their section.
+
+===== Schools =====
+**Learners → Schools**. Your school's details.

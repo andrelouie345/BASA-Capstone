@@ -1,0 +1,24 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.6
+Creation-Date: 2026-11-08T00:00:00+08:00
+
+====== Phil-IRI ======
+The Philippine Informal Reading Inventory in **English, for Grades 4 to 10**. Rounds: BOSY, MOSY #1, #2, #3, EOSY.
+
+===== GST (Group Screening Test) =====
+**Assess → Group Screening Test**. Record each learner's GST score: the total, or literal, inferential and critical.
+
+===== A learner's session =====
+1. **Assess → Phil-IRI by section**: pick the section and round, then start the learner's session.
+2. Pick a passage. The app offers only passages the learner hasn't read before.
+3. Time the reading: the whole text, one minute, or silent reading.
+4. Mark the miscues on the passage's words.
+5. Enter the answers to the questions and score the rubric.
+6. **Complete** the session (or discard it if it was a mistake).
+The app shows the reading's result after each save. Your coordinator finalizes the section's round.
+
+===== Learner results =====
+**Assess → Learner results**. A learner's results per round and their adjusted reading level. Levels: Independent, Instructional, Frustration, Struggling, Non-Reader. Comprehension carries up from round to round (a lower result never takes it down).
+
+===== Passages and thresholds =====
+**Assess → Passages and questions** and **Assess → Phil-IRI thresholds**: what the app uses (view only).

@@ -1,0 +1,25 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.6
+Creation-Date: 2026-11-08T00:00:00+08:00
+
+====== Summer Remediation Program ======
+===== Event =====
+After EOSY: learners who still need help get summer remediation (SRP) classes.
+
+===== Who =====
+* **Coordinator**.
+* **SRP tutors** see their own SRP classes.
+
+===== Required =====
+* EOSY results approved and downloaded.
+* The SRP tutors have accounts.
+
+===== What to do in BASA =====
+BASA ranks the SRP candidates from the results and builds classes per section and class size; you adjust them and give each class a tutor, a room and a schedule ([[:Functions:Reports|Summer Remediation Program (SRP)]]).
+
+===== Steps =====
+[ ] Open **ARAL → Summer Remediation** and look at the ranked candidates.
+[ ] Build the classes (learners per section, class size).
+[ ] Move learners between classes where needed; remove learners who won't attend.
+[ ] Give each class its tutor, room and schedule.
+[ ] Save the class lists as files and tell the SRP tutors to download the latest data.

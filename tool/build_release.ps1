@@ -93,8 +93,18 @@ if (-not $iscc) {
     Write-Host 'Inno Setup 6 not found (winget install JRSoftware.InnoSetup): no installers made.' -ForegroundColor Yellow
 } else {
     $appVersion = ((Select-String -Path pubspec.yaml -Pattern '^version:\s*([0-9.]+)').Matches[0].Groups[1].Value)
+    # Zim's Windows installer (not in git): the newest tool\installer\vendor\zim*.exe, from zim-wiki.org.
+    $zim = Get-ChildItem tool\installer\vendor -Filter 'zim*.exe' -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    $zimArg = @()
+    if ($zim) {
+        Write-Host "Zim installer: $($zim.Name)"
+        $zimArg = @("/DZimSetup=$($zim.FullName)")
+    } else {
+        Write-Host 'No tool\installer\vendor\zim*.exe (download it from zim-wiki.org): installers without the Zim option.' -ForegroundColor Yellow
+    }
     foreach ($n in @('admin', 'tutor')) {
-        Invoke-Step "Windows installer $n" { & $iscc /Q "/DVariant=$n" "/DAppVersion=$appVersion" tool\installer\basa.iss }
+        Invoke-Step "Windows installer $n" { & $iscc /Q "/DVariant=$n" "/DAppVersion=$appVersion" @zimArg tool\installer\basa.iss }
     }
 }
 

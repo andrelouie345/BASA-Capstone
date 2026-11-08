@@ -1,0 +1,17 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.6
+Creation-Date: 2026-11-08T00:00:00+08:00
+
+====== BASA Tutor Guide ======
+For tutors using the **BASA Tutor** app.
+
+===== Start here =====
+* [[Checklist|Tutor checklist]]: what to do, in order, through the school year.
+* [[Functions|BASA Tutor functions]]: what each part of the app does and how to use it.
+* [[Glossary]]: the terms the app uses.
+
+===== Before anything else =====
+Your device keeps your work until you send it. Before you lend it to anyone, read [[Functions:Sharing a device and switching users]].
+
+===== Finding things in BASA Tutor =====
+The main sections are **Home** (dashboard, reminders, calendar, trends), **Learners**, **Assess** (CRLA and Phil-IRI), **ARAL** and **Sync**. Your account menu (your name, at the top) has your password, server settings, colours, About and Sign out.

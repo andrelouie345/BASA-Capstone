@@ -1,0 +1,20 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.6
+Creation-Date: 2026-11-08T00:00:00+08:00
+
+====== Sharing a device and switching users ======
+===== Your device holds your data =====
+BASA Tutor keeps a copy of your sections and classes on your device so you can work offline. A device holds **one person's data at a time**.
+
+===== Before you lend your device =====
+[ ] Open **Sync → Send my work** and send everything.
+[ ] Check that nothing is left to send or waiting to be fixed.
+[ ] Sign out.
+
+While anything of yours is unsent, **nobody else can sign in on your device**. This keeps your work safe. Lending is for emergencies: finish your work first.
+
+===== When someone else signs in =====
+When another person signs in on your device, the app removes your data from it first. When you get the device back, sign in online and download your data again.
+
+===== "Sign-in refused" =====
+"This device holds work of ... that is not on the server yet" means the device's owner still has unsent work. Only the owner can fix it: they sign in on that device and send their work.

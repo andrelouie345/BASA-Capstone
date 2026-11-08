@@ -1,0 +1,30 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.6
+Creation-Date: 2026-11-08T00:00:00+08:00
+
+====== Before the school year ======
+===== Event =====
+A new school year starts. Prepare BASA before the first assessments.
+
+===== Who =====
+* **School admin or coordinator** (own school).
+* **Superadmin**: the region's round dates.
+
+===== Required =====
+* The SF1 (School Form 1) of every section, as Excel files.
+* The year's assessment dates (BOSY, MOSY, EOSY) //(to confirm with ma)//.
+* A connection: importing and assigning save to the server.
+
+===== What to do in BASA =====
+BASA needs the year's learners, sections and dates before anyone can assess. Import each section's SF1 ([[:Functions:Schools, sections and learners|SF1 import]]), assign tutors to sections ([[:Functions:Users and tutor assignments|Tutor assignments]]), and set the round dates ([[:Functions:Dashboard|Round calendar]]). Then everyone downloads the new data ([[:Functions:Getting and sending data|Download the latest data]]).
+
+===== Steps =====
+[ ] //Superadmin:// open **Home → Round calendar** and set the region's dates for each round of CRLA and Phil-IRI for the new school year.
+[ ] Open **Home → Round calendar** for your school. Keep the region's dates, change a round for your school, or mark a round your school skips.
+[ ] Open **Manage → SF1 import**. Pick a section's SF1 file, check the column list, run the trial, then import it. Repeat for every section.
+[ ] If the import lists conflicts (a learner already in BASA with different details), go through them: keep the old details or update them.
+[ ] Open **Learners → Sections** and check that every section is there with the right grade.
+[ ] Open **Manage → Tutor assignments** and assign each tutor to the sections they assess.
+[ ] Open **Manage → Report settings**. Check the done threshold (default 85%), whether tutors' uploads are approved automatically, and the offline sign-in days (default 14).
+[ ] Open **ARAL → ARAL settings**. Check the check-in cut-off (default 75%), SHARP and KS1 extended for your school.
+[ ] Tell every tutor to sign in while connected and use **Sync → Download the latest data**.

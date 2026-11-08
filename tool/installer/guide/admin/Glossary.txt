@@ -1,0 +1,40 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.6
+Creation-Date: 2026-11-08T00:00:00+08:00
+
+====== Glossary ======
+===== BOSY, MOSY, EOSY =====
+Beginning, Middle and End of School Year: the assessment rounds. Phil-IRI has three MOSY rounds (#1, #2, #3); CRLA has one.
+
+===== CRLA =====
+Comprehensive Rapid Literacy Assessment. Grades 1 to 3, in Mother Tongue, Filipino and English. Gives a reading profile from Low Emerging to Reading at Grade Level.
+
+===== Phil-IRI =====
+Philippine Informal Reading Inventory. In BASA: English, Grades 4 to 10. Gives reading levels (Independent, Instructional, Frustration, Struggling, Non-Reader) and an adjusted reading level.
+
+===== GST =====
+Group Screening Test: the Phil-IRI test given to the whole class first.
+
+===== ARAL-Reading =====
+The reading part of DepEd's ARAL program: tutoring for learners below grade level, in classes of at most 15, for 32 sessions.
+
+===== Key stages and programs =====
+ARAL programs, chosen from the learner's adjusted reading level: Foundational (levels 0-1, when the school uses SHARP; otherwise KS1), KS1 (Key Stage 1), KS2 Basic and Plus, KS3 Basic and Plus. The ARAL KS1-KS3 learning materials are for Grades 7-10.
+
+===== IRIP =====
+Individual Reading Intervention Plan: weekly reading targets per learner, rated by the tutor.
+
+===== SHARP =====
+The Foundational program's reading materials and lesson log, turned on per school in ARAL settings.
+
+===== SRP =====
+Summer Remediation Program: classes after EOSY for learners who still need help.
+
+===== LRN =====
+Learner Reference Number: the learner's DepEd number. BASA uses it to tell learners apart.
+
+===== SF1 =====
+School Form 1: the DepEd school register of a section's learners. BASA imports it.
+
+===== NLA =====
+DepEd's portal where the coordinator enters the school's reading assessment results (from **Reports → NLA portal report**).

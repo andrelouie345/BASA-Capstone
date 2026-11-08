@@ -1,0 +1,24 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.6
+Creation-Date: 2026-11-08T00:00:00+08:00
+
+====== Reports ======
+Every report is made from the data on this device: download the latest data first.
+
+===== NLA portal report =====
+**Reports → NLA portal report**. The most important report: you copy its values into DepEd's NLA portal. Phil-IRI counts (JHS Form 2b, by the portal's own conversion table for the GST) and the Division's ARAL report. Filter by sex, round, block or section. Save as CSV.
+
+===== Progress monitoring =====
+**Reports → Progress monitoring**. Per section and round: how many learners are assessed, and whether the section reached the done threshold. Save as CSV.
+
+===== BOSY masterlist =====
+**Reports → BOSY masterlist**. The learners who are not grade level ready after BOSY. Save as CSV.
+
+===== Summer Remediation Program (SRP) =====
+**ARAL → Summer Remediation**. The ranked SRP candidates and the SRP classes: build them per section and class size, move learners, and set each class's tutor, room and schedule. SRP tutors see their own classes.
+
+===== Report settings =====
+**Manage → Report settings**. For your school: the done threshold for progress monitoring (default 85%), approving uploads automatically, and the offline sign-in days (default 14).
+
+===== Reports and files =====
+**Reports → Reports & files**. Every import and export in one place: SF1, CRLA scoresheets, the ARAL roster, and all the report files above.

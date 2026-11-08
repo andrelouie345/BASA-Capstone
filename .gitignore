@@ -49,3 +49,4 @@ CLAUDE.local.md
 /sample-files/
 /data/supabase_config.json
 /data/basa_local.db*
+/tool/installer/vendor/

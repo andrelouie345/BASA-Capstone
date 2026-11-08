@@ -1,0 +1,19 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.6
+Creation-Date: 2026-11-08T00:00:00+08:00
+
+====== Start of the school year ======
+===== Event =====
+A new school year starts. Your coordinator has imported the learners and assigned you your sections.
+
+===== Required =====
+* A connection to download.
+
+===== What to do in BASA Tutor =====
+Download the new year's data and check your sections and learners ([[:Functions:Your sections and learners|Your sections and learners]]).
+
+===== Steps =====
+[ ] Sign in while connected and open **Sync → Download the latest data**.
+[ ] Open **Learners → Sections** and check your sections for the new school year.
+[ ] Open **Learners → Learners**, pick each section and check its learners. Tell your coordinator about any learner who is missing or wrong.
+[ ] Open **Home → Round calendar** to see when each assessment round opens.

@@ -1,0 +1,31 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.6
+Creation-Date: 2026-11-08T00:00:00+08:00
+
+====== Signing in and your account ======
+Your account menu is the button with your name at the top of BASA.
+
+===== Sign in =====
+Choose the server (cloud or school LAN), type your email and password, and sign in. The first sign-in on a device must be online. BASA also checks that the app and the server run the same BASA release; if not, it says what to update.
+
+If your account was made by an admin, BASA asks you to choose a new password first.
+
+===== Sign in offline =====
+Once you have signed in online and downloaded your data on a device, you can sign in on that device without a connection, with the same password, for a number of days (14 unless your school changed it in **Manage → Report settings**). Only the person whose data is on the device can sign in offline. Work that needs the server (downloading, sending, approving, managing accounts) needs an online sign-in.
+
+After too many wrong offline passwords, offline sign-in stops until you sign in online again.
+
+===== Change password =====
+Account menu → **Change password**. Use it when BASA asks, or any time.
+
+===== Sign out =====
+Account menu → **Sign out**. Your work stays on the device. Signing out does not send it: use **Sync → Send my work** first.
+
+===== Server settings =====
+Account menu → **Server settings** (or on the sign-in screen). The server address and key for the cloud and the school LAN. Set them once per device, with the values from the person who manages the server.
+
+===== Colours (light and dark mode) =====
+Account menu → **Colours**. Light or dark mode and the app's colours, for this device only.
+
+===== About and version =====
+Account menu → **About**. The BASA version on this device. Every device and the server must run the same BASA release: when BASA is updated, update every device.

@@ -1,0 +1,16 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.6
+Creation-Date: 2026-11-08T00:00:00+08:00
+
+====== Dashboard ======
+===== Dashboard =====
+**Home → Dashboard**. The year's figures for your own work. Pick the school year at the top.
+
+===== Reminders =====
+**Home → Reminders**. What needs doing: learners not assessed in a round, check-ins due, learners without an IRIP, classes with no session lately.
+
+===== Round calendar =====
+**Home → Round calendar**. When each round of CRLA and Phil-IRI opens and closes.
+
+===== Trends =====
+**Home → Trends**. Your ARAL sessions and attendance over time.

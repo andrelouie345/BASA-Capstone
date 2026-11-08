@@ -1,0 +1,23 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.6
+Creation-Date: 2026-11-08T00:00:00+08:00
+
+====== Your first day with BASA Tutor ======
+===== Event =====
+You start using BASA Tutor. This is done once on each device.
+
+===== Required =====
+* BASA Tutor installed on your device.
+* Your email and the temporary password from your coordinator.
+* The server address and key from your coordinator.
+* An internet connection (or the school LAN): the first sign-in must be online.
+
+===== What to do in BASA Tutor =====
+Point the app at the server, sign in, choose your own password and download your data ([[:Functions:Signing in and your account|Signing in and your account]], [[:Functions:Getting and sending data|Getting and sending data]]). After that you can work offline.
+
+===== Steps =====
+[ ] Open BASA Tutor. On the sign-in screen, open **Server settings** and enter the server address and key. Save.
+[ ] Sign in with your email and temporary password.
+[ ] Choose your own password when the app asks. Keep it private.
+[ ] Open **Sync → Download the latest data**.
+[ ] Open **Learners → Sections**: your sections should be there. If one is missing, ask your coordinator to assign it to you.

@@ -1,0 +1,18 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.6
+Creation-Date: 2026-11-08T00:00:00+08:00
+
+====== Users and tutor assignments ======
+===== Users =====
+**Manage → Users**. The accounts you may manage: the superadmin manages everyone; a school admin or coordinator manages their own school's.
+* **Create** an account: email, full name, role (admin, coordinator or tutor) and school. BASA shows a **temporary password once**: write it down and give it to the person privately. They choose their own password at the first sign-in.
+* **Deactivate** an account when someone leaves: they can no longer sign in online, and a device they used stops their offline sign-in the next time it reaches the server for them. Activate the account again to restore it.
+
+===== Tutor assignments =====
+**Manage → Tutor assignments**. Which sections each tutor assesses. A tutor can have many sections and a section many tutors. A tutor sees only their sections' learners, plus the learners of the ARAL classes they teach. After a change, tutors download the latest data.
+
+===== Login logs =====
+**Manage → Login logs**. Recent sign-in attempts, from this device and the server: who, when, and why a failed one failed. Useful when someone can't sign in.
+
+===== First admin (new server) =====
+The first superadmin of a new server is created by the person who sets up the server. You only need this when a new BASA server is installed.

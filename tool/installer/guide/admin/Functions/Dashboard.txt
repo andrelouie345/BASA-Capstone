@@ -1,0 +1,16 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.6
+Creation-Date: 2026-11-08T00:00:00+08:00
+
+====== Dashboard ======
+===== Dashboard home =====
+**Home → Dashboard**. The year's figures for your role: a tutor sees their own work, a coordinator their school, the superadmin every school with regional totals. Pick the school year at the top.
+
+===== Round calendar =====
+**Home → Round calendar**. Each round's dates for CRLA and Phil-IRI, and whether it is upcoming, open or closed. The superadmin sets the region's dates; a school can change a round's dates or skip it. A round not in the calendar shows as //not scheduled// in the reports.
+
+===== Reminders =====
+**Home → Reminders**. What needs attention: learners not assessed in an open or closed round, check-ins due, learners without an IRIP, classes with no session lately.
+
+===== Trends =====
+**Home → Trends**. Charts by school year: Phil-IRI levels and completion, CRLA profiles, ARAL exits and activity (sessions and attendance). Filter by section, school or region.

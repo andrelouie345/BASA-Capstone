@@ -1,0 +1,17 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.6
+Creation-Date: 2026-11-08T00:00:00+08:00
+
+====== Summer Remediation ======
+===== Event =====
+Only if your coordinator made you a Summer Remediation (SRP) tutor: your SRP classes after EOSY.
+
+===== Required =====
+* You downloaded the latest data after your coordinator set up the SRP classes.
+
+===== What to do in BASA Tutor =====
+See your SRP classes, their learners, room and schedule ([[:Functions:Summer Remediation|Summer Remediation]]).
+
+===== Steps =====
+[ ] Download the latest data.
+[ ] Open **ARAL → Summer Remediation** and check your classes, room and schedule.

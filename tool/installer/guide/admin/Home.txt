@@ -1,0 +1,18 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.6
+Creation-Date: 2026-11-08T00:00:00+08:00
+
+====== BASA Guide ======
+For reading coordinators, school admins and the regional superadmin, using the **BASA** app.
+
+===== Start here =====
+* [[Checklist|School-year checklist]]: what to do, in order, from setup to the end of the school year.
+* [[Functions|BASA functions]]: what each part of BASA does and how to use it.
+* [[Who can do what]]: superadmin, school admin, coordinator and tutor.
+* [[Glossary]]: the terms BASA uses.
+
+===== Before anything else =====
+If you share this device with someone, read [[Functions:Sharing a device and switching users]] first.
+
+===== Finding things in BASA =====
+BASA's main sections are **Home** (dashboard, reminders, calendar, trends), **Learners**, **Assess** (CRLA and Phil-IRI), **ARAL**, **Sync**, **Manage** and **Reports**. Your account menu (your name, at the top) has your password, server settings, colours, About and Sign out.
