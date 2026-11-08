@@ -6,9 +6,9 @@ Purpose: sign in to the cloud or LAN server with email and password.
 Layout (required): the sign-in screen has a **dropdown** (a collapsible "Server settings" section) with the fields to set the cloud URL and anon key and the LAN URL and anon key (the anon key is the server's public key). A new device is set up from here, before anyone can sign in. It uses the *Server settings* calls below; the separate Server settings screen can reuse the same widget.
 Calls:
 - `AuthViewModel.signIn(target: 'cloud'|'lan', email:, password:)` → `String?` (null = signed in, else the message to show)
-- afterwards `currentUser`, `mustChangePassword`, `versionWarning`, `offlineWarning`
+- afterwards `currentUser`, `mustChangePassword`, `versionWarning`, `offlineWarning`, `deviceNotice` (set when this sign-in removed another user's data from the device: show it, then lead to *Download the latest data*)
 Live previews: none.
-Errors: wrong password, inactive account, version refusal, server not set (returned text).
+Errors: wrong password, inactive account, version refusal, server not set, another user's unsent work on this device (returned text; that user must sign in and upload first, there is no override).
 Console: `sign-in`
 
 ### Sign in offline

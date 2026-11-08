@@ -36,3 +36,14 @@ String authFailureMessage(Object error) {
   }
   return unexpectedErrorMessage;
 }
+
+/// Online sign-in refused on a shared device: [owner]'s work is not on the
+/// server yet ([unsent], one line each).
+String deviceRefusedMessage(String? owner, Iterable<Object> unsent) =>
+    'Sign-in refused: this device holds work of ${owner ?? 'an earlier user'} that is not on the server yet:\n'
+    '${unsent.map((l) => '  $l').join('\n')}\n'
+    '${owner ?? 'That user'} must sign in on this device and upload it first.';
+
+/// Online sign-in cleared another user's copy from this device.
+String deviceClearedMessage(String owner) =>
+    "This device held $owner's data; it was removed. Download your own data before you start.";

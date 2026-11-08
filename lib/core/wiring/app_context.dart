@@ -10,6 +10,7 @@ import '../data/local/local_database.dart';
 import '../data/local/login_log_repository_sqlite.dart';
 import '../data/local/offline_credential_repository_sqlite.dart';
 import '../data/local/report_setting_repository_sqlite.dart';
+import '../data/local/sync_local_repository_sqlite.dart';
 import '../data/local/theme_settings_store.dart';
 import '../data/local/user_repository_sqlite.dart';
 import '../data/remote/migration_ledger_repository_supabase.dart';
@@ -52,6 +53,7 @@ class AppContext {
       credentials: OfflineCredentialRepositorySqlite(localDb),
       localUsers: UserRepositorySqlite(localDb),
       localReportSettings: ReportSettingRepositorySqlite(localDb),
+      device: SyncLocalRepositorySqlite(localDb),
       logger: session,
     );
     return AppContext._(

@@ -27,6 +27,18 @@ class LocalWorkLine {
       : '$count $kind in section $sectionId (grade ${gradeLevel ?? "?"} ${sectionName ?? "unknown"}, ${schoolYear ?? ""})';
 }
 
+/// What an online sign-in did to this device's copy (shared device): nothing
+/// (the device is already this user's), cleared it (another user's copy, with
+/// nothing unsent), or refused (another user's work is not on the server yet).
+class DeviceHandover {
+  final PullOwner? previous;
+  final List<LocalWorkLine> unsent;
+  final bool cleared;
+  const DeviceHandover({this.previous, this.unsent = const [], this.cleared = false});
+
+  bool get refused => unsent.isNotEmpty;
+}
+
 /// The user whose data is on this device: the last successful pull.
 class PullOwner {
   final String userId;
