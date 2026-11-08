@@ -3,18 +3,24 @@ Wiki-Format: zim 0.6
 Creation-Date: 2026-11-08T00:00:00+08:00
 
 ====== EOSY assessments ======
-
 ===== Event =====
-The End of School Year round for CRLA and Phil-IRI, and closing ARAL for the year.
+The End of School Year round for CRLA and Phil-IRI, and the end of ARAL for the year.
 
 ===== Who =====
-Tutors assess; coordinator finalizes
+* **Tutors** assess.
+* **Coordinator** follows up, finalizes and closes ARAL.
 
 ===== Required =====
-//To be written.//
+* EOSY is open in the Round calendar.
+* Tutors downloaded the latest data.
 
 ===== What to do in BASA =====
-//To be written.//
+The same assessment work as BOSY ([[:Functions:CRLA|CRLA]], [[:Functions:Phil-IRI|Phil-IRI]]). Then open the roster so BASA applies the EOSY results, and make the year's last reports.
 
 ===== Steps =====
-[ ] //To be written.//
+[ ] Check **Home → Round calendar**: EOSY is open.
+[ ] Tutors run CRLA EOSY and Phil-IRI EOSY.
+[ ] Review uploads (**Sync → Review uploads**) until none are pending.
+[ ] Follow **Reports → Progress monitoring** for EOSY; finalize finished sections.
+[ ] Open **ARAL → Roster** for every section so BASA applies the EOSY results.
+[ ] Make the year's last reports (stage 7).

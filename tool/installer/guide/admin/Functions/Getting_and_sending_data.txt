@@ -3,15 +3,21 @@ Wiki-Format: zim 0.6
 Creation-Date: 2026-11-08T00:00:00+08:00
 
 ====== Getting and sending data ======
+BASA works offline. You download a copy of your data, work on it without a connection, and send your work when you are connected again.
 
 ===== Download the latest data =====
-//To be written.//
+**Sync → Download the latest data** (needs an online sign-in). Gets everything you may see from the server. Your unsent work on the device is kept. Do it at the start of every round, and after a coordinator changes classes, assignments or settings.
 
 ===== Send my work (upload) =====
-//To be written.//
+**Sync → Send my work**. Shows what is unsent and sends it as **one upload**.
+* A tutor's upload waits for a coordinator's approval, unless the school approves uploads automatically.
+* An admin's or coordinator's own upload is applied at once.
+* While an upload waits, its records can't be changed on the device. To change one, withdraw the upload, fix it, and send again.
+* If someone changed the same record on the server since your download, BASA asks which copy to keep (yours or the server's) before sending.
+* After a decision, open **Send my work** again: approved records take their final form; a rejected upload unlocks them so you can fix and resend.
 
 ===== Review uploads =====
-//To be written.//
+**Sync → Review uploads** (admin build). Lists your school's uploads waiting for a decision (the superadmin sees every school). Open one to see what it holds, then **approve** it or **reject** it with a reason the tutor will read. Approving does not change your own device: download the latest data to see the result.
 
 ===== Approve uploads automatically =====
-//To be written.//
+**Manage → Report settings** → approve uploads automatically. When on, tutors' uploads for your school are applied without review. Turn it on only if you trust the entries without checking them.

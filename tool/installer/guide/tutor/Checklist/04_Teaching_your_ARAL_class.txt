@@ -1,0 +1,23 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.6
+Creation-Date: 2026-11-08T00:00:00+08:00
+
+====== Teaching your ARAL class ======
+===== Event =====
+Your coordinator gave you an ARAL-Reading class. It runs for 32 sessions, with a check-in after the 16th and the 32nd session.
+
+===== Required =====
+* The class is yours in **ARAL → Classes** (download the latest data after your coordinator sets it up).
+
+===== What to do in BASA Tutor =====
+Log each session and mark attendance ([[:Functions:ARAL-Reading|Sessions and attendance]]), rate each learner's IRIP target every week ([[:Functions:ARAL-Reading|IRIP]]) and give the check-ins ([[:Functions:ARAL-Reading|Check-ins]]). Send your work regularly.
+
+===== Steps =====
+[ ] Download the latest data and open **ARAL → Classes**: check your class and its learners.
+[ ] After each session: open **ARAL → Sessions and attendance**, log the session (date, minutes, set-up, lesson) and mark each learner present, absent or excused.
+[ ] Each week: open **ARAL → IRIP** for each learner, rate the week's target (Observed, Partially observed, Not observed) and start the next week.
+[ ] After the 16th session: give the first check-in (**ARAL → Check-ins**) and enter each learner's answers.
+[ ] After the 32nd session: give the second check-in.
+[ ] Use **ARAL → Materials** to see the materials recommended for each learner's program.
+[ ] Check **Home → Reminders** each week: check-ins due, learners without an IRIP, sessions missing.
+[ ] Send your work (**Sync → Send my work**) at least once a week when connected.

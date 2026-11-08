@@ -3,18 +3,21 @@ Wiki-Format: zim 0.6
 Creation-Date: 2026-11-08T00:00:00+08:00
 
 ====== Closing the school year ======
-
 ===== Event =====
-Make sure every device has uploaded its work and every upload is decided before the next year.
+Before the next school year: every device's work is on the server and decided.
 
 ===== Who =====
-Everyone; coordinator checks
+* **Everyone**; the **coordinator** checks.
 
 ===== Required =====
-//To be written.//
+* A connection on every device.
 
 ===== What to do in BASA =====
-//To be written.//
+Work that stays on a device is not in reports and can block the next user of that device ([[:Functions:Sharing a device and switching users|Sharing a device and switching users]]). Before a BASA update that needs every device to update, this list is required.
 
 ===== Steps =====
-[ ] //To be written.//
+[ ] Ask every tutor to open **Sync → Send my work** and send what is left.
+[ ] Open **Sync → Review uploads** until nothing is pending for your school.
+[ ] Ask tutors whose uploads were rejected to fix them and send again.
+[ ] Check a few learners in **Manage → Learner history** to see the year is complete.
+[ ] Save the year's report files somewhere safe (they are made from the server's data at any time, but keep the submitted copies).

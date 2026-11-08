@@ -3,24 +3,33 @@ Wiki-Format: zim 0.6
 Creation-Date: 2026-11-08T00:00:00+08:00
 
 ====== Phil-IRI ======
+The Philippine Informal Reading Inventory in **English, for Grades 4 to 10**. Rounds: BOSY, MOSY #1, MOSY #2, MOSY #3, EOSY.
 
 ===== GST (Group Screening Test) =====
-//To be written.//
+**Assess → Group Screening Test**. Record each learner's GST score (the total, or literal, inferential and critical). BASA shows who passed. For a learner with only a GST at BOSY, BASA gives a starting grade from the GST as a reference; the individual reading confirms it.
 
 ===== Section Phil-IRI sessions =====
-//To be written.//
+**Assess → Phil-IRI by section**. Pick a section and round: each learner's session. Start a session for a learner from here.
 
 ===== Assessment session =====
-//To be written.//
+One learner, one round:
+1. Pick a passage. BASA offers only passages the learner hasn't read in an earlier round.
+2. Time the reading: the whole text, one minute, or silent reading.
+3. Mark the miscues on the passage's words.
+4. Enter the answers to the questions and score the rubric.
+5. Complete the session (or discard it).
+BASA shows the reading's result after each save.
 
 ===== Learner results =====
-//To be written.//
+**Assess → Learner results**. A learner's results per round: word recognition, comprehension, the word reading profile, the reading profile and the adjusted reading level. The levels are Independent, Instructional, Frustration, Struggling and Non-Reader.
+
+Comprehension **carries up** from round to round (GST, BOSY, MOSY #1-3, EOSY): a better result counts, a lower one never takes it down. A round not given keeps the last result. Word reading can go down.
 
 ===== Finalize =====
-//To be written.//
+**Assess → Finalize** (admin build). Close a section's round when its sessions are done.
 
 ===== Content (collections, passages, questions, rubric) =====
-//To be written.//
+**Assess → Passages and questions**. The passage sets BASA uses. Everyone can read them; admins and coordinators edit their school's, the superadmin the region's.
 
 ===== Phil-IRI thresholds =====
-//To be written.//
+**Assess → Phil-IRI thresholds**. The percentage bands for word recognition and comprehension. The defaults follow DepEd; a school can change them.

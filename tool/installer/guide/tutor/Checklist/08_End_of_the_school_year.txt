@@ -1,0 +1,18 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.6
+Creation-Date: 2026-11-08T00:00:00+08:00
+
+====== End of the school year ======
+===== Event =====
+Before the year closes: all your work must be on the server and approved.
+
+===== Required =====
+* A connection.
+
+===== What to do in BASA Tutor =====
+Work left on your device is not in the school's reports, and it stops anyone else from using your device ([[:Functions:Sharing a device and switching users|Sharing a device and switching users]]).
+
+===== Steps =====
+[ ] Open **Sync → Send my work** and send everything that is left.
+[ ] Open it again until nothing is waiting for approval and nothing was rejected.
+[ ] Tell your coordinator you are done.

@@ -3,18 +3,23 @@ Wiki-Format: zim 0.6
 Creation-Date: 2026-11-08T00:00:00+08:00
 
 ====== Schools, sections and learners ======
-
 ===== Schools =====
-//To be written.//
+**Learners → Schools**. The superadmin adds, edits and removes schools (DepEd school ID, name, region, division). Everyone else sees their own school.
 
 ===== Sections =====
-//To be written.//
+**Learners → Sections**. A section is a grade, a name and a school year. Admins and coordinators add, edit and remove their school's sections; tutors see the sections they are assigned to. The grade is a number (1 to 10).
 
 ===== SF1 import =====
-//To be written.//
+**Manage → SF1 import** (on a computer). Reads a section's DepEd SF1 Excel file into BASA: the section and its learners.
+1. Pick the file.
+2. Check the column list (which column holds the LRN, names, sex, birth date, ...). It is saved for next time.
+3. Run the trial: BASA shows what it would import, without saving.
+4. Import.
+5. If a learner already in BASA has different details, BASA lists a conflict: keep the details in BASA or update them from the file.
+You can only import your own school's files.
 
 ===== Learners and roster CSV =====
-//To be written.//
+**Learners → Learners**. Pick a section to see its learners (search by name or LRN). Save the section's roster as a CSV file with the download button. In the admin build, open a learner to see their history.
 
 ===== Learner history =====
-//To be written.//
+**Manage → Learner history**. One learner's record by school year: section, CRLA profile per round and language, Phil-IRI results, ARAL (class, tutor, attendance, check-ins) and Summer Remediation. Find the learner by section and name, or type their LRN. It shows what is on this device: download the latest data first.

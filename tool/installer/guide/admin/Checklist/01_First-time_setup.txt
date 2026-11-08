@@ -3,18 +3,26 @@ Wiki-Format: zim 0.6
 Creation-Date: 2026-11-08T00:00:00+08:00
 
 ====== First-time setup ======
-
 ===== Event =====
-Set BASA up once: the server, the first admin, schools and accounts.
+BASA is used for the first time in your region or school. This is done once, not every year.
 
 ===== Who =====
-Superadmin (server, schools); school admin or coordinator (accounts)
+* **Superadmin** (regional): the server, schools, school admins and coordinators.
+* **School admin or coordinator**: the tutors' accounts of their school.
 
 ===== Required =====
-//To be written.//
+* The BASA server is set up (cloud or the school's LAN) by the person who manages it. They also create the first superadmin account; BASA shows its temporary password once.
+* BASA (admin build) installed on the coordinator's computer, BASA Tutor on each tutor's device.
+* An internet connection (or the school LAN) for the first sign-in.
 
 ===== What to do in BASA =====
-//To be written.//
+Each device is pointed at the server once ([[:Functions:Signing in and your account|Server settings]]). The superadmin then adds the schools and the people who run them ([[:Functions:Schools, sections and learners|Schools]], [[:Functions:Users and tutor assignments|Users]]). Every new account gets a temporary password that must be changed at the first sign-in.
 
 ===== Steps =====
-[ ] //To be written.//
+[ ] Open BASA. On the sign-in screen, open **Server settings** and enter the server address and key you were given. Save.
+[ ] Sign in with your account and the temporary password. Choose a new password when BASA asks.
+[ ] //Superadmin:// open **Learners → Schools** and add each school (DepEd school ID, name, region).
+[ ] //Superadmin:// open **Manage → Users** and create a school admin or coordinator for each school. Write down each temporary password: BASA shows it only once. Give it to the person privately.
+[ ] //School admin or coordinator:// sign in, change your password, then open **Manage → Users** and create an account for each tutor (role //tutor//, your school).
+[ ] Give each tutor their temporary password and the BASA Tutor app. Ask them to sign in once while connected.
+[ ] Check **Manage → Login logs**: each person's first sign-in should be listed.

@@ -3,18 +3,24 @@ Wiki-Format: zim 0.6
 Creation-Date: 2026-11-08T00:00:00+08:00
 
 ====== Reports during the year ======
-
 ===== Event =====
-Progress monitoring, the NLA portal report and the ARAL implementation report.
+Reports the Division and the NLA portal ask for, when they ask //(to confirm with ma)//.
 
 ===== Who =====
-Coordinator; superadmin for the region
+* **Coordinator** (own school).
+* **Superadmin** (any school and region totals).
 
 ===== Required =====
-//To be written.//
+* The round's results approved and downloaded.
+* For the ARAL implementation report in Excel: the blank DepEd template file.
 
 ===== What to do in BASA =====
-//To be written.//
+Reports are made on demand, in any order ([[:Functions:Reports|Reports]]). Each can be saved as a file. **Reports → Reports & files** gathers every import and export in one place.
 
 ===== Steps =====
-[ ] //To be written.//
+[ ] Download the latest data first, so the report counts everything approved.
+[ ] **Reports → Progress monitoring**: how many learners each section has assessed, per round.
+[ ] **Reports → NLA portal report**: the Phil-IRI counts (JHS Form 2b) and the Division's ARAL counts. Copy the values into the NLA portal. Filter by sex, round, block or section; save it as CSV.
+[ ] **Reports → ARAL implementation report**: per section and grade; save it in the DepEd template or as CSV.
+[ ] **ARAL → Check-ins**: the check-in report (who took the 16th and 32nd check-in and who met the cut-off).
+[ ] Submit the files to the Division or the portal.

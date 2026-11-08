@@ -3,15 +3,14 @@ Wiki-Format: zim 0.6
 Creation-Date: 2026-11-08T00:00:00+08:00
 
 ====== Who can do what ======
-
 ===== Superadmin (regional) =====
-//To be written.//
+An admin with no school. Sees and manages every school: adds schools and their admins and coordinators, sets the region's round dates and defaults (thresholds, settings, materials, Phil-IRI content), reviews any school's uploads and makes reports for any school and the region. Uses the **BASA** app.
 
 ===== School admin =====
-//To be written.//
+An admin of one school. The same as a coordinator for that school.
 
 ===== Coordinator =====
-//To be written.//
+Manages one school: its sections, learners (SF1 import), tutors' accounts and assignments, ARAL roster and classes, the school's dates and settings, uploads and reports. Can also assess. Uses the **BASA** app.
 
 ===== Tutor =====
-//To be written.//
+Assesses and teaches: sees only their assigned sections and the learners of their ARAL classes; runs CRLA and Phil-IRI, logs ARAL sessions, attendance, IRIP and check-ins; sends their work for approval. Uses the **BASA Tutor** app, which has its own guide.

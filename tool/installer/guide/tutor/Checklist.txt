@@ -1,0 +1,23 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.6
+Creation-Date: 2026-11-08T00:00:00+08:00
+
+====== Tutor checklist ======
+Work through these pages in order. Tick a box when a step is done: click it, or put the cursor on it and press **F12**. The ticks stay in this guide when BASA Tutor is updated.
+
+Stage 1 is done once. Stages 2 to 8 repeat every school year: untick them at the start of a new year.
+
+===== Every time you work =====
+[ ] When connected: **Sync → Download the latest data**.
+[ ] Work (offline is fine).
+[ ] When connected again: **Sync → Send my work**.
+
+===== The stages =====
+[ ] [[+01 Your first day with BASA Tutor|Your first day with BASA Tutor]]
+[ ] [[+02 Start of the school year|Start of the school year]]
+[ ] [[+03 BOSY assessments|BOSY assessments]]
+[ ] [[+04 Teaching your ARAL class|Teaching your ARAL class]]
+[ ] [[+05 MOSY rounds|MOSY rounds]]
+[ ] [[+06 EOSY assessments|EOSY assessments]]
+[ ] [[+07 Summer Remediation|Summer Remediation]]
+[ ] [[+08 End of the school year|End of the school year]]

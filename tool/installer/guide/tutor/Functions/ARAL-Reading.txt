@@ -1,0 +1,27 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.6
+Creation-Date: 2026-11-08T00:00:00+08:00
+
+====== ARAL-Reading ======
+ARAL-Reading tutoring for learners below grade level. You teach the classes your coordinator gives you; they enroll and place the learners.
+
+===== Classes =====
+**ARAL → Classes**. Your classes: at most 15 active learners each, with their programs.
+
+===== Sessions and attendance =====
+**ARAL → Sessions and attendance**. Log each session of your class (date, minutes, set-up, lesson) and mark each learner **present**, **absent** or **excused**. One session per class per date. The program has 32 sessions.
+
+===== IRIP =====
+**ARAL → IRIP**. Each learner's weekly reading target. Rate it **Observed**, **Partially observed** or **Not observed**; the app suggests the next target (the next one when observed, the same one otherwise). You may pick another. For KS2 and KS3 programs.
+
+===== Check-ins =====
+**ARAL → Check-ins**. After the 16th and the 32nd session (KS2 and KS3). Enter each learner's answers; the app scores them as **Met** or **Not met** against the school's cut-off. A learner may retake it; the latest counts.
+
+===== Materials =====
+**ARAL → Materials**. The learning materials recommended for each learner's program, with their file names and links.
+
+===== Readability log =====
+**ARAL → Readability log**. Only when your school uses SHARP: the texts you used, with their readability.
+
+===== Roster, tutors and settings =====
+**ARAL → Roster**, **ARAL → Tutors** and **ARAL → ARAL settings**: who is in ARAL and the school's settings (view only).

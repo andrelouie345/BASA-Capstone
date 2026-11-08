@@ -3,15 +3,22 @@ Wiki-Format: zim 0.6
 Creation-Date: 2026-11-08T00:00:00+08:00
 
 ====== Sharing a device and switching users ======
+Read this before you lend your device or borrow someone else's.
 
 ===== Why a device holds one user's data =====
-//To be written.//
+When you download the latest data, BASA copies everything //you// may see onto the device: an admin's copy can hold every school. So that nobody sees data that isn't theirs, a device holds **one person's data at a time**: the person who last downloaded on it.
 
 ===== Before you lend the device =====
-//To be written.//
+[ ] Open **Sync → Send my work** and send everything.
+[ ] Wait until it is approved (or ask the coordinator to approve it), or check that nothing is left to send.
+[ ] Sign out.
+
+If anything of yours is still unsent, BASA will not let anyone else sign in on this device. This is on purpose: your work stays safe, and lending is for emergencies only. **It is the lender's job to finish their work before lending the device.**
 
 ===== Signing in as someone else =====
-//To be written.//
+When another person signs in online on a device, BASA removes the previous person's data from it first and tells them so. They then download their own data (**Sync → Download the latest data**) before starting.
+
+The previous owner can no longer sign in offline on that device. When they get it back, they sign in online and download their data again.
 
 ===== When sign-in is refused =====
-//To be written.//
+"Sign-in refused: this device holds work of ... that is not on the server yet" means the device's owner has unsent work. There is no way around it: the owner signs in on that device and sends their work (**Sync → Send my work**). Then the other person can sign in.

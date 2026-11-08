@@ -3,18 +3,25 @@ Wiki-Format: zim 0.6
 Creation-Date: 2026-11-08T00:00:00+08:00
 
 ====== During the year - ARAL sessions ======
-
 ===== Event =====
-Weekly ARAL sessions, attendance, IRIP targets, check-ins after the 16th and 32nd session, exits.
+ARAL-Reading runs through the year: sessions (32 in all), attendance, the IRIP each week, and check-ins after the 16th and 32nd session.
 
 ===== Who =====
-Tutors log; coordinator monitors and reviews uploads
+* **ARAL tutors** log their own classes' sessions.
+* **Coordinator** monitors, reviews uploads and keeps the roster up to date.
 
 ===== Required =====
-//To be written.//
+* Classes with tutors (stage 4).
+* Tutors download the latest data, then work offline and upload when connected.
 
 ===== What to do in BASA =====
-//To be written.//
+Each class has at most one session per date ([[:Functions:ARAL-Reading|Sessions and attendance]]). Tutors rate each learner's weekly IRIP target ([[:Functions:ARAL-Reading|IRIP]]) and give the check-ins ([[:Functions:ARAL-Reading|Check-ins]]). When new results come in, BASA updates programs and exits learners who reached grade level when you open the roster. Reminders show classes with no session for too long.
 
 ===== Steps =====
-[ ] //To be written.//
+[ ] Each week, open **Home → Reminders**: classes with no session lately, check-ins due, learners without an IRIP.
+[ ] Each week, open **Sync → Review uploads** and decide the tutors' uploads.
+[ ] After a class's 16th session, check that its learners took the first check-in (**ARAL → Check-ins**).
+[ ] After the 32nd session, check the second check-in.
+[ ] Open **ARAL → Roster** after each round of results: BASA updates programs and exits grade-level-ready learners. Read the list it shows.
+[ ] Exit learners who transfer or drop out (with the reason and date). Place new referrals in a class.
+[ ] Keep the learning materials list current (**ARAL → Materials**): titles, file names and the Google Drive links for your school.

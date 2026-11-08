@@ -3,33 +3,39 @@ Wiki-Format: zim 0.6
 Creation-Date: 2026-11-08T00:00:00+08:00
 
 ====== ARAL-Reading ======
+The ARAL-Reading program: learners below grade level get tutoring in small classes.
 
 ===== Roster =====
-//To be written.//
+**ARAL → Roster**. Who is in ARAL, their program, class and status.
+* **Who qualifies**: Grade 1 by their CRLA MOSY result, Grades 2-3 by CRLA BOSY (Low or High Emerging; Developing and Transitioning too when the school turns on //KS1 extended//); Grades 4-10 by their Phil-IRI English result below grade level.
+* BASA **proposes** the qualifying learners of a section; you enroll them. A teacher can **refer** a learner (who referred, and why).
+* BASA suggests each learner's **program** from their **adjusted reading level**: 0-1 Foundational (only when the school has SHARP on, otherwise KS1), 2-3 KS1, 4-5 KS2 Basic, 6-7 KS2 Plus, 8 KS3 Basic, 9 KS3 Plus. Learners at grade level (Instructional or Independent) are not in ARAL. You can change a program.
+* When new results arrive, opening the roster updates programs and **exits** learners who reached grade level. Transfers and drop-outs are exited by hand.
+* Enrolling and placing in a class are two steps: an enrolled learner may wait for a class.
 
 ===== Tutors =====
-//To be written.//
+**ARAL → Tutors**. Each ARAL tutor's classes and active learners.
 
 ===== Classes =====
-//To be written.//
+**ARAL → Classes**. A class has a name, a home grade, one program (or mixed programs) and a tutor. At most **15 active learners**, from any section of the school. A learner of another grade needs the coordinator's confirmation. A learner's ARAL tutor is their class's tutor.
 
 ===== Sessions and attendance =====
-//To be written.//
+**ARAL → Sessions and attendance**. The class tutor logs each session (date, minutes, set-up, lesson) and marks attendance: present, absent or excused. One session per class per date. The program has 32 sessions.
 
 ===== IRIP =====
-//To be written.//
+**ARAL → IRIP**. The Individual Reading Intervention Plan: each week a reading target per learner, rated Observed, Partially observed or Not observed. BASA suggests the next target. For KS2 and KS3 programs.
 
 ===== Check-ins =====
-//To be written.//
+**ARAL → Check-ins**. The check-in assessments after the 16th and 32nd session (KS2 and KS3). The tutor enters the answers; BASA scores them against the cut-off (75% unless your school changed it) as Met or Not met. Retakes are allowed; the latest counts. Admins and coordinators see the check-in report.
 
 ===== ARAL settings =====
-//To be written.//
+**ARAL → ARAL settings**. For your school: the check-in cut-off, SHARP (the Foundational program), KS1 extended, and after how many days without a session a class shows in the reminders.
 
 ===== Materials and recommendations =====
-//To be written.//
+**ARAL → Materials**. The learning materials list: title, file name and a Google Drive link (BASA stores no files). BASA recommends materials for each learner's program. A school can set its own link for any material.
 
 ===== Readability log (SHARP) =====
-//To be written.//
+**ARAL → Readability log**. Only when SHARP is on: the readability (Flesch reading ease and grade) of the texts used.
 
 ===== Implementation report and roster files =====
-//To be written.//
+**Reports → ARAL implementation report** (admin build). The report per section and grade, saved in the DepEd template (you need the blank file) or as CSV. The roster can also be saved or imported as a file.

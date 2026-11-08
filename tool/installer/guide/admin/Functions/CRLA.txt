@@ -3,21 +3,22 @@ Wiki-Format: zim 0.6
 Creation-Date: 2026-11-08T00:00:00+08:00
 
 ====== CRLA ======
+The Comprehensive Rapid Literacy Assessment, for **Grades 1 to 3** only. Each learner is assessed in the languages their grade takes (Mother Tongue, Filipino, English), in each round (BOSY, MOSY, EOSY).
 
 ===== Section CRLA list =====
-//To be written.//
+**Assess → CRLA by section**. Pick a section and school year: each learner's attempts and results.
 
 ===== Start a CRLA attempt =====
-//To be written.//
+From the section list, start an attempt for a learner: choose the language (Mother Tongue needs the language name, e.g. Cebuano) and the round. A retake is a new attempt; the latest attempt of a round counts.
 
 ===== Part 1 and Part 2 entry =====
-//To be written.//
+Enter Part 1 (the letter and word tasks) and Part 2 (the story: miscues, reading time, comprehension answers). BASA computes words read from the story and the miscues, and shows the reading profile after saving (from Low Emerging to Reading at Grade Level).
 
 ===== CRLA thresholds =====
-//To be written.//
+**Assess → CRLA thresholds**. The score bands BASA uses for the profiles. The defaults follow the DepEd scoresheet; a school can change them. A change applies to attempts started afterwards; old results keep the thresholds they were scored with.
 
 ===== Scoresheet export (CRLA2 template) =====
-//To be written.//
+**Assess → Scoresheet export**. Fills the blank DepEd CRLA2 scoresheet of the section's grade with a round's results. You need the blank template file.
 
 ===== Scoresheet import =====
-//To be written.//
+**Assess → Scoresheet import** (admin build). Reads a filled CRLA2 scoresheet into BASA: preview it, then import.

@@ -3,18 +3,27 @@ Wiki-Format: zim 0.6
 Creation-Date: 2026-11-08T00:00:00+08:00
 
 ====== After BOSY - ARAL enrollment ======
-
 ===== Event =====
-Use the BOSY results to choose the learners for ARAL-Reading, form the classes and give them tutors.
+BOSY results are in. Choose the learners for ARAL-Reading, put them in classes and give each class a tutor.
 
 ===== Who =====
-Coordinator
+* **Coordinator** (or school admin).
 
 ===== Required =====
-//To be written.//
+* BOSY results approved and on your device (download the latest data first).
+* Grade 1: CRLA MOSY decides ARAL entry, so Grade 1 learners join after MOSY.
+* The tutors who will teach ARAL classes have accounts.
 
 ===== What to do in BASA =====
-//To be written.//
+BASA proposes the learners who qualify, from each section's results ([[:Functions:ARAL-Reading|Roster]]). You enroll them, and BASA suggests their program from their results. Then you form classes of at most 15 active learners and give each a tutor ([[:Functions:ARAL-Reading|Classes]]). A learner's ARAL tutor is their class's tutor. The BOSY masterlist ([[:Functions:Reports|BOSY masterlist]]) lists the learners who are not grade level ready.
 
 ===== Steps =====
-[ ] //To be written.//
+[ ] Download the latest data (**Sync → Download the latest data**).
+[ ] Open **Reports → BOSY masterlist** and look over the learners who are not grade level ready.
+[ ] Open **ARAL → Roster**, choose a section, and look at the learners BASA proposes. Enroll them. Repeat for every section.
+[ ] Add teacher referrals if a teacher asks for a learner who does not qualify by results (with who referred and why).
+[ ] Check each enrolled learner's program (BASA suggests it from the adjusted reading level). Change it where you know better.
+[ ] Open **ARAL → Classes** and create the classes: a name, a home grade, one program or mixed programs, and the tutor.
+[ ] Place the enrolled learners in classes (at most 15 active learners per class). A learner of another grade needs your confirmation.
+[ ] Open **ARAL → Tutors** and check each tutor's classes and learners.
+[ ] Tell the ARAL tutors to download the latest data so their classes appear.

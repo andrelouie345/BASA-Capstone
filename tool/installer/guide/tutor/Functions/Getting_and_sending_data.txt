@@ -1,0 +1,16 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.6
+Creation-Date: 2026-11-08T00:00:00+08:00
+
+====== Getting and sending data ======
+You work on a copy of your data on your device. You download it when connected and send your work back.
+
+===== Download the latest data =====
+**Sync → Download the latest data** (online). Gets your sections, learners, classes and the school's settings. Your unsent work is kept. Do it before every round and when your coordinator changes your classes.
+
+===== Send my work =====
+**Sync → Send my work**. Shows what you haven't sent and sends it as **one upload**.
+* Your coordinator approves it (unless your school approves uploads automatically).
+* While it waits, those records can't be changed. To change one, **withdraw** the upload, fix the record and send again.
+* If the same record was changed on the server since your download, the app asks which copy to keep: yours or the server's.
+* Open **Send my work** again later to see the decision. Approved records take their final form. A rejected upload shows the coordinator's reason and unlocks your records so you can fix them and send again.

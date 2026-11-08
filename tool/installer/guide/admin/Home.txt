@@ -13,3 +13,6 @@ For reading coordinators, school admins and the regional superadmin, using the *
 
 ===== Before anything else =====
 If you share this device with someone, read [[Functions:Sharing a device and switching users]] first.
+
+===== Finding things in BASA =====
+BASA's main sections are **Home** (dashboard, reminders, calendar, trends), **Learners**, **Assess** (CRLA and Phil-IRI), **ARAL**, **Sync**, **Manage** and **Reports**. Your account menu (your name, at the top) has your password, server settings, colours, About and Sign out.
