@@ -304,9 +304,28 @@ class SchoolPicker extends StatelessWidget {
   );
 }
 
+/// School names by id when this device holds sections of more than one school
+/// (a superadmin's device); null when they are all one school's, so labels stay
+/// short. A school list that can't be read leaves the names out (null).
+Future<Map<int, String>?> schoolNamesIfSeveral(AppViewModels vms, [List<Section>? sections]) async {
+  final all = sections ?? await vms.section.localSections();
+  if (all.map((s) => s.schoolId).toSet().length < 2) return null;
+  try {
+    return {for (final s in await vms.school.localSchools()) if (s.id != null) s.id!: s.schoolName};
+  } catch (_) {
+    return null;
+  }
+}
+
+String sectionLabel(Section s, [Map<int, String>? schoolNames]) {
+  final school = schoolNames?[s.schoolId];
+  return 'Grade ${s.gradeLevel} · ${s.sectionName} (${s.schoolYear})${school == null ? '' : ' · $school'}';
+}
+
 /// Sections on this device (works offline). [where] narrows the list,
-/// e.g. one school year.
-class SectionPicker extends StatelessWidget {
+/// e.g. one school year. Labels name the school when the device holds more
+/// than one.
+class SectionPicker extends StatefulWidget {
   final Section? value;
   final ValueChanged<Section?> onChanged;
   final bool Function(Section)? where;
@@ -322,18 +341,28 @@ class SectionPicker extends StatelessWidget {
   });
 
   @override
+  State<SectionPicker> createState() => _SectionPickerState();
+}
+
+class _SectionPickerState extends State<SectionPicker> {
+  // Set by load before AsyncPicker shows the list; itemLabel reads it then.
+  Map<int, String>? _schoolNames;
+
+  @override
   Widget build(BuildContext context) => AsyncPicker<Section>(
     label: 'Section',
     load: (vms) async {
       final all = await vms.section.localSections();
-      return where == null ? all : all.where(where!).toList();
+      _schoolNames = await schoolNamesIfSeveral(vms, all);
+      final where = widget.where;
+      return where == null ? all : all.where(where).toList();
     },
-    value: value,
-    itemLabel: (s) => 'Grade ${s.gradeLevel} · ${s.sectionName} (${s.schoolYear})',
+    value: widget.value,
+    itemLabel: (s) => sectionLabel(s, _schoolNames),
     same: (a, b) => a.id == b.id,
-    onChanged: onChanged,
-    reloadKey: reloadKey,
-    pickFirst: pickFirst,
+    onChanged: widget.onChanged,
+    reloadKey: widget.reloadKey,
+    pickFirst: widget.pickFirst,
     emptyText: 'No sections on this device. Download the latest data first.',
   );
 }
@@ -342,18 +371,21 @@ String studentLabel(Student s) =>
     [s.lastName, s.firstName].where((p) => p.isNotEmpty).join(', ') + (s.lrn.isEmpty ? '' : '  ·  ${s.lrn}');
 
 /// Learners of one section, from this device's copy (works offline).
+/// [schoolName], when given, is added to each label (see [schoolNamesIfSeveral]).
 class StudentPicker extends StatelessWidget {
   final int sectionId;
   final Student? value;
   final ValueChanged<Student?> onChanged;
-  const StudentPicker({super.key, required this.sectionId, required this.value, required this.onChanged});
+  final String? schoolName;
+  const StudentPicker(
+      {super.key, required this.sectionId, required this.value, required this.onChanged, this.schoolName});
 
   @override
   Widget build(BuildContext context) => AsyncPicker<Student>(
     label: 'Learner',
     load: (vms) => vms.student.localStudents(sectionId),
     value: value,
-    itemLabel: studentLabel,
+    itemLabel: (s) => schoolName == null ? studentLabel(s) : '${studentLabel(s)}  ·  $schoolName',
     same: (a, b) => a.lrn == b.lrn,
     onChanged: onChanged,
     reloadKey: sectionId,
