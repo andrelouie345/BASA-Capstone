@@ -15,7 +15,8 @@ void registerAuthCommands(ConsoleRegistry registry, AuthViewModel authVm) {
       final note = authVm.mustChangePassword ? ' (must change password)' : '';
       final warning = authVm.versionWarning == null ? '' : '\n${authVm.versionWarning}';
       final offline = authVm.offlineWarning == null ? '' : '\n${authVm.offlineWarning}';
-      return 'Signed in as ${authVm.currentUser?.email} (${authVm.currentUser?.role.name})$note$warning$offline';
+      final device = authVm.deviceNotice == null ? '' : '\n${authVm.deviceNotice}';
+      return 'Signed in as ${authVm.currentUser?.email} (${authVm.currentUser?.role.name})$note$warning$offline$device';
     },
   ));
 

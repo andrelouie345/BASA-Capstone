@@ -9,6 +9,14 @@ abstract class SyncLocalRepository {
   /// New, edited and pending work not on the server yet.
   Future<List<LocalWorkLine>> localWork();
 
+  /// Hands the device to [userId] at an online sign-in. Nothing changes when
+  /// they already own it. Otherwise the device copy is deleted (every table a
+  /// pull empties, the sync journal, other users' offline sign-in) and
+  /// [userId] becomes the owner, in one transaction; unless the device holds
+  /// work not on the server yet (new, edited or pending): then nothing
+  /// changes and that work comes back as [DeviceHandover.unsent].
+  Future<DeviceHandover> handOver({required String userId, required String? email});
+
   /// Merges a full download into the local copy in one transaction: server
   /// copies refreshed, local work kept (or deleted first with
   /// [discardLocal]), and the puller recorded as the owner. Throws

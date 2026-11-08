@@ -224,7 +224,9 @@ sql select count(*) from aral_sessions where id in ({a6_s1_srv}, {a6_s2_srv}) =>
 run sync-preview
 expect Nothing to upload.
 
-# --- One device, two users: the coordinator's unsent work blocks the superadmin
+# --- One device, two users: the coordinator's unsent work refuses any other
+# sign-in (no override, owner 2026-11-08); without it the next user's sign-in
+# clears the coordinator's copy.
 device a6-shared admin fresh
 as coord
 run pull-cloud yes
@@ -232,18 +234,20 @@ expect Done. Local data now belongs to {email_coord}.
 run aral-log {class_1} {=30} during_class {ago2} lesson "ZZ A6 shared"
 expect Logged:
 capture a6_s4 = Logged: #(-?\d+)
+run sign-in cloud {email_tutor1} {pw_tutor1}
+refuse Sign-in refused: this device holds work of {email_coord} that is not on the server yet:
+run whoami
+expect {email_coord}
+sql select count(*) from aral_sessions where id = {a6_s4} => 1
+run aral-session-delete {a6_s4}
+expect Deleted ARAL session {a6_s4}.
+run sign-in cloud {email_tutor1} {pw_tutor1}
+expect This device held {email_coord}'s data; it was removed.
+sql select count(*) from sections => 0
+sql select count(*) from sync_meta where key = 'last_pull_user_email' and value = '{email_tutor1}' => 1
 as super
-run pull-cloud
-expect This device holds work of {email_coord} that is not on the server yet; the pull will refuse until they sync
 run pull-cloud yes
-refuse Refused: this device holds work of {email_coord} that is not on the server yet:
-run sync-upload yes
-refuse This device's work belongs to {email_coord}; only they can sync it.
-run pull-cloud yes discard-local
-expect Discarded this device's unsent work: 1 new record(s), 0 change(s) to server records.
-expect Replaced the copy of {email_coord}.
 expect Done. Local data now belongs to zztest.super@basa.test.
-sql select count(*) from aral_sessions where id = {a6_s4} => 0
 
 # --- A tutor on the admin build reviews nothing -------------------------------
 as tutor1

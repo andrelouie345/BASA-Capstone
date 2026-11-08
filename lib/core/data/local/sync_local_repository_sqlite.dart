@@ -65,6 +65,26 @@ class SyncLocalRepositorySqlite implements SyncLocalRepository {
     return id == null ? null : PullOwner(userId: id, email: meta['last_pull_user_email'], pulledAt: meta['last_pull_at']);
   }
 
+  @override
+  Future<DeviceHandover> handOver({required String userId, required String? email}) async {
+    final previous = await owner();
+    if (previous?.userId == userId) return DeviceHandover(previous: previous);
+    final unsent = [for (final l in await localWork()) if (l.count > 0) l];
+    if (unsent.isNotEmpty) return DeviceHandover(previous: previous, unsent: unsent);
+    await db.transaction((txn) => withSyncBypass(txn, () async {
+          for (final t in pullClearOrder) {
+            await txn.delete(t);
+          }
+          await txn.delete('sync_changes');
+          await txn.delete('sync_pending');
+          await txn.delete('sync_meta', where: 'key IN (?, ?)', whereArgs: ['upload_in_flight', 'last_pull_at']);
+          await txn.delete('offline_credentials', where: 'user_id != ?', whereArgs: [userId]);
+          // The owner until their first pull, which stamps last_pull_at.
+          await _setMeta(txn, {'last_pull_user_id': userId, 'last_pull_user_email': email});
+        }));
+    return DeviceHandover(previous: previous, cleared: true);
+  }
+
   /// Records entered on this device (new rows), per kind and section: CRLA
   /// assessments, Phil-IRI sessions and GST results, ARAL classes (no
   /// section), ARAL enrollments, ARAL

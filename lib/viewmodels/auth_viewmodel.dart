@@ -19,6 +19,7 @@ import '../core/models/offline_status.dart';
 import '../core/models/report_setting.dart';
 import '../core/repositories/offline_credential_repository.dart';
 import '../core/repositories/report_setting_repository.dart';
+import '../core/repositories/sync_local_repository.dart';
 import '../core/services/offline_signin_rules.dart';
 import '../core/services/pbkdf2.dart';
 import '../core/services/auth_messages.dart';
@@ -37,6 +38,7 @@ class AuthViewModel {
   final OfflineCredentialRepository _credentials;
   final UserRepository _localUsers;
   final ReportSettingRepository _localReportSettings;
+  final SyncLocalRepository _device;
 
   SupabaseClient? _client;
   User? currentUser;
@@ -51,6 +53,10 @@ class AuthViewModel {
   /// offline credential could not be saved on this device; null otherwise.
   String? offlineWarning;
 
+  /// Set when the last online sign-in cleared another user's copy from this
+  /// device (shared device); null otherwise.
+  String? deviceNotice;
+
   AuthViewModel({
     required LoginLogRepository loginLogRepo,
     required SupabaseConfigStore config,
@@ -59,6 +65,7 @@ class AuthViewModel {
     required OfflineCredentialRepository credentials,
     required UserRepository localUsers,
     required ReportSettingRepository localReportSettings,
+    required SyncLocalRepository device,
     Logger? logger,
   })  : _loginLogRepo = loginLogRepo,
         _config = config,
@@ -67,6 +74,7 @@ class AuthViewModel {
         _credentials = credentials,
         _localUsers = localUsers,
         _localReportSettings = localReportSettings,
+        _device = device,
         _log = ScopedLogger(logger, 'AuthViewModel');
 
   /// Signed in online or offline. Offline sessions have no [client].
@@ -87,6 +95,7 @@ class AuthViewModel {
     _log('signIn(target: $target, email: "$email")');
     versionWarning = null;
     offlineWarning = null;
+    deviceNotice = null;
     final profile = switch (target) {
       'cloud' => _config.cloud,
       'lan' => _config.lan,
@@ -141,6 +150,21 @@ class AuthViewModel {
         return versionMessage(check);
       }
 
+      // Shared device: the device copy is one user's. Another user's copy is
+      // cleared, or the sign-in refused while it holds work not on the
+      // server yet (no override: that user uploads first). Before the session
+      // is kept, so a refusal leaves any earlier session untouched.
+      final handover = await _device.handOver(userId: profileRow.id, email: profileRow.email);
+      if (handover.refused) {
+        await _recordAttempt(email, success: false, userId: authUser.id,
+            failureReason: 'device holds unsent work of another user', client: client);
+        await _abandon(client);
+        return deviceRefusedMessage(handover.previous?.email ?? handover.previous?.userId, handover.unsent);
+      }
+      if (handover.cleared && handover.previous != null) {
+        deviceNotice = deviceClearedMessage(handover.previous!.email ?? handover.previous!.userId);
+      }
+
       // Replacing an existing session: end the old one so its refresh token dies.
       final previous = _client;
       if (previous != null && previous != client) await _abandon(previous);
@@ -191,6 +215,7 @@ class AuthViewModel {
     mustChangePassword = false;
     versionWarning = null;
     offlineWarning = null;
+    deviceNotice = null;
   }
 
   // ---- Offline sign-in (sync spec section 6) ----
