@@ -1,0 +1,11 @@
+BASA Guide (Tutor)
+==================
+
+This folder is a Zim notebook. Open it with Zim Desktop Wiki:
+
+1. If Zim is not installed, run the BASA Tutor installer again and tick
+   "Install Zim Desktop Wiki", or get it from https://zim-wiki.org
+2. Start Zim. Choose "File > Open Another Notebook", then "Add",
+   and pick this folder (the one that holds notebook.zim).
+3. The guide opens on its Home page. Ticks you put in the checklists
+   are saved here and are kept when BASA Tutor is updated.
