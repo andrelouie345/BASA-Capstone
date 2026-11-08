@@ -23,6 +23,7 @@ import '../console/commands/test_data_commands.dart';
 import '../console/commands/text_commands.dart';
 import '../console/commands/theme_commands.dart';
 import '../console/commands/version_commands.dart';
+import '../data/local/school_repository_sqlite.dart';
 import '../data/local/section_repository_sqlite.dart';
 import '../data/local/student_repository_sqlite.dart';
 import '../data/local/sync_local_repository_sqlite.dart';
@@ -84,7 +85,8 @@ SharedVms wireShared(AppContext ctx) {
   final studentVm = StudentViewModel(
       auth: authVm, repoFactory: StudentRepositorySupabase.new, local: studentRepo, logger: session);
   vms.register('StudentViewModel', studentVm);
-  final schoolVm = SchoolViewModel(auth: authVm, repoFactory: SchoolRepositorySupabase.new, logger: session);
+  final schoolVm = SchoolViewModel(
+      auth: authVm, repoFactory: SchoolRepositorySupabase.new, local: SchoolRepositorySqlite(db), logger: session);
   vms.register('SchoolViewModel', schoolVm);
   final sectionVm = SectionViewModel(
       auth: authVm, repoFactory: SectionRepositorySupabase.new, local: sectionRepo, logger: session);

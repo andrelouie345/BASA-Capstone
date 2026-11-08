@@ -22,4 +22,18 @@ void registerSchoolCommands(ConsoleRegistry registry, SchoolViewModel vm) {
       }
     },
   ));
+
+  registry.register(ConsoleCommand(
+    name: 'school-list-local',
+    description: 'school-list-local — list the schools on this device (works offline)',
+    handler: (_) async {
+      try {
+        final schools = await vm.localSchools();
+        if (schools.isEmpty) return '(no schools on this device)';
+        return schools.map(schoolDescribe).join('\n');
+      } catch (e) {
+        return 'List failed: $e';
+      }
+    },
+  ));
 }
