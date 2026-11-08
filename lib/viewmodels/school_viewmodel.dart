@@ -15,14 +15,17 @@ class SchoolViewModel {
   final ScopedLogger _log;
   final AuthViewModel _auth;
   final SchoolRepository Function(SupabaseClient client) _repoFor;
+  final SchoolRepository? _local;
   List<School> items = [];
 
   SchoolViewModel({
     required AuthViewModel auth,
     required SchoolRepository Function(SupabaseClient client) repoFactory,
+    SchoolRepository? local,
     Logger? logger,
   })  : _auth = auth,
         _repoFor = repoFactory,
+        _local = local,
         _log = ScopedLogger(logger, 'SchoolViewModel');
 
   bool get _isSuperadmin =>
@@ -42,6 +45,17 @@ class SchoolViewModel {
   Future<void> loadAll() async {
     _log('loadAll()');
     items = await _repo().getAll();
+  }
+
+  /// The schools in this device's copy (works offline): what the last pull
+  /// gave this user, so the same scope as [loadAll].
+  Future<List<School>> localSchools() async {
+    _log('localSchools()');
+    final sessionError = _auth.requireActiveSession();
+    if (sessionError != null) throw ViewModelException(sessionError);
+    final local = _local;
+    if (local == null) throw const ViewModelException('No local copy on this device.');
+    return local.getAll();
   }
 
   /// Superadmin only. Returns the existing school (created: false) when the

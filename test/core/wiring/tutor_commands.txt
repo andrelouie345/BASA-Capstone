@@ -101,6 +101,7 @@ phil-iri-time
 pull-cloud
 reminders-tutor
 school-list
+school-list-local
 section-list
 set-text
 sign-in

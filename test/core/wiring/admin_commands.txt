@@ -194,6 +194,7 @@ resolve-conflicts-all
 school-create
 school-delete
 school-list
+school-list-local
 school-update
 section-create
 section-delete

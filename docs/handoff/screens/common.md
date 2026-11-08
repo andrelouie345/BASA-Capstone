@@ -23,7 +23,7 @@ Console: `whoami`
 Build: both    Roles: all
 Purpose: choose a school, section, class, learner, school year, round or region by name.
 Calls:
-- `SchoolViewModel.loadAll()` → `items: List<School>` (schools the user may see)
+- `SchoolViewModel.loadAll()` → `items: List<School>` (schools the user may see, online) and `localSchools()` → `List<School>` (device copy, works offline; e.g. to name a section's school)
 - `SectionViewModel.localSections()` → `List<Section>` (device copy; `Section.toString()` = grade + name) and `loadAll()` → `items` (online)
 - `StudentViewModel.localStudents(sectionId)` → `List<Student>`; `loadForSection(sectionId)` (online)
 - `AralClassViewModel` class list (see `aral.md`)
@@ -32,7 +32,7 @@ Calls:
 - regions: `Region` (`core/models/region.dart`, `Region.byId`)
 Live previews: none.
 Errors: not signed in.
-Console: `school-list`, `list-sections`, `section-list`, `list-students`, `student-list-section`, `aral-classes`, `dashboard-years`
+Console: `school-list`, `school-list-local`, `list-sections`, `section-list`, `list-students`, `student-list-section`, `aral-classes`, `dashboard-years`
 
 ### Online / offline and pending work
 Build: both    Roles: all

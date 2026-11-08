@@ -18,6 +18,8 @@ sql select count(*) from aral_enrollments where section_id = {sec_g7} and status
 
 run school-list
 expect {name_a}
+run school-list-local
+expect {name_a}
 run section-list
 expect ZZTEST-G2
 expect ZZTEST-G7
