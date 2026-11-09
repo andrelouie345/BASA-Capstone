@@ -815,7 +815,12 @@ class PhilIriViewModel {
     int? correct, total;
     if (collection?.hasComprehension ?? true) {
       final questions = await _passages.getQuestions(passage.id!);
-      if (questions.isNotEmpty) {
+      if (questions.isNotEmpty && r.importedCorrect != null) {
+        // A reading imported from the workbook keeps only its correct count
+        // (spec 2026-11-09-phil-iri-import, schema item 4); it has no answers.
+        total = questions.length;
+        correct = r.importedCorrect!;
+      } else if (questions.isNotEmpty) {
         total = questions.length;
         var answers = await _sessions.getAnswers(r.id!);
         // Oral follow-up of a silent reading with no questions asked again:
