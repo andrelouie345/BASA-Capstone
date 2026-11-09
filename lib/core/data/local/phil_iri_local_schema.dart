@@ -103,7 +103,8 @@ Future<void> rebuildPhilIriPassagesForV15(Database db) async {
 }
 
 /// phil_iri_readings under [table], so the v26 rebuild can create the new copy.
-/// method 'silent' (v26): timed like whole_text, no miscues. Level 'struggling' (v39).
+/// method 'silent' (v26): timed like whole_text, no miscues. Level 'struggling' (v39;
+/// comprehension_level v41).
 String _readingsTableSql(String table) => '''
     CREATE TABLE IF NOT EXISTS $table (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -126,7 +127,7 @@ String _readingsTableSql(String table) => '''
       speed TEXT CHECK (speed IN ('struggling', 'slow', 'average', 'fast')),
       word_reading_level TEXT CHECK (word_reading_level IN ('independent', 'instructional', 'frustration', 'struggling', 'nonReader')),
       comprehension_score REAL CHECK (comprehension_score BETWEEN 0 AND 1),
-      comprehension_level TEXT CHECK (comprehension_level IN ('independent', 'instructional', 'frustration')),
+      comprehension_level TEXT CHECK (comprehension_level IN ('independent', 'instructional', 'frustration', 'struggling')),
       profile TEXT CHECK (profile IN ('independent', 'instructional', 'frustration', 'struggling', 'nonReader')),
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       imported_correct INTEGER CHECK (imported_correct >= 0),
@@ -184,13 +185,30 @@ Future<void> rebuildPhilIriReadingsForV39(Database db) async {
 
   await db.execute('PRAGMA legacy_alter_table = ON');
   try {
-    await _copyReadingsForV39(db, old);
+    await _copyReadings(db, old, 'phil_iri_readings_v39');
   } finally {
     await db.execute('PRAGMA legacy_alter_table = OFF');
   }
 }
 
-Future<void> _copyReadingsForV39(Database db, List<String> old) async {
+/// v41 upgrade (cloud 20261109020000; spec 2026-11-09 Phil-IRI rules update
+/// D1): comprehension_level also allows 'struggling'. Same copy-and-rename as
+/// v39 (old column list kept, legacy_alter_table on, triggers dropped and
+/// recreated by the creators). Covers v26-v38 devices too: the table SQL is
+/// the widest, so the v39 step is folded into this one.
+Future<void> rebuildPhilIriReadingsForV41(Database db) async {
+  final old = (await db.rawQuery('PRAGMA table_info(phil_iri_readings)')).map((c) => c['name'] as String).toList();
+  if (old.isEmpty) return; // createPhilIriLocalSchema builds it fresh
+
+  await db.execute('PRAGMA legacy_alter_table = ON');
+  try {
+    await _copyReadings(db, old, 'phil_iri_readings_v41');
+  } finally {
+    await db.execute('PRAGMA legacy_alter_table = OFF');
+  }
+}
+
+Future<void> _copyReadings(Database db, List<String> old, String tempTable) async {
   await db.transaction((txn) async {
     final triggers = await txn.rawQuery(
       "SELECT name FROM sqlite_master WHERE type='trigger' AND sql LIKE '%phil_iri_readings%'",
@@ -198,14 +216,14 @@ Future<void> _copyReadingsForV39(Database db, List<String> old) async {
     for (final t in triggers) {
       await txn.execute('DROP TRIGGER IF EXISTS ${t['name']}');
     }
-    await txn.execute(_readingsTableSql('phil_iri_readings_v39'));
+    await txn.execute(_readingsTableSql(tempTable));
     if (old.contains('row_version')) {
-      await txn.execute('ALTER TABLE phil_iri_readings_v39 ADD COLUMN row_version INTEGER');
+      await txn.execute('ALTER TABLE $tempTable ADD COLUMN row_version INTEGER');
     }
     final columns = old.join(', ');
-    await txn.execute('INSERT INTO phil_iri_readings_v39 ($columns) SELECT $columns FROM phil_iri_readings');
+    await txn.execute('INSERT INTO $tempTable ($columns) SELECT $columns FROM phil_iri_readings');
     await txn.execute('DROP TABLE phil_iri_readings');
-    await txn.execute('ALTER TABLE phil_iri_readings_v39 RENAME TO phil_iri_readings');
+    await txn.execute('ALTER TABLE $tempTable RENAME TO phil_iri_readings');
   });
 }
 

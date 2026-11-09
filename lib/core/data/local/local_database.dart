@@ -73,7 +73,9 @@ class LocalDatabase {
         // rebuilt with a nullable word_index (rebuildPhilIriMiscuesForV40),
         // import_source / imported_correct columns, phil_iri_workbook_imports
         // (synced); all in createPhilIriLocalSchema.
-        version: 40,
+        // v41: phil_iri_readings comprehension_level also allows 'struggling'
+        // (rebuildPhilIriReadingsForV41); cloud 20261109020000.
+        version: 41,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
@@ -192,8 +194,9 @@ class LocalDatabase {
           // triggers this drops.
           if (oldVersion < 15) await rebuildPhilIriPassagesForV15(db);
           if (oldVersion < 26) await rebuildPhilIriReadingsForV26(db);
-          // v39. Older than v26: the v26 rebuild already uses the widened CHECKs.
-          if (oldVersion >= 26 && oldVersion < 39) await rebuildPhilIriReadingsForV39(db);
+          // v39 + v41. Older than v26: the v26 rebuild already uses the widened
+          // CHECKs. One rebuild covers both (the table SQL is the widest).
+          if (oldVersion >= 26 && oldVersion < 41) await rebuildPhilIriReadingsForV41(db);
           // v40. Same place: createPhilIriLocalSchema recreates its triggers.
           if (oldVersion < 40) await rebuildPhilIriMiscuesForV40(db);
           // v13. IF NOT EXISTS + trigger recreate, so it runs on every upgrade.

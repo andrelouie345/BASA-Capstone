@@ -91,7 +91,10 @@ apply only when every device has synced and every upload is decided) and
 `20261109010000` (Phil-IRI import: imported sessions marked by an admin or
 coordinator, miscues without a word position, the workbook's correct count,
 and the one-time workbook import lock `phil_iri_workbook_imports`, synced;
-app update required: **yes**, same rule). Each is idempotent.
+app update required: **yes**, same rule) and `20261109020000` (Phil-IRI rules
+update: comprehension gets a Struggling level, <= 40%; "not assessed" labels
+and who counts as assessed change in the app; app update required: **yes**,
+same rule). Each is idempotent.
 Do **not** run
 `supabase/migrations_archive/`.
 
