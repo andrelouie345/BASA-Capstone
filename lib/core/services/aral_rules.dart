@@ -82,7 +82,7 @@ String aralPlacementMessage(AralPlacementProblem p,
     };
 
 /// basis_level of a Phil-IRI learner entered while not assessed at all
-/// (assumed Frustration, 3 levels down); a real result later replaces the
+/// (assumed Struggling, 3 levels down); a real result later replaces the
 /// suggestion through applyResults, the basis itself never changes.
 const aralNotAssessedLevel = 'not_assessed';
 

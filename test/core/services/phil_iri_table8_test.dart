@@ -33,15 +33,16 @@ void main() {
   });
 
   test('lookup 2 every cell', () {
-    // word reading profile -> [comprehension Independent, Instructional, Frustration]
+    // word reading profile -> [comprehension Independent, Instructional, Frustration, Struggling]
+    // (Struggling column: spec 2026-11-09-phil-iri-rules-update D2, owner answer A)
     const table = {
-      ind: [ind, ins, fru],
-      ins: [ind, ins, fru],
-      fru: [ins, fru, fru],
-      str: [str, str, str],
-      non: [non, non, non],
+      ind: [ind, ins, fru, str],
+      ins: [ind, ins, fru, str],
+      fru: [ins, fru, fru, str],
+      str: [str, str, str, str],
+      non: [non, non, non, non],
     };
-    const comps = [ind, ins, fru];
+    const comps = [ind, ins, fru, str];
     for (final row in table.entries) {
       for (var i = 0; i < comps.length; i++) {
         expect(philIriPassageProfile(row.key, comps[i]), row.value[i], reason: '${row.key} x ${comps[i]}');
@@ -49,9 +50,27 @@ void main() {
     }
   });
 
-  test('comprehension struggling or non-reader is an error', () {
-    expect(() => philIriPassageProfile(ins, str), throwsArgumentError);
+  test('comprehension non-reader is an error', () {
     expect(() => philIriPassageProfile(ins, non), throwsArgumentError);
+  });
+
+  test('comprehension bands', () {
+    expect(philIriComprehensionLevel(0), str);
+    expect(philIriComprehensionLevel(0.40), str);
+    expect(philIriComprehensionLevel(0.41), fru);
+    expect(philIriComprehensionLevel(0.58), fru);
+    expect(philIriComprehensionLevel(0.59), ins);
+    expect(philIriComprehensionLevel(0.80), ind);
+  });
+
+  test('validate refuses comprehension struggling max at or above instructional min', () {
+    expect(() => const PhilIriThresholds(comprehensionStrugglingMax: 59).validate(), throwsArgumentError);
+  });
+
+  test('snapshot without the comprehension struggling key loads with 40', () {
+    final t = PhilIriThresholds.fromMap({'speed_fast_min': 151});
+    expect(t.comprehensionStrugglingMax, 40);
+    expect(t.toMap()['comprehension_struggling_max'], 40);
   });
 
   test('band edges', () {

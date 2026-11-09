@@ -78,7 +78,7 @@ class PhilIriReportResults {
   /// The GST that counts (taken by asOf, score above 0), if any.
   final PhilIriGstResult? gst;
   /// Nothing counts at all (no reading; no GST, or a GST of 0): reports and
-  /// ARAL assume Frustration, 3 levels down ([philIriNotAssessedResult]).
+  /// ARAL assume Struggling, 3 levels down ([philIriNotAssessedResult]).
   final bool notAssessed;
 
   const PhilIriReportResults({
@@ -91,6 +91,10 @@ class PhilIriReportResults {
   });
 
   PhilIriRoundResult round(PhilIriRound r) => rounds.firstWhere((x) => x.round == r);
+
+  /// [r]'s assessment status (assessed / carried over / not assessed; spec
+  /// 2026-11-09 D4). The not-assessed stand-in is never a result.
+  PhilIriRoundStatus status(PhilIriRound r) => round(r).status;
 
   /// The carried result of the latest counted round among [among], or null.
   PhilIriRoundResult? latest(Iterable<PhilIriRound> among) {

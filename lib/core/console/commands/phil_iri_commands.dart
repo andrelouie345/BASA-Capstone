@@ -444,9 +444,17 @@ String _resultText(PhilIriPassageResult r) =>
 String _roundText(PhilIriRoundResult r) {
   if (r.profile == null) return 'no result yet';
   final level = r.adjustedLevel == null ? '' : ' · adjusted ${r.adjustedLevelLabel} · ${r.levelsDownLabel}';
-  return 'WR ${_pct(r.wordReadingPercent)} ${r.wordReadingLevel?.label ?? '-'}, '
-      '${r.wordsPerMinute?.round() ?? '-'} wpm ${r.speed?.label ?? '-'}, '
-      'comp ${_pct(r.comprehensionPercent)} ${r.comprehensionLevel?.label ?? '-'} -> ${r.profile!.label}$level';
+  final status = switch (r.status) {
+    PhilIriRoundStatus.assessed => '',
+    PhilIriRoundStatus.carriedOver => ' · carried over',
+    PhilIriRoundStatus.notAssessed => ' · not assessed',
+  };
+  final wr = r.wordReadingAssumed
+      ? 'WR not assessed (${r.wordReadingLevel!.label})'
+      : 'WR ${_pct(r.wordReadingPercent)} ${r.wordReadingLevel?.label ?? '-'}, '
+          '${r.wordsPerMinute?.round() ?? '-'} wpm ${r.speed?.label ?? '-'}';
+  return '$wr, comp ${_pct(r.comprehensionPercent)} ${r.comprehensionLevel?.label ?? '-'} -> ${r.profile!.label}'
+      '$level$status';
 }
 
 String _sessionLine(PhilIriAssessment s) =>

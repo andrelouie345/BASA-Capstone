@@ -284,7 +284,7 @@ String progressReportCsv(ProgressReport report, {bool sectionRows = true, bool s
 class BosyMasterlistEntry {
   final Student student;
   /// No BOSY result at all (no finished BOSY reading, no GST above 0 by
-  /// asOf): listed anyway, with the assumed Frustration, 3 levels down.
+  /// asOf): listed anyway, with the assumed Struggling, 3 levels down.
   final bool notAssessed;
   final PhilIriLevel profile;      // Frustration or Non-Reader
   final int adjustedLevel;         // her ADJ GR; 0 for a Non-Reader

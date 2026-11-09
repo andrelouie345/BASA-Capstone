@@ -19,13 +19,28 @@
 // - Two values per round: the carried result (above) is for reports and ARAL;
 //   the round's own reading ("actual", the true current score, higher or
 //   lower) is for the tutor and IRIP planning.
+// - Assessment status per round (reading coordinator, 2026-11-09; spec
+//   docs/superpowers/specs/2026-11-09-phil-iri-rules-update-design.md D4-D9),
+//   from the round's OWN reading only (a carried score never counts): word
+//   reading assessed = the round has a reading (every scored reading has
+//   words read and a time; silent ones count); comprehension assessed = a
+//   comprehension entry (0 counts, blank does not). Assessed = both; carried
+//   over = not assessed but the round has a result (earlier round or GST);
+//   not assessed = no result at all. "Not assessed" is a monitoring label:
+//   for scoring it means Struggling.
+// - No word reading yet (none this round, none earlier, e.g. a GST-only BOSY):
+//   the word reading profile is Struggling (wordReadingAssumed; accuracy and
+//   speed stay empty), so Table 8 gives a Struggling profile.
 // - Not assessed at all in the year (no GST, no reading): reports and ARAL
-//   count the learner as Frustration, exactly 3 levels down, flagged
-//   notAssessed (philIriNotAssessedResult). It never carries; any later
-//   assessment replaces it, even a worse one. Phil-IRI only (not CRLA).
+//   count the learner as Struggling, exactly 3 levels down, flagged
+//   notAssessed (philIriNotAssessedResult), a stand-in: every learner must
+//   have a GST and a reading. It never carries; any later assessment
+//   replaces it, even a worse one. Phil-IRI only (not CRLA).
 // - Reading coordinator's workbook, adopted 2026-10-18: the profile is the
 //   (carried) comprehension level, Non-Reader word reading overriding; a
-//   given round's Frustration levels-down use that round's OWN comprehension;
+//   given round's Frustration levels-down use that round's OWN comprehension
+//   (when it is blank: the carried %, from MOSY 1 on; in BOSY the GST
+//   starting grade, as the workbook's AN = M14);
 //   a round not given keeps the previous adjusted level; BOSY with only a GST
 //   (or a reading without comprehension) uses the GST starting grade
 //   (philIriGstStartingGrade), a reference the IRA later validates.
@@ -33,9 +48,9 @@
 //   supplies it, as in the workbook.
 // - Every assessment is ONE passage of the learner's own grade; the adjusted
 //   grade level is counted from the learner's grade.
-// - A blank comprehension counts as 0 (owner 2026-10-14) but stays
-//   distinguishable from a real 0: the score stays null and
-//   comprehensionBlank is true (the workbook used 0.1 / 0.2 markers).
+// - A blank comprehension takes the carried higher %; with none at all it
+//   counts as 0 (= Struggling) but stays distinguishable from a real 0: the
+//   score stays null and comprehensionBlank is true.
 // - End result: EOSY when it was given; otherwise the best of the rounds that
 //   were given (ties go to the later round).
 // - Only the latest attempt of a round counts; picking it is the caller's job.
@@ -155,6 +170,11 @@ PhilIriLevel? _profile(PhilIriLevel? wordReading, PhilIriLevel? comprehension) {
   return philIriPassageProfile(wordReading, comprehension);
 }
 
+/// A round's assessment status (spec 2026-11-09 D4): assessed = word reading
+/// and comprehension entered this round; carried over = a result from an
+/// earlier round or the GST only; not assessed = no result at all.
+enum PhilIriRoundStatus { assessed, carriedOver, notAssessed }
+
 /// One round. The top-level fields are the CARRIED result (for reports and
 /// ARAL); [actual] / [actualAdjustedLevel] are the round's own reading, the
 /// true current score for the tutor (null when the round wasn't given).
@@ -174,9 +194,18 @@ class PhilIriRoundResult {
   final PhilIriPassageResult? actual;   // the round's own reading as scored
   final int? actualAdjustedLevel;       // from [actual] alone (BOSY: GST fills a missing comprehension)
   final int? actualLevelsDown;
-  /// Not assessed at all this year: assumed Frustration, 3 levels down
+  /// Not assessed at all this year: assumed Struggling, 3 levels down
   /// (philIriNotAssessedResult). Never set on a real result.
   final bool notAssessed;
+  /// The round's own reading has words read and a time (spec D4/D5).
+  final bool wordReadingAssessed;
+  /// The round's own reading has a comprehension entry (0 counts).
+  final bool comprehensionAssessed;
+  /// No word reading so far: the word reading profile is assumed Struggling
+  /// (accuracy and speed stay empty; screens show "Not assessed").
+  final bool wordReadingAssumed;
+  /// Assessed / carried over / not assessed this round (monitoring).
+  final PhilIriRoundStatus status;
 
   bool get comprehensionBlank => comprehensionScore == null;
 
@@ -202,6 +231,10 @@ class PhilIriRoundResult {
     this.actualAdjustedLevel,
     this.actualLevelsDown,
     this.notAssessed = false,
+    this.wordReadingAssessed = false,
+    this.comprehensionAssessed = false,
+    this.wordReadingAssumed = false,
+    this.status = PhilIriRoundStatus.notAssessed,
     this.wordReadingScore,
     this.wordsPerMinute,
     this.accuracyLevel,
@@ -254,13 +287,16 @@ List<PhilIriRoundResult> philIriRoundResults({
     final wpm = oralScore != null ? oralWpm : silentWpm;
     final accuracy = wrScore == null ? null : philIriAccuracyLevel(wrScore, rt);
     final speed = wpm == null ? null : philIriSpeed(wpm, rt);
-    final wrLevel = accuracy == null ? null : philIriWordReadingLevel(accuracy, speed!);
+    final measured = accuracy == null ? null : philIriWordReadingLevel(accuracy, speed!);
 
-    // A blank counts as 0 once there is a reading; with nothing at all the
-    // round stays unknown.
+    // A blank counts as 0 (Struggling) once there is a reading; with nothing
+    // at all the round stays unknown.
     final compLevel = comp != null
         ? philIriComprehensionLevel(comp, rt)
-        : (wrLevel != null ? philIriComprehensionLevel(0, rt) : null);
+        : (measured != null ? philIriComprehensionLevel(0, rt) : null);
+    // No word reading so far: "not assessed" = Struggling (spec D6).
+    final assumed = measured == null && compLevel != null;
+    final wrLevel = assumed ? PhilIriLevel.struggling : measured;
     final profile = _profile(wrLevel, compLevel);
     final bosyGst = round == PhilIriRound.bosy ? gstScore : null;
     // Adjusted level (workbook AN/BQ/CT/DW/EZ): a given round's Frustration
@@ -271,7 +307,10 @@ List<PhilIriRoundResult> philIriRoundResults({
     if (profile == null) {
       adjusted = null;
     } else if (own != null) {
-      adjusted = _adjusted(profile, learnerGrade, own.comprehensionScore, bosyGst, rt);
+      // A blank comprehension: the carried % (spec D8); in BOSY the GST
+      // starting grade branch, as before (workbook AN = M14).
+      final ownOrCarried = own.comprehensionScore ?? (round == PhilIriRound.bosy ? null : comp);
+      adjusted = _adjusted(profile, learnerGrade, ownOrCarried, bosyGst, rt);
     } else if (round == PhilIriRound.bosy) {
       adjusted = _adjusted(profile, learnerGrade, null, bosyGst, rt); // GST only
     } else {
@@ -287,9 +326,17 @@ List<PhilIriRoundResult> philIriRoundResults({
       actualAdjusted = _adjusted(p, learnerGrade, own.comprehensionScore, bosyGst, rt);
     }
 
+    final wrAssessed = own != null;
+    final compAssessed = own?.comprehensionScore != null;
     results.add(PhilIriRoundResult(
       round: round,
       given: own != null,
+      wordReadingAssessed: wrAssessed,
+      comprehensionAssessed: compAssessed,
+      wordReadingAssumed: assumed,
+      status: wrAssessed && compAssessed
+          ? PhilIriRoundStatus.assessed
+          : (profile != null ? PhilIriRoundStatus.carriedOver : PhilIriRoundStatus.notAssessed),
       wordReadingScore: wrScore,
       wordsPerMinute: wpm,
       accuracyLevel: accuracy,
@@ -324,8 +371,9 @@ const philIriNotAssessedLevelsDown = 3;
 bool philIriNothingAssessed(List<PhilIriRoundResult> rounds) =>
     rounds.every((r) => r.profile == null);
 
-/// The assumed result for a learner not assessed at all: Frustration, exactly
-/// 3 levels down (never below Grade 1), flagged notAssessed. Scores stay
+/// The assumed result for a learner not assessed at all: Struggling, exactly
+/// 3 levels down (never below Grade 1), flagged notAssessed (spec 2026-11-09
+/// D9; reports count Struggling with Frustration). Scores stay
 /// blank. For reports and ARAL only; the tutor's true score stays empty.
 PhilIriRoundResult philIriNotAssessedResult(PhilIriRound round, int learnerGrade) {
   var adjusted = learnerGrade - philIriNotAssessedLevelsDown;
@@ -333,7 +381,7 @@ PhilIriRoundResult philIriNotAssessedResult(PhilIriRound round, int learnerGrade
   return PhilIriRoundResult(
     round: round,
     given: false,
-    profile: PhilIriLevel.frustration,
+    profile: PhilIriLevel.struggling,
     adjustedLevel: adjusted,
     levelsDown: learnerGrade - adjusted,
     notAssessed: true,
