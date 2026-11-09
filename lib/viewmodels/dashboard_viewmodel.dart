@@ -96,8 +96,13 @@ class RoundSnapshot {
   final int sectionsDone;
   final int sectionCount;
 
+  /// Phil-IRI: learners with only a carried result this round (spec
+  /// 2026-11-09 D14); null for CRLA.
+  final int? carriedOver;
+
   const RoundSnapshot(
-      this.instrument, this.window, this.status, this.assessed, this.enrolled, this.sectionsDone, this.sectionCount);
+      this.instrument, this.window, this.status, this.assessed, this.enrolled, this.sectionsDone, this.sectionCount,
+      {this.carriedOver});
 
   String get roundName => '${instrument.label} ${roundLabel(window.round)}';
 
@@ -349,7 +354,8 @@ class DashboardViewModel {
         final round = PhilIriRound.values.byName(w.round);
         final rows = p.sections.where((r) => r.enrolment.total > 0).toList();
         return RoundSnapshot(instrument, w, status, p.total.assessed[round]!.total, p.total.enrolment.total,
-            rows.where((r) => p.status(r, round) == 'DONE').length, rows.length);
+            rows.where((r) => p.status(r, round) == 'DONE').length, rows.length,
+            carriedOver: p.total.carriedOver[round]!.total);
       }
       final list = await _reminders.crlaCompletion(id, year, CrlaRound.values.byName(w.round),
           today: now, doneThreshold: threshold);

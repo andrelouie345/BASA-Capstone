@@ -200,7 +200,8 @@ String _progressText(ProgressReport report, bool sectionRows, bool schoolTotal) 
     out.write('\n  Enrolment: M ${e.male} F ${e.female} T ${e.total} | GST takers: M ${g.male} F ${g.female} '
         'T ${g.total} (${pct(r.gstShare())})');
     out.write('\n  ${PhilIriRound.values.map((round) => '${round.label} ${r.assessed[round]!.total} '
-        '(${pct(r.share(round))}) ${report.status(r, round) ?? '-'}').join(' | ')}');
+        '(${pct(r.share(round))}) ${report.status(r, round) ?? '-'} · carried ${r.carriedOver[round]!.total} '
+        '· not assessed ${r.notAssessed[round]!.total}').join(' | ')}');
   }
 
   if (sectionRows) {

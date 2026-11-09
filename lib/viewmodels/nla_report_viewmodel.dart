@@ -35,7 +35,7 @@ import '../core/services/auth_messages.dart';
 import '../core/services/csv.dart';
 import '../core/services/nla_form2b.dart';
 import '../core/services/normalizers.dart';
-import '../core/services/phil_iri_results.dart' show philIriNotAssessedResult, philIriNotGradeReady;
+import '../core/services/phil_iri_results.dart' show PhilIriRoundStatus, philIriNotAssessedResult, philIriNotGradeReady;
 import '../core/services/phil_iri_rules.dart' show PhilIriLevel, philIriComprehensionLevel, philIriGradeOf;
 import 'auth_viewmodel.dart';
 import 'phil_iri_viewmodel.dart';
@@ -197,6 +197,11 @@ class ProgressSectionReport {
   final NlaCounts enrolment = NlaCounts();
   final NlaCounts gstTakers = NlaCounts();        // GST score above 0
   final Map<PhilIriRound, NlaCounts> assessed = {for (final r in PhilIriRound.values) r: NlaCounts()};
+  /// Not assessed in the round, but with a result from an earlier round or
+  /// the GST (spec 2026-11-09 D12).
+  final Map<PhilIriRound, NlaCounts> carriedOver = {for (final r in PhilIriRound.values) r: NlaCounts()};
+  /// No result at all in the round.
+  final Map<PhilIriRound, NlaCounts> notAssessed = {for (final r in PhilIriRound.values) r: NlaCounts()};
 
   ProgressSectionReport(this.section, this.grade);
 
@@ -213,6 +218,8 @@ class ProgressSectionReport {
     gstTakers.addAll(o.gstTakers);
     for (final r in PhilIriRound.values) {
       assessed[r]!.addAll(o.assessed[r]!);
+      carriedOver[r]!.addAll(o.carriedOver[r]!);
+      notAssessed[r]!.addAll(o.notAssessed[r]!);
     }
   }
 }
@@ -258,7 +265,8 @@ String progressReportCsv(ProgressReport report, {bool sectionRows = true, bool s
   final header = <Object?>[
     'Grade', 'Section', 'Enrolment M', 'Enrolment F', 'Enrolment T',
     'GST takers M', 'GST takers F', 'GST takers T', 'GST %',
-    for (final r in PhilIriRound.values) ...['${r.label} assessed', '${r.label} %', '${r.label} status'],
+    for (final r in PhilIriRound.values)
+      ...['${r.label} assessed', '${r.label} carried over', '${r.label} not assessed', '${r.label} %', '${r.label} status'],
   ];
   List<Object?> line(ProgressSectionReport r, Object? grade, String name) => [
         grade, name,
@@ -266,6 +274,8 @@ String progressReportCsv(ProgressReport report, {bool sectionRows = true, bool s
         r.gstTakers.male, r.gstTakers.female, r.gstTakers.total, progressPercent(r.gstShare()),
         for (final round in PhilIriRound.values) ...[
           r.assessed[round]!.total,
+          r.carriedOver[round]!.total,
+          r.notAssessed[round]!.total,
           progressPercent(r.share(round)),
           report.status(r, round) ?? '',
         ],
@@ -413,8 +423,13 @@ class NlaReportViewModel {
         row.enrolment.add(st.sex);
         final res = await _philIri.reportResults(studentId: st.id!, sectionId: s.id!, schoolYear: schoolYear, asOf: date);
         if (res.gst != null) row.gstTakers.add(st.sex);
-        for (final r in assessedIn(res)) {
-          row.assessed[r]!.add(st.sex);
+        for (final r in PhilIriRound.values) {
+          final into = switch (res.status(r)) {
+            PhilIriRoundStatus.assessed => row.assessed,
+            PhilIriRoundStatus.carriedOver => row.carriedOver,
+            PhilIriRoundStatus.notAssessed => row.notAssessed,
+          };
+          into[r]!.add(st.sex);
         }
       }
       rows.add(row);
@@ -424,13 +439,26 @@ class NlaReportViewModel {
   }
 
   /// The one definition of "assessed in a round" (progress monitoring, tutor
-  /// reminders). Her rule: a passage read in that round (BASA: a finished
-  /// session dated by asOf); at BOSY a counted GST counts too.
-  static Set<PhilIriRound> assessedIn(PhilIriReportResults results) => results.counted;
+  /// reminders, dashboard). Spec 2026-11-09 D11: the round's own finished
+  /// reading (dated by asOf) has words read, a time and a comprehension
+  /// entry; a carried score or a GST alone never counts.
+  static Set<PhilIriRound> assessedIn(PhilIriReportResults results) =>
+      {for (final r in PhilIriRound.values) if (results.status(r) == PhilIriRoundStatus.assessed) r};
 
   /// The Phil-IRI rounds a learner of [sectionId] is assessed in by [asOf]
   /// (YYYY-MM-DD), per [assessedIn]. No access check: the caller decides who
   /// may see the learner (tutor reminders: the tutor's own sections).
+  /// A learner's Phil-IRI year as reports count it, by [asOf] (YYYY-MM-DD).
+  /// No access check: the caller decides who may see the learner (tutor
+  /// reminders: the tutor's own sections).
+  Future<PhilIriReportResults> learnerResults({
+    required int studentId,
+    required int sectionId,
+    required String schoolYear,
+    required String asOf,
+  }) =>
+      _philIri.reportResults(studentId: studentId, sectionId: sectionId, schoolYear: schoolYear, asOf: asOf);
+
   Future<Set<PhilIriRound>> assessedPhilIriRounds({
     required int studentId,
     required int sectionId,
@@ -539,13 +567,18 @@ class NlaReportViewModel {
       if (gst != null) {
         final band = nlaGstBand(gst.totalScore, gst.maxScore);
         if (band != null) row.gst[band]!.add(st.sex);
-        row.gstProfile[philIriComprehensionLevel(gst.percent)]?.add(st.sex);
+        // Struggling counts as Frustration on Form 2 (spec 2026-11-09 D15).
+        final level = philIriComprehensionLevel(gst.percent);
+        row.gstProfile[level == PhilIriLevel.struggling ? PhilIriLevel.frustration : level]?.add(st.sex);
       }
     }
     for (final (sex, res) in perLearner) {
       for (final round in PhilIriRound.values) {
         if (!row.conducted.contains(round)) continue; // nobody took it: zeros
-        final band = nlaBand(res.round(round).comprehensionScore);
+        // A Non-Reader counts once in 3-LD Frustration, whatever the
+        // comprehension (spec 2026-11-09 D15).
+        final rr = res.round(round);
+        final band = rr.profile == PhilIriLevel.nonReader ? NlaBand.ld3Frustration : nlaBand(rr.comprehensionScore);
         if (band != null) row.band(round, band).add(sex);
       }
     }

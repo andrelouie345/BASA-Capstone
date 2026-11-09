@@ -53,6 +53,7 @@ import '../core/services/calendar_rules.dart';
 import '../core/services/normalizers.dart';
 import 'auth_viewmodel.dart';
 import 'nla_report_viewmodel.dart';
+import 'phil_iri_viewmodel.dart' show PhilIriReportResults;
 import 'report_settings_viewmodel.dart';
 import 'round_calendar_viewmodel.dart';
 import 'viewmodel_exception.dart';
@@ -148,7 +149,7 @@ class AralClassNotice {
 
 /// In display order (spec D3): overdue assessments, check-ins due, open-round
 /// assessments, no IRIP, no session lately.
-enum TutorReminderKind { overdueAssessment, checkinDue, openAssessment, noIrip, noSessionLately }
+enum TutorReminderKind { overdueAssessment, checkinDue, openAssessment, noIrip, noSessionLately, noGst }
 
 class ReminderLearner {
   final int studentId;
@@ -484,7 +485,7 @@ class ReminderViewModel {
       }
       final learners = await sectionLearners(s.id!);
       if (learners.isEmpty) continue;
-      Map<int, Set<PhilIriRound>>? philIri; // per learner, computed once per section
+      Map<int, PhilIriReportResults>? philIri; // per learner, computed once per section
       for (final entry in await _calendar.scheduledRounds(s.schoolId, year, instrument)) {
         final w = entry.window;
         final status = _calendar.status(w, today: today);
@@ -493,10 +494,34 @@ class ReminderViewModel {
         if (instrument == CalendarInstrument.philIri) {
           philIri ??= {
             for (final id in learners.keys)
-              id: await _reports.assessedPhilIriRounds(studentId: id, sectionId: s.id!, schoolYear: year, asOf: day),
+              id: await _reports.learnerResults(studentId: id, sectionId: s.id!, schoolYear: year, asOf: day),
           };
           final round = PhilIriRound.values.byName(w.round);
-          assessed = {for (final e in philIri.entries) if (e.value.contains(round)) e.key};
+          assessed = {
+            for (final e in philIri.entries)
+              if (NlaReportViewModel.assessedIn(e.value).contains(round)) e.key,
+          };
+          // Every learner must have a GST (reading coordinator, 2026-11-09;
+          // spec D13): a BOSY line for learners without one, read or not.
+          if (round == PhilIriRound.bosy) {
+            final noGst = [
+              for (final st in learners.values)
+                if (philIri[st.id]!.gst == null) ReminderLearner(st.id!, st.lrn, _name(st)),
+            ]..sort(_byName);
+            if (noGst.isNotEmpty) {
+              final closed = status == RoundStatus.closed;
+              out.add(TutorReminder(
+                TutorReminderKind.noGst,
+                'Phil-IRI BOSY: ${noGst.length} of ${learners.length} '
+                'learner${learners.length == 1 ? '' : 's'} of Grade ${s.gradeLevel} ${s.sectionName} have no GST.',
+                noGst,
+                section: s,
+                instrument: instrument,
+                window: w,
+                days: closed ? _daysBetween(w.closesOn!, day) : _daysBetween(day, w.closesOn!),
+              ));
+            }
+          }
         } else {
           assessed = await _crlaAssessed(s.id!, year, CrlaRound.values.byName(w.round), day, learners.keys.toSet());
         }
