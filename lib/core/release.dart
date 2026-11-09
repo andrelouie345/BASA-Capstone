@@ -29,4 +29,5 @@ const Map<String, String> basaMigrations = {
   '20261024050000': 'aral_upload_end_state_checks',
   '20261025010000': 'explicit_api_grants',
   '20261029010000': 'phil_iri_struggling_level',
+  '20261109010000': 'phil_iri_import',
 };
