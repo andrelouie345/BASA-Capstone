@@ -40,7 +40,9 @@ Calls:
 - `PhilIriViewModel.learnerResults(...)` → `PhilIriLearnerResults` (rounds: `PhilIriRoundResult`; types from `core/models/phil_iri_types.dart`)
 - `wordReadingPercent`, `comprehensionPercent`, `adjustedLevelLabel`, `levelsDownLabel`, `actualAdjustedLevelLabel`, `actualLevelsDownLabel` (getters on `PhilIriPassageResult` / `PhilIriRoundResult`)
 Console: `phil-iri-results`
-Levels: `PhilIriLevel` has five values, shown with `.label`: Independent, Instructional, Frustration, **Struggling**, Non-Reader (since 2026-10-29). On a result, `accuracyLevel` is the word recognition band, `wordReadingLevel` the word reading profile, `profile` the reading profile. Show the label that comes back; don't hard-code a list of levels.
+Levels: `PhilIriLevel` has five values, shown with `.label`: Independent, Instructional, Frustration, **Struggling**, Non-Reader (since 2026-10-29). On a result, `accuracyLevel` is the word recognition band, `wordReadingLevel` the word reading profile, `profile` the reading profile. Show the label that comes back; don't hard-code a list of levels. Since 2026-11-09 comprehension can also be **Struggling** (0-40%).
+
+Assessment status (since 2026-11-09): each `PhilIriRoundResult` has `status` (`PhilIriRoundStatus.assessed` / `carriedOver` / `notAssessed`), `wordReadingAssessed`, `comprehensionAssessed` and `wordReadingAssumed`. When `wordReadingAssumed` is true there was no word reading yet: show word recognition and speed as **"Not assessed"** (the word reading profile shows Struggling, the level it counts as). Show "carried over" next to a round whose numbers come from an earlier round or the GST. The progress report row (`ProgressSectionReport`) has `carriedOver` and `notAssessed` next to `assessed`; dashboard round tiles (`RoundSnapshot.carriedOver`, null for CRLA); tutor reminders have a new kind `TutorReminderKind.noGst` (learners without a GST at BOSY).
 
 ### Finalize
 Build: admin    Roles: admin / coordinator
