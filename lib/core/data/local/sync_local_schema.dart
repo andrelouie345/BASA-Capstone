@@ -32,11 +32,13 @@ export '../pull_tables.dart' show syncedTables, syncedParents;
 export '../../services/sync_upload_rules.dart' show pendingLockMessage;
 
 /// Server rows of these tables are never changed by the server's rules.
-const _noServerUpdate = {'crla_assessments', 'phil_iri_gst_results'};
+/// (v40: the workbook import lock has no update or delete policy.)
+const _noServerUpdate = {'crla_assessments', 'phil_iri_gst_results', 'phil_iri_workbook_imports'};
 
 /// Server rows of these tables are never deleted by the server's rules.
 const _noServerDelete = {
   'crla_assessments', 'phil_iri_gst_results', 'crla_part1_standard', 'crla_part1_english', 'crla_part2_fluency',
+  'phil_iri_workbook_imports',
 };
 
 /// The one local change to a server CRLA header: its reading profile, which
@@ -207,7 +209,7 @@ Future<void> createSyncLocalSchema(Database db) async {
 /// Owner tables with the local-only origin column ('cloud' = pulled).
 const _originTables = [
   'crla_assessments', 'phil_iri_gst_results', 'phil_iri_assessments', 'aral_classes', 'aral_enrollments',
-  'aral_sessions', 'aral_irip_weeks', 'aral_checkins', 'aral_readability_logs',
+  'aral_sessions', 'aral_irip_weeks', 'aral_checkins', 'aral_readability_logs', 'phil_iri_workbook_imports',
 ];
 
 /// Rows pointing at an ARAL enrollment (besides syncedParents).

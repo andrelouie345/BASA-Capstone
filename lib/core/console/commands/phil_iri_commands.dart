@@ -422,10 +422,13 @@ String _timing(PhilIriReading r) => switch (r.method) {
     };
 
 String _miscueText(PhilIriMiscue m, List<String> words) {
-  final where = m.type == PhilIriMiscueType.insertion
-      ? (m.wordIndex >= words.length && words.isNotEmpty ? 'after the last word' : 'before word ${m.wordIndex}')
-      : 'word ${m.wordIndex}';
-  final word = m.wordIndex < words.length ? ' "${words[m.wordIndex]}"' : '';
+  final i = m.wordIndex;
+  final where = i == null
+      ? 'position not recorded'
+      : m.type == PhilIriMiscueType.insertion
+          ? (i >= words.length && words.isNotEmpty ? 'after the last word' : 'before word $i')
+          : 'word $i';
+  final word = i != null && i < words.length ? ' "${words[i]}"' : '';
   return '$where$word · ${m.type.label}'
       '${m.spokenText == null ? '' : ' "${m.spokenText}"'}${m.selfCorrected ? ' · self-corrected (not counted)' : ''}';
 }

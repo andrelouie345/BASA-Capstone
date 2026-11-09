@@ -69,7 +69,11 @@ class LocalDatabase {
         // v39: phil_iri_readings levels also allow 'struggling'
         // (rebuildPhilIriReadingsForV39) and the saved non_reader_max is
         // dropped (stripSavedNonReaderMaxForV39); cloud 20261029010000.
-        version: 39,
+        // v40: Phil-IRI import (cloud 20261109010000): phil_iri_miscues
+        // rebuilt with a nullable word_index (rebuildPhilIriMiscuesForV40),
+        // import_source / imported_correct columns, phil_iri_workbook_imports
+        // (synced); all in createPhilIriLocalSchema.
+        version: 40,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
@@ -190,6 +194,8 @@ class LocalDatabase {
           if (oldVersion < 26) await rebuildPhilIriReadingsForV26(db);
           // v39. Older than v26: the v26 rebuild already uses the widened CHECKs.
           if (oldVersion >= 26 && oldVersion < 39) await rebuildPhilIriReadingsForV39(db);
+          // v40. Same place: createPhilIriLocalSchema recreates its triggers.
+          if (oldVersion < 40) await rebuildPhilIriMiscuesForV40(db);
           // v13. IF NOT EXISTS + trigger recreate, so it runs on every upgrade.
           await createPhilIriLocalSchema(db);
           if (oldVersion < 39) await stripSavedNonReaderMaxForV39(db);

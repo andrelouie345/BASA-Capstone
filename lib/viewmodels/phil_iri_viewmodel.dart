@@ -451,7 +451,11 @@ class PhilIriViewModel {
     if (miscue.id == null) throw const ViewModelException('Miscue has no id.');
     final r = await _requireOpenReading(miscue.readingId);
     _requireOral(r.reading);
-    _checkWordIndex(r.passage, miscue.wordIndex, miscue.type);
+    // v40: a miscue without a position comes only from an import (the import
+    // writer); a tutor's miscue always has its word.
+    final wordIndex = miscue.wordIndex;
+    if (wordIndex == null) throw const ViewModelException('A miscue needs its word position.');
+    _checkWordIndex(r.passage, wordIndex, miscue.type);
     return _write(() => _sessions.updateMiscue(miscue));
   }
 

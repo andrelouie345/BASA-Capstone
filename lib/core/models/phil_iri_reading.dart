@@ -71,6 +71,10 @@ class PhilIriReading {
   final int? readingSeconds;      // whole-text / silent: time taken; null until timed
   final int? wordsRead;           // one-minute: words read in the minute
   final PhilIriObservation observation;
+  /// v40: the workbook's comprehension count (raw data, not a result): set
+  /// only on a reading of a session imported from ma's workbook, which has
+  /// no answer rows. Null otherwise.
+  final int? importedCorrect;
 
   /// Timed yet: a one-minute reading needs its words read, the others their seconds.
   bool get isTimed => method == PhilIriReadingMethod.oneMinute ? wordsRead != null : readingSeconds != null;
@@ -100,6 +104,7 @@ class PhilIriReading {
     this.readingSeconds,
     this.wordsRead,
     this.observation = const PhilIriObservation(),
+    this.importedCorrect,
     this.wordReadingScore,
     this.wordsPerMinute,
     this.accuracyLevel,
@@ -125,6 +130,7 @@ class PhilIriReading {
         'obs_points_to_words': observation.pointsToWords,
         'obs_little_analysis': observation.littleAnalysis,
         'obs_other': observation.other,
+        if (importedCorrect != null) 'imported_correct': importedCorrect,
         'word_reading_score': wordReadingScore,
         'words_per_minute': wordsPerMinute,
         'accuracy_level': accuracyLevel?.name,
@@ -152,6 +158,7 @@ class PhilIriReading {
           littleAnalysis: _bool(m['obs_little_analysis']),
           other: m['obs_other'] as String?,
         ),
+        importedCorrect: m['imported_correct'] as int?,
         wordReadingScore: (m['word_reading_score'] as num?)?.toDouble(),
         wordsPerMinute: (m['words_per_minute'] as num?)?.toDouble(),
         accuracyLevel: _level(m['accuracy_level']),

@@ -221,6 +221,7 @@ class _Describer {
       'crla_assessments' => (_learner(row), 'CRLA ${row['round']} ${row['subject_variant']}'),
       'phil_iri_gst_results' => (_learner(row), 'Phil-IRI GST ${row['total_score']}/${row['max_score']}'),
       'phil_iri_assessments' => (_learner(row), 'Phil-IRI ${row['round']}'),
+      'phil_iri_workbook_imports' => (null, 'Phil-IRI workbook import for ${_section(row['section_id'])} ${row['school_year']}'),
       'aral_classes' => (null, 'ARAL class "${row['class_name']}" (Grade ${row['grade_level']}, '
           '${row['program'] == null ? 'mixed programs' : _program(row['program'])}, '
           'tutor ${row['tutor_id'] == null ? '-' : _user('${row['tutor_id']}')})'),
@@ -265,11 +266,14 @@ class _Describer {
   /// "DELA CRUZ, JUAN (G7 PLARIDEL)", or ids where this device lacks the rows.
   String _learner(Map<String, Object?> row) {
     final s = _local('students', row['student_id']);
-    final sec = _local('sections', row['section_id']);
     final name = s == null ? 'learner ${row['student_id'] ?? '?'}' : '${s['last_name']}, ${s['first_name']}';
-    final section =
-        sec == null ? 'section ${row['section_id'] ?? '?'}' : 'G${sec['grade_level']} ${sec['section_name']}';
-    return '$name ($section)';
+    return '$name (${_section(row['section_id'])})';
+  }
+
+  /// "G7 PLARIDEL", or "section 12" where this device lacks the row.
+  String _section(Object? id) {
+    final sec = _local('sections', id);
+    return sec == null ? 'section ${id ?? '?'}' : 'G${sec['grade_level']} ${sec['section_name']}';
   }
 
   String _user(String id) {

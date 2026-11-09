@@ -15,7 +15,15 @@
 // (thresholdsSnapshot) and the computed results on each reading; a finalized
 // session never changes. Regenerating with today's thresholds is a computed
 // view, never an overwrite.
+//
+// v40 (Phil-IRI import): importSource marks a session imported from ma's
+// workbook or a BASA scoresheet file (null = live). Set at creation only by
+// an admin/coordinator, never changed.
 import 'dart:convert';
+
+import 'phil_iri_workbook_import.dart';
+
+export 'phil_iri_workbook_import.dart' show PhilIriImportSource;
 
 enum PhilIriRound {
   bosy('BOSY'),
@@ -79,6 +87,8 @@ class PhilIriAssessment {
   final String? administeredBy; // users.id
   /// JSON of the PhilIriThresholds used, stored when finalized; null before.
   final String? thresholdsSnapshot;
+  /// Imported session (workbook / scoresheet); null = a live session.
+  final PhilIriImportSource? importSource;
 
   PhilIriAssessment({
     this.id,
@@ -94,9 +104,11 @@ class PhilIriAssessment {
     this.finalizedAt,
     this.administeredBy,
     this.thresholdsSnapshot,
+    this.importSource,
   });
 
   bool get isFinalized => status == PhilIriStatus.finalized;
+  bool get isImported => importSource != null;
 
   Map<String, Object?> toMap() => {
         if (id != null) 'id': id,
@@ -112,6 +124,7 @@ class PhilIriAssessment {
         'finalized_at': finalizedAt,
         if (administeredBy != null) 'administered_by': administeredBy,
         'thresholds_snapshot': thresholdsSnapshot,
+        if (importSource != null) 'import_source': importSource!.value,
       };
 
   factory PhilIriAssessment.fromMap(Map<String, Object?> m) {
@@ -131,6 +144,7 @@ class PhilIriAssessment {
       administeredBy: m['administered_by'] as String?,
       // jsonb comes back decoded (a Map); SQLite holds a JSON string.
       thresholdsSnapshot: snap == null || snap is String ? snap as String? : jsonEncode(snap),
+      importSource: m['import_source'] == null ? null : PhilIriImportSource.fromValue(m['import_source'] as String),
     );
   }
 }
