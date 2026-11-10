@@ -25,6 +25,7 @@ import '../core/models/phil_iri_passage.dart';
 import '../core/models/phil_iri_question.dart';
 import '../core/models/phil_iri_reading.dart';
 import '../core/models/phil_iri_rubric_score.dart';
+import '../core/models/report_setting.dart';
 import '../core/models/section.dart';
 import '../core/models/user_role.dart';
 import '../core/repositories/phil_iri_assessment_repository.dart';
@@ -32,6 +33,7 @@ import '../core/repositories/phil_iri_collection_repository.dart';
 import '../core/repositories/phil_iri_gst_repository.dart';
 import '../core/repositories/phil_iri_passage_repository.dart';
 import '../core/repositories/phil_iri_threshold_repository.dart';
+import '../core/repositories/report_setting_repository.dart';
 import '../core/repositories/section_repository.dart';
 import '../core/services/normalizers.dart';
 import '../core/services/phil_iri_results.dart';
@@ -52,6 +54,10 @@ class PhilIriLearnerResults {
   final PhilIriRoundResult? end;
   /// True when every round was scored with today's thresholds.
   final bool regenerated;
+  /// Rounds whose reading comes from a collection without comprehension
+  /// questions while the school's no_comprehension_counts_FLT is on: they
+  /// count as assessed without a comprehension entry.
+  final Set<PhilIriRound> comprehensionOptional;
 
   const PhilIriLearnerResults({
     required this.studentId,
@@ -62,6 +68,7 @@ class PhilIriLearnerResults {
     required this.rounds,
     required this.end,
     required this.regenerated,
+    this.comprehensionOptional = const {},
   });
 }
 
@@ -151,6 +158,7 @@ class PhilIriViewModel {
   final PhilIriGstRepository _gst;
   final PhilIriPassageRepository _passages;
   final PhilIriCollectionRepository _collections;
+  final ReportSettingRepository? _reportSettings;
   final PhilIriThresholdRepository _thresholds;
   final SectionRepository _sections;
 
@@ -166,8 +174,10 @@ class PhilIriViewModel {
     required PhilIriCollectionRepository collections,
     required PhilIriThresholdRepository thresholds,
     required SectionRepository sections,
+    ReportSettingRepository? reportSettings,
     Logger? logger,
   })  : _auth = auth,
+        _reportSettings = reportSettings,
         _sessions = sessions,
         _gst = gst,
         _passages = passages,
@@ -734,6 +744,8 @@ class PhilIriViewModel {
 
     final readings = <PhilIriRound, PhilIriPassageResult>{};
     final roundThresholds = <PhilIriRound, PhilIriThresholds>{};
+    final fltCounts = await _noComprehensionCountsFlt(section.schoolId);
+    final optional = <PhilIriRound>{};
     for (final e in sessions.entries) {
       final t = useCurrentThresholds ? current : await _thresholdsFor(e.value, current: current);
       roundThresholds[e.key] = t;
@@ -743,6 +755,11 @@ class PhilIriViewModel {
       if (r.method != PhilIriReadingMethod.oneMinute && r.readingSeconds == null) continue; // not timed yet
       if (r.method == PhilIriReadingMethod.oneMinute && r.wordsRead == null) continue;
       readings[e.key] = await _scoreReading(r, t);
+      if (fltCounts) {
+        final passage = await _requirePassage(r.passageId);
+        final collection = await _collections.findById(passage.collectionId);
+        if (collection != null && !collection.hasComprehension) optional.add(e.key);
+      }
     }
 
     final rounds = philIriRoundResults(
@@ -751,6 +768,7 @@ class PhilIriViewModel {
       readings: readings,
       t: current,
       roundThresholds: roundThresholds,
+      comprehensionOptional: optional,
     );
     return PhilIriLearnerResults(
       studentId: studentId,
@@ -761,7 +779,18 @@ class PhilIriViewModel {
       rounds: rounds,
       end: philIriEndResult(rounds),
       regenerated: useCurrentThresholds,
+      comprehensionOptional: optional,
     );
+  }
+
+  /// The school's no_comprehension_counts_FLT (school -> region -> off),
+  /// from this device's copy of report_settings.
+  Future<bool> _noComprehensionCountsFlt(int schoolId) async {
+    final repo = _reportSettings;
+    if (repo == null) return false;
+    final region = await repo.getRegion();
+    final school = await repo.getForSchool(schoolId);
+    return ReportSettings.fromMap({...?region?.settings, ...?school?.settings}).noComprehensionCountsFlt;
   }
 
   /// The year as reports and ARAL count it: only finished sessions (completed
@@ -796,6 +825,7 @@ class PhilIriViewModel {
       gstScore: gst?.percent,
       readings: readings,
       t: await effectiveThresholds(section.schoolId),
+      comprehensionOptional: res.comprehensionOptional.intersection(readings.keys.toSet()),
     );
     return PhilIriReportResults(
       learnerGrade: res.learnerGrade,
@@ -846,7 +876,13 @@ class PhilIriViewModel {
             }
           }
         }
-        correct = answers.where((a) => a.isCorrect).length;
+        if (answers.isEmpty) {
+          // No answer recorded at all: a blank comprehension, not 0 of N
+          // (spec 2026-11-09 D4/D7; a recorded "x" is an entry and counts).
+          total = null;
+        } else {
+          correct = answers.where((a) => a.isCorrect).length;
+        }
       }
     }
     try {

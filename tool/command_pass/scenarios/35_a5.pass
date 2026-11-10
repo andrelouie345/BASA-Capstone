@@ -132,6 +132,20 @@ run offline-days {school}
 expect Offline sign-in window: region not set · school not set · applies 14 days
 run sync-auto-approve {school}
 expect Auto-approve: region not set · school not set · applies off
+# FLT toggle (report_settings no_comprehension_counts_FLT, default off; owner
+# 2026-11-10). No FLT readings here, so turning it on changes no counts.
+run flt-counts {school}
+expect FLT counts as assessed: region not set · school not set · applies off
+run flt-counts {school} on
+expect FLT counts as assessed for school {school} is now on.
+run flt-counts {school}
+expect FLT counts as assessed: region not set · school on · applies on
+run flt-counts {school} maybe
+refuse Usage: flt-counts <region|schoolId> [on|off]
+run flt-counts
+refuse Usage: flt-counts <region|schoolId> [on|off]
+run flt-counts {school} off
+expect FLT counts as assessed for school {school} is now off.
 # 2 of 4 at 50% is DONE (counts, not the rounded share).
 run report-settings-set {school} {=50}
 expect Done threshold for school {school}: 50%.

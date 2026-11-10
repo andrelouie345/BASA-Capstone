@@ -31,4 +31,5 @@ const Map<String, String> basaMigrations = {
   '20261029010000': 'phil_iri_struggling_level',
   '20261109010000': 'phil_iri_import',
   '20261109020000': 'phil_iri_rules_update',
+  '20261110010000': 'report_settings_flt',
 };

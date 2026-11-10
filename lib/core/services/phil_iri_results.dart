@@ -252,13 +252,17 @@ class PhilIriRoundResult {
 /// 0–1 fraction (null if not taken); [readings] holds the scored reading that
 /// stands for each round that was given (latest attempt), each scored with
 /// that round's thresholds. [roundThresholds] overrides [t] per round (a
-/// finalized round's snapshot).
+/// finalized round's snapshot). [comprehensionOptional]: rounds whose own
+/// reading counts as assessed without a comprehension entry (a collection
+/// without comprehension while the school's no_comprehension_counts_FLT is
+/// on; the caller decides). Scoring is unchanged.
 List<PhilIriRoundResult> philIriRoundResults({
   required int learnerGrade,
   double? gstScore,
   required Map<PhilIriRound, PhilIriPassageResult> readings,
   PhilIriThresholds t = PhilIriThresholds.defaults,
   Map<PhilIriRound, PhilIriThresholds> roundThresholds = const {},
+  Set<PhilIriRound> comprehensionOptional = const {},
 }) {
   final results = <PhilIriRoundResult>[];
   double? comp = gstScore;
@@ -334,7 +338,7 @@ List<PhilIriRoundResult> philIriRoundResults({
       wordReadingAssessed: wrAssessed,
       comprehensionAssessed: compAssessed,
       wordReadingAssumed: assumed,
-      status: wrAssessed && compAssessed
+      status: wrAssessed && (compAssessed || comprehensionOptional.contains(round))
           ? PhilIriRoundStatus.assessed
           : (profile != null ? PhilIriRoundStatus.carriedOver : PhilIriRoundStatus.notAssessed),
       wordReadingScore: wrScore,

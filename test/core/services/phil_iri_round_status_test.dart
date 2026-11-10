@@ -98,6 +98,26 @@ void main() {
     expect(bosy.profile, ind);
   });
 
+  test('a reading without comprehension counts when its round is in comprehensionOptional', () {
+    // The FLT toggle (report_settings no_comprehension_counts_FLT): the
+    // ViewModel passes the rounds read from a collection without comprehension.
+    final on = at(
+        philIriRoundResults(
+            learnerGrade: 7,
+            readings: {PhilIriRound.bosy: oneMinute(120, 0, null)},
+            comprehensionOptional: {PhilIriRound.bosy}),
+        PhilIriRound.bosy);
+    expect(on.status, PhilIriRoundStatus.assessed);
+    expect(on.comprehensionAssessed, isFalse); // still not entered
+    final off = at(philIriRoundResults(learnerGrade: 7, readings: {PhilIriRound.bosy: oneMinute(120, 0, null)}),
+        PhilIriRound.bosy);
+    expect(off.status, PhilIriRoundStatus.carriedOver);
+    // A round with no reading of its own is never made assessed by the set.
+    final none = at(philIriRoundResults(learnerGrade: 7, gstScore: 0.9, readings: {}, comprehensionOptional: {PhilIriRound.bosy}),
+        PhilIriRound.bosy);
+    expect(none.status, PhilIriRoundStatus.carriedOver);
+  });
+
   test('nothing all year', () {
     final rounds = philIriRoundResults(learnerGrade: 7, readings: {});
     for (final r in rounds) {

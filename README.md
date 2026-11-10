@@ -94,7 +94,10 @@ and the one-time workbook import lock `phil_iri_workbook_imports`, synced;
 app update required: **yes**, same rule) and `20261109020000` (Phil-IRI rules
 update: comprehension gets a Struggling level, <= 40%; "not assessed" labels
 and who counts as assessed change in the app; app update required: **yes**,
-same rule). Each is idempotent.
+same rule) and `20261110010000` (report setting `no_comprehension_counts_FLT`,
+true/false, off by default: a Phil-IRI reading from a collection without
+comprehension questions, such as the FLT, counts as assessed; app update
+required: no). Each is idempotent.
 Do **not** run
 `supabase/migrations_archive/`.
 

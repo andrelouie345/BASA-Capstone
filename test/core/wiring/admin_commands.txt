@@ -115,6 +115,7 @@ db-delete
 db-list
 db-use
 export-section
+flt-counts
 get-text
 help
 import-preview

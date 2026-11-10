@@ -81,7 +81,8 @@ Sources: ma's messages of 2026-11-09 (session transcript 83fcb11d); `sample-file
 ## Questions on ma's list (do not block R1)
 Open:
 - D2: what a Struggling comprehension gives for each word reading row (BASA: Struggling for every row; Non-Reader stays).
-- FLT (Foundational Literacy Test; added 2026-11-10 after the final review): an FLT reading has no comprehension, so under D4 it never counts as assessed and an FLT-only learner stays "not assessed" in progress and reminders. Does an FLT reading count as assessed at BOSY, or must the learner also read a graded passage with comprehension? Is the FLT given to every learner or only to new enrollees/transferees? Hook if yes: one condition in `philIriRoundResults` (comprehension not required when the reading's collection has `has_comprehension` false, or is school-owned), keyed on the collection, never on the name "FLT"; no migration (the status is never stored).
+- FLT, resolved by the owner 2026-11-10 as a toggle: report_settings key `no_comprehension_counts_FLT` (school -> region -> off, **default off**; migration `20261110010000`, app update no; console `flt-counts`). On: a reading from a collection with `has_comprehension` false counts as assessed with words read and time (`PhilIriLearnerResults.comprehensionOptional` -> `philIriRoundResults(comprehensionOptional:)`); scoring unchanged. Still for ma: should schools turn it on, and is the FLT given to every learner or only to new enrollees/transferees?
+- Blank answers (found 2026-11-10 while building the toggle, owner approved): a reading with no answer recorded at all is a blank comprehension (not 0 of N), so it is not assessed and its score takes the carried %; one recorded answer, even "x", is an entry (0 counts).
 - Display (owner/UI): progress and dashboard show carried/not-assessed counts for rounds not yet open or not scheduled (e.g. "EOSY NOT SCHEDULED · carried 3"); blank them, or keep them?
 
 Answered:

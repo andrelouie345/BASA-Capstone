@@ -6,7 +6,9 @@
 // region row, then the school row, key by key (as aral_settings).
 // Keys: done_threshold (a share 0.01-1, default 0.85), offline_signin_days
 // (whole days 1-60, default 14; sync spec 2.4), sync_auto_approve (bool,
-// default false; sync S6).
+// default false; sync S6), no_comprehension_counts_FLT (bool, default false;
+// owner 2026-11-10: a Phil-IRI reading from a collection without
+// comprehension questions, e.g. the FLT, counts as assessed).
 import 'dart:convert';
 
 class ReportSetting {
@@ -51,6 +53,7 @@ class ReportSettings {
   static const offlineSigninDaysKey = 'offline_signin_days';
   static const defaultOfflineSigninDays = 14;
   static const syncAutoApproveKey = 'sync_auto_approve';
+  static const noComprehensionCountsFltKey = 'no_comprehension_counts_FLT';
   static const minOfflineSigninDays = 1;
   static const maxOfflineSigninDays = 60;
 
@@ -65,16 +68,23 @@ class ReportSettings {
   /// Uploads from this school's tutors apply without an approver (sync).
   final bool syncAutoApprove;
 
+  /// A Phil-IRI reading from a collection without comprehension questions
+  /// (the FLT) counts as assessed with words read and time alone (progress,
+  /// reminders, dashboard). Off: assessed needs a comprehension entry.
+  final bool noComprehensionCountsFlt;
+
   const ReportSettings({
     this.doneThreshold = defaultDoneThreshold,
     this.offlineSigninDays = defaultOfflineSigninDays,
     this.syncAutoApprove = false,
+    this.noComprehensionCountsFlt = false,
   });
 
   factory ReportSettings.fromMap(Map<String, Object?> m) => ReportSettings(
         doneThreshold: (m[doneThresholdKey] as num?)?.toDouble() ?? defaultDoneThreshold,
         offlineSigninDays: (m[offlineSigninDaysKey] as num?)?.toInt() ?? defaultOfflineSigninDays,
         syncAutoApprove: m[syncAutoApproveKey] == true,
+        noComprehensionCountsFlt: m[noComprehensionCountsFltKey] == true,
       );
 }
 

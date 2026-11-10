@@ -231,6 +231,7 @@ TutorVms wireTutor(AppContext ctx, SharedVms s) {
     collections: PhilIriCollectionRepositorySqlite(db),
     thresholds: PhilIriThresholdRepositorySqlite(db),
     sections: SectionRepositorySqlite(db),
+    reportSettings: ReportSettingRepositorySqlite(db),
     logger: session,
   );
   vms.register('PhilIriViewModel', philIriVm);
