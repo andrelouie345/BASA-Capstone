@@ -584,8 +584,8 @@ Future<void> createPhilIriLocalSchema(Database db) async {
       SELECT RAISE(ABORT, 'No such passage')
       WHERE NEW.passage_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM phil_iri_passages WHERE id = NEW.passage_id);
       $importedCorrectCheck
-      -- v40: an imported session skips the active, round and no-repeat
-      -- checks (spec D8); the own-grade check stays.
+      -- v40: an imported session skips the active and no-repeat checks
+      -- (spec D8); the own-grade check stays.
       SELECT RAISE(ABORT, 'This passage or its collection is not active')
       WHERE NEW.passage_id IS NOT NULL
         AND (SELECT p.is_active AND c.is_active FROM phil_iri_passages p
@@ -598,15 +598,9 @@ Future<void> createPhilIriLocalSchema(Database db) async {
         AND (SELECT level FROM phil_iri_passages WHERE id = NEW.passage_id) IS NOT
             (SELECT CAST(s.grade_level AS INTEGER) FROM phil_iri_assessments a
              JOIN sections s ON s.id = a.section_id WHERE a.id = NEW.assessment_id);
-      -- v16: the round reads its own passages (PhilIriRound.passageTestType);
-      -- an untyped passage fits any round.
-      SELECT RAISE(ABORT, 'This round does not use this passage (BOSY reads pre, MOSY mosy, EOSY post passages)')
-      WHERE NEW.passage_id IS NOT NULL
-        AND (SELECT test_type FROM phil_iri_passages WHERE id = NEW.passage_id) IS NOT
-            (SELECT CASE round WHEN 'bosy' THEN 'pre' WHEN 'eosy' THEN 'post' ELSE 'mosy' END
-             FROM phil_iri_assessments WHERE id = NEW.assessment_id)
-        AND (SELECT test_type FROM phil_iri_passages WHERE id = NEW.passage_id) IS NOT NULL
-        AND $sessionImport IS NULL;
+      -- v43: no round check (the v16 one is gone): any grade-level passage
+      -- may be read in any round; test_type is a booklet label only
+      -- (spec 2026-11-10-phil-iri-any-round-passages).
       -- v17: a learner never reads the same passage twice (same text, any
       -- collection, any school year).
       -- v26 exception: the oral follow-up of a SILENT reading may re-read

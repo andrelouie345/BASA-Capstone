@@ -22,7 +22,7 @@ Console: `phil-iri-sessions`, `phil-iri-session`
 Build: both    Roles: tutor / coordinator / admin
 Purpose: start a session, pick a passage, time the reading (whole text / one minute / silent), mark miscues on the passage's words, answer the questions, score the rubric, complete or discard.
 Calls:
-- `PhilIriViewModel.startSession(...)` → `PhilIriAssessment`; `availablePassages(assessmentId, ...)` → `List<PhilIriPassage>`
+- `PhilIriViewModel.startSession(...)` → `PhilIriAssessment`; `availablePassages(assessmentId, ...)` → `List<PhilIriPassage>` (any round may use any listed passage; this round's booklet passages come right after oral follow-ups, so show the list in the order given)
 - `startReading(...)` → `PhilIriReading` (method: `PhilIriReadingMethod`); `saveTiming(readingId, readingSeconds:|wordsRead:)`; `saveObservation(readingId, PhilIriObservation)`; `deleteReading(id)`; `readings(assessmentId)`
 - `markMiscue(...)`, `updateMiscue(m)`, `removeMiscue(id)`, `miscues(readingId)` (miscue types: `PhilIriMiscueType.values`, `label`)
 - `answer(...)`, `answers(readingId)`; `passage(id)`, `questions(passageId)`, `collection(id)`

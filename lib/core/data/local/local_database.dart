@@ -77,7 +77,10 @@ class LocalDatabase {
         // (rebuildPhilIriReadingsForV41); cloud 20261109020000.
         // v42: phil_iri_readings.passage_id optional + imported_word_count /
         // imported_total (rebuildPhilIriReadingsForV42); cloud 20261110020000.
-        version: 42,
+        // v43: Phil-IRI reading trigger no longer checks the round's test type
+        // (no table change; the bump makes onUpgrade recreate the triggers);
+        // cloud 20261110030000.
+        version: 43,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (

@@ -57,6 +57,7 @@ void main() {
     await passage(103, 2, 'level two text here now', test: null);
     await passage(104, 7, 'an inactive passage text here', active: 0);
     await passage(105, 7, 'the live reading passage text');
+    await passage(106, 7, 'a mosy passage read in bosy'); // v43: any round
     for (var q = 1; q <= 3; q++) {
       await db.insert('phil_iri_questions',
           {'passage_id': 101, 'question_no': q, 'prompt': 'Q$q', 'choices': '["a","b"]', 'answer_key': 'a'});
@@ -151,7 +152,7 @@ void main() {
     expect((await db.query('phil_iri_miscues', where: 'reading_id = ?', whereArgs: [imported])).single['word_index'], isNull);
   });
 
-  test('an imported session skips the round, no-repeat and active checks, keeps the own grade', () async {
+  test('an imported session skips the no-repeat and active checks, keeps the own grade; no round check for any session', () async {
     // A BOSY session reading a 'mosy' passage, twice (two imported sessions).
     await reading(await session('bosy', source: 'workbook'), 101);
     await reading(await session('bosy', source: 'scoresheet'), 101);
@@ -162,8 +163,9 @@ void main() {
         refused('A learner reads a passage of their own grade'));
     // A live reading of the imported text afterwards: already read.
     await expectLater(reading(await session('mosy1'), 101), refused('This learner has already read this passage'));
-    // A live session keeps the round check.
-    await expectLater(reading(await session('bosy'), 105), refused('This round does not use this passage'));
+    // v43 (spec 2026-11-10-phil-iri-any-round-passages): a live session has
+    // no round check either; 106 is an unread 'mosy' passage read in BOSY.
+    await reading(await session('bosy'), 106);
   });
 
   test('imported_correct: workbook only, at most the question count, never with answers', () async {

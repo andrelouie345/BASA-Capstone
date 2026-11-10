@@ -316,13 +316,15 @@ class PhilIriViewModel {
 
   /// Passages this session may use: active passages of the learner's grade in
   /// active grade-leveled collections, plus active passages of active
-  /// non-graded collections (e.g. FRB). Either way only passages whose test
-  /// type fits the session's round (BOSY 'pre', MOSY 'mosy', EOSY 'post';
-  /// untyped passages fit any round), that the learner has never read (same
+  /// non-graded collections (e.g. FRB), that the learner has never read (same
   /// text = same passage, any collection, any year), each text listed once.
+  /// Any round may use any of them (ma 2026-11-09): a passage's test type is
+  /// a booklet label that only orders the list.
   /// For an oral [method] (the default) a text read silently in another
   /// session of this round and year is offered too, FIRST: the oral follow-up
-  /// may re-read it (reading coordinator, 2026-10-16).
+  /// may re-read it (reading coordinator, 2026-10-16). Then the passages
+  /// labelled for this round (BOSY 'pre', MOSY 'mosy', EOSY 'post'), then the
+  /// rest, each group in the order above.
   /// An empty list means the coordinator has to add passages.
   Future<List<PhilIriPassage>> availablePassages(int assessmentId,
       {PhilIriReadingMethod method = PhilIriReadingMethod.wholeText}) async {
@@ -338,10 +340,12 @@ class PhilIriViewModel {
     final followUps = <String>{};
     final seen = (await _blockedTexts(session, method, followUps: followUps)).keys.toSet();
     final list = [...graded, ...others]
-        .where((p) => session.round.allowsPassageTestType(p.testType))
         .where((p) => seen.add(p.textKey)) // false for read texts and for repeats in this list
         .toList();
-    return [...list.where((p) => followUps.contains(p.textKey)), ...list.where((p) => !followUps.contains(p.textKey))];
+    final followUp = list.where((p) => followUps.contains(p.textKey));
+    final rest = list.where((p) => !followUps.contains(p.textKey));
+    final label = session.round.passageTestType;
+    return [...followUp, ...rest.where((p) => p.testType == label), ...rest.where((p) => p.testType != label)];
   }
 
   /// The session's one passage reading. Each session (FLT/BOSY, MOSY, EOSY)
@@ -372,10 +376,6 @@ class PhilIriViewModel {
         throw ViewModelException('A Grade $grade learner reads a Grade $grade passage '
             '("${passage.title}" is Grade ${passage.level}).');
       }
-    }
-    if (!session.round.allowsPassageTestType(passage.testType)) {
-      throw ViewModelException('${session.round.label} reads ${session.round.passageTestType} passages '
-          '("${passage.title}" is a ${passage.testType} passage).');
     }
     final before = (await _blockedTexts(session, method))[passage.textKey];
     if (before != null) {

@@ -35,18 +35,15 @@ enum PhilIriRound {
   final String label;
   const PhilIriRound(this.label);
 
-  /// The passage test type this round reads (see philIriTestTypes):
-  /// BOSY 'pre', MOSY #1-#3 'mosy', EOSY 'post'.
+  /// The booklet label of this round's passages (see philIriTestTypes):
+  /// BOSY 'pre', MOSY #1-#3 'mosy', EOSY 'post'. Only orders the passage
+  /// list: any grade-level passage may be read in any round (ma 2026-11-09,
+  /// spec 2026-11-10-phil-iri-any-round-passages).
   String get passageTestType => switch (this) {
         PhilIriRound.bosy => 'pre',
         PhilIriRound.eosy => 'post',
         _ => 'mosy',
       };
-
-  /// Can this round use a passage of [testType]? A passage without a test type
-  /// fits any round (reading coordinator, 2026-10-15: MOSY never reuses the
-  /// BOSY/EOSY passages; untyped passages, e.g. levels 2-6, are any-round).
-  bool allowsPassageTestType(String? testType) => testType == null || testType == passageTestType;
 
   static PhilIriRound fromString(String value) {
     return PhilIriRound.values.firstWhere(
