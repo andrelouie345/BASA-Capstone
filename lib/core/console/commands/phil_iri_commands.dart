@@ -106,10 +106,19 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
       return out.toString();
     }
     for (final r in readings) {
-      final p = await vm.passage(r.passageId!);
-      out.write('\nReading ${r.id}: passage ${r.passageId}'
-          '${p == null ? ' (not on this device)' : ' "${p.title}" (${p.level == null ? 'no level' : 'Grade ${p.level}'}, ${p.wordCount} words)'}'
-          ' · ${_timing(r)}');
+      final passageId = r.passageId;
+      final p = passageId == null ? null : await vm.passage(passageId);
+      if (passageId == null) {
+        // Imported from the workbook without a passage (spec 2026-11-10 D12).
+        out.write('\nReading ${r.id}: Untitled'
+            '${r.importedWordCount == null ? '' : ' (${r.importedWordCount} words, typed)'}'
+            '${r.importedCorrect == null ? '' : ' · comprehension ${r.importedCorrect}/${r.importedTotal}'}'
+            ' · ${_timing(r)}');
+      } else {
+        out.write('\nReading ${r.id}: passage $passageId'
+            '${p == null ? ' (not on this device)' : ' "${p.title}" (${p.level == null ? 'no level' : 'Grade ${p.level}'}, ${p.wordCount} words)'}'
+            ' · ${_timing(r)}');
+      }
       final obs = _observationText(r.observation);
       if (obs.isNotEmpty) out.write('\n  Observed: $obs');
       final words = p?.words ?? const <String>[];
@@ -435,11 +444,15 @@ String _miscueText(PhilIriMiscue m, List<String> words) {
 
 String _pct(int? percent) => percent == null ? 'blank' : '$percent%';
 
-String _resultText(PhilIriPassageResult r) =>
-    '${r.silent ? 'silent · ' : ''}word reading ${_pct(r.wordReadingPercent)} (${r.accuracyLevel.label}), '
-    '${r.wordsPerMinute.round()} wpm '
-    '(${r.speed.label}) -> ${r.wordReadingLevel.label}; comprehension ${_pct(r.comprehensionPercent)} '
-    '(${r.comprehensionLevel.label}); profile ${r.profile.label}';
+String _resultText(PhilIriPassageResult r) {
+  // An imported reading with comprehension only (spec 2026-11-10 D7).
+  final wordReading = r.wordReadingAssumed
+      ? 'word reading not assessed (Struggling)'
+      : 'word reading ${_pct(r.wordReadingPercent)} (${r.accuracyLevel!.label}), '
+          '${r.wordsPerMinute!.round()} wpm (${r.speed!.label}) -> ${r.wordReadingLevel!.label}';
+  return '${r.silent ? 'silent · ' : ''}$wordReading; comprehension ${_pct(r.comprehensionPercent)} '
+      '(${r.comprehensionLevel.label}); profile ${r.profile.label}';
+}
 
 String _roundText(PhilIriRoundResult r) {
   if (r.profile == null) return 'no result yet';

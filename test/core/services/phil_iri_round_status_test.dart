@@ -129,4 +129,101 @@ void main() {
     expect(assumed.levelsDown, 3);
     expect(assumed.notAssessed, isTrue);
   });
+
+  // R2 (spec 2026-11-10-phil-iri-untitled-readings D4-D9): imported readings
+  // without a passage (typed word count) and without a word reading.
+  group('untitled and comprehension-only', () {
+    PhilIriPassageResult compOnly(int correct, int total) => philIriScorePassage(
+          method: PhilIriReadingMethod.wholeText,
+          countedMiscues: 0,
+          comprehensionCorrect: correct,
+          comprehensionTotal: total,
+          allowNoWordReading: true,
+        );
+
+    test('untitled whole text uses the typed word count', () {
+      final r = philIriScorePassage(
+          wordCount: 120, method: PhilIriReadingMethod.wholeText, readingSeconds: 60, countedMiscues: 6);
+      expect(r.wordReadingScore, 114 / 120);
+      expect(r.wordsPerMinute, 120);
+      expect(r.wordReadingAssumed, isFalse);
+    });
+
+    test('one minute needs no word count', () {
+      final r = philIriScorePassage(method: PhilIriReadingMethod.oneMinute, wordsRead: 70, countedMiscues: 7);
+      expect(r.wordReadingScore, 63 / 70);
+    });
+
+    test('whole text with seconds but no word count throws', () {
+      expect(() => philIriScorePassage(method: PhilIriReadingMethod.wholeText, readingSeconds: 60, countedMiscues: 0),
+          throwsArgumentError);
+    });
+
+    test('no word reading with allowNoWordReading', () {
+      final r = compOnly(6, 8);
+      final comp = philIriComprehensionLevel(0.75);
+      expect(r.wordReadingLevel, isNull);
+      expect(r.accuracyLevel, isNull);
+      expect(r.speed, isNull);
+      expect(r.wordReadingScore, isNull);
+      expect(r.wordsPerMinute, isNull);
+      expect(r.wordReadingPercent, isNull);
+      expect(r.wordReadingAssumed, isTrue);
+      expect(r.comprehensionScore, 0.75);
+      expect(r.comprehensionLevel, comp);
+      expect(r.profile, philIriPassageProfile(str, comp));
+    });
+
+    test('no word reading without the flag still throws', () {
+      expect(() => philIriScorePassage(method: PhilIriReadingMethod.wholeText, countedMiscues: 0), throwsArgumentError);
+      expect(() => philIriScorePassage(method: PhilIriReadingMethod.oneMinute, countedMiscues: 0), throwsArgumentError);
+    });
+
+    test('comprehension-only round is carried over', () {
+      final rounds = philIriRoundResults(learnerGrade: 7, readings: {
+        PhilIriRound.bosy: oneMinute(120, 0, 5),
+        PhilIriRound.mosy1: compOnly(8, 10),
+      });
+      final bosy = at(rounds, PhilIriRound.bosy);
+      final mosy1 = at(rounds, PhilIriRound.mosy1);
+      expect(bosy.status, PhilIriRoundStatus.assessed);
+      expect(mosy1.status, PhilIriRoundStatus.carriedOver);
+      expect(mosy1.given, isTrue);
+      expect(mosy1.wordReadingAssessed, isFalse);
+      expect(mosy1.comprehensionAssessed, isTrue);
+      expect(mosy1.wordReadingAssumed, isFalse);
+      expect(mosy1.wordReadingLevel, bosy.wordReadingLevel);
+      expect(mosy1.wordReadingScore, bosy.wordReadingScore);
+      expect(mosy1.comprehensionScore, 0.8);
+    });
+
+    test('comprehension-only with nothing earlier is assumed Struggling', () {
+      final mosy1 = at(philIriRoundResults(learnerGrade: 7, readings: {PhilIriRound.mosy1: compOnly(8, 10)}),
+          PhilIriRound.mosy1);
+      expect(mosy1.wordReadingLevel, str);
+      expect(mosy1.wordReadingAssumed, isTrue);
+      expect(mosy1.accuracyLevel, isNull);
+      expect(mosy1.status, PhilIriRoundStatus.carriedOver);
+    });
+
+    test('FLT toggle does not make a comprehension-only round assessed', () {
+      final mosy1 = at(
+          philIriRoundResults(
+              learnerGrade: 7,
+              readings: {PhilIriRound.mosy1: compOnly(8, 10)},
+              comprehensionOptional: {PhilIriRound.mosy1}),
+          PhilIriRound.mosy1);
+      expect(mosy1.status, PhilIriRoundStatus.carriedOver);
+    });
+
+    test('comprehension-only round adjusts from its own percent', () {
+      // 5/10 = 50%: Frustration; Struggling word reading x Frustration = Struggling;
+      // adjusted by the round's own 50% like a Frustration reader.
+      final rounds = philIriRoundResults(learnerGrade: 7, readings: {PhilIriRound.mosy1: compOnly(5, 10)});
+      final mosy1 = at(rounds, PhilIriRound.mosy1);
+      expect(mosy1.comprehensionLevel, fru);
+      expect(mosy1.adjustedLevel, philIriAdjustedLevel(mosy1.profile!, 7, 0.5, PhilIriThresholds.defaults));
+      expect(mosy1.actualAdjustedLevel, mosy1.adjustedLevel);
+    });
+  });
 }

@@ -59,24 +59,30 @@ import '../models/phil_iri_reading.dart' show PhilIriReadingMethod;
 import 'phil_iri_rules.dart';
 
 class PhilIriPassageResult {
-  final double wordReadingScore;        // 0–1
-  final double wordsPerMinute;
-  final PhilIriLevel accuracyLevel;
-  final PhilIriSpeed speed;
-  final PhilIriLevel wordReadingLevel;
+  // Word reading: null only when [wordReadingAssumed] (an imported reading
+  // with comprehension but no time/words read; spec 2026-11-10 D7).
+  final double? wordReadingScore;       // 0–1
+  final double? wordsPerMinute;
+  final PhilIriLevel? accuracyLevel;
+  final PhilIriSpeed? speed;
+  final PhilIriLevel? wordReadingLevel;
   final double? comprehensionScore;     // 0–1; null = blank (not asked/recorded)
   final PhilIriLevel comprehensionLevel; // a blank counts as 0
   final PhilIriLevel profile;
   final bool silent;                    // read silently: word reading not measured
+  /// No word reading recorded: "not assessed", scored as Struggling (the
+  /// profile goes through Table 8 with a Struggling word reading).
+  final bool wordReadingAssumed;
 
   bool get comprehensionBlank => comprehensionScore == null;
 
   /// Whole percents, rounded as the reports round them.
-  int get wordReadingPercent => philIriWholePercent(wordReadingScore);
+  int? get wordReadingPercent => wordReadingScore == null ? null : philIriWholePercent(wordReadingScore!);
   int? get comprehensionPercent => comprehensionScore == null ? null : philIriWholePercent(comprehensionScore!);
 
   const PhilIriPassageResult({
     this.silent = false,
+    this.wordReadingAssumed = false,
     required this.wordReadingScore,
     required this.wordsPerMinute,
     required this.accuracyLevel,
@@ -94,8 +100,13 @@ class PhilIriPassageResult {
 /// Silent: wpm from the reading time, no miscues allowed, word reading 100%
 /// (so accuracy is Independent; Table 8 then takes the speed and comprehension).
 /// Without comprehension (e.g. FLT) the comprehension counts as 0.
+/// [wordCount]: the passage's, or the typed count of an Untitled reading;
+/// not needed for one minute. [allowNoWordReading] (imported sessions only,
+/// the caller decides): no time (whole text/silent) or no words read (one
+/// minute) scores as no word reading, assumed Struggling (spec 2026-11-10
+/// D7); without it such a reading throws, as live readings always have.
 PhilIriPassageResult philIriScorePassage({
-  required int wordCount,
+  int? wordCount,
   required PhilIriReadingMethod method,
   int? readingSeconds,
   int? wordsRead,
@@ -103,12 +114,40 @@ PhilIriPassageResult philIriScorePassage({
   int? comprehensionCorrect,
   int? comprehensionTotal,
   PhilIriThresholds t = PhilIriThresholds.defaults,
+  bool allowNoWordReading = false,
 }) {
+  if ((comprehensionCorrect == null) != (comprehensionTotal == null)) {
+    throw ArgumentError('comprehensionCorrect and comprehensionTotal go together');
+  }
+  final comp = comprehensionTotal == null
+      ? null
+      : philIriComprehensionScore(comprehensionCorrect!, comprehensionTotal);
+  final compLevel = philIriComprehensionLevel(comp ?? 0, t);
+
+  final recorded = method == PhilIriReadingMethod.oneMinute
+      ? wordsRead != null && wordsRead > 0
+      : readingSeconds != null;
+  if (!recorded && allowNoWordReading) {
+    return PhilIriPassageResult(
+      wordReadingScore: null,
+      wordsPerMinute: null,
+      accuracyLevel: null,
+      speed: null,
+      wordReadingLevel: null,
+      comprehensionScore: comp,
+      comprehensionLevel: compLevel,
+      profile: _profile(PhilIriLevel.struggling, compLevel)!,
+      silent: method == PhilIriReadingMethod.silent,
+      wordReadingAssumed: true,
+    );
+  }
+
   final int words;
   final double wpm;
   switch (method) {
     case PhilIriReadingMethod.wholeText || PhilIriReadingMethod.silent:
       if (readingSeconds == null) throw ArgumentError('readingSeconds is required for ${method.value} reading');
+      if (wordCount == null) throw ArgumentError('wordCount is required for ${method.value} reading');
       if (method == PhilIriReadingMethod.silent && countedMiscues != 0) {
         throw ArgumentError('a silent reading has no miscues');
       }
@@ -121,18 +160,11 @@ PhilIriPassageResult philIriScorePassage({
       words = wordsRead;
       wpm = wordsRead.toDouble();
   }
-  if ((comprehensionCorrect == null) != (comprehensionTotal == null)) {
-    throw ArgumentError('comprehensionCorrect and comprehensionTotal go together');
-  }
 
   final score = philIriWordReadingScore(words, countedMiscues);
   final accuracy = philIriAccuracyLevel(score, t);
   final speed = philIriSpeed(wpm, t);
   final wordReading = philIriWordReadingLevel(accuracy, speed);
-  final comp = comprehensionTotal == null
-      ? null
-      : philIriComprehensionScore(comprehensionCorrect!, comprehensionTotal);
-  final compLevel = philIriComprehensionLevel(comp ?? 0, t);
 
   return PhilIriPassageResult(
     wordReadingScore: score,
@@ -274,12 +306,14 @@ List<PhilIriRoundResult> philIriRoundResults({
 
   for (final round in PhilIriRound.values) {
     final own = readings[round];
-    if (own != null) {
+    // A reading without a word reading (comprehension only) adds nothing
+    // here: an earlier round's word reading carries (spec 2026-11-10 D9).
+    if (own != null && !own.wordReadingAssumed) {
       if (own.silent) {
-        silentWpm = maxOf(silentWpm, own.wordsPerMinute);
+        silentWpm = maxOf(silentWpm, own.wordsPerMinute!);
       } else {
-        oralScore = maxOf(oralScore, own.wordReadingScore);
-        oralWpm = maxOf(oralWpm, own.wordsPerMinute);
+        oralScore = maxOf(oralScore, own.wordReadingScore!);
+        oralWpm = maxOf(oralWpm, own.wordsPerMinute!);
       }
     }
     // A finalized round keeps the thresholds it was finalized with.
@@ -326,11 +360,13 @@ List<PhilIriRoundResult> philIriRoundResults({
     int? actualAdjusted;
     if (own != null) {
       final c = own.comprehensionScore ?? bosyGst;
-      final p = _profile(own.wordReadingLevel, philIriComprehensionLevel(c ?? 0, rt))!;
+      final p = _profile(own.wordReadingLevel ?? PhilIriLevel.struggling, philIriComprehensionLevel(c ?? 0, rt))!;
       actualAdjusted = _adjusted(p, learnerGrade, own.comprehensionScore, bosyGst, rt);
     }
 
-    final wrAssessed = own != null;
+    // Word reading assessed = the round's own reading has one (spec 2026-11-10
+    // D8): a comprehension-only round is carried over, never assessed.
+    final wrAssessed = own != null && !own.wordReadingAssumed;
     final compAssessed = own?.comprehensionScore != null;
     results.add(PhilIriRoundResult(
       round: round,
