@@ -85,6 +85,20 @@ void main() {
     expect(h.matches('wb.omission', 'Omission'), isFalse);
   });
 
+  // Task 6 (owner option A, 2026-11-11): ma's sheet 13 has
+  // "NAME OF STUDENT\n(Last Name, First Name)"; a trailing note in brackets in
+  // the file's header is ignored when the exact label doesn't match.
+  test('matches ignores a trailing note in brackets in the file header', () async {
+    final h = await PhilIriImportHeaders.load(dir.path);
+    expect(h.matches('wb.name', 'NAME OF STUDENT\n(Last Name, First Name)'), isTrue);
+    expect(h.matches('wb.name', 'NAME OF STUDENT (Last Name, First Name) extra'), isFalse);
+    expect(h.matches('wb.name', '(Last Name, First Name)'), isFalse);
+    // A label with brackets of its own still matches exactly, and not without them.
+    expect(h.matches('wb.comprehension', 'Reading Comprehension (Percent Score)'), isTrue);
+    expect(h.matches('wb.comprehension', 'Reading Comprehension'), isFalse);
+    expect(h.matches('wb.block.mosy1', 'MIDDLE OF SCHOOL YEAR ASSESSMENT'), isFalse);
+  });
+
   test('import ref prints sheet, row and column', () {
     expect(const PhilIriImportRef(sheet: '03', row: 17, column: 'AV').toString(), 'sheet 03, row 17, column AV');
     expect(const PhilIriImportRef(sheet: 'Learners', row: 4).toString(), 'sheet Learners, row 4');

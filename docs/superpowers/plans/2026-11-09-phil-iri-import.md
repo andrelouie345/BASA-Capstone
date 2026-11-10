@@ -232,6 +232,8 @@
 - Create: `lib/viewmodels/phil_iri_import_viewmodel.dart`, `lib/core/services/phil_iri_import_matching.dart`
 - Test: `test/viewmodels/phil_iri_import_preview_test.dart`, `test/core/services/phil_iri_import_matching_test.dart`
 
+- Added 2026-11-11 (Task 6 ruling, owner option A): two ticked sheets naming the same section (same DepEd school ID, year, grade and section name) are refused in the preview ("sheets 01 and 07 both name section X: tick one"). The reader already skips a sheet named `Sample`. Empty sheets (no learners, often no section name) never count as duplicates.
+
 **Interfaces:**
 - Consumes: Tasks 5–8; `PhilIriViewModel.effectiveThresholds(int schoolId)`; `philIriScorePassage`, `philIriRoundResults`; `RoundCalendarViewModel.effectiveCalendar(int? schoolId, String year)`; `SyncUploadLocalRepository.buildPackage(release: SyncViewModel.release)`; `SyncRecord`, `toServerRow`, `followUpsForNew`, `maxPackageBytes`.
 - Produces (matching, pure): `String philIriNameKey(String name)` (lowercase, letters only, words sorted, so "Dela Cruz, Juan M." == "Juan M. Dela Cruz"); `List<Student> philIriNameCandidates(PhilIriLearnerKey key, List<Student> learners)`; `PhilIriPassage? philIriMatchPassage(PhilIriImportPassageRef ref, List<PhilIriPassage> all)` (level + `philIriNameKey(title)`; active first; code as tie-breaker; parses `7C Dust`, `4C-Pre Anansi's Web`, `10A -Pre Butuan…`).

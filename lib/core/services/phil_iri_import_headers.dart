@@ -106,10 +106,18 @@ class PhilIriImportHeaders {
     return _changed[field] ?? d;
   }
 
-  /// Does [header] (a cell as the file has it) carry [field]'s label?
+  /// Does [header] (a cell as the file has it) carry [field]'s label? Exact
+  /// (normalized) first; otherwise the header with a trailing note in
+  /// brackets removed, e.g. ma's sheet 13 "NAME OF STUDENT\n(Last Name, First
+  /// Name)" carries "NAME OF STUDENT" (Task 6, owner option A, 2026-11-11).
+  /// The label itself is never shortened, so a label with brackets of its own
+  /// ("Reading Comprehension (Percent Score)") still needs them.
   bool matches(String field, String header) {
     final want = normalizeHeader(label(field));
-    return want.isNotEmpty && normalizeHeader(header) == want;
+    if (want.isEmpty) return false;
+    if (normalizeHeader(header) == want) return true;
+    final stripped = header.replaceFirst(RegExp(r'\s*\([^()]*\)\s*$'), '');
+    return stripped != header && normalizeHeader(stripped) == want;
   }
 
   /// Changes one label on this device and saves. Setting a label equal to the
