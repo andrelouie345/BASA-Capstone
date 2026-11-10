@@ -17,8 +17,9 @@
 --  1. phil_iri_readings.passage_id may be null (workbook imports only,
 --     trigger below).
 --  2. phil_iri_readings.imported_word_count: the typed word count of an
---     Untitled reading; required for whole text / silent without a passage,
---     never beside a passage (the passage's own count wins).
+--     Untitled reading; required for a timed whole text / silent reading
+--     without a passage (an untimed one has comprehension only), never
+--     beside a passage (the passage's own count wins).
 --  3. phil_iri_readings.imported_total: the comprehension maximum an
 --     Untitled reading's imported_correct is out of (the workbook block's
 --     header maximum); never beside a passage.
@@ -56,7 +57,9 @@ alter table public.phil_iri_readings add constraint phil_iri_readings_untitled_o
   check (passage_id is null or (imported_word_count is null and imported_total is null));
 alter table public.phil_iri_readings drop constraint if exists phil_iri_readings_untitled_needs_count;
 alter table public.phil_iri_readings add constraint phil_iri_readings_untitled_needs_count
-  check (passage_id is not null or method = 'one_minute' or imported_word_count is not null);
+  -- Only a timed reading needs the count: an untimed Untitled reading has
+  -- comprehension only (no words read; final review I1).
+  check (passage_id is not null or method = 'one_minute' or reading_seconds is null or imported_word_count is not null);
 alter table public.phil_iri_readings drop constraint if exists phil_iri_readings_untitled_total_correct;
 alter table public.phil_iri_readings add constraint phil_iri_readings_untitled_total_correct
   check (imported_total is null or (imported_correct is not null and imported_correct <= imported_total));

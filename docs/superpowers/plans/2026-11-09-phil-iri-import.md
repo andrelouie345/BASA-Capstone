@@ -186,7 +186,7 @@
   - `one-minute words read left as the formula 0 is incomplete` (**Review Focus 1**) → in `skipped`, not in `readings`.
   - `passage with no comprehension imports as word reading only` (R1 D18).
   - `blank passage with words read and time is Untitled` (R2): whole text → `passage == null`, `wordCount` = the typed cell, `correctTotal` = header max; one minute → `wordsRead`, `wordCount == null`.
-  - `comprehension only is a reading without timing` (R2), with and without a passage; its miscue counts dropped with the problem line.
+  - `comprehension only is a reading without timing` (R2), with and without a passage (blank passage: `passage == null`, `wordCount == null`, `correctTotal` = header max); its miscue counts dropped with the problem line.
   - `passage only is incomplete` (sheets `05`/`20` pattern).
   - `moved column is still found` (fixture inserts a column before `SELECTION`).
   - `renamed header gives a header issue with the headers found`; `with an override it reads`.
@@ -222,7 +222,7 @@
 - One `db.transaction` per call: GST, then per session the assessment (negative id via `nextLocalId`), reading, miscues, answers, then `status = completed`, `completed_at = now (UTC ISO)`; then the lock row. Any trigger error rolls the whole learner back and is rethrown.
 - R2: an Untitled reading is written with `passage_id` null, `imported_word_count` (whole text/silent), `imported_correct` + `imported_total`, miscues without a position, no answers; a comprehension-only reading with no `reading_seconds`/`words_read`. The v42 triggers refuse anything else (workbook sessions only).
 
-- [ ] **Step 1: Failing tests:** `writes an Untitled and a comprehension-only reading` (R2: row columns as above, session completes); `writes a learner and journals every row` (rows exist, `sync_changes` has them, statuses `completed`); `a failing session rolls the learner back` (second session reads a lower-grade passage → nothing of that learner is left); `lock row written once and isLocked sees it`.
+- [ ] **Step 1: Failing tests:** `writes an Untitled and a comprehension-only reading` (R2: row columns as above, session completes; include an Untitled comprehension-only row: `passage_id` null, untimed, no `imported_word_count`); `writes a learner and journals every row` (rows exist, `sync_changes` has them, statuses `completed`); `a failing session rolls the learner back` (second session reads a lower-grade passage → nothing of that learner is left); `lock row written once and isLocked sees it`.
 - [ ] **Step 2–4:** Run → FAIL; implement; run → PASS.
 - [ ] **Step 5: Commit message:** `feat(phil-iri,import): write one imported learner per device transaction`
 

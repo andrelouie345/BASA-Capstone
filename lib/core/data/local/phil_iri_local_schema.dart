@@ -139,7 +139,7 @@ String _readingsTableSql(String table) => '''
       CHECK ((method IN ('whole_text', 'silent') AND words_read IS NULL)
              OR (method = 'one_minute' AND reading_seconds IS NULL)),
       CHECK (passage_id IS NULL OR (imported_word_count IS NULL AND imported_total IS NULL)),
-      CHECK (passage_id IS NOT NULL OR method = 'one_minute' OR imported_word_count IS NOT NULL),
+      CHECK (passage_id IS NOT NULL OR method = 'one_minute' OR reading_seconds IS NULL OR imported_word_count IS NOT NULL),
       CHECK (imported_total IS NULL OR (imported_correct IS NOT NULL AND imported_correct <= imported_total)),
       CHECK (passage_id IS NOT NULL OR imported_correct IS NULL OR imported_total IS NOT NULL)
     )

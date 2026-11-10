@@ -145,6 +145,16 @@ void main() {
       expect(bosy.status, PhilIriRoundStatus.carriedOver);
     });
 
+    test('untitled comprehension-only reading scores from its total', () async {
+      final s = await importedSession(522, 'mosy1');
+      await importedReading(s, {'passage_id': null, 'method': 'whole_text', 'imported_correct': 6, 'imported_total': 8});
+      await complete(s);
+      final mosy1 = await round(522, PhilIriRound.mosy1);
+      expect(mosy1.comprehensionScore, 0.75);
+      expect(mosy1.wordReadingAssumed, isTrue);
+      expect(mosy1.status, PhilIriRoundStatus.carriedOver);
+    });
+
     test('complete() accepts an untimed imported session', () async {
       final s = await importedSession(522, 'bosy');
       await importedReading(s, {'passage_id': 202, 'method': 'whole_text', 'imported_correct': 4});

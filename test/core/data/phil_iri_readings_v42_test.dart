@@ -115,6 +115,17 @@ void main() {
       expect(row['imported_correct'], 3);
     });
 
+    // Final review I1: an Untitled row with comprehension only has no words
+    // read, so no word count; the count is required only when timed.
+    test('untitled comprehension-only whole text needs no word count', () async {
+      final id = await reading(await session(), {
+        'passage_id': null, 'method': 'whole_text', 'imported_correct': 5, 'imported_total': 8,
+      });
+      final row = (await db.query('phil_iri_readings', where: 'id = ?', whereArgs: [id])).single;
+      expect(row['imported_word_count'], isNull);
+      expect(row['imported_total'], 8);
+    });
+
     test('an unpositioned miscue on an untitled reading is accepted', () async {
       final r = await reading(await session(), {'passage_id': null, 'method': 'one_minute', 'words_read': 70});
       await db.insert('phil_iri_miscues', {'id': await localId(), 'reading_id': r, 'word_index': null, 'miscue_type': 'omission'});
