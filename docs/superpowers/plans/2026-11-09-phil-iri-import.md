@@ -248,8 +248,8 @@
 
 - [ ] **Step 1: Failing matching tests:** `name order and punctuation ignored`; `same name twice gives two candidates` (**Review Focus 2**); `passage titles match across case and punctuation` (**Review Focus 5**: `Get up, Jacky!` ↔ `Get Up, Jacky!`, `10A -Pre Butuan Archeological Sites`); `inactive passage only when no active one matches`.
 - [ ] **Step 2: Failing preview tests** (coordinator offline owner; seeded school, Grade 7 section, learners, pool passages; workbook from the Task 6 fixture):
-  - `round clash and re-read are imported, flagged`; `lower-grade passage skipped`; `passage not in BASA skipped`.
-  - R2: `Untitled reading is imported, flagged` (note `no passage (Untitled)`; passage matching, lower-grade, round-clash and re-read checks skipped for it; `basaProfile` from the typed word count); `comprehension-only reading is imported` (status in BASA: carried over); `Untitled comprehension above its total is unreadable`.
+  - `re-read is imported, flagged` (no round clash since 2026-11-10: any round may read any grade-level passage); `lower-grade passage skipped`; `passage not in BASA skipped`.
+  - R2: `Untitled reading is imported, flagged` (note `no passage (Untitled)`; passage matching, lower-grade and re-read checks skipped for it; `basaProfile` from the typed word count); `comprehension-only reading is imported` (status in BASA: carried over); `Untitled comprehension above its total is unreadable`.
   - `comprehension above the passage's questions is unreadable` (**Review Focus 3**): note names sheet, row, column.
   - `already assessed and in progress live are skipped`; `GST skipped when one exists this year`.
   - `locked section is 'already imported'`; `section missing in BASA is 'not in BASA' with its name`.

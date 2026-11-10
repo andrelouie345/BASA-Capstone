@@ -48,7 +48,8 @@ String _schoolYearCheck(String column) => '''
          AND CAST(substr($column, 6, 4) AS INTEGER) = CAST(substr($column, 1, 4) AS INTEGER) + 1)''';
 
 /// phil_iri_passages under [table], so the v15 rebuild can create the new copy.
-/// test_type: 'pre' = BOSY, 'mosy' = MOSY 1-3, 'post' = EOSY, null = any round.
+/// test_type: the booklet label ('pre' pretest, 'mosy' MOSY pool, 'post'
+/// posttest, null none); since v43 no round checks it.
 String _passagesTableSql(String table) => '''
     CREATE TABLE IF NOT EXISTS $table (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

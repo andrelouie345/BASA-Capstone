@@ -66,9 +66,9 @@ void main() {
 
   test('BOSY lists every label, its own (pre) first, the rest in today\'s order', () async {
     final ids = await listed(await session(await learner(), PhilIriRound.bosy));
-    expect(ids.first, pre);
-    expect(ids.toSet(), {pre, mosy, post, untyped, frb});
-    expect(ids.last, frb); // graded before non-graded, as before
+    // pre first; then the other graded passages in getForLevel order (by id
+    // here), then the non-graded one (final review minor 5: the whole order).
+    expect(ids, [pre, mosy, post, untyped, frb]);
   });
 
   test('MOSY and EOSY put their own label first', () async {

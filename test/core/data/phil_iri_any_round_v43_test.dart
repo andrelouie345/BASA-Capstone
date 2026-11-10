@@ -4,8 +4,7 @@
 // so a device still carrying the v42 trigger loses the round check.
 import 'dart:io';
 
-import 'package:basa_capstone/core/data/local/phil_iri_local_schema.dart';
-import 'package:basa_capstone/core/wiring/app_context.dart';
+import 'package:basa_capstone/core/data/local/local_database.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -28,12 +27,12 @@ const _v42RoundTrigger = '''
 
 void main() {
   late Database db;
+  final dir = Directory.systemTemp.createTempSync('basa_v43_').path;
 
   setUpAll(() async {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
-    final ctx = await AppContext.open(dataDir: Directory.systemTemp.createTempSync('basa_v43_').path);
-    db = ctx.localDb;
+    db = await LocalDatabase.instance(dir);
     await db.insert('schools', {'id': 1, 'school_id': 'ZZ43', 'school_name': 'ZZ v43'});
     await db.insert('sections', {'id': 43, 'school_id': 1, 'school_year': _year, 'grade_level': '7', 'section_name': 'S43'});
     // One learner per reading: a learner never reads the same passage twice.
@@ -72,12 +71,19 @@ void main() {
     await readPost(await bosySession(543));
   });
 
-  test('recreating the schema replaces a v42 trigger that still checks the round', () async {
+  tearDownAll(LocalDatabase.close);
+
+  // A real upgrade: the database is stamped v42 with the v42 trigger, closed
+  // and reopened, so LocalDatabase's onUpgrade runs (final review minor 4).
+  test('a v42 device database reopened by this build loses the round check', () async {
     await db.execute('DROP TRIGGER IF EXISTS check_phil_iri_reading_ins');
     await db.execute(_v42RoundTrigger);
     await expectLater(readPost(await bosySession(544)),
         throwsA(isA<DatabaseException>().having((e) => '$e', 'message', contains('This round does not use this passage'))));
-    await createPhilIriLocalSchema(db); // what onUpgrade runs on the v43 bump
+    await db.execute('PRAGMA user_version = 42');
+    await LocalDatabase.close();
+    db = await LocalDatabase.instance(dir);
+    expect((await db.rawQuery('PRAGMA user_version')).single.values.single, 43);
     await readPost(await bosySession(545));
   });
 }
