@@ -66,7 +66,9 @@ class PhilIriReading {
   final int? id;
   final int assessmentId;
   final int sequenceNo;           // order read within the session, 1-based
-  final int passageId;
+  /// v42: null only on a reading imported from ma's workbook without a
+  /// passage ("Untitled"; spec 2026-11-10-phil-iri-untitled-readings).
+  final int? passageId;
   final PhilIriReadingMethod method;
   final int? readingSeconds;      // whole-text / silent: time taken; null until timed
   final int? wordsRead;           // one-minute: words read in the minute
@@ -75,6 +77,13 @@ class PhilIriReading {
   /// only on a reading of a session imported from ma's workbook, which has
   /// no answer rows. Null otherwise.
   final int? importedCorrect;
+  /// v42, Untitled readings only: the typed word count (whole text / silent)
+  /// and the comprehension maximum [importedCorrect] is out of.
+  final int? importedWordCount;
+  final int? importedTotal;
+
+  /// Imported without a passage: shown as "Untitled".
+  bool get isUntitled => passageId == null;
 
   /// Timed yet: a one-minute reading needs its words read, the others their seconds.
   bool get isTimed => method == PhilIriReadingMethod.oneMinute ? wordsRead != null : readingSeconds != null;
@@ -105,6 +114,8 @@ class PhilIriReading {
     this.wordsRead,
     this.observation = const PhilIriObservation(),
     this.importedCorrect,
+    this.importedWordCount,
+    this.importedTotal,
     this.wordReadingScore,
     this.wordsPerMinute,
     this.accuracyLevel,
@@ -131,6 +142,8 @@ class PhilIriReading {
         'obs_little_analysis': observation.littleAnalysis,
         'obs_other': observation.other,
         if (importedCorrect != null) 'imported_correct': importedCorrect,
+        if (importedWordCount != null) 'imported_word_count': importedWordCount,
+        if (importedTotal != null) 'imported_total': importedTotal,
         'word_reading_score': wordReadingScore,
         'words_per_minute': wordsPerMinute,
         'accuracy_level': accuracyLevel?.name,
@@ -145,7 +158,7 @@ class PhilIriReading {
         id: m['id'] as int?,
         assessmentId: m['assessment_id'] as int,
         sequenceNo: m['sequence_no'] as int,
-        passageId: m['passage_id'] as int,
+        passageId: m['passage_id'] as int?,
         method: PhilIriReadingMethod.fromString(m['method'] as String),
         readingSeconds: m['reading_seconds'] as int?,
         wordsRead: m['words_read'] as int?,
@@ -159,6 +172,8 @@ class PhilIriReading {
           other: m['obs_other'] as String?,
         ),
         importedCorrect: m['imported_correct'] as int?,
+        importedWordCount: m['imported_word_count'] as int?,
+        importedTotal: m['imported_total'] as int?,
         wordReadingScore: (m['word_reading_score'] as num?)?.toDouble(),
         wordsPerMinute: (m['words_per_minute'] as num?)?.toDouble(),
         accuracyLevel: _level(m['accuracy_level']),

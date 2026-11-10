@@ -106,7 +106,7 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
       return out.toString();
     }
     for (final r in readings) {
-      final p = await vm.passage(r.passageId);
+      final p = await vm.passage(r.passageId!);
       out.write('\nReading ${r.id}: passage ${r.passageId}'
           '${p == null ? ' (not on this device)' : ' "${p.title}" (${p.level == null ? 'no level' : 'Grade ${p.level}'}, ${p.wordCount} words)'}'
           ' · ${_timing(r)}');

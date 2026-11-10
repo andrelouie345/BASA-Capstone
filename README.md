@@ -97,7 +97,10 @@ and who counts as assessed change in the app; app update required: **yes**,
 same rule) and `20261110010000` (report setting `no_comprehension_counts_FLT`,
 true/false, off by default: a Phil-IRI reading from a collection without
 comprehension questions, such as the FLT, counts as assessed; app update
-required: no). Each is idempotent.
+required: no) and `20261110020000` (Phil-IRI readings imported from the
+workbook without a passage, shown as "Untitled", with a typed word count and
+comprehension total; imported readings may have comprehension only; app
+update required: **yes**, same rule). Each is idempotent.
 Do **not** run
 `supabase/migrations_archive/`.
 

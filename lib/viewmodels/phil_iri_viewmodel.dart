@@ -707,7 +707,7 @@ class PhilIriViewModel {
     _requireSignIn();
     final r = await _findReading(readingId);
     if (!r.method.isOral) return null;
-    return _silentReadingFollowedUp(r, await _requirePassage(r.passageId));
+    return _silentReadingFollowedUp(r, await _requirePassage(r.passageId!));
   }
 
   Future<PhilIriPassageResult> scoreReading(int readingId, {PhilIriThresholds? thresholds}) async {
@@ -756,7 +756,7 @@ class PhilIriViewModel {
       if (r.method == PhilIriReadingMethod.oneMinute && r.wordsRead == null) continue;
       readings[e.key] = await _scoreReading(r, t);
       if (fltCounts) {
-        final passage = await _requirePassage(r.passageId);
+        final passage = await _requirePassage(r.passageId!);
         final collection = await _collections.findById(passage.collectionId);
         if (collection != null && !collection.hasComprehension) optional.add(e.key);
       }
@@ -848,7 +848,7 @@ class PhilIriViewModel {
   }
 
   Future<PhilIriPassageResult> _scoreReading(PhilIriReading r, PhilIriThresholds t) async {
-    final passage = await _requirePassage(r.passageId);
+    final passage = await _requirePassage(r.passageId!);
     final collection = await _collections.findById(passage.collectionId);
     final miscues = await _sessions.getMiscues(r.id!);
     int? correct, total;
@@ -871,7 +871,7 @@ class PhilIriViewModel {
             answers = await _sessions.getAnswers(silent.id!);
             // A copy of the text in another collection may have other questions.
             if (silent.passageId != passage.id) {
-              final n = (await _passages.getQuestions(silent.passageId)).length;
+              final n = (await _passages.getQuestions(silent.passageId!)).length;
               if (n > 0) total = n;
             }
           }
@@ -945,7 +945,7 @@ class PhilIriViewModel {
     final open = <String>{};
     for (final s in await _sessions.getByStudent(session.studentId)) {
       for (final r in await _sessions.getReadings(s.id!)) {
-        final p = await _passages.findById(r.passageId);
+        final p = await _passages.findById(r.passageId!);
         if (p == null) continue;
         final followUp = method.isOral && !r.method.isOral && s.id != session.id &&
             s.round == session.round && s.schoolYear == session.schoolYear;
@@ -970,7 +970,7 @@ class PhilIriViewModel {
       if (s.id == session.id || s.round != session.round) continue;
       for (final r in await _sessions.getReadings(s.id!)) {
         if (r.method.isOral) continue;
-        final p = r.passageId == passage.id ? passage : await _passages.findById(r.passageId);
+        final p = r.passageId == passage.id ? passage : await _passages.findById(r.passageId!);
         if (p != null && p.textKey == passage.textKey) found = r;
       }
     }
@@ -993,7 +993,7 @@ class PhilIriViewModel {
       int readingId) async {
     final reading = await _findReading(readingId);
     final session = await _requireOpenSession(reading.assessmentId);
-    return (reading: reading, passage: await _requirePassage(reading.passageId), session: session);
+    return (reading: reading, passage: await _requirePassage(reading.passageId!), session: session);
   }
 
   void _requireOral(PhilIriReading reading) {

@@ -9,8 +9,8 @@ expect Not signed in
 run help
 expect sign-in-offline
 run version-app
-expect 20261110010000
-expect~ \d+ migrations, latest 20261110010000
+expect 20261110020000
+expect~ \d+ migrations, latest 20261110020000
 run version-check
 refuse Not signed in. Sign in first.
 run offline-status

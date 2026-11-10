@@ -104,13 +104,15 @@ Future<void> rebuildPhilIriPassagesForV15(Database db) async {
 
 /// phil_iri_readings under [table], so the v26 rebuild can create the new copy.
 /// method 'silent' (v26): timed like whole_text, no miscues. Level 'struggling' (v39;
-/// comprehension_level v41).
+/// comprehension_level v41). v42: passage_id optional (workbook imports only,
+/// trigger below) with imported_word_count / imported_total (spec
+/// 2026-11-10-phil-iri-untitled-readings D2-D5).
 String _readingsTableSql(String table) => '''
     CREATE TABLE IF NOT EXISTS $table (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       assessment_id INTEGER NOT NULL REFERENCES phil_iri_assessments(id),
       sequence_no INTEGER NOT NULL CHECK (sequence_no > 0),
-      passage_id INTEGER NOT NULL REFERENCES phil_iri_passages(id),
+      passage_id INTEGER REFERENCES phil_iri_passages(id),
       method TEXT NOT NULL DEFAULT 'whole_text' CHECK (method IN ('whole_text', 'one_minute', 'silent')),
       reading_seconds INTEGER CHECK (reading_seconds > 0),
       words_read INTEGER CHECK (words_read > 0),
@@ -131,9 +133,15 @@ String _readingsTableSql(String table) => '''
       profile TEXT CHECK (profile IN ('independent', 'instructional', 'frustration', 'struggling', 'nonReader')),
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       imported_correct INTEGER CHECK (imported_correct >= 0),
+      imported_word_count INTEGER CHECK (imported_word_count > 0),
+      imported_total INTEGER CHECK (imported_total > 0),
       UNIQUE (assessment_id, sequence_no),
       CHECK ((method IN ('whole_text', 'silent') AND words_read IS NULL)
-             OR (method = 'one_minute' AND reading_seconds IS NULL))
+             OR (method = 'one_minute' AND reading_seconds IS NULL)),
+      CHECK (passage_id IS NULL OR (imported_word_count IS NULL AND imported_total IS NULL)),
+      CHECK (passage_id IS NOT NULL OR method = 'one_minute' OR imported_word_count IS NOT NULL),
+      CHECK (imported_total IS NULL OR (imported_correct IS NOT NULL AND imported_correct <= imported_total)),
+      CHECK (passage_id IS NOT NULL OR imported_correct IS NULL OR imported_total IS NOT NULL)
     )
   ''';
 
@@ -195,10 +203,9 @@ Future<void> rebuildPhilIriReadingsForV39(Database db) async {
 }
 
 /// v41 upgrade (cloud 20261109020000; spec 2026-11-09 Phil-IRI rules update
-/// D1): comprehension_level also allows 'struggling'. Same copy-and-rename as
-/// v39 (old column list kept, legacy_alter_table on, triggers dropped and
-/// recreated by the creators). Covers v26-v38 devices too: the table SQL is
-/// the widest, so the v39 step is folded into this one.
+/// D1): comprehension_level also allows 'struggling'. No longer called by the
+/// upgrade since v42 (rebuildPhilIriReadingsForV42 covers v26-v41); kept for
+/// its test.
 Future<void> rebuildPhilIriReadingsForV41(Database db) async {
   final old = (await db.rawQuery('PRAGMA table_info(phil_iri_readings)')).map((c) => c['name'] as String).toList();
   if (old.isEmpty) return; // createPhilIriLocalSchema builds it fresh
@@ -206,6 +213,24 @@ Future<void> rebuildPhilIriReadingsForV41(Database db) async {
   await db.execute('PRAGMA legacy_alter_table = ON');
   try {
     await _copyReadings(db, old, 'phil_iri_readings_v41');
+  } finally {
+    await db.execute('PRAGMA legacy_alter_table = OFF');
+  }
+}
+
+/// v42 upgrade (cloud 20261110020000; spec 2026-11-10-phil-iri-untitled-readings
+/// D2): passage_id optional, imported_word_count / imported_total added. Same
+/// copy-and-rename as v39/v41 (old column list kept, legacy_alter_table on,
+/// triggers dropped and recreated by the creators). Covers v26-v41 devices:
+/// the table SQL is the widest, so the v41 step (comprehension 'struggling')
+/// is folded into this one.
+Future<void> rebuildPhilIriReadingsForV42(Database db) async {
+  final old = (await db.rawQuery('PRAGMA table_info(phil_iri_readings)')).map((c) => c['name'] as String).toList();
+  if (old.isEmpty) return; // createPhilIriLocalSchema builds it fresh
+
+  await db.execute('PRAGMA legacy_alter_table = ON');
+  try {
+    await _copyReadings(db, old, 'phil_iri_readings_v42');
   } finally {
     await db.execute('PRAGMA legacy_alter_table = OFF');
   }
@@ -540,7 +565,8 @@ Future<void> createPhilIriLocalSchema(Database db) async {
       SELECT RAISE(ABORT, 'An imported correct count belongs to a reading imported from the workbook')
       WHERE NEW.imported_correct IS NOT NULL AND $sessionImport IS NOT 'workbook';
       SELECT RAISE(ABORT, 'Imported correct count is more than the passage''s questions')
-      WHERE NEW.imported_correct > (SELECT COUNT(*) FROM phil_iri_questions WHERE passage_id = NEW.passage_id);
+      WHERE NEW.passage_id IS NOT NULL
+        AND NEW.imported_correct > (SELECT COUNT(*) FROM phil_iri_questions WHERE passage_id = NEW.passage_id);
       SELECT RAISE(ABORT, 'This reading has answers; an imported correct count replaces answers, not both')
       WHERE NEW.imported_correct IS NOT NULL
         AND EXISTS (SELECT 1 FROM phil_iri_answers WHERE reading_id = NEW.id);''';
@@ -552,17 +578,22 @@ Future<void> createPhilIriLocalSchema(Database db) async {
     WHEN $sessionOrigin = 'local'
     BEGIN
       SELECT RAISE(ABORT, $finalizedMsg) WHERE $sessionStatus = 'finalized';
+      -- v42: no passage ("Untitled") only on a session imported from the workbook.
+      SELECT RAISE(ABORT, 'A reading without a passage belongs to a session imported from the workbook')
+      WHERE NEW.passage_id IS NULL AND $sessionImport IS NOT 'workbook';
       SELECT RAISE(ABORT, 'No such passage')
-      WHERE NOT EXISTS (SELECT 1 FROM phil_iri_passages WHERE id = NEW.passage_id);
+      WHERE NEW.passage_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM phil_iri_passages WHERE id = NEW.passage_id);
       $importedCorrectCheck
       -- v40: an imported session skips the active, round and no-repeat
       -- checks (spec D8); the own-grade check stays.
       SELECT RAISE(ABORT, 'This passage or its collection is not active')
-      WHERE (SELECT p.is_active AND c.is_active FROM phil_iri_passages p
+      WHERE NEW.passage_id IS NOT NULL
+        AND (SELECT p.is_active AND c.is_active FROM phil_iri_passages p
              JOIN phil_iri_collections c ON c.id = p.collection_id WHERE p.id = NEW.passage_id) = 0
         AND $sessionImport IS NULL;
       SELECT RAISE(ABORT, 'A learner reads a passage of their own grade')
-      WHERE (SELECT c.is_grade_leveled FROM phil_iri_passages p
+      WHERE NEW.passage_id IS NOT NULL
+        AND (SELECT c.is_grade_leveled FROM phil_iri_passages p
              JOIN phil_iri_collections c ON c.id = p.collection_id WHERE p.id = NEW.passage_id) = 1
         AND (SELECT level FROM phil_iri_passages WHERE id = NEW.passage_id) IS NOT
             (SELECT CAST(s.grade_level AS INTEGER) FROM phil_iri_assessments a
@@ -570,7 +601,8 @@ Future<void> createPhilIriLocalSchema(Database db) async {
       -- v16: the round reads its own passages (PhilIriRound.passageTestType);
       -- an untyped passage fits any round.
       SELECT RAISE(ABORT, 'This round does not use this passage (BOSY reads pre, MOSY mosy, EOSY post passages)')
-      WHERE (SELECT test_type FROM phil_iri_passages WHERE id = NEW.passage_id) IS NOT
+      WHERE NEW.passage_id IS NOT NULL
+        AND (SELECT test_type FROM phil_iri_passages WHERE id = NEW.passage_id) IS NOT
             (SELECT CASE round WHEN 'bosy' THEN 'pre' WHEN 'eosy' THEN 'post' ELSE 'mosy' END
              FROM phil_iri_assessments WHERE id = NEW.assessment_id)
         AND (SELECT test_type FROM phil_iri_passages WHERE id = NEW.passage_id) IS NOT NULL
@@ -580,7 +612,7 @@ Future<void> createPhilIriLocalSchema(Database db) async {
       -- v26 exception: the oral follow-up of a SILENT reading may re-read
       -- that text once, as another attempt of the same round and school year.
       SELECT RAISE(ABORT, 'This learner has already read this passage')
-      WHERE $sessionImport IS NULL AND EXISTS (
+      WHERE NEW.passage_id IS NOT NULL AND $sessionImport IS NULL AND EXISTS (
         SELECT 1 FROM phil_iri_readings r
         JOIN phil_iri_assessments a ON a.id = r.assessment_id
         JOIN phil_iri_passages p ON p.id = r.passage_id
@@ -622,6 +654,9 @@ Future<void> createPhilIriLocalSchema(Database db) async {
       WHERE (SELECT method FROM phil_iri_readings WHERE id = NEW.reading_id) = 'silent';
       SELECT RAISE(ABORT, 'A miscue without a position belongs to an imported reading')
       WHERE NEW.word_index IS NULL AND $readingImport IS NULL;
+      SELECT RAISE(ABORT, 'A reading without a passage takes only miscues without a position')
+      WHERE NEW.word_index IS NOT NULL
+        AND (SELECT passage_id FROM phil_iri_readings WHERE id = NEW.reading_id) IS NULL;
       SELECT RAISE(ABORT, 'Word position is outside the passage')
       WHERE NEW.word_index > (SELECT p.word_count FROM phil_iri_readings r
                               JOIN phil_iri_passages p ON p.id = r.passage_id WHERE r.id = NEW.reading_id)
