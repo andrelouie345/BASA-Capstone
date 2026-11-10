@@ -89,12 +89,17 @@ class PhilIriImportGst {
 /// letters chosen, null = not answered; scoresheet) or [correctCount]
 /// (workbook). [workbookProfile] / [workbookAdjustedLevel] are the workbook's
 /// own saved results, read only to compare (D7), never imported.
+/// R2 (spec 2026-11-10-phil-iri-untitled-readings D10): [passage] null =
+/// "Untitled" (workbook only: words read and time but no passage); then
+/// [wordCount] is the typed word count (whole text / silent) and
+/// [correctTotal] the block's comprehension header maximum [correctCount] is
+/// out of. A reading with no [seconds] / [wordsRead] has comprehension only.
 class PhilIriImportReading {
   final PhilIriImportRef ref;
   final PhilIriLearnerKey learner;
   final PhilIriRound round;
   final String? date;
-  final PhilIriImportPassageRef passage;
+  final PhilIriImportPassageRef? passage;
   final PhilIriReadingMethod method;
   final int? seconds;
   final int? wordsRead;
@@ -102,8 +107,12 @@ class PhilIriImportReading {
   final int selfCorrected;
   final List<String?>? answers;
   final int? correctCount;
+  final int? wordCount;
+  final int? correctTotal;
   final String? workbookProfile;
   final int? workbookAdjustedLevel;
+
+  bool get isUntitled => passage == null;
 
   const PhilIriImportReading({
     required this.ref,
@@ -118,6 +127,8 @@ class PhilIriImportReading {
     this.selfCorrected = 0,
     this.answers,
     this.correctCount,
+    this.wordCount,
+    this.correctTotal,
     this.workbookProfile,
     this.workbookAdjustedLevel,
   });

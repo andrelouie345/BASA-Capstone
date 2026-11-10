@@ -44,6 +44,8 @@ Levels: `PhilIriLevel` has five values, shown with `.label`: Independent, Instru
 
 Assessment status (since 2026-11-09): each `PhilIriRoundResult` has `status` (`PhilIriRoundStatus.assessed` / `carriedOver` / `notAssessed`), `wordReadingAssessed`, `comprehensionAssessed` and `wordReadingAssumed`. When `wordReadingAssumed` is true there was no word reading yet: show word recognition and speed as **"Not assessed"** (the word reading profile shows Struggling, the level it counts as). Show "carried over" next to a round whose numbers come from an earlier round or the GST. The progress report row (`ProgressSectionReport`) has `carriedOver` and `notAssessed` next to `assessed`; dashboard round tiles (`RoundSnapshot.carriedOver`, null for CRLA); tutor reminders have a new kind `TutorReminderKind.noGst` (learners without a GST at BOSY).
 
+Imported readings (since 2026-11-10): a reading imported from ma's workbook may have **no passage** (`PhilIriReading.isUntitled`, `passageId` null): show its title as **"Untitled"** and its word count from `importedWordCount`; there are no words to tap, no questions to answer, and the ViewModel refuses edits of it ("This reading was imported without a passage (Untitled) and cannot be edited here."), though it can be deleted. A reading may also have **comprehension only**: its `PhilIriPassageResult.wordReadingAssumed` is true and word recognition, speed, accuracy and word reading level are null: show them as **"Not assessed"**, as for a round's `wordReadingAssumed`.
+
 ### Finalize
 Build: admin    Roles: admin / coordinator
 Calls:
