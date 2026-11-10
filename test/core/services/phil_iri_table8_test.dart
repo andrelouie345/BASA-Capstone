@@ -71,6 +71,7 @@ void main() {
     final t = PhilIriThresholds.fromMap({'speed_fast_min': 151});
     expect(t.comprehensionStrugglingMax, 40);
     expect(t.toMap()['comprehension_struggling_max'], 40);
+    t.validate(); // loads with 40 and validates (plan Review Focus 3)
   });
 
   test('band edges', () {

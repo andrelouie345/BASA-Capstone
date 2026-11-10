@@ -166,6 +166,9 @@ Future<void> rebuildPhilIriReadingsForV26(Database db) async {
   });
 }
 
+/// No longer called by the upgrade since v41 (rebuildPhilIriReadingsForV41
+/// covers v26-v40 devices); kept for its test and as the record of v39.
+///
 /// v39 upgrade (cloud 20261029010000; spec 2026-10-29 word recognition
 /// bands): the three level columns also allow 'struggling'. Same
 /// copy-and-rename as v26, but the column list comes from the old table so

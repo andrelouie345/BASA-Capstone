@@ -79,5 +79,10 @@ Sources: ma's messages of 2026-11-09 (session transcript 83fcb11d); `sample-file
 `lib/core/CLAUDE.md` (Phil-IRI rules notes, v41), `CLAUDE.md` (Phil-IRI line), README 2b, `docs/handoff/screens/phil-iri.md` (status, assessed flags, carried-over column for the screens), import spec D9 (D18).
 
 ## Questions on ma's list (do not block R1)
-- D2: what a Struggling comprehension gives for each word reading row (BASA: Struggling).
-- D9: a learner with no GST and no reading: Grade 1 (workbook) or 3 levels down (BASA)?
+Open:
+- D2: what a Struggling comprehension gives for each word reading row (BASA: Struggling for every row; Non-Reader stays).
+- FLT (Foundational Literacy Test; added 2026-11-10 after the final review): an FLT reading has no comprehension, so under D4 it never counts as assessed and an FLT-only learner stays "not assessed" in progress and reminders. Does an FLT reading count as assessed at BOSY, or must the learner also read a graded passage with comprehension? Is the FLT given to every learner or only to new enrollees/transferees? Hook if yes: one condition in `philIriRoundResults` (comprehension not required when the reading's collection has `has_comprehension` false, or is school-owned), keyed on the collection, never on the name "FLT"; no migration (the status is never stored).
+- Display (owner/UI): progress and dashboard show carried/not-assessed counts for rounds not yet open or not scheduled (e.g. "EOSY NOT SCHEDULED · carried 3"); blank them, or keep them?
+
+Answered:
+- D9 (no GST and no reading: Grade 1 as in the workbook, or 3 levels down): ma, 2026-11-09: every learner must have a GST and a reading, no exceptions. BASA keeps the 3-levels-down stand-in, flagged, and chases the gap with the BOSY no-GST reminder (D13).

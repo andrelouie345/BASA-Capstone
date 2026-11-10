@@ -77,6 +77,9 @@ class PhilIriReportResults {
   final Map<PhilIriRound, PhilIriAssessment> sessions;
   /// The GST that counts (taken by asOf, score above 0), if any.
   final PhilIriGstResult? gst;
+  /// A GST was taken by asOf, whatever its score (a 0 is not counted in
+  /// [gst], but the learner did take it): the tutor's no-GST reminder.
+  final bool gstTaken;
   /// Nothing counts at all (no reading; no GST, or a GST of 0): reports and
   /// ARAL assume Struggling, 3 levels down ([philIriNotAssessedResult]).
   final bool notAssessed;
@@ -88,6 +91,7 @@ class PhilIriReportResults {
     required this.sessions,
     required this.gst,
     required this.notAssessed,
+    this.gstTaken = false,
   });
 
   PhilIriRoundResult round(PhilIriRound r) => rounds.firstWhere((x) => x.round == r);
@@ -800,6 +804,7 @@ class PhilIriViewModel {
       sessions: sessions,
       gst: gst,
       notAssessed: philIriNothingAssessed(rounds),
+      gstTaken: res.gst != null && byDate(res.gst!.takenAt),
     );
   }
 

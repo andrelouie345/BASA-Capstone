@@ -148,8 +148,9 @@ class AralClassNotice {
 }
 
 /// In display order (spec D3): overdue assessments, check-ins due, open-round
-/// assessments, no IRIP, no session lately.
-enum TutorReminderKind { overdueAssessment, checkinDue, openAssessment, noIrip, noSessionLately, noGst }
+/// assessments, learners without a GST (BOSY; spec 2026-11-09 D13), no IRIP,
+/// no session lately.
+enum TutorReminderKind { overdueAssessment, checkinDue, openAssessment, noGst, noIrip, noSessionLately }
 
 class ReminderLearner {
   final int studentId;
@@ -506,7 +507,7 @@ class ReminderViewModel {
           if (round == PhilIriRound.bosy) {
             final noGst = [
               for (final st in learners.values)
-                if (philIri[st.id]!.gst == null) ReminderLearner(st.id!, st.lrn, _name(st)),
+                if (!philIri[st.id]!.gstTaken) ReminderLearner(st.id!, st.lrn, _name(st)),
             ]..sort(_byName);
             if (noGst.isNotEmpty) {
               final closed = status == RoundStatus.closed;

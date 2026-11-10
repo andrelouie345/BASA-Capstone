@@ -296,7 +296,7 @@ class BosyMasterlistEntry {
   /// No BOSY result at all (no finished BOSY reading, no GST above 0 by
   /// asOf): listed anyway, with the assumed Struggling, 3 levels down.
   final bool notAssessed;
-  final PhilIriLevel profile;      // Frustration or Non-Reader
+  final PhilIriLevel profile;      // Frustration, Struggling or Non-Reader
   final int adjustedLevel;         // her ADJ GR; 0 for a Non-Reader
   final int? levelsDown;           // null for a Non-Reader
   final double? comprehension;     // BOSY carried comprehension (0-1); null if blank
@@ -445,9 +445,6 @@ class NlaReportViewModel {
   static Set<PhilIriRound> assessedIn(PhilIriReportResults results) =>
       {for (final r in PhilIriRound.values) if (results.status(r) == PhilIriRoundStatus.assessed) r};
 
-  /// The Phil-IRI rounds a learner of [sectionId] is assessed in by [asOf]
-  /// (YYYY-MM-DD), per [assessedIn]. No access check: the caller decides who
-  /// may see the learner (tutor reminders: the tutor's own sections).
   /// A learner's Phil-IRI year as reports count it, by [asOf] (YYYY-MM-DD).
   /// No access check: the caller decides who may see the learner (tutor
   /// reminders: the tutor's own sections).
@@ -458,15 +455,6 @@ class NlaReportViewModel {
     required String asOf,
   }) =>
       _philIri.reportResults(studentId: studentId, sectionId: sectionId, schoolYear: schoolYear, asOf: asOf);
-
-  Future<Set<PhilIriRound>> assessedPhilIriRounds({
-    required int studentId,
-    required int sectionId,
-    required String schoolYear,
-    required String asOf,
-  }) async =>
-      assessedIn(await _philIri.reportResults(
-          studentId: studentId, sectionId: sectionId, schoolYear: schoolYear, asOf: asOf));
 
   /// The Phil-IRI rounds [schoolId]'s calendar holds in [year], or null when
   /// it has no Phil-IRI window that year (skipped ones count as windows).
@@ -482,7 +470,7 @@ class NlaReportViewModel {
   }
 
   /// The masterlist of learners not grade level ready at BOSY, per Grade 4-10
-  /// section (workbook sheet "BOSY Report"): BOSY profile Frustration or
+  /// section (workbook sheet "BOSY Report"): BOSY profile Frustration, Struggling or
   /// Non-Reader (adjusted level below the grade), by name. Learners with no
   /// BOSY result are listed too, flagged (owner 2026-10-19). Same access as
   /// [report].

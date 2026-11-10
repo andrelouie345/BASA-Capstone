@@ -43,7 +43,9 @@ Academic history (age, elementary school, address), the Readability sheet and th
 | D18 | No auto sync. The order is: import → upload → tutors download before assessing that round (guide). |
 | D19 | (Added 2026-11-09, while planning.) One upload carries at most `maxPackageBytes` (6 MB, `sync_upload_rules.dart`); a whole grade (G7 sample: ~2,400 sessions and readings plus one row per counted miscue) likely exceeds it. The import works **in batches that fit one upload**: the preview estimates each ticked section's upload size plus the device's unsent work; when the ticked sections don't fit, the import refuses and says how many do ("import these, upload, then the rest"). The one-time lock greys out imported sections next time. Sync is not changed. Rejected: splitting uploads in sync (touches the approved sync design); raising the limit (measured only to 8 MB, self-hosted servers may be stricter). |
 
-## Open questions for ma (not blockers)
+## Questions for ma (all answered 2026-11-09; kept as the record)
+
+Open questions now live in the rules update spec (`2026-11-09-phil-iri-rules-update-design.md`, *Questions on ma's list*).
 
 Source of every figure: `sample-files/GradeE07_Phil-IRI-ARAL Reading Assessments_shared.xlsx`, the 29 section sheets with learners (of `01`–`40`), read with masking (no names) on 2026-11-09. Columns: BOSY passage `S`, MOSY 1 `AV`, MOSY 2 `BY`; each round block's passage list is the set picked in its header (`R10` BOSY, `AU10` MOSY 1, `BX10` MOSY 2, `DA10` MOSY 3, `ED10` EOSY; the drop-down is `XLOOKUP(R13, AlphaList!K13:AC13, ...)`).
 
@@ -53,17 +55,20 @@ Source of every figure: `sample-files/GradeE07_Phil-IRI-ARAL Reading Assessments
    - Question: for the BOSY IRA (GST validation), should Grade 7 learners read the A–D graded passages (as her workbook does), Lili (as BASA has it), or either? If A–D, the fix is content only: set those passages to "any round" (`test_type` null), like levels 2–6; the clash then disappears for imports and live use. Same question for Grades 8–10 once their workbooks are seen.
    - Cost of each answer: "A–D may be read in BOSY" = data only, in two places: (a) the seed file (`'mosy'` → null for G7 A1–D2), so every new server (cloud or a school's LAN server) is right from the start, since the filing comes from the seed; (b) a one-off update on servers that already exist (the content command `phil-iri-passage-edit <passageId> test -`, once per passage, or a short SQL snippet in the README's seed section), because the seed leaves existing passages alone. A read passage's round may still change (`lock_phil_iri_read_passage` locks only text, word count, level and collection). "Lili only" = nothing: BASA already works that way; imports flag the workbook's Dust readings (D8).
    - Either way the import reproduces the workbook's readings as given: round clashes are imported (D8), the flag is a preview line only.
+   - **Answered (ma, 2026-11-09):** any grade-level passage may be used in BOSY, MOSY and EOSY, each passage only once per learner. So: the content fix (G7 A–D `test_type` null, seed + existing servers), a follow-up piece after R2.
 2. **Lower-grade passages.** (Cost: "count at the passage's level" = a rule change, not data: adjusted level in `phil_iri_results.dart`, the own-grade check in cloud and device, and with them reports, ARAL placement and NLA counts; a migration marked `App update required: yes`. "Keep counting from the learner's grade" = nothing.)
    - Workbook: 4 readings below Grade 7: sheet `20` (two BOSY "2A Pam's Cat", one MOSY 1 "4C-Pre Anansi's Web") and sheet `05` (one MOSY 1 "3D Waiting for Her Sister"). The "Phil-IRI" list offers levels 2–7, so a teacher can pick them.
    - Both sides count the adjusted level from the learner's grade, not the passage's: the workbook's formula (`AN14`: Instructional → `$M$7`, the current grade; Independent → `$M$7+1`; Frustration → `$M$7` minus 1–4 by comprehension) and BASA (`phil_iri_results.dart`, "the adjusted grade level is counted from the learner's grade"). A Grade 7 learner Instructional on Pam's Cat shows as Grade 7 level.
    - The Teacher Scoresheet's own instructions (`Phil-IRI Graded Passages for Assessment_TeacherScoresheet.docx`, first page) do this on purpose: "if Juan, a Grade 7 student, is reported as three grade levels below, he should have a copy of the Level 4 Phil-IRI text".
    - Question: should a reading of a lower-grade passage count at the **passage's** level (Instructional on Grade 4 = adjusted level 4)? That changes live BASA, not just imports: its own piece. Until then D8 skips them.
+   - **Answered (ma, 2026-11-09):** those 4 readings are incorrect: passages must be grade-level appropriate, not picked by adjusted level (the adjusted level only guides tutorial materials). D8's skip stands; no passage-level scoring.
 3. **MOSY 2 rows.** (Cost: nothing for any answer; it only sets the FAQ wording.) 129 MOSY 2 passages in three sections, MOSY 2 not done anywhere yet:
    - Sheet `05`: 48 rows, passage only (the "time" is the formula's automatic 1 minute for one-minute reading; no words read, miscues or comprehension).
    - Sheet `20`: 47 rows, passage only.
    - Sheet `21`: 34 rows with words read and miscues typed but no comprehension: looks like readings in progress.
    - 127 of the 129 are "7D2 Ecosystems", the same passage those learners read in MOSY 1.
    - Question: are sheets `05` and `20` the passage written in ahead of time, and is sheet `21` a re-read of Ecosystems (MOSY 2 reading the MOSY 1 passage again)? D9 skips all 129 as incomplete either way; the question is whether the plan for MOSY 2 was a re-read, which BASA refuses live.
+   - **Answered indirectly (ma, 2026-11-09):** each passage is used only once per learner, so a MOSY 2 re-read of Ecosystems is not intended; a reading is complete with words read and time (comprehension may come separately). Effect after D9's amendment: sheets `05`/`20` (passage only) stay skipped; sheet `21` rows with words read and time import as word readings and are flagged as re-reads (D8). FAQ wording follows this.
 
 ## Architecture
 

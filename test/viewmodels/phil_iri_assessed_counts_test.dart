@@ -23,8 +23,9 @@ import '../helpers/offline_owner.dart';
 const _year = '2026-2027';
 const _tutor = '00000000-0000-0000-0000-00000000ab42';
 // Learners: A GST only, B GST + reading, C reading only, D nothing (section 81);
-// E Non-Reader with 0/10, F GST 10/40 only (section 82); G Grade 2 (section 83).
-const a = 601, b = 602, c = 603, d = 604, e = 605, f = 606, g = 607;
+// E Non-Reader with 0/10, F GST 10/40 only, H GST 0/40 only (section 82);
+// G Grade 2 (section 83).
+const a = 601, b = 602, c = 603, d = 604, e = 605, f = 606, g = 607, h = 608;
 
 String _day(DateTime t) =>
     '${t.year.toString().padLeft(4, '0')}-${t.month.toString().padLeft(2, '0')}-${t.day.toString().padLeft(2, '0')}';
@@ -50,7 +51,9 @@ void main() {
     }
     await db.insert('tutor_section_assignments',
         {'id': 1, 'tutor_id': _tutor, 'section_id': 81, 'assigned_at': '2026-06-01'});
-    for (final (id, section) in [(a, 81), (b, 81), (c, 81), (d, 81), (e, 82), (f, 82), (g, 83)]) {
+    await db.insert('tutor_section_assignments',
+        {'id': 2, 'tutor_id': _tutor, 'section_id': 82, 'assigned_at': '2026-06-01'});
+    for (final (id, section) in [(a, 81), (b, 81), (c, 81), (d, 81), (e, 82), (f, 82), (g, 83), (h, 82)]) {
       await db.insert('students', {'id': id, 'lrn': '99999999$id', 'last_name': 'L$id', 'first_name': 'F', 'school_id': 1,
           'sex': id.isEven ? 'F' : 'M'});
       await db.insert('enrollments', {'student_id': id, 'section_id': section, 'school_year': _year, 'status': 'active'});
@@ -91,6 +94,7 @@ void main() {
     await read(c, 81, 0, 8);
     await read(e, 82, 100, 0);
     await vm.recordGst(studentId: f, sectionId: 82, schoolYear: _year, totalScore: 10);
+    await vm.recordGst(studentId: h, sectionId: 82, schoolYear: _year, totalScore: 0);
   });
 
   test('progress counts assessed, carried and not assessed', () async {
@@ -131,8 +135,16 @@ void main() {
     final open = r.reminders.singleWhere(
         (x) => x.kind == TutorReminderKind.openAssessment && x.section?.id == 81);
     expect(open.learners.map((l) => l.studentId).toSet(), {a, d});
-    final noGst = r.reminders.singleWhere((x) => x.kind == TutorReminderKind.noGst);
+    final noGst = r.reminders.singleWhere((x) => x.kind == TutorReminderKind.noGst && x.section?.id == 81);
     expect(noGst.learners.map((l) => l.studentId).toSet(), {c, d});
+  });
+
+  test('a GST of 0 is still a GST for the reminder', () async {
+    // H took the GST and scored 0: reports don't count it, but the tutor
+    // already gave it, so only E (no GST at all) is listed (final review I1).
+    final r = await t.reminderVm.tutorReminders(_tutor, _year, today: now);
+    final noGst = r.reminders.singleWhere((x) => x.kind == TutorReminderKind.noGst && x.section?.id == 82);
+    expect(noGst.learners.map((l) => l.studentId).toSet(), {e});
   });
 
   test('Phil-IRI tile carries the count; CRLA tile has none', () async {
