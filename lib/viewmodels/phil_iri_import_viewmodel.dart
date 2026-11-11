@@ -51,6 +51,7 @@ import '../core/services/phil_iri_import_headers.dart';
 import '../core/services/phil_iri_import_matching.dart';
 import '../core/services/phil_iri_results.dart';
 import '../core/services/phil_iri_scoresheet_reader.dart';
+import '../core/services/phil_iri_scoresheet_template.dart';
 import '../core/services/phil_iri_workbook_reader.dart';
 import '../core/services/sync_upload_rules.dart';
 import '../core/services/table_reader.dart';
@@ -186,7 +187,28 @@ class PhilIriImportChoices {
   const PhilIriImportChoices({this.sheets = const {}, this.picks = const {}, this.dates = const {}});
 }
 
+/// What an import wrote. [failed]: the learner's row ("sheet 03, row 17";
+/// scoresheet "LRN ...") -> why the device refused it (the others were
+/// written). [nothingToImport]: ticked sheets with only skipped rows (not
+/// locked).
+class PhilIriImportResult {
+  final PhilIriImportPreview preview;
+  final List<int> sessionIds;
+  final List<int> gstIds;
+  final Map<String, String> failed;
+  final List<String> nothingToImport;
+
+  const PhilIriImportResult({
+    required this.preview,
+    this.sessionIds = const [],
+    this.gstIds = const [],
+    this.failed = const {},
+    this.nothingToImport = const [],
+  });
+}
+
 class PhilIriImportViewModel {
+  static const staleMessage = 'The data changed since the preview. Preview again before importing.';
   static const oneTimeWarningText =
       "This makes BASA the record for this section's school year. You can't import this section's workbook again.";
   static const forbiddenMessage = 'Forbidden: only an admin or coordinator imports Phil-IRI results.';
@@ -205,6 +227,7 @@ class PhilIriImportViewModel {
   final PhilIriImportWriter _writer;
   final SyncUploadLocalRepository _uploadLocal;
   final String _headersDir;
+  final int _maxBytes;
 
   PhilIriImportViewModel({
     required AuthViewModel auth,
@@ -220,8 +243,10 @@ class PhilIriImportViewModel {
     required PhilIriImportWriter writer,
     required SyncUploadLocalRepository uploadLocal,
     required String headersDir,
+    int? maxBytes,
     Logger? logger,
-  })  : _auth = auth,
+  })  : _maxBytes = maxBytes ?? maxPackageBytes,
+        _auth = auth,
         _philIri = philIri,
         _calendar = calendar,
         _sessions = sessions,
@@ -326,16 +351,7 @@ class PhilIriImportViewModel {
   Future<PhilIriImportPreview> previewScoresheet(int sectionId, List<int> bytes, String fileName) async {
     _requireImporter();
     _log('previewScoresheet(section: $sectionId, file: $fileName)');
-    final section = await _sections.getById(sectionId);
-    if (section == null) throw ViewModelException('No section with id $sectionId.');
-    final me = _auth.currentUser!;
-    if (me.schoolId != null && me.schoolId != section.schoolId) {
-      throw const ViewModelException('Forbidden: that section is in another school.');
-    }
-    final grade = int.tryParse(section.gradeLevel);
-    if (grade == null || grade < 4 || grade > 10) {
-      throw ViewModelException('Phil-IRI is for Grade 4-10 sections only (section $sectionId is Grade ${section.gradeLevel}).');
-    }
+    final (section, grade) = await _ownSection(sectionId);
     final PhilIriImportPlan plan;
     try {
       plan = readPhilIriScoresheet(bytes, fileName, await _headers());
@@ -366,6 +382,37 @@ class PhilIriImportViewModel {
       uploadBytes: _uploadBytes(rows),
     );
     return _finish(plan, [preview], const {}, run);
+  }
+
+  /// The section [sectionId] of the signed-in user's school (any school:
+  /// the superadmin), Grade 4-10; with its grade.
+  Future<(Section, int)> _ownSection(int sectionId) async {
+    final section = await _sections.getById(sectionId);
+    if (section == null) throw ViewModelException('No section with id $sectionId.');
+    final me = _auth.currentUser!;
+    if (me.schoolId != null && me.schoolId != section.schoolId) {
+      throw const ViewModelException('Forbidden: that section is in another school.');
+    }
+    final grade = int.tryParse(section.gradeLevel);
+    if (grade == null || grade < 4 || grade > 10) {
+      throw ViewModelException('Phil-IRI is for Grade 4-10 sections only (section $sectionId is Grade ${section.gradeLevel}).');
+    }
+    return (section, grade);
+  }
+
+  /// The grade-leveled passages a school's sections read (the pool and the
+  /// school's own collections) and which of them are active.
+  Future<(List<PhilIriPassage>, Set<int>)> _schoolPassages(int schoolId) async {
+    final list = <PhilIriPassage>[];
+    final active = <int>{};
+    for (final PhilIriCollection c in await _collections.getAll()) {
+      if (!c.isGradeLeveled || (c.schoolId != null && c.schoolId != schoolId)) continue;
+      for (final p in await _passages.getByCollection(c.id!)) {
+        list.add(p);
+        if (p.isActive && c.isActive) active.add(p.id!);
+      }
+    }
+    return (list, active);
   }
 
   PhilIriImportPreview _headerStop(PhilIriImportPlan plan) => PhilIriImportPreview(
@@ -510,6 +557,214 @@ class PhilIriImportViewModel {
     return bytes;
   }
 
+  // ---- import (Task 10) ----
+
+  /// Imports the ticked sheets of a workbook. [fingerprint] = the one of
+  /// the preview the coordinator saw (with the same [choices]); the preview
+  /// is rebuilt and the import refused when anything changed. One device
+  /// transaction per learner; each section's lock with its last learner.
+  /// No sync: the coordinator uploads afterwards (D18).
+  Future<PhilIriImportResult> importWorkbook(List<int> bytes, PhilIriImportChoices choices,
+      {required String fingerprint}) async {
+    _requireImporter();
+    _log('importWorkbook(${bytes.length} bytes, sheets: ${(choices.sheets.toList()..sort()).join(', ')})');
+    if (choices.sheets.isEmpty) throw const ViewModelException('Tick at least one section.');
+    final preview = await previewWorkbook(bytes, choices: choices);
+    if (preview.headerIssues.isNotEmpty) {
+      throw const ViewModelException('The workbook has header issues: fix them in the Headers step and preview again.');
+    }
+    for (final sheet in choices.sheets.toList()..sort()) {
+      final s = preview.sections.where((x) => x.ref.sheet == sheet).firstOrNull;
+      if (s == null) throw ViewModelException('There is no section sheet $sheet in this workbook.');
+      if (s.status != PhilIriImportSectionPreview.importable) {
+        throw ViewModelException("Sheet $sheet can't be imported: ${s.status}.");
+      }
+    }
+    // In workbook order (the upload-size count follows it).
+    final ticked = preview.sections.where((s) => choices.sheets.contains(s.ref.sheet)).toList();
+    final bySection = <int, List<String>>{};
+    for (final s in ticked) {
+      (bySection[s.section!.id!] ??= []).add(s.ref.sheet);
+    }
+    for (final sheets in bySection.values.where((l) => l.length > 1)) {
+      final s = ticked.firstWhere((x) => x.ref.sheet == sheets.first);
+      throw ViewModelException('sheets ${sheets.join(' and ')} both name section ${s.section!.sectionName}: tick one');
+    }
+    if (preview.fingerprint != fingerprint) throw const ViewModelException(staleMessage);
+
+    // A date for every round that has something to import (GST: BOSY's).
+    for (final round in PhilIriRound.values) {
+      final needed = ticked.any((s) => s.rows.any((r) =>
+          r.outcome != PhilIriImportOutcome.skipped &&
+          ((r.session != null && r.reading!.round == round) || (r.gstResult != null && round == PhilIriRound.bosy))));
+      if (!needed) continue;
+      final date = preview.proposedDates[round];
+      if (date == null || date.trim().isEmpty) throw ViewModelException('Give a date for ${round.label}.');
+      if (!_isDate(date)) throw ViewModelException('${round.label}: $date is not a date (YYYY-MM-DD).');
+    }
+    _checkUploadSize(ticked, preview.unsentBytes);
+    return _write(preview, ticked, lock: true);
+  }
+
+  /// Imports a filled scoresheet file of one section (repeatable: what BASA
+  /// has is skipped, never overwritten; no lock). [fingerprint] as in
+  /// [importWorkbook].
+  Future<PhilIriImportResult> importScoresheet(int sectionId, List<int> bytes, String fileName,
+      {required String fingerprint}) async {
+    _requireImporter();
+    _log('importScoresheet(section: $sectionId, file: $fileName)');
+    final preview = await previewScoresheet(sectionId, bytes, fileName);
+    if (preview.headerIssues.isNotEmpty) {
+      throw const ViewModelException('The file has header issues: fix them in the Headers step and preview again.');
+    }
+    if (preview.fingerprint != fingerprint) throw const ViewModelException(staleMessage);
+    _checkUploadSize(preview.sections, preview.unsentBytes);
+    return _write(preview, preview.sections, lock: false);
+  }
+
+  static bool _isDate(String s) {
+    if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(s)) return false;
+    final d = DateTime.tryParse(s);
+    return d != null && d.toIso8601String().substring(0, 10) == s;
+  }
+
+  static String _sectionLabel(PhilIriImportSectionPreview s) => '${s.ref.sheet} ${s.section!.sectionName}';
+
+  /// D19: the sections (in order) and the device's unsent work must fit one
+  /// upload; else says how many fit.
+  void _checkUploadSize(List<PhilIriImportSectionPreview> sections, int unsent) {
+    for (final s in sections) {
+      if (s.uploadBytes > _maxBytes) {
+        throw ViewModelException('Too much for one upload: sheet ${_sectionLabel(s)} alone is '
+            '${(s.uploadBytes / 1024).ceil()} KB, more than one upload (${(_maxBytes / 1024).floor()} KB).');
+      }
+    }
+    var total = unsent;
+    final fit = <PhilIriImportSectionPreview>[];
+    for (final s in sections) {
+      if (total + s.uploadBytes > _maxBytes) break;
+      total += s.uploadBytes;
+      fit.add(s);
+    }
+    if (fit.length == sections.length) return;
+    if (fit.isEmpty) {
+      throw const ViewModelException('Too much for one upload: none of the ticked sections fit with the work '
+          'not uploaded yet. Upload first.');
+    }
+    throw ViewModelException('Too much for one upload: ${fit.length} of the ticked sections fit '
+        '(${fit.map(_sectionLabel).join(', ')}). Import them, upload, then import the rest.');
+  }
+
+  static String _reason(Object e) => e is ViewModelException ? e.message : '$e';
+
+  /// One writeLearner per learner; a refused learner is reported and the
+  /// others go on. [lock]: each section's lock goes with its last learner,
+  /// alone when that one is refused but another was written.
+  Future<PhilIriImportResult> _write(PhilIriImportPreview preview, List<PhilIriImportSectionPreview> sections,
+      {required bool lock}) async {
+    final sessionIds = <int>[];
+    final gstIds = <int>[];
+    final failed = <String, String>{};
+    final nothing = <String>[];
+    for (final s in sections) {
+      final section = s.section!;
+      final byStudent = <int, List<PhilIriImportRow>>{};
+      for (final r in s.rows.where((r) => r.outcome != PhilIriImportOutcome.skipped)) {
+        (byStudent[r.student!.id!] ??= []).add(r);
+      }
+      if (byStudent.isEmpty) {
+        nothing.add(s.ref.sheet);
+        continue;
+      }
+      final theLock = lock
+          ? PhilIriWorkbookImport(schoolId: section.schoolId, sectionId: section.id!, schoolYear: section.schoolYear)
+          : null;
+      final students = byStudent.keys.toList();
+      var written = 0;
+      var locked = false;
+      for (final id in students) {
+        final rows = byStudent[id]!;
+        final last = id == students.last;
+        final ref = lock ? rows.first.learnerRef : 'LRN ${rows.first.learner.lrn}';
+        try {
+          final w = await _writer.writeLearner(
+            sessions: [for (final r in rows) if (r.session != null) r.session!],
+            gst: rows.where((r) => r.gstResult != null).firstOrNull?.gstResult,
+            lock: last ? theLock : null,
+          );
+          sessionIds.addAll(w.sessions);
+          if (w.gst != null) gstIds.add(w.gst!);
+          written++;
+          if (last && theLock != null) locked = true;
+        } catch (e) {
+          failed[ref] = _reason(e);
+          _log('import: $ref refused: ${_reason(e)}');
+        }
+      }
+      if (theLock != null && !locked && written > 0) {
+        try {
+          await _writer.writeLearner(sessions: const [], lock: theLock);
+        } catch (e) {
+          failed['sheet ${s.ref.sheet} (the one-time lock)'] = _reason(e);
+        }
+      }
+    }
+    _log('import: ${sessionIds.length} sessions, ${gstIds.length} GST, ${failed.length} refused');
+    return PhilIriImportResult(
+      preview: preview,
+      sessionIds: sessionIds,
+      gstIds: gstIds,
+      failed: failed,
+      nothingToImport: nothing,
+    );
+  }
+
+  // ---- scoresheet template ----
+
+  /// The section's scoresheet file (.xlsx): its learners (by last, then
+  /// first name) and the grade's active passages in the lists.
+  Future<List<int>> scoresheetTemplate(int sectionId) async {
+    _requireImporter();
+    _log('scoresheetTemplate(section: $sectionId)');
+    final (section, _) = await _ownSection(sectionId);
+    String k(String? s) => (s ?? '').trim().toLowerCase();
+    final learners = [...await _students.getBySection(section.id!)]
+      ..sort((a, b) {
+        final c = k(a.lastName).compareTo(k(b.lastName));
+        return c != 0 ? c : k(a.firstName).compareTo(k(b.firstName));
+      });
+    final (passages, active) = await _schoolPassages(section.schoolId);
+    return buildPhilIriScoresheetTemplate(
+      section: section,
+      learners: learners,
+      passages: passages.where((p) => active.contains(p.id)).toList(),
+      headers: await _headers(),
+    );
+  }
+
+  // ---- header labels (device-saved, D14) ----
+
+  /// Every header field and the label the readers look for on this device.
+  Future<Map<String, String>> headerLabels() async {
+    _requireImporter();
+    final h = await _headers();
+    return {for (final f in PhilIriImportHeaders.defaults.keys) f: h.label(f)};
+  }
+
+  /// Changes one header label; returns the error, or null when saved.
+  Future<String?> setHeader(String field, String label) async {
+    _requireImporter();
+    _log('setHeader($field)');
+    return (await _headers()).set(field, label);
+  }
+
+  /// Back to BASA's default labels.
+  Future<void> resetHeaders() async {
+    _requireImporter();
+    _log('resetHeaders()');
+    await (await _headers()).reset();
+  }
+
   // ---- header step ----
 
   /// The first [count] values under the header [label] in [field]'s column
@@ -574,14 +829,8 @@ class _Run {
   Future<List<PhilIriPassage>> _passagesFor(int schoolId) async {
     final cached = _passagesBySchool[schoolId];
     if (cached != null) return cached;
-    final list = <PhilIriPassage>[];
-    for (final PhilIriCollection c in await vm._collections.getAll()) {
-      if (!c.isGradeLeveled || (c.schoolId != null && c.schoolId != schoolId)) continue;
-      for (final p in await vm._passages.getByCollection(c.id!)) {
-        list.add(p);
-        if (p.isActive && c.isActive) _activePassages.add(p.id!);
-      }
-    }
+    final (list, active) = await vm._schoolPassages(schoolId);
+    _activePassages.addAll(active);
     return _passagesBySchool[schoolId] = list;
   }
 

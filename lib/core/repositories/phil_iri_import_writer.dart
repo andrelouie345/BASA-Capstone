@@ -28,12 +28,16 @@ class PhilIriImportedSession {
   });
 }
 
+/// What [PhilIriImportWriter.writeLearner] wrote: the session ids in the
+/// order given and the GST result's id (null: no GST).
+typedef PhilIriImportWritten = ({List<int> sessions, int? gst});
+
 abstract class PhilIriImportWriter {
   /// One transaction: [gst], then each session (created in progress, its
   /// reading, miscues and answers, then completed), then [lock]. A refusal
   /// by any device trigger rolls the whole call back and is rethrown.
-  /// Returns the new session ids, in the order given.
-  Future<List<int>> writeLearner({
+  /// Returns the new session ids, in the order given, and the GST's id.
+  Future<PhilIriImportWritten> writeLearner({
     required List<PhilIriImportedSession> sessions,
     PhilIriGstResult? gst,
     PhilIriWorkbookImport? lock,

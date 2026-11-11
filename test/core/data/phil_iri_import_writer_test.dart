@@ -74,7 +74,7 @@ void main() {
       db.query(table, where: where, whereArgs: args);
 
   test('writes a learner: negative ids, completed, all in the next upload package', () async {
-    final ids = await writer.writeLearner(
+    final written = await writer.writeLearner(
       sessions: [
         imported(
           session(701, PhilIriRound.bosy),
@@ -90,7 +90,10 @@ void main() {
       gst: PhilIriGstResult(
           studentId: 701, schoolId: 1, sectionId: 70, schoolYear: _year, maxScore: 40, totalScore: 22, takenAt: '2026-06-20'),
     );
+    final ids = written.sessions;
     expect(ids, hasLength(2));
+    expect(written.gst, isNegative);
+    expect((await rows('phil_iri_gst_results', 'id = ?', [written.gst])).single['student_id'], 701);
     expect(ids.every((id) => id < 0), isTrue);
 
     final sessions = await rows('phil_iri_assessments', 'student_id = ?', [701]);
@@ -126,7 +129,7 @@ void main() {
   });
 
   test('scoresheet session: answers stored, is_correct from the key', () async {
-    final ids = await writer.writeLearner(sessions: [
+    final ids = (await writer.writeLearner(sessions: [
       imported(
         session(702, PhilIriRound.bosy, source: PhilIriImportSource.scoresheet),
         PhilIriReading(assessmentId: 0, sequenceNo: 1, passageId: 217, readingSeconds: 100),
@@ -136,7 +139,7 @@ void main() {
           PhilIriAnswer(readingId: 0, questionId: 2173, isCorrect: false), // not answered
         ],
       ),
-    ]);
+    ])).sessions;
     final reading = (await rows('phil_iri_readings', 'assessment_id = ?', [ids.single])).single;
     final answers = await db.query('phil_iri_answers', where: 'reading_id = ?', whereArgs: [reading['id']], orderBy: 'question_id');
     expect(answers.map((a) => a['is_correct']), [1, 0, 0]);
@@ -144,7 +147,7 @@ void main() {
   });
 
   test('writes an Untitled and a comprehension-only reading', () async {
-    final ids = await writer.writeLearner(sessions: [
+    final ids = (await writer.writeLearner(sessions: [
       imported(
         session(703, PhilIriRound.bosy),
         PhilIriReading(
@@ -160,7 +163,7 @@ void main() {
         session(703, PhilIriRound.mosy2),
         PhilIriReading(assessmentId: 0, sequenceNo: 1, passageId: null, importedCorrect: 5, importedTotal: 8),
       ),
-    ]);
+    ])).sessions;
     expect(ids, hasLength(3));
     Future<Map<String, Object?>> readingOf(int sessionId) async =>
         (await rows('phil_iri_readings', 'assessment_id = ?', [sessionId])).single;

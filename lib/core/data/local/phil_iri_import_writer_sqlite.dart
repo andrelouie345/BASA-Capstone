@@ -21,17 +21,19 @@ class PhilIriImportWriterSqlite implements PhilIriImportWriter {
   PhilIriImportWriterSqlite(this.db);
 
   @override
-  Future<List<int>> writeLearner({
+  Future<PhilIriImportWritten> writeLearner({
     required List<PhilIriImportedSession> sessions,
     PhilIriGstResult? gst,
     PhilIriWorkbookImport? lock,
   }) =>
       db.transaction((txn) async {
+        int? gstId;
         if (gst != null) {
           // attempt_no left out (default 0): the AFTER INSERT trigger assigns it.
+          gstId = await nextLocalId(txn);
           await txn.insert('phil_iri_gst_results', {
             ...toSqliteRow(gst.toMap())..remove('attempt_no'),
-            'id': await nextLocalId(txn),
+            'id': gstId,
           });
         }
         final ids = <int>[];
@@ -45,7 +47,7 @@ class PhilIriImportWriterSqlite implements PhilIriImportWriter {
             'id': await nextLocalId(txn),
           });
         }
-        return ids;
+        return (sessions: ids, gst: gstId);
       });
 
   Future<int> _session(DatabaseExecutor txn, PhilIriImportedSession s) async {

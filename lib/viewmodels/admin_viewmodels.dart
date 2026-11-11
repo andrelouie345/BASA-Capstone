@@ -11,6 +11,7 @@ import 'crla_import_viewmodel.dart';
 import 'import_viewmodel.dart';
 import 'learner_history_viewmodel.dart';
 import 'login_log_viewmodel.dart';
+import 'phil_iri_import_viewmodel.dart';
 import 'sync_review_viewmodel.dart';
 import 'tutor_section_assignment_viewmodel.dart';
 import 'user_viewmodel.dart';
@@ -31,6 +32,9 @@ class AdminViewModels {
   /// One learner's progress by school year.
   final LearnerHistoryViewModel learnerHistory;
 
+  /// Phil-IRI results from ma's workbook or a BASA scoresheet file.
+  final PhilIriImportViewModel philIriImport;
+
   AdminViewModels({
     required this.bootstrap,
     required this.users,
@@ -42,5 +46,6 @@ class AdminViewModels {
     required this.aralRosterImport,
     required this.aralReport,
     required this.learnerHistory,
+    required this.philIriImport,
   });
 }
