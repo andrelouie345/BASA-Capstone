@@ -3,7 +3,7 @@
 // The local side of a pull (sync spec section 7): a merge, not a replace.
 // - Tables that don't sync (schools, users, sections, learners, content,
 //   settings, calendar, SRP, ...) are replaced by the server's copy.
-// - The 18 synced tables keep this device's work: new rows (row_version
+// - The 19 synced tables keep this device's work: new rows (row_version
 //   NULL), pulled rows edited or deleted here (sync_changes) and records in
 //   an upload awaiting a decision (sync_pending). Every other row is replaced
 //   by the server's copy, or removed if the server no longer gives it.
@@ -27,6 +27,7 @@ const _originTables = {
   'aral_irip_weeks',
   'aral_checkins',
   'aral_readability_logs',
+  'phil_iri_workbook_imports',
 };
 
 /// "Not waiting in an upload" for row [alias] of synced table [table].
@@ -106,6 +107,9 @@ class SyncLocalRepositorySqlite implements SyncLocalRepository {
         UNION ALL
         SELECT 'Phil-IRI GST result(s)', section_id FROM phil_iri_gst_results a
         WHERE origin = 'local' AND ${_notPending('phil_iri_gst_results', 'a')}
+        UNION ALL
+        SELECT 'Phil-IRI workbook import(s)', section_id FROM phil_iri_workbook_imports a
+        WHERE origin = 'local' AND ${_notPending('phil_iri_workbook_imports', 'a')}
         UNION ALL
         SELECT 'ARAL class(es)', NULL FROM aral_classes a
         WHERE origin = 'local' AND ${_notPending('aral_classes', 'a')}

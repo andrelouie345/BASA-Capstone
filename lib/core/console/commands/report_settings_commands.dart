@@ -64,8 +64,8 @@ void registerReportSettingsCommands(ConsoleRegistry registry, ReportSettingsView
   });
 
   add('report-settings-reset',
-      "report-settings-reset <schoolId> — drop the school's done threshold, auto-approve and offline window so the "
-          "region's apply (online)",
+      "report-settings-reset <schoolId> — drop the school's done threshold, auto-approve, offline window and FLT "
+          "setting so the region's apply (online)",
       (args) async {
     if (args.length != 1) throw const _Usage('Usage: report-settings-reset <schoolId>');
     final schoolId = _school(args[0]);
@@ -93,6 +93,24 @@ void registerReportSettingsCommands(ConsoleRegistry registry, ReportSettingsView
     await vm.setAutoApprove(schoolId, on);
     return 'Auto-approve for ${_who(schoolId)} is now ${onOff(on)}.'
         '${on ? '\nUploads already waiting still need sync-approve.' : ''}${warn()}';
+  });
+
+  add('flt-counts',
+      "flt-counts <region|schoolId> [on|off] — show (this device's copy) or set whether a Phil-IRI reading without "
+          'comprehension questions (the FLT) counts as assessed (no_comprehension_counts_FLT, online)', (args) async {
+    const usage = 'Usage: flt-counts <region|schoolId> [on|off]';
+    if (args.isEmpty || args.length > 2) throw const _Usage(usage);
+    final schoolId = _school(args[0]);
+    if (args.length == 1) {
+      final l = await vm.fltCountsLayers(schoolId);
+      return 'FLT counts as assessed: region ${onOff(l.region)}'
+          '${schoolId == null ? '' : ' · school ${onOff(l.school)}'} · applies ${onOff(l.effective)}';
+    }
+    if (!const ['on', 'off'].contains(args[1])) throw const _Usage(usage);
+    final on = args[1] == 'on';
+    await vm.setFltCounts(schoolId, on);
+    return 'FLT counts as assessed for ${_who(schoolId)} is now ${onOff(on)}. Devices get it after their next '
+        'pull-cloud.${warn()}';
   });
 
   add('offline-days',

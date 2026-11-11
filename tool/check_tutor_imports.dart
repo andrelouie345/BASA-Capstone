@@ -43,6 +43,14 @@ const _adminFiles = [
   'core/services/admin_bootstrap_service.dart',
   'core/services/sf1_importer.dart',
   'core/services/sf1_column_map.dart',
+  // Phil-IRI import (spec 2026-11-09-phil-iri-import-design): admin build only.
+  'viewmodels/phil_iri_import_viewmodel.dart',
+  'core/data/local/phil_iri_import_writer_sqlite.dart',
+  'core/services/phil_iri_workbook_reader.dart',
+  'core/services/phil_iri_scoresheet_reader.dart',
+  'core/services/phil_iri_scoresheet_template.dart',
+  'core/services/phil_iri_import_matching.dart',
+  'core/services/phil_iri_import_headers.dart',
 ];
 
 bool isAdminFile(String path) =>

@@ -131,6 +131,7 @@ IconData _icon(TutorReminderKind k) => switch (k) {
   TutorReminderKind.overdueAssessment => Icons.warning_amber,
   TutorReminderKind.checkinDue => Icons.checklist,
   TutorReminderKind.openAssessment => Icons.fact_check_outlined,
+  TutorReminderKind.noGst => Icons.assignment_late_outlined,
   TutorReminderKind.noIrip => Icons.flag_outlined,
   TutorReminderKind.noSessionLately => Icons.hourglass_empty,
 };

@@ -83,12 +83,26 @@ as a whole, so offline swaps of places or dates apply; app update required:
 no) and `20261025010000` (explicit Data API grants on every table, view and
 sequence: since 2026-10-30 Supabase no longer grants new tables to the API
 roles, so a database built from these files refuses every table without it;
-anon keeps only the failed sign-in log; app update required: no) and
+anon keeps only the failed sign-in log; app update required: no),
 `20261029010000` (Phil-IRI word recognition bands from DepEd: Non-Reader
 <= 35%, a new Struggling level 36-55%, Frustration 56-89%, and profiles from
 Table 8; saved non-reader cut-offs are removed; app update required: **yes**,
-apply only when every device has synced and every upload is decided). Each is
-idempotent.
+apply only when every device has synced and every upload is decided) and
+`20261109010000` (Phil-IRI import: imported sessions marked by an admin or
+coordinator, miscues without a word position, the workbook's correct count,
+and the one-time workbook import lock `phil_iri_workbook_imports`, synced;
+app update required: **yes**, same rule) and `20261109020000` (Phil-IRI rules
+update: comprehension gets a Struggling level, <= 40%; "not assessed" labels
+and who counts as assessed change in the app; app update required: **yes**,
+same rule) and `20261110010000` (report setting `no_comprehension_counts_FLT`,
+true/false, off by default: a Phil-IRI reading from a collection without
+comprehension questions, such as the FLT, counts as assessed; app update
+required: no) and `20261110020000` (Phil-IRI readings imported from the
+workbook without a passage, shown as "Untitled", with a typed word count and
+comprehension total; imported readings may have comprehension only; app
+update required: **yes**, same rule) and `20261110030000` (Phil-IRI: any
+grade-level passage may be read in any round; a passage's test type is only
+a label; app update required: **yes**, same rule). Each is idempotent.
 Do **not** run
 `supabase/migrations_archive/`.
 
