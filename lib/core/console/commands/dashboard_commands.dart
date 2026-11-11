@@ -62,7 +62,8 @@ void _reportsLines(StringBuffer out, String indent, int listed, int notAssessed,
 
 String _round(RoundSnapshot r, double threshold, String tag) {
   final pct = r.share == null ? '' : ' (${progressPercent(r.share)}%)';
-  return '[$tag] ${r.roundName} ${r.window.opensOn} .. ${r.window.closesOn}: ${r.assessed}/${r.enrolled}$pct, '
+  final carried = r.carriedOver == null ? '' : ', ${r.carriedOver} carried over';
+  return '[$tag] ${r.roundName} ${r.window.opensOn} .. ${r.window.closesOn}: ${r.assessed}/${r.enrolled}$pct$carried, '
       '${r.sectionsDone}/${r.sectionCount} section${r.sectionCount == 1 ? '' : 's'} done at ${thresholdPercent(threshold)}';
 }
 

@@ -104,6 +104,13 @@ class XlsxWorkbook {
     return c == null ? null : _value(c);
   }
 
+  /// Every cell of [sheet] that holds a formula, in one pass (for readers that
+  /// ask [isFormula] about thousands of cells).
+  Set<String> formulaRefs(String sheet) => {
+        for (final c in _sheet(sheet).findAllElements('c'))
+          if (c.getElement('f') != null) c.getAttribute('r')!,
+      };
+
   /// Whether the cell holds a formula.
   bool isFormula(String sheet, String ref) =>
       _cell(_sheet(sheet), ref.toUpperCase())?.getElement('f') != null;

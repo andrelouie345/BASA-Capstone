@@ -48,7 +48,8 @@ String _schoolYearCheck(String column) => '''
          AND CAST(substr($column, 6, 4) AS INTEGER) = CAST(substr($column, 1, 4) AS INTEGER) + 1)''';
 
 /// phil_iri_passages under [table], so the v15 rebuild can create the new copy.
-/// test_type: 'pre' = BOSY, 'mosy' = MOSY 1-3, 'post' = EOSY, null = any round.
+/// test_type: the booklet label ('pre' pretest, 'mosy' MOSY pool, 'post'
+/// posttest, null none); since v43 no round checks it.
 String _passagesTableSql(String table) => '''
     CREATE TABLE IF NOT EXISTS $table (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -103,13 +104,16 @@ Future<void> rebuildPhilIriPassagesForV15(Database db) async {
 }
 
 /// phil_iri_readings under [table], so the v26 rebuild can create the new copy.
-/// method 'silent' (v26): timed like whole_text, no miscues. Level 'struggling' (v39).
+/// method 'silent' (v26): timed like whole_text, no miscues. Level 'struggling' (v39;
+/// comprehension_level v41). v42: passage_id optional (workbook imports only,
+/// trigger below) with imported_word_count / imported_total (spec
+/// 2026-11-10-phil-iri-untitled-readings D2-D5).
 String _readingsTableSql(String table) => '''
     CREATE TABLE IF NOT EXISTS $table (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       assessment_id INTEGER NOT NULL REFERENCES phil_iri_assessments(id),
       sequence_no INTEGER NOT NULL CHECK (sequence_no > 0),
-      passage_id INTEGER NOT NULL REFERENCES phil_iri_passages(id),
+      passage_id INTEGER REFERENCES phil_iri_passages(id),
       method TEXT NOT NULL DEFAULT 'whole_text' CHECK (method IN ('whole_text', 'one_minute', 'silent')),
       reading_seconds INTEGER CHECK (reading_seconds > 0),
       words_read INTEGER CHECK (words_read > 0),
@@ -126,12 +130,19 @@ String _readingsTableSql(String table) => '''
       speed TEXT CHECK (speed IN ('struggling', 'slow', 'average', 'fast')),
       word_reading_level TEXT CHECK (word_reading_level IN ('independent', 'instructional', 'frustration', 'struggling', 'nonReader')),
       comprehension_score REAL CHECK (comprehension_score BETWEEN 0 AND 1),
-      comprehension_level TEXT CHECK (comprehension_level IN ('independent', 'instructional', 'frustration')),
+      comprehension_level TEXT CHECK (comprehension_level IN ('independent', 'instructional', 'frustration', 'struggling')),
       profile TEXT CHECK (profile IN ('independent', 'instructional', 'frustration', 'struggling', 'nonReader')),
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      imported_correct INTEGER CHECK (imported_correct >= 0),
+      imported_word_count INTEGER CHECK (imported_word_count > 0),
+      imported_total INTEGER CHECK (imported_total > 0),
       UNIQUE (assessment_id, sequence_no),
       CHECK ((method IN ('whole_text', 'silent') AND words_read IS NULL)
-             OR (method = 'one_minute' AND reading_seconds IS NULL))
+             OR (method = 'one_minute' AND reading_seconds IS NULL)),
+      CHECK (passage_id IS NULL OR (imported_word_count IS NULL AND imported_total IS NULL)),
+      CHECK (passage_id IS NOT NULL OR method = 'one_minute' OR reading_seconds IS NULL OR imported_word_count IS NOT NULL),
+      CHECK (imported_total IS NULL OR (imported_correct IS NOT NULL AND imported_correct <= imported_total)),
+      CHECK (passage_id IS NOT NULL OR imported_correct IS NULL OR imported_total IS NOT NULL)
     )
   ''';
 
@@ -164,6 +175,9 @@ Future<void> rebuildPhilIriReadingsForV26(Database db) async {
   });
 }
 
+/// No longer called by the upgrade since v41 (rebuildPhilIriReadingsForV41
+/// covers v26-v40 devices); kept for its test and as the record of v39.
+///
 /// v39 upgrade (cloud 20261029010000; spec 2026-10-29 word recognition
 /// bands): the three level columns also allow 'struggling'. Same
 /// copy-and-rename as v26, but the column list comes from the old table so
@@ -183,13 +197,47 @@ Future<void> rebuildPhilIriReadingsForV39(Database db) async {
 
   await db.execute('PRAGMA legacy_alter_table = ON');
   try {
-    await _copyReadingsForV39(db, old);
+    await _copyReadings(db, old, 'phil_iri_readings_v39');
   } finally {
     await db.execute('PRAGMA legacy_alter_table = OFF');
   }
 }
 
-Future<void> _copyReadingsForV39(Database db, List<String> old) async {
+/// v41 upgrade (cloud 20261109020000; spec 2026-11-09 Phil-IRI rules update
+/// D1): comprehension_level also allows 'struggling'. No longer called by the
+/// upgrade since v42 (rebuildPhilIriReadingsForV42 covers v26-v41); kept for
+/// its test.
+Future<void> rebuildPhilIriReadingsForV41(Database db) async {
+  final old = (await db.rawQuery('PRAGMA table_info(phil_iri_readings)')).map((c) => c['name'] as String).toList();
+  if (old.isEmpty) return; // createPhilIriLocalSchema builds it fresh
+
+  await db.execute('PRAGMA legacy_alter_table = ON');
+  try {
+    await _copyReadings(db, old, 'phil_iri_readings_v41');
+  } finally {
+    await db.execute('PRAGMA legacy_alter_table = OFF');
+  }
+}
+
+/// v42 upgrade (cloud 20261110020000; spec 2026-11-10-phil-iri-untitled-readings
+/// D2): passage_id optional, imported_word_count / imported_total added. Same
+/// copy-and-rename as v39/v41 (old column list kept, legacy_alter_table on,
+/// triggers dropped and recreated by the creators). Covers v26-v41 devices:
+/// the table SQL is the widest, so the v41 step (comprehension 'struggling')
+/// is folded into this one.
+Future<void> rebuildPhilIriReadingsForV42(Database db) async {
+  final old = (await db.rawQuery('PRAGMA table_info(phil_iri_readings)')).map((c) => c['name'] as String).toList();
+  if (old.isEmpty) return; // createPhilIriLocalSchema builds it fresh
+
+  await db.execute('PRAGMA legacy_alter_table = ON');
+  try {
+    await _copyReadings(db, old, 'phil_iri_readings_v42');
+  } finally {
+    await db.execute('PRAGMA legacy_alter_table = OFF');
+  }
+}
+
+Future<void> _copyReadings(Database db, List<String> old, String tempTable) async {
   await db.transaction((txn) async {
     final triggers = await txn.rawQuery(
       "SELECT name FROM sqlite_master WHERE type='trigger' AND sql LIKE '%phil_iri_readings%'",
@@ -197,15 +245,70 @@ Future<void> _copyReadingsForV39(Database db, List<String> old) async {
     for (final t in triggers) {
       await txn.execute('DROP TRIGGER IF EXISTS ${t['name']}');
     }
-    await txn.execute(_readingsTableSql('phil_iri_readings_v39'));
+    await txn.execute(_readingsTableSql(tempTable));
     if (old.contains('row_version')) {
-      await txn.execute('ALTER TABLE phil_iri_readings_v39 ADD COLUMN row_version INTEGER');
+      await txn.execute('ALTER TABLE $tempTable ADD COLUMN row_version INTEGER');
     }
     final columns = old.join(', ');
-    await txn.execute('INSERT INTO phil_iri_readings_v39 ($columns) SELECT $columns FROM phil_iri_readings');
+    await txn.execute('INSERT INTO $tempTable ($columns) SELECT $columns FROM phil_iri_readings');
     await txn.execute('DROP TABLE phil_iri_readings');
-    await txn.execute('ALTER TABLE phil_iri_readings_v39 RENAME TO phil_iri_readings');
+    await txn.execute('ALTER TABLE $tempTable RENAME TO phil_iri_readings');
   });
+}
+
+/// phil_iri_miscues under [table]. v40: word_index may be null ("position not
+/// recorded"), only on a reading of an imported session (trigger below).
+String _miscuesTableSql(String table) => '''
+    CREATE TABLE IF NOT EXISTS $table (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      reading_id INTEGER NOT NULL REFERENCES phil_iri_readings(id),
+      word_index INTEGER CHECK (word_index >= 0),
+      miscue_type TEXT NOT NULL CHECK (miscue_type IN ('mispronunciation', 'omission', 'substitution',
+        'insertion', 'repetition', 'transposition', 'reversal')),
+      spoken_text TEXT,
+      self_corrected INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  ''';
+
+/// v40 upgrade (cloud 20261109010000; spec 2026-11-09 Phil-IRI import):
+/// phil_iri_miscues.word_index becomes nullable. Same copy-and-rename as v39
+/// (old column list, so row_version is kept; legacy_alter_table on). Runs
+/// before the creators, which recreate the triggers it drops.
+Future<void> rebuildPhilIriMiscuesForV40(Database db) async {
+  final info = await db.rawQuery('PRAGMA table_info(phil_iri_miscues)');
+  if (info.isEmpty) return; // createPhilIriLocalSchema builds it fresh
+  final wordIndex = info.firstWhere((c) => c['name'] == 'word_index');
+  if (wordIndex['notnull'] == 0) return; // already v40
+  final old = info.map((c) => c['name'] as String).toList();
+
+  await db.execute('PRAGMA legacy_alter_table = ON');
+  try {
+    await db.transaction((txn) async {
+      final triggers = await txn.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='trigger' AND sql LIKE '%phil_iri_miscues%'",
+      );
+      for (final t in triggers) {
+        await txn.execute('DROP TRIGGER IF EXISTS ${t['name']}');
+      }
+      await txn.execute(_miscuesTableSql('phil_iri_miscues_v40'));
+      if (old.contains('row_version')) {
+        await txn.execute('ALTER TABLE phil_iri_miscues_v40 ADD COLUMN row_version INTEGER');
+      }
+      final columns = old.join(', ');
+      await txn.execute('INSERT INTO phil_iri_miscues_v40 ($columns) SELECT $columns FROM phil_iri_miscues');
+      await txn.execute('DROP TABLE phil_iri_miscues');
+      await txn.execute('ALTER TABLE phil_iri_miscues_v40 RENAME TO phil_iri_miscues');
+    });
+  } finally {
+    await db.execute('PRAGMA legacy_alter_table = OFF');
+  }
+}
+
+/// Adds [column] to [table] when an older device lacks it (v40 columns).
+Future<void> _addColumn(Database db, String table, String column, String definition) async {
+  final cols = (await db.rawQuery('PRAGMA table_info($table)')).map((c) => c['name']);
+  if (!cols.contains(column)) await db.execute('ALTER TABLE $table ADD COLUMN $column $definition');
 }
 
 /// v39: a saved non_reader_max (the old 50) is dropped from the thresholds
@@ -384,10 +487,15 @@ Future<void> createPhilIriLocalSchema(Database db) async {
       thresholds_snapshot TEXT,       -- JSON object, set at finalization
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       origin TEXT NOT NULL DEFAULT 'local' CHECK (origin IN ('local', 'cloud')),
+      import_source TEXT CHECK (import_source IN ('workbook', 'scoresheet')),
       CHECK ((status = 'finalized') = (finalized_at IS NOT NULL AND thresholds_snapshot IS NOT NULL)),
       UNIQUE (student_id, school_id, section_id, round, school_year, attempt_no)
     )
   ''');
+  // v40: import_source = imported session (null = live). Who may set it is
+  // checked by the ViewModel (admin/coordinator), like finalizing.
+  await _addColumn(db, 'phil_iri_assessments', 'import_source',
+      "TEXT CHECK (import_source IN ('workbook', 'scoresheet'))");
 
   await db.execute('DROP TRIGGER IF EXISTS check_phil_iri_assessment_target');
   await db.execute('''
@@ -430,7 +538,8 @@ Future<void> createPhilIriLocalSchema(Database db) async {
       WHERE NEW.student_id IS NOT OLD.student_id OR NEW.school_id IS NOT OLD.school_id
          OR NEW.section_id IS NOT OLD.section_id OR NEW.school_year IS NOT OLD.school_year
          OR NEW.round IS NOT OLD.round OR NEW.attempt_no IS NOT OLD.attempt_no
-         OR NEW.administered_by IS NOT OLD.administered_by OR NEW.assessed_at IS NOT OLD.assessed_at;
+         OR NEW.administered_by IS NOT OLD.administered_by OR NEW.assessed_at IS NOT OLD.assessed_at
+         OR NEW.import_source IS NOT OLD.import_source;
       SELECT RAISE(ABORT, 'Only a completed Phil-IRI assessment can be finalized')
       WHERE NEW.status = 'finalized' AND OLD.status <> 'completed';
     END
@@ -438,6 +547,8 @@ Future<void> createPhilIriLocalSchema(Database db) async {
 
   // ---- Readings ----
   await db.execute(_readingsTableSql('phil_iri_readings'));
+  // v40: the workbook's comprehension count (imported workbook sessions only).
+  await _addColumn(db, 'phil_iri_readings', 'imported_correct', 'INTEGER CHECK (imported_correct >= 0)');
 
   // "Is the parent session a local one that is not finalized?" helpers.
   const sessionOrigin = "(SELECT origin FROM phil_iri_assessments WHERE id = NEW.assessment_id)";
@@ -447,6 +558,19 @@ Future<void> createPhilIriLocalSchema(Database db) async {
   const readingStatus = '''(SELECT a.status FROM phil_iri_readings r
       JOIN phil_iri_assessments a ON a.id = r.assessment_id WHERE r.id = NEW.reading_id)''';
   const finalizedMsg = "'This Phil-IRI assessment is finalized and cannot be changed'";
+  // v40: the parent session's import_source (null = live session).
+  const sessionImport = "(SELECT import_source FROM phil_iri_assessments WHERE id = NEW.assessment_id)";
+  // v40: an imported correct count belongs to a workbook session, is at most
+  // the passage's question count, and never sits beside answer rows.
+  const importedCorrectCheck = '''
+      SELECT RAISE(ABORT, 'An imported correct count belongs to a reading imported from the workbook')
+      WHERE NEW.imported_correct IS NOT NULL AND $sessionImport IS NOT 'workbook';
+      SELECT RAISE(ABORT, 'Imported correct count is more than the passage''s questions')
+      WHERE NEW.passage_id IS NOT NULL
+        AND NEW.imported_correct > (SELECT COUNT(*) FROM phil_iri_questions WHERE passage_id = NEW.passage_id);
+      SELECT RAISE(ABORT, 'This reading has answers; an imported correct count replaces answers, not both')
+      WHERE NEW.imported_correct IS NOT NULL
+        AND EXISTS (SELECT 1 FROM phil_iri_answers WHERE reading_id = NEW.id);''';
 
   await db.execute('DROP TRIGGER IF EXISTS check_phil_iri_reading_ins');
   await db.execute('''
@@ -455,30 +579,35 @@ Future<void> createPhilIriLocalSchema(Database db) async {
     WHEN $sessionOrigin = 'local'
     BEGIN
       SELECT RAISE(ABORT, $finalizedMsg) WHERE $sessionStatus = 'finalized';
+      -- v42: no passage ("Untitled") only on a session imported from the workbook.
+      SELECT RAISE(ABORT, 'A reading without a passage belongs to a session imported from the workbook')
+      WHERE NEW.passage_id IS NULL AND $sessionImport IS NOT 'workbook';
       SELECT RAISE(ABORT, 'No such passage')
-      WHERE NOT EXISTS (SELECT 1 FROM phil_iri_passages WHERE id = NEW.passage_id);
+      WHERE NEW.passage_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM phil_iri_passages WHERE id = NEW.passage_id);
+      $importedCorrectCheck
+      -- v40: an imported session skips the active and no-repeat checks
+      -- (spec D8); the own-grade check stays.
       SELECT RAISE(ABORT, 'This passage or its collection is not active')
-      WHERE (SELECT p.is_active AND c.is_active FROM phil_iri_passages p
-             JOIN phil_iri_collections c ON c.id = p.collection_id WHERE p.id = NEW.passage_id) = 0;
+      WHERE NEW.passage_id IS NOT NULL
+        AND (SELECT p.is_active AND c.is_active FROM phil_iri_passages p
+             JOIN phil_iri_collections c ON c.id = p.collection_id WHERE p.id = NEW.passage_id) = 0
+        AND $sessionImport IS NULL;
       SELECT RAISE(ABORT, 'A learner reads a passage of their own grade')
-      WHERE (SELECT c.is_grade_leveled FROM phil_iri_passages p
+      WHERE NEW.passage_id IS NOT NULL
+        AND (SELECT c.is_grade_leveled FROM phil_iri_passages p
              JOIN phil_iri_collections c ON c.id = p.collection_id WHERE p.id = NEW.passage_id) = 1
         AND (SELECT level FROM phil_iri_passages WHERE id = NEW.passage_id) IS NOT
             (SELECT CAST(s.grade_level AS INTEGER) FROM phil_iri_assessments a
              JOIN sections s ON s.id = a.section_id WHERE a.id = NEW.assessment_id);
-      -- v16: the round reads its own passages (PhilIriRound.passageTestType);
-      -- an untyped passage fits any round.
-      SELECT RAISE(ABORT, 'This round does not use this passage (BOSY reads pre, MOSY mosy, EOSY post passages)')
-      WHERE (SELECT test_type FROM phil_iri_passages WHERE id = NEW.passage_id) IS NOT
-            (SELECT CASE round WHEN 'bosy' THEN 'pre' WHEN 'eosy' THEN 'post' ELSE 'mosy' END
-             FROM phil_iri_assessments WHERE id = NEW.assessment_id)
-        AND (SELECT test_type FROM phil_iri_passages WHERE id = NEW.passage_id) IS NOT NULL;
+      -- v43: no round check (the v16 one is gone): any grade-level passage
+      -- may be read in any round; test_type is a booklet label only
+      -- (spec 2026-11-10-phil-iri-any-round-passages).
       -- v17: a learner never reads the same passage twice (same text, any
       -- collection, any school year).
       -- v26 exception: the oral follow-up of a SILENT reading may re-read
       -- that text once, as another attempt of the same round and school year.
       SELECT RAISE(ABORT, 'This learner has already read this passage')
-      WHERE EXISTS (
+      WHERE NEW.passage_id IS NOT NULL AND $sessionImport IS NULL AND EXISTS (
         SELECT 1 FROM phil_iri_readings r
         JOIN phil_iri_assessments a ON a.id = r.assessment_id
         JOIN phil_iri_passages p ON p.id = r.passage_id
@@ -503,28 +632,26 @@ Future<void> createPhilIriLocalSchema(Database db) async {
       SELECT RAISE(ABORT, 'A reading keeps its session, passage and method; delete it and add a new one instead')
       WHERE NEW.assessment_id IS NOT OLD.assessment_id OR NEW.passage_id IS NOT OLD.passage_id
          OR NEW.method IS NOT OLD.method;
+      $importedCorrectCheck
     END
   ''');
 
   // ---- Miscues ----
-  await db.execute('''
-    CREATE TABLE IF NOT EXISTS phil_iri_miscues (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      reading_id INTEGER NOT NULL REFERENCES phil_iri_readings(id),
-      word_index INTEGER NOT NULL CHECK (word_index >= 0),
-      miscue_type TEXT NOT NULL CHECK (miscue_type IN ('mispronunciation', 'omission', 'substitution',
-        'insertion', 'repetition', 'transposition', 'reversal')),
-      spoken_text TEXT,
-      self_corrected INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    )
-  ''');
+  await db.execute(_miscuesTableSql('phil_iri_miscues'));
   await db.execute('CREATE INDEX IF NOT EXISTS phil_iri_miscues_reading ON phil_iri_miscues (reading_id)');
 
+  const readingImport = '''(SELECT a.import_source FROM phil_iri_readings r
+      JOIN phil_iri_assessments a ON a.id = r.assessment_id WHERE r.id = NEW.reading_id)''';
+  // A null word_index compares as NULL below, so the position check skips it.
   const miscueCheck = '''
       SELECT RAISE(ABORT, $finalizedMsg) WHERE $readingStatus = 'finalized';
       SELECT RAISE(ABORT, 'A silent reading has no miscues')
       WHERE (SELECT method FROM phil_iri_readings WHERE id = NEW.reading_id) = 'silent';
+      SELECT RAISE(ABORT, 'A miscue without a position belongs to an imported reading')
+      WHERE NEW.word_index IS NULL AND $readingImport IS NULL;
+      SELECT RAISE(ABORT, 'A reading without a passage takes only miscues without a position')
+      WHERE NEW.word_index IS NOT NULL
+        AND (SELECT passage_id FROM phil_iri_readings WHERE id = NEW.reading_id) IS NULL;
       SELECT RAISE(ABORT, 'Word position is outside the passage')
       WHERE NEW.word_index > (SELECT p.word_count FROM phil_iri_readings r
                               JOIN phil_iri_passages p ON p.id = r.passage_id WHERE r.id = NEW.reading_id)
@@ -560,7 +687,9 @@ Future<void> createPhilIriLocalSchema(Database db) async {
       SELECT RAISE(ABORT, $finalizedMsg) WHERE $readingStatus = 'finalized';
       SELECT RAISE(ABORT, 'That question is not a question of this reading''s passage')
       WHERE (SELECT passage_id FROM phil_iri_questions WHERE id = NEW.question_id) IS NOT
-            (SELECT passage_id FROM phil_iri_readings WHERE id = NEW.reading_id);''';
+            (SELECT passage_id FROM phil_iri_readings WHERE id = NEW.reading_id);
+      SELECT RAISE(ABORT, 'This reading has an imported correct count; it takes no answers')
+      WHERE (SELECT imported_correct FROM phil_iri_readings WHERE id = NEW.reading_id) IS NOT NULL;''';
   for (final op in ['INSERT', 'UPDATE']) {
     final name = 'check_phil_iri_answer_${op.toLowerCase()}';
     await db.execute('DROP TRIGGER IF EXISTS $name');
@@ -622,4 +751,34 @@ Future<void> createPhilIriLocalSchema(Database db) async {
       BEGIN $rubricCheck END
     ''');
   }
+
+  // ---- Workbook import lock (v40) ----
+  // One row per section and school year whose workbook was imported (spec
+  // D10). Synced: written in the same transaction as the section's last
+  // learner and sent in the same upload. Pulled rows are read-only (the
+  // server has no update or delete for it; sync_local_schema). imported_by /
+  // imported_at are re-stamped by the server.
+  await db.execute('''
+    CREATE TABLE IF NOT EXISTS phil_iri_workbook_imports (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      school_id INTEGER NOT NULL REFERENCES schools(id),
+      section_id INTEGER NOT NULL REFERENCES sections(id),
+      school_year TEXT NOT NULL ${_schoolYearCheck('school_year')},
+      imported_by TEXT REFERENCES users(id),
+      imported_at TEXT NOT NULL DEFAULT (datetime('now')),
+      origin TEXT NOT NULL DEFAULT 'local' CHECK (origin IN ('local', 'cloud')),
+      UNIQUE (section_id, school_year)
+    )
+  ''');
+  await db.execute('DROP TRIGGER IF EXISTS check_phil_iri_workbook_import');
+  await db.execute('''
+    CREATE TRIGGER check_phil_iri_workbook_import
+    BEFORE INSERT ON phil_iri_workbook_imports
+    WHEN NEW.origin = 'local'
+    BEGIN
+      SELECT RAISE(ABORT, 'Section is not a section of that school and school year')
+      WHERE NOT EXISTS (SELECT 1 FROM sections WHERE id = NEW.section_id
+                          AND school_id = NEW.school_id AND school_year = NEW.school_year);
+    END
+  ''');
 }

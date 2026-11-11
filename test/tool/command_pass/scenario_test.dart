@@ -110,6 +110,17 @@ expect ZZTEST
     expect(() => parseScenario('x', 'make-sf1 f a 7 S'), throwsFormatException);
   });
 
+  test('parses make-phil-iri-workbook with one or two sections', () {
+    final one = parseScenario('x', 'make-phil-iri-workbook wb 7 ZZTEST-A 3 from=stamp').steps.single as MakePhilIriStep;
+    expect([one.workbook, one.section, one.second, one.count, one.first], [true, 'ZZTEST-A', null, 3, 0]);
+    final two = parseScenario('x', 'make-phil-iri-workbook wb 7 ZZTEST-A{stamp},ZZTEST-B{stamp} 3').steps.single
+        as MakePhilIriStep;
+    expect([two.section, two.second, two.first], ['ZZTEST-A{stamp}', 'ZZTEST-B{stamp}', 1]);
+    expect(() => parseScenario('x', 'make-phil-iri-workbook wb 7 A,B,C 3'), throwsFormatException);
+    expect(() => parseScenario('x', 'make-phil-iri-workbook wb 7 A, 3'), throwsFormatException);
+    expect(() => parseScenario('x', 'make-phil-iri-scoresheet ss 7 A,B 3'), throwsFormatException);
+  });
+
   test('parses write-file', () {
     final s = parseScenario('x', 'device pc admin\nwrite-file a3_text The cat  sat {stamp}.');
     final w = s.steps[1] as WriteFileStep;

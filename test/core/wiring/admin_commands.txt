@@ -115,6 +115,7 @@ db-delete
 db-list
 db-use
 export-section
+flt-counts
 get-text
 help
 import-preview
@@ -154,6 +155,15 @@ phil-iri-finalize
 phil-iri-finalize-round
 phil-iri-gst
 phil-iri-gst-list
+phil-iri-import-header-samples
+phil-iri-import-headers
+phil-iri-import-headers-reset
+phil-iri-import-headers-set
+phil-iri-import-scoresheet
+phil-iri-import-scoresheet-preview
+phil-iri-import-template
+phil-iri-import-workbook
+phil-iri-import-workbook-preview
 phil-iri-miscue
 phil-iri-miscue-remove
 phil-iri-miscue-update

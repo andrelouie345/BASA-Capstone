@@ -325,7 +325,7 @@ class AralViewModel {
         student: s,
         grade: grade,
         status: AralCandidateStatus.proposed,
-        reason: 'Not assessed: counted as Frustration, 3 levels down (Grade ${assumed.adjustedLevel}); '
+        reason: 'Not assessed: counted as Struggling, 3 levels down (Grade ${assumed.adjustedLevel}); '
             'give the Phil-IRI to place them on a real result',
         suggestion: placement,
         rankKey: const AralRankKey(0, 0, 0),

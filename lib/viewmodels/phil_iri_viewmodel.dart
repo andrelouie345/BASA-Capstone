@@ -25,6 +25,7 @@ import '../core/models/phil_iri_passage.dart';
 import '../core/models/phil_iri_question.dart';
 import '../core/models/phil_iri_reading.dart';
 import '../core/models/phil_iri_rubric_score.dart';
+import '../core/models/report_setting.dart';
 import '../core/models/section.dart';
 import '../core/models/user_role.dart';
 import '../core/repositories/phil_iri_assessment_repository.dart';
@@ -32,6 +33,7 @@ import '../core/repositories/phil_iri_collection_repository.dart';
 import '../core/repositories/phil_iri_gst_repository.dart';
 import '../core/repositories/phil_iri_passage_repository.dart';
 import '../core/repositories/phil_iri_threshold_repository.dart';
+import '../core/repositories/report_setting_repository.dart';
 import '../core/repositories/section_repository.dart';
 import '../core/services/normalizers.dart';
 import '../core/services/phil_iri_results.dart';
@@ -52,6 +54,10 @@ class PhilIriLearnerResults {
   final PhilIriRoundResult? end;
   /// True when every round was scored with today's thresholds.
   final bool regenerated;
+  /// Rounds whose reading comes from a collection without comprehension
+  /// questions while the school's no_comprehension_counts_FLT is on: they
+  /// count as assessed without a comprehension entry.
+  final Set<PhilIriRound> comprehensionOptional;
 
   const PhilIriLearnerResults({
     required this.studentId,
@@ -62,6 +68,7 @@ class PhilIriLearnerResults {
     required this.rounds,
     required this.end,
     required this.regenerated,
+    this.comprehensionOptional = const {},
   });
 }
 
@@ -77,8 +84,11 @@ class PhilIriReportResults {
   final Map<PhilIriRound, PhilIriAssessment> sessions;
   /// The GST that counts (taken by asOf, score above 0), if any.
   final PhilIriGstResult? gst;
+  /// A GST was taken by asOf, whatever its score (a 0 is not counted in
+  /// [gst], but the learner did take it): the tutor's no-GST reminder.
+  final bool gstTaken;
   /// Nothing counts at all (no reading; no GST, or a GST of 0): reports and
-  /// ARAL assume Frustration, 3 levels down ([philIriNotAssessedResult]).
+  /// ARAL assume Struggling, 3 levels down ([philIriNotAssessedResult]).
   final bool notAssessed;
 
   const PhilIriReportResults({
@@ -88,9 +98,14 @@ class PhilIriReportResults {
     required this.sessions,
     required this.gst,
     required this.notAssessed,
+    this.gstTaken = false,
   });
 
   PhilIriRoundResult round(PhilIriRound r) => rounds.firstWhere((x) => x.round == r);
+
+  /// [r]'s assessment status (assessed / carried over / not assessed; spec
+  /// 2026-11-09 D4). The not-assessed stand-in is never a result.
+  PhilIriRoundStatus status(PhilIriRound r) => round(r).status;
 
   /// The carried result of the latest counted round among [among], or null.
   PhilIriRoundResult? latest(Iterable<PhilIriRound> among) {
@@ -143,6 +158,7 @@ class PhilIriViewModel {
   final PhilIriGstRepository _gst;
   final PhilIriPassageRepository _passages;
   final PhilIriCollectionRepository _collections;
+  final ReportSettingRepository? _reportSettings;
   final PhilIriThresholdRepository _thresholds;
   final SectionRepository _sections;
 
@@ -158,8 +174,10 @@ class PhilIriViewModel {
     required PhilIriCollectionRepository collections,
     required PhilIriThresholdRepository thresholds,
     required SectionRepository sections,
+    ReportSettingRepository? reportSettings,
     Logger? logger,
   })  : _auth = auth,
+        _reportSettings = reportSettings,
         _sessions = sessions,
         _gst = gst,
         _passages = passages,
@@ -298,13 +316,15 @@ class PhilIriViewModel {
 
   /// Passages this session may use: active passages of the learner's grade in
   /// active grade-leveled collections, plus active passages of active
-  /// non-graded collections (e.g. FRB). Either way only passages whose test
-  /// type fits the session's round (BOSY 'pre', MOSY 'mosy', EOSY 'post';
-  /// untyped passages fit any round), that the learner has never read (same
+  /// non-graded collections (e.g. FRB), that the learner has never read (same
   /// text = same passage, any collection, any year), each text listed once.
+  /// Any round may use any of them (ma 2026-11-09): a passage's test type is
+  /// a booklet label that only orders the list.
   /// For an oral [method] (the default) a text read silently in another
   /// session of this round and year is offered too, FIRST: the oral follow-up
-  /// may re-read it (reading coordinator, 2026-10-16).
+  /// may re-read it (reading coordinator, 2026-10-16). Then the passages
+  /// labelled for this round (BOSY 'pre', MOSY 'mosy', EOSY 'post'), then the
+  /// rest, each group in the order above.
   /// An empty list means the coordinator has to add passages.
   Future<List<PhilIriPassage>> availablePassages(int assessmentId,
       {PhilIriReadingMethod method = PhilIriReadingMethod.wholeText}) async {
@@ -320,10 +340,12 @@ class PhilIriViewModel {
     final followUps = <String>{};
     final seen = (await _blockedTexts(session, method, followUps: followUps)).keys.toSet();
     final list = [...graded, ...others]
-        .where((p) => session.round.allowsPassageTestType(p.testType))
         .where((p) => seen.add(p.textKey)) // false for read texts and for repeats in this list
         .toList();
-    return [...list.where((p) => followUps.contains(p.textKey)), ...list.where((p) => !followUps.contains(p.textKey))];
+    final followUp = list.where((p) => followUps.contains(p.textKey));
+    final rest = list.where((p) => !followUps.contains(p.textKey));
+    final label = session.round.passageTestType;
+    return [...followUp, ...rest.where((p) => p.testType == label), ...rest.where((p) => p.testType != label)];
   }
 
   /// The session's one passage reading. Each session (FLT/BOSY, MOSY, EOSY)
@@ -354,10 +376,6 @@ class PhilIriViewModel {
         throw ViewModelException('A Grade $grade learner reads a Grade $grade passage '
             '("${passage.title}" is Grade ${passage.level}).');
       }
-    }
-    if (!session.round.allowsPassageTestType(passage.testType)) {
-      throw ViewModelException('${session.round.label} reads ${session.round.passageTestType} passages '
-          '("${passage.title}" is a ${passage.testType} passage).');
     }
     final before = (await _blockedTexts(session, method))[passage.textKey];
     if (before != null) {
@@ -415,7 +433,8 @@ class PhilIriViewModel {
   Future<void> deleteReading(int readingId) async {
     _requireSignIn();
     _log('deleteReading($readingId)');
-    await _requireOpenReading(readingId);
+    // Not _requireOpenReading: an Untitled imported reading may be removed too.
+    await _requireOpenSession((await _findReading(readingId)).assessmentId);
     await _write(() => _sessions.deleteReading(readingId));
   }
 
@@ -451,7 +470,11 @@ class PhilIriViewModel {
     if (miscue.id == null) throw const ViewModelException('Miscue has no id.');
     final r = await _requireOpenReading(miscue.readingId);
     _requireOral(r.reading);
-    _checkWordIndex(r.passage, miscue.wordIndex, miscue.type);
+    // v40: a miscue without a position comes only from an import (the import
+    // writer); a tutor's miscue always has its word.
+    final wordIndex = miscue.wordIndex;
+    if (wordIndex == null) throw const ViewModelException('A miscue needs its word position.');
+    _checkWordIndex(r.passage, wordIndex, miscue.type);
     return _write(() => _sessions.updateMiscue(miscue));
   }
 
@@ -568,15 +591,18 @@ class PhilIriViewModel {
   Future<PhilIriAssessment> complete(int assessmentId) async {
     _requireSignIn();
     _log('complete($assessmentId)');
-    await _requireOpenSession(assessmentId);
+    final session = await _requireOpenSession(assessmentId);
     final readings = await _sessions.getReadings(assessmentId);
     if (readings.isEmpty) throw const ViewModelException('Record the passage reading before completing the session.');
     final r = readings.first;
-    if (r.method != PhilIriReadingMethod.oneMinute && r.readingSeconds == null) {
-      throw const ViewModelException('Record the reading time before completing the session.');
-    }
-    if (r.method == PhilIriReadingMethod.oneMinute && r.wordsRead == null) {
-      throw const ViewModelException('Record the words read in the minute before completing the session.');
+    // An imported reading may have comprehension only (spec 2026-11-10 D6).
+    if (session.importSource == null) {
+      if (r.method != PhilIriReadingMethod.oneMinute && r.readingSeconds == null) {
+        throw const ViewModelException('Record the reading time before completing the session.');
+      }
+      if (r.method == PhilIriReadingMethod.oneMinute && r.wordsRead == null) {
+        throw const ViewModelException('Record the words read in the minute before completing the session.');
+      }
     }
     final stored = await _write(() => _sessions.setStatus(assessmentId, PhilIriStatus.completed));
     await refresh();
@@ -684,8 +710,8 @@ class PhilIriViewModel {
   Future<PhilIriReading?> silentReadingFollowedUp(int readingId) async {
     _requireSignIn();
     final r = await _findReading(readingId);
-    if (!r.method.isOral) return null;
-    return _silentReadingFollowedUp(r, await _requirePassage(r.passageId));
+    if (!r.method.isOral || r.passageId == null) return null;
+    return _silentReadingFollowedUp(r, await _requirePassage(r.passageId!));
   }
 
   Future<PhilIriPassageResult> scoreReading(int readingId, {PhilIriThresholds? thresholds}) async {
@@ -722,15 +748,25 @@ class PhilIriViewModel {
 
     final readings = <PhilIriRound, PhilIriPassageResult>{};
     final roundThresholds = <PhilIriRound, PhilIriThresholds>{};
+    final fltCounts = await _noComprehensionCountsFlt(section.schoolId);
+    final optional = <PhilIriRound>{};
     for (final e in sessions.entries) {
       final t = useCurrentThresholds ? current : await _thresholdsFor(e.value, current: current);
       roundThresholds[e.key] = t;
       final rs = await _sessions.getReadings(e.value.id!);
       if (rs.isEmpty) continue;
       final r = rs.first;
-      if (r.method != PhilIriReadingMethod.oneMinute && r.readingSeconds == null) continue; // not timed yet
-      if (r.method == PhilIriReadingMethod.oneMinute && r.wordsRead == null) continue;
+      // Not timed yet; an imported reading may have comprehension only (spec 2026-11-10 D6).
+      if (e.value.importSource == null) {
+        if (r.method != PhilIriReadingMethod.oneMinute && r.readingSeconds == null) continue;
+        if (r.method == PhilIriReadingMethod.oneMinute && r.wordsRead == null) continue;
+      }
       readings[e.key] = await _scoreReading(r, t);
+      if (fltCounts && r.passageId != null) {
+        final passage = await _requirePassage(r.passageId!);
+        final collection = await _collections.findById(passage.collectionId);
+        if (collection != null && !collection.hasComprehension) optional.add(e.key);
+      }
     }
 
     final rounds = philIriRoundResults(
@@ -739,6 +775,7 @@ class PhilIriViewModel {
       readings: readings,
       t: current,
       roundThresholds: roundThresholds,
+      comprehensionOptional: optional,
     );
     return PhilIriLearnerResults(
       studentId: studentId,
@@ -749,7 +786,18 @@ class PhilIriViewModel {
       rounds: rounds,
       end: philIriEndResult(rounds),
       regenerated: useCurrentThresholds,
+      comprehensionOptional: optional,
     );
+  }
+
+  /// The school's no_comprehension_counts_FLT (school -> region -> off),
+  /// from this device's copy of report_settings.
+  Future<bool> _noComprehensionCountsFlt(int schoolId) async {
+    final repo = _reportSettings;
+    if (repo == null) return false;
+    final region = await repo.getRegion();
+    final school = await repo.getForSchool(schoolId);
+    return ReportSettings.fromMap({...?region?.settings, ...?school?.settings}).noComprehensionCountsFlt;
   }
 
   /// The year as reports and ARAL count it: only finished sessions (completed
@@ -784,6 +832,7 @@ class PhilIriViewModel {
       gstScore: gst?.percent,
       readings: readings,
       t: await effectiveThresholds(section.schoolId),
+      comprehensionOptional: res.comprehensionOptional.intersection(readings.keys.toSet()),
     );
     return PhilIriReportResults(
       learnerGrade: res.learnerGrade,
@@ -792,6 +841,7 @@ class PhilIriViewModel {
       sessions: sessions,
       gst: gst,
       notAssessed: philIriNothingAssessed(rounds),
+      gstTaken: res.gst != null && byDate(res.gst!.takenAt),
     );
   }
 
@@ -805,13 +855,40 @@ class PhilIriViewModel {
   }
 
   Future<PhilIriPassageResult> _scoreReading(PhilIriReading r, PhilIriThresholds t) async {
-    final passage = await _requirePassage(r.passageId);
-    final collection = await _collections.findById(passage.collectionId);
     final miscues = await _sessions.getMiscues(r.id!);
+    // Untimed readings score only in imported sessions (spec 2026-11-10 D6).
+    final imported = (await _sessions.findAssessment(r.assessmentId))?.importSource != null;
+    if (r.passageId == null) {
+      // Untitled (workbook import): typed word count, comprehension over the
+      // stored total (spec 2026-11-10 D4/D5).
+      final total = r.importedCorrect == null ? null : r.importedTotal;
+      try {
+        return philIriScorePassage(
+          wordCount: r.importedWordCount,
+          method: r.method,
+          readingSeconds: r.readingSeconds,
+          wordsRead: r.wordsRead,
+          countedMiscues: philIriCountedMiscues(miscues),
+          comprehensionCorrect: total == null ? null : r.importedCorrect,
+          comprehensionTotal: total,
+          t: t,
+          allowNoWordReading: imported,
+        );
+      } on ArgumentError catch (e) {
+        throw ViewModelException('Reading ${r.id} cannot be scored yet: ${e.message}');
+      }
+    }
+    final passage = await _requirePassage(r.passageId!);
+    final collection = await _collections.findById(passage.collectionId);
     int? correct, total;
     if (collection?.hasComprehension ?? true) {
       final questions = await _passages.getQuestions(passage.id!);
-      if (questions.isNotEmpty) {
+      if (questions.isNotEmpty && r.importedCorrect != null) {
+        // A reading imported from the workbook keeps only its correct count
+        // (spec 2026-11-09-phil-iri-import, schema item 4); it has no answers.
+        total = questions.length;
+        correct = r.importedCorrect!;
+      } else if (questions.isNotEmpty) {
         total = questions.length;
         var answers = await _sessions.getAnswers(r.id!);
         // Oral follow-up of a silent reading with no questions asked again:
@@ -822,13 +899,19 @@ class PhilIriViewModel {
           if (silent != null) {
             answers = await _sessions.getAnswers(silent.id!);
             // A copy of the text in another collection may have other questions.
-            if (silent.passageId != passage.id) {
-              final n = (await _passages.getQuestions(silent.passageId)).length;
+            if (silent.passageId != passage.id && silent.passageId != null) {
+              final n = (await _passages.getQuestions(silent.passageId!)).length;
               if (n > 0) total = n;
             }
           }
         }
-        correct = answers.where((a) => a.isCorrect).length;
+        if (answers.isEmpty) {
+          // No answer recorded at all: a blank comprehension, not 0 of N
+          // (spec 2026-11-09 D4/D7; a recorded "x" is an entry and counts).
+          total = null;
+        } else {
+          correct = answers.where((a) => a.isCorrect).length;
+        }
       }
     }
     try {
@@ -841,6 +924,7 @@ class PhilIriViewModel {
         comprehensionCorrect: correct,
         comprehensionTotal: total,
         t: t,
+        allowNoWordReading: imported,
       );
     } on ArgumentError catch (e) {
       throw ViewModelException('Reading ${r.id} cannot be scored yet: ${e.message}');
@@ -891,7 +975,8 @@ class PhilIriViewModel {
     final open = <String>{};
     for (final s in await _sessions.getByStudent(session.studentId)) {
       for (final r in await _sessions.getReadings(s.id!)) {
-        final p = await _passages.findById(r.passageId);
+        if (r.passageId == null) continue; // Untitled: no text to block
+        final p = await _passages.findById(r.passageId!);
         if (p == null) continue;
         final followUp = method.isOral && !r.method.isOral && s.id != session.id &&
             s.round == session.round && s.schoolYear == session.schoolYear;
@@ -915,8 +1000,8 @@ class PhilIriViewModel {
     for (final s in await _sessions.getByStudent(session.studentId, schoolYear: session.schoolYear)) {
       if (s.id == session.id || s.round != session.round) continue;
       for (final r in await _sessions.getReadings(s.id!)) {
-        if (r.method.isOral) continue;
-        final p = r.passageId == passage.id ? passage : await _passages.findById(r.passageId);
+        if (r.method.isOral || r.passageId == null) continue;
+        final p = r.passageId == passage.id ? passage : await _passages.findById(r.passageId!);
         if (p != null && p.textKey == passage.textKey) found = r;
       }
     }
@@ -939,7 +1024,12 @@ class PhilIriViewModel {
       int readingId) async {
     final reading = await _findReading(readingId);
     final session = await _requireOpenSession(reading.assessmentId);
-    return (reading: reading, passage: await _requirePassage(reading.passageId), session: session);
+    final passageId = reading.passageId;
+    if (passageId == null) {
+      throw const ViewModelException(
+          'This reading was imported without a passage (Untitled) and cannot be edited here.');
+    }
+    return (reading: reading, passage: await _requirePassage(passageId), session: session);
   }
 
   void _requireOral(PhilIriReading reading) {
