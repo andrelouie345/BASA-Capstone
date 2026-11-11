@@ -275,6 +275,9 @@ class PhilIriImportViewModel {
 
   Future<PhilIriImportHeaders> _headers() => PhilIriImportHeaders.load(_headersDir);
 
+  /// The most one upload holds (D19), for the preview's size line.
+  int get maxUploadBytes => _maxBytes;
+
   // ---- preview ----
 
   /// The workbook preview (nothing written). [choices]: learner picks and
@@ -1118,13 +1121,16 @@ class _Run {
       ];
 
       final date = source == PhilIriImportSource.workbook ? dates[r.round] : r.date;
+      // Words read belong to a one-minute reading only (the readings CHECK);
+      // a whole-text count typed in the workbook is the passage's words.
+      final wordsRead = r.method == PhilIriReadingMethod.oneMinute ? r.wordsRead : null;
       final reading = PhilIriReading(
         assessmentId: 0,
         sequenceNo: 1,
         passageId: passage?.id,
         method: r.method,
         readingSeconds: r.seconds,
-        wordsRead: r.wordsRead,
+        wordsRead: wordsRead,
         importedCorrect: source == PhilIriImportSource.workbook ? importedCorrect : null,
         importedWordCount: passage == null ? r.wordCount : null,
         importedTotal: passage == null ? importedTotal : null,
@@ -1150,7 +1156,7 @@ class _Run {
           wordCount: passage?.wordCount ?? r.wordCount,
           method: r.method,
           readingSeconds: r.seconds,
-          wordsRead: r.wordsRead,
+          wordsRead: wordsRead,
           countedMiscues: philIriCountedMiscues(miscues),
           comprehensionCorrect: compTotal == null ? null : compCorrect,
           comprehensionTotal: compTotal,

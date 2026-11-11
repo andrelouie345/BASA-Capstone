@@ -76,3 +76,5 @@ The debug console (`lib/ui/debug/`) is a developer tool, not an app screen: leav
 | 56 | Review uploads (approver) | screen | admin | [sync.md](screens/sync.md#review-uploads-approver) |  |  |
 | 57 | Light and dark mode (whole app) | app-wide | both | [README.md](README.md#light-and-dark-mode) |  |  |
 | 58 | Colours (customize light and dark, defaults preset) | screen | both | [auth.md](screens/auth.md#colours-light-and-dark-mode) |  |  |
+| 59 | Phil-IRI import (workbook and scoresheet file; also in the hub) | screen | admin | [phil-iri-import.md](screens/phil-iri-import.md#import-pick-a-file) |  |  |
+| 60 | Download Phil-IRI scoresheet template (per section) | menu item | admin | [phil-iri-import.md](screens/phil-iri-import.md#download-template-per-section) |  |  |

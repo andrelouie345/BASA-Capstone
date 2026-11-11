@@ -1,0 +1,116 @@
+# A7 Phil-IRI import (spec docs/superpowers/specs/2026-11-09-phil-iri-import-design.md,
+# plan Task 11): the coordinator imports ma's workbook and a BASA scoresheet
+# into a section of their own, uploads, and tutor1 pulls the sessions.
+# Each invocation makes a new Grade 7 section ZZTEST-G7I{stamp} with three new
+# learners (from=stamp), so the one-time workbook lock never blocks a rerun.
+# File contents: tool/command_pass/phil_iri_fixture.dart (BOSY "Lili the
+# Lizard and Koko the Gecko" for learners 1-2 + GSTs 30 and 20; scoresheet
+# MOSY 1 "The Jeepney" for learner 1 + GST 25 for learner 3).
+
+device a7-pc admin fresh
+as coord
+run pull-cloud yes
+expect users:
+
+# --- A section with three new learners ---------------------------------------
+make-sf1 sf1_a7 a 7 ZZTEST-G7I{stamp} 3 from=stamp
+run import-students "{sf1_a7}"
+expect Inserted: 3, Conflicts: 0, Already enrolled: 0
+capture sec_i = resolved section: 7 - ZZTEST-G7I{stamp} \({year}\) \(id=(\d+)\)
+run student-list-section {sec_i}
+capture s_i_1 = (\d+) \| 9990\d{4}7\d{3}
+make-phil-iri-workbook wb_a7 7 ZZTEST-G7I{stamp} 3 from=stamp
+make-phil-iri-scoresheet ss_a7 7 ZZTEST-G7I{stamp} 3 from=stamp
+
+# --- Header labels -----------------------------------------------------------------
+run phil-iri-import-headers
+expect wb.name: NAME OF STUDENT
+expect ss.lrn: LRN
+run phil-iri-import-headers-set ss.lrn Learner Number
+expect Saved: ss.lrn = Learner Number
+run phil-iri-import-headers
+expect ss.lrn: Learner Number
+# The scoresheet's LRN column is not found with the changed label.
+run phil-iri-import-scoresheet-preview {sec_i} "{ss_a7}"
+expect Header issues (nothing read
+expect ss.lrn not found
+run phil-iri-import-headers-reset
+expect Header labels reset to the defaults.
+run phil-iri-import-headers
+expect ss.lrn: LRN
+run phil-iri-import-headers-set nonsense Whatever
+refuse nonsense
+run phil-iri-import-header-samples "{wb_a7}" wb.wordsRead # of Words Read
+expect 357
+run phil-iri-import-header-samples "{wb_a7}" wb.name NAME OF STUDENT
+refuse Names are not shown here.
+run phil-iri-import-header-samples "{rundir}/nosuchfile.xlsx" wb.gst GST Raw Score
+refuse No file
+
+# --- Scoresheet template ---------------------------------------------------------
+run phil-iri-import-template {sec_i} "{rundir}/a7_template.xlsx"
+expect~ Wrote .*a7_template\.xlsx \(\d+ bytes\)\.
+run phil-iri-import-template nine "{rundir}/a7_template.xlsx"
+refuse Invalid sectionId: "nine"
+
+# --- Workbook: preview, refusals, import --------------------------------------
+run phil-iri-import-workbook-preview "{wb_a7}" dates=bosy:{past}
+expect Sheet 01: importable -> section {sec_i} (Grade 7 ZZTEST-G7I{stamp}, {year})
+expect Sheet 02: not in BASA
+expect Lili the Lizard and Koko the Gecko
+expect Warning: This makes BASA the record
+capture code_wb = confirm code: ([0-9a-f]{12})
+run phil-iri-import-workbook "{wb_a7}" sections={=01} dates=bosy:{past}
+refuse Give confirm=<code> from the preview.
+run phil-iri-import-workbook "{wb_a7}" sections={=01} dates=bosy:{past} confirm=abcdefabcdef
+refuse The data changed since the preview. Preview again before importing.
+# Another date is another preview: its code differs.
+run phil-iri-import-workbook "{wb_a7}" sections={=01} dates=bosy:{yesterday} confirm={code_wb}
+refuse The data changed since the preview.
+run phil-iri-import-workbook "{wb_a7}" sections={=02} dates=bosy:{past} confirm={code_wb}
+refuse Sheet 02 can't be imported: not in BASA.
+run phil-iri-import-workbook "{wb_a7}" sections={=01} dates=bosy:{past} confirm={code_wb} extra
+refuse Unknown option "extra".
+run phil-iri-import-workbook "{wb_a7}" sections={=01} dates=bosy:{past} confirm={code_wb}
+expect~ Imported 2 session\(s\): ids -\d+, -\d+; 2 GST result\(s\)
+expect Nothing is uploaded yet: run sync-upload.
+run sync-upload yes
+expect~ [Aa]pplied
+# The section's workbook is in BASA now: once only.
+run phil-iri-import-workbook-preview "{wb_a7}" dates=bosy:{past}
+expect Sheet 01: already imported
+capture code_wb2 = confirm code: ([0-9a-f]{12})
+run phil-iri-import-workbook "{wb_a7}" sections={=01} dates=bosy:{past} confirm={code_wb2}
+refuse Sheet 01 can't be imported: already imported.
+
+# --- Scoresheet: preview, import ---------------------------------------------------
+run phil-iri-import-scoresheet-preview {sec_i} "{ss_a7}"
+expect The Jeepney: A Filipino Tradition
+expect GST 25
+capture code_ss = confirm code: ([0-9a-f]{12})
+run phil-iri-import-scoresheet {sec_i} "{ss_a7}"
+refuse Give confirm=<code> from the preview.
+run phil-iri-import-scoresheet {sec_i} "{ss_a7}" confirm={code_ss}
+expect~ Imported 1 session\(s\): ids -\d+; 1 GST result\(s\)
+run sync-upload yes
+expect~ [Aa]pplied
+# Again: what BASA has is skipped, nothing new.
+run phil-iri-import-scoresheet-preview {sec_i} "{ss_a7}"
+expect SKIP
+capture code_ss2 = confirm code: ([0-9a-f]{12})
+run phil-iri-import-scoresheet {sec_i} "{ss_a7}" confirm={code_ss2}
+expect Imported 0 session(s); 0 GST result(s)
+
+# --- tutor1 sees the imported sessions ---------------------------------------------
+run assign-section {tutor1_id} {sec_i}
+expect Assigned tutor {tutor1_id} to section {sec_i}
+device a7-phone tutor fresh
+as tutor1
+run pull-cloud yes
+expect users:
+sql select count(*) from phil_iri_assessments where section_id = {sec_i} and import_source = 'workbook' => 2
+sql select count(*) from phil_iri_assessments where section_id = {sec_i} and import_source = 'scoresheet' => 1
+sql select count(*) from phil_iri_gst_results where section_id = {sec_i} => 3
+# The lock is the coordinator's: a tutor's pull never gets it (RLS, migration 20261109010000).
+sql select count(*) from phil_iri_workbook_imports where section_id = {sec_i} => 0
+# (The tutor build has none of the phil-iri-import-* commands: test/core/wiring/command_sets_test.dart.)

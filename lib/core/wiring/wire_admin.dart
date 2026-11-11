@@ -30,6 +30,7 @@ import '../console/commands/login_commands.dart';
 import '../console/commands/nla_report_commands.dart';
 import '../console/commands/phil_iri_admin_commands.dart';
 import '../console/commands/phil_iri_content_admin_commands.dart';
+import '../console/commands/phil_iri_import_admin_commands.dart';
 import '../console/commands/reminder_admin_commands.dart';
 import '../console/commands/report_settings_commands.dart';
 import '../console/commands/school_admin_commands.dart';
@@ -260,6 +261,7 @@ void registerAdminCommands(AppContext ctx, SharedVms s, TutorVms t, AdminVms a) 
   registerSyncReviewCommands(r, a.syncReviewVm);
   registerLoginCommands(r, a.loginLogVm);
   registerCrlaImportCommands(r, authVm, a.crlaImportVm);
+  registerPhilIriImportCommands(r, authVm, a.philIriImportVm);
   registerCrlaThresholdAdminCommands(r, t.crlaThresholdVm);
   registerPhilIriContentAdminCommands(r, t.philIriContentVm);
   registerPhilIriAdminCommands(r, t.philIriVm);

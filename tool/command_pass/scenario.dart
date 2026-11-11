@@ -64,11 +64,13 @@ class SqlStep extends Step {
   const SqlStep(super.line, this.query, this.expected);
 }
 
-/// `make-sf1 <capture> a|b <grade> <section> <count> [from=<n>]`: write an SF1
-/// workbook for school a (the run's school) or b into the run folder and
-/// capture its path. `from` is the first learner index (default 1), so a
-/// second section of the same grade gets different LRNs. Not a run: checks
-/// cannot follow it.
+/// `make-sf1 <capture> a|b <grade> <section> <count> [from=<n>|from=stamp]`:
+/// write an SF1 workbook for school a (the run's school) or b into the run
+/// folder and capture its path. `from` is the first learner index (default 1),
+/// so a second section of the same grade gets different LRNs; `from=stamp`
+/// ([first] 0) takes the run's next unused block of indexes (200 up, kept in
+/// the run's state), so a rerun of the batch on the same run gets new
+/// learners. Not a run: checks cannot follow it.
 class MakeSf1Step extends Step {
   final String name;
   final bool schoolB;
@@ -77,6 +79,22 @@ class MakeSf1Step extends Step {
   final int count;
   final int first;
   const MakeSf1Step(super.line, this.name, this.schoolB, this.grade, this.section, this.count, {this.first = 1});
+}
+
+/// `make-phil-iri-workbook <capture> <grade> <section> <count> [from=...]` and
+/// `make-phil-iri-scoresheet <capture> <grade> <section> <count> [from=...]`:
+/// a filled Phil-IRI workbook (ma's layout) or BASA scoresheet file for the
+/// school-a learners `make-sf1 ... a <grade> <section> <count> [from=...]`
+/// made (same `from`; `from=stamp` = the block the last make-sf1 from=stamp
+/// took), contents in phil_iri_fixture.dart. Not a run.
+class MakePhilIriStep extends Step {
+  final String name;
+  final bool workbook;
+  final int grade;
+  final String section;
+  final int count;
+  final int first;
+  const MakePhilIriStep(super.line, this.name, this.workbook, this.grade, this.section, this.count, {this.first = 1});
 }
 
 /// `write-file <capture> <text...>`: write the text ({..} values filled in)
@@ -116,6 +134,14 @@ Scenario parseScenario(String batch, String source) {
       } on FormatException catch (e) {
         fail('bad regex "$source": ${e.message}');
       }
+    }
+
+    /// `from=<n>` (n >= 1) or `from=stamp` (0); null when neither.
+    int? fromArg(String a) {
+      final v = a.substring(5);
+      if (v == 'stamp') return 0;
+      final n = int.tryParse(v);
+      return n != null && n >= 1 ? n : null;
     }
 
     void requireRun() {
@@ -174,12 +200,24 @@ Scenario parseScenario(String batch, String source) {
         final shapeOk = p.length == 5 || (p.length == 6 && p[5].startsWith('from='));
         final grade = shapeOk ? int.tryParse(p[2]) : null;
         final count = shapeOk ? int.tryParse(p[4]) : null;
-        final first = shapeOk && p.length == 6 ? int.tryParse(p[5].substring(5)) : 1;
+        final first = shapeOk && p.length == 6 ? fromArg(p[5]) : 1;
         if (!shapeOk || !const {'a', 'b'}.contains(p[1]) || grade == null || count == null || count < 1 ||
-            first == null || first < 1) {
-          fail('expected "make-sf1 <capture> a|b <grade> <section> <count> [from=<n>]"');
+            first == null || (first == 0 && p[1] == 'b')) {
+          fail('expected "make-sf1 <capture> a|b <grade> <section> <count> [from=<n>|from=stamp]" (stamp: school a)');
         }
         steps.add(MakeSf1Step(n, p[0], p[1] == 'b', grade, p[3], count, first: first));
+        afterRun = false;
+      case 'make-phil-iri-workbook' || 'make-phil-iri-scoresheet':
+        final p = rest.split(RegExp(r'\s+'));
+        final shapeOk = p.length == 4 || (p.length == 5 && p[4].startsWith('from='));
+        final grade = shapeOk ? int.tryParse(p[1]) : null;
+        final count = shapeOk ? int.tryParse(p[3]) : null;
+        final first = shapeOk && p.length == 5 ? fromArg(p[4]) : 1;
+        if (!shapeOk || !RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$').hasMatch(p[0]) || grade == null || count == null ||
+            count < 1 || first == null) {
+          fail('expected "$keyword <capture> <grade> <section> <count> [from=<n>|from=stamp]"');
+        }
+        steps.add(MakePhilIriStep(n, p[0], keyword == 'make-phil-iri-workbook', grade, p[2], count, first: first));
         afterRun = false;
       case 'write-file':
         final sp = rest.indexOf(' ');

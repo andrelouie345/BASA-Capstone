@@ -13,7 +13,8 @@ String describe(Step s) => switch (s) {
       RefuseStep() => 'refuse ${s.text}',
       CaptureStep() => 'capture ${s.name} = ${s.pattern.pattern}',
       SqlStep() => 'sql ${s.query} => ${s.expected}',
-      MakeSf1Step() => 'make-sf1 ${s.name} ${s.schoolB ? 'b' : 'a'} ${s.grade} ${s.section} ${s.count}${s.first == 1 ? '' : ' from=${s.first}'}',
+      MakeSf1Step() => 'make-sf1 ${s.name} ${s.schoolB ? 'b' : 'a'} ${s.grade} ${s.section} ${s.count}${_from(s.first)}',
+      MakePhilIriStep() => 'make-phil-iri-${s.workbook ? 'workbook' : 'scoresheet'} ${s.name} ${s.grade} ${s.section} ${s.count}${_from(s.first)}',
       WriteFileStep() => 'write-file ${s.name} ${s.text}',
     };
 
@@ -71,3 +72,5 @@ String renderReport(List<StepResult> results, CoverageResult? cov, Iterable<Stri
 }
 
 String _indent(String text) => text.split('\n').map((l) => '  $l').join('\n');
+
+String _from(int first) => first == 1 ? '' : first == 0 ? ' from=stamp' : ' from=$first';

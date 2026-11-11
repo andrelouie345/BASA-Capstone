@@ -189,6 +189,28 @@ void main() {
     expect(await db.query('phil_iri_workbook_imports', where: 'section_id = ?', whereArgs: [_silver]), isEmpty);
   });
 
+  // Command pass r32 (a7): the workbook's "# of Words Read" of a whole-text
+  // reading is the passage's words; the reading row takes words read only
+  // for one minute (CHECK on both sides), so it must not travel.
+  test('a whole-text reading with its typed words read imports (words read not stored)', () async {
+    final sheet = WbSheet('01', section: 'IRON', schoolYear: _year, methods: const {
+      PhilIriRound.bosy: 'Whole-Text Reading',
+    }, males: const [
+      WbLearner('DELA CRUZ, Juan', gst: 30, rounds: {
+        PhilIriRound.bosy: WbRound(passage: '7C Dust', wordsRead: 120, mm: 2, ss: 30, omission: 2, comprehension: 6),
+      }),
+    ]);
+    final (bytes, p) = await preview([sheet]);
+    final result = await vm.importWorkbook(bytes, const PhilIriImportChoices(sheets: {'01'}), fingerprint: p.fingerprint);
+    expect(result.failed, isEmpty);
+    expect(result.sessionIds, hasLength(1));
+    final reading = (await db.query('phil_iri_readings', where: 'assessment_id = ?', whereArgs: [result.sessionIds.single]))
+        .single;
+    expect(reading['method'], 'whole_text');
+    expect(reading['reading_seconds'], 150);
+    expect(reading['words_read'], isNull);
+  });
+
   test('second import of the section is refused', () async {
     final (bytes, p) = await preview([iron()]);
     await vm.importWorkbook(bytes, const PhilIriImportChoices(sheets: {'01'}), fingerprint: p.fingerprint);

@@ -12,6 +12,7 @@ import 'package:basa_capstone/core/services/sf1_column_map.dart';
 import 'checks.dart';
 import 'device.dart';
 import 'scenario.dart';
+import 'phil_iri_fixture.dart';
 import 'sf1_fixture.dart';
 
 /// Captures and the run accounts' passwords, saved after every change so an
@@ -229,6 +230,13 @@ Future<List<StepResult>> runScenario(
           continue;
         }
         final path = '${devices.runDir.path}/${step.name}.xlsx';
+        final int first;
+        try {
+          first = step.first != 0 ? step.first : _allocate(step.count, state);
+        } on StateError catch (e) {
+          add(step, StepOutcome(false, e.message));
+          continue;
+        }
         try {
           writeSf1(path,
               map: await Sf1ColumnMap.load(dev.dir.path), // what this device's import reads
@@ -243,9 +251,38 @@ Future<List<StepResult>> runScenario(
                   grade: step.grade,
                   count: step.count,
                   schoolB: step.schoolB,
-                  first: step.first));
+                  first: first));
         } catch (e) {
           add(step, StepOutcome(false, 'cannot write the SF1 workbook: $e'));
+          continue;
+        }
+        state.captures[step.name] = path;
+        await state.save();
+        add(step, const StepOutcome(true), output: '${step.name} = $path');
+
+      case MakePhilIriStep():
+        lastRunOk = false;
+        final path = '${devices.runDir.path}/${step.name}.xlsx';
+        final now = DateTime.now();
+        try {
+          final learners = sf1Learners(
+              runNumber: accounts.runNumber,
+              grade: step.grade,
+              count: step.count,
+              first: step.first != 0 ? step.first : _lastBlock(state));
+          if (step.workbook) {
+            writePhilIriWorkbook(path,
+                school: '${sf1SchoolCode(accounts.runNumber)} - ${sf1SchoolName(accounts.runNumber)}',
+                schoolYear: currentSchoolYear(now),
+                grade: step.grade,
+                section: substitute(step.section, _vars(accounts, state)),
+                learners: learners);
+          } else {
+            writePhilIriScoresheet(path,
+                date: now.subtract(const Duration(days: 30)).toIso8601String().substring(0, 10), learners: learners);
+          }
+        } catch (e) {
+          add(step, StepOutcome(false, 'cannot write the Phil-IRI file: $e'));
           continue;
         }
         state.captures[step.name] = path;
@@ -422,3 +459,18 @@ Future<(StepOutcome, String)> _sql(SqlStep step, Device dev, Map<String, String>
     return (StepOutcome(false, 'sql failed: $e'), query);
   }
 }
+
+/// `make-sf1 ... from=stamp`: the next block of [count] unused learner
+/// indexes of the run (200 up; school a only), kept in the run's state so a
+/// rerun of the batch on the same run gets new learners. The Phil-IRI file
+/// steps with `from=stamp` reuse the last block ([_lastBlock]).
+int _allocate(int count, RunState state) {
+  final first = int.tryParse(state.captures['stamp_next'] ?? '') ?? 200;
+  if (first + count - 1 > 999) throw StateError('from=stamp: no learner indexes left on this run (200-999 used)');
+  state.captures['stamp_from'] = '$first';
+  state.captures['stamp_next'] = '${first + count}';
+  return first;
+}
+
+int _lastBlock(RunState state) =>
+    int.tryParse(state.captures['stamp_from'] ?? '') ?? (throw StateError('from=stamp: no make-sf1 from=stamp before'));
