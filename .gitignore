@@ -50,3 +50,7 @@ CLAUDE.local.md
 /data/supabase_config.json
 /data/basa_local.db*
 /tool/installer/vendor/
+
+# Old/renamed device data folders (a renamed ./data was committed once, 28cb9c8)
+/data_old*/
+/data*/basa_local.db*
