@@ -28,7 +28,7 @@
 
 1. **A one-minute round whose words-read cell still holds the formula's 0** (teacher typed nothing) must be *incomplete, skipped*, never a reading with `words_read = 0` (the CHECK `words_read > 0` would throw mid-import). Test in Task 6.
 2. **Two learners with the same normalized name in one section** must both become *needs a pick*, never an automatic match. Test in Task 9.
-3. **A comprehension count above the BASA passage's question count** (header says 20, passage has 10) must be *unreadable, skipped* with sheet/row/column, never a DB error. Test in Task 9.
+3. **A comprehension count above the BASA passage's question count** (header says 20, passage has 10) must never be a DB error. Amended 2026-11-11 (owner, spec D20): a count out of another maximum is *scaled* to the passage's questions (flagged); *unreadable, skipped* with sheet and row only when there is no maximum and the count is above the questions. Test in Task 9.
 4. **Excel-mangled scoresheet values**: an LRN typed as a number (`1.23456789012E11` or lost leading zero), a date as an Excel serial, a time as an Excel day fraction (`0.1076388…` = 2:35) must read correctly or be named unreadable. Test in Task 7.
 5. **Passage titles that differ only in case/punctuation** ("Get up, Jacky!" vs "Get Up, Jacky!", "10A -Pre Butuan…" spacing) must match the BASA passage. Test in Task 9.
 
@@ -232,6 +232,7 @@
 - Create: `lib/viewmodels/phil_iri_import_viewmodel.dart`, `lib/core/services/phil_iri_import_matching.dart`
 - Test: `test/viewmodels/phil_iri_import_preview_test.dart`, `test/core/services/phil_iri_import_matching_test.dart`
 
+- Added 2026-11-11 (owner, spec D20): workbook comprehension and GST out of another maximum are scaled proportionally (flagged). Task 9 rulings 1-16 and the name rule (middle initial / no middle matches SF1's full middle name) are in the import ledger.
 - Added 2026-11-11 (Task 6 ruling, owner option A): two ticked sheets naming the same section (same DepEd school ID, year, grade and section name) are refused in the preview ("sheets 01 and 07 both name section X: tick one"). The reader already skips a sheet named `Sample`. Empty sheets (no learners, often no section name) never count as duplicates.
 
 **Interfaces:**
