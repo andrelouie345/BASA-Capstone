@@ -106,10 +106,19 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
       return out.toString();
     }
     for (final r in readings) {
-      final p = await vm.passage(r.passageId);
-      out.write('\nReading ${r.id}: passage ${r.passageId}'
-          '${p == null ? ' (not on this device)' : ' "${p.title}" (${p.level == null ? 'no level' : 'Grade ${p.level}'}, ${p.wordCount} words)'}'
-          ' · ${_timing(r)}');
+      final passageId = r.passageId;
+      final p = passageId == null ? null : await vm.passage(passageId);
+      if (passageId == null) {
+        // Imported from the workbook without a passage (spec 2026-11-10 D12).
+        out.write('\nReading ${r.id}: Untitled'
+            '${r.importedWordCount == null ? '' : ' (${r.importedWordCount} words, typed)'}'
+            '${r.importedCorrect == null ? '' : ' · comprehension ${r.importedCorrect}/${r.importedTotal}'}'
+            ' · ${_timing(r)}');
+      } else {
+        out.write('\nReading ${r.id}: passage $passageId'
+            '${p == null ? ' (not on this device)' : ' "${p.title}" (${p.level == null ? 'no level' : 'Grade ${p.level}'}, ${p.wordCount} words)'}'
+            ' · ${_timing(r)}');
+      }
       final obs = _observationText(r.observation);
       if (obs.isNotEmpty) out.write('\n  Observed: $obs');
       final words = p?.words ?? const <String>[];
@@ -123,7 +132,12 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
 
       if (p != null) {
         final questions = await vm.questions(p.id!);
-        if (questions.isNotEmpty) {
+        final importedCorrect = r.importedCorrect;
+        if (questions.isNotEmpty && importedCorrect != null) {
+          // Imported from ma's workbook: a count over the passage's questions
+          // (as the score uses it), no answer rows to list.
+          out.write('\n  Comprehension: $importedCorrect/${questions.length} (imported, no per-question answers)');
+        } else if (questions.isNotEmpty) {
           final answers = {for (final a in await vm.answers(r.id!)) a.questionId: a};
           final right = answers.values.where((a) => a.isCorrect).length;
           out.write('\n  Answers: $right of ${questions.length} correct');
@@ -422,28 +436,43 @@ String _timing(PhilIriReading r) => switch (r.method) {
     };
 
 String _miscueText(PhilIriMiscue m, List<String> words) {
-  final where = m.type == PhilIriMiscueType.insertion
-      ? (m.wordIndex >= words.length && words.isNotEmpty ? 'after the last word' : 'before word ${m.wordIndex}')
-      : 'word ${m.wordIndex}';
-  final word = m.wordIndex < words.length ? ' "${words[m.wordIndex]}"' : '';
+  final i = m.wordIndex;
+  final where = i == null
+      ? 'position not recorded'
+      : m.type == PhilIriMiscueType.insertion
+          ? (i >= words.length && words.isNotEmpty ? 'after the last word' : 'before word $i')
+          : 'word $i';
+  final word = i != null && i < words.length ? ' "${words[i]}"' : '';
   return '$where$word · ${m.type.label}'
       '${m.spokenText == null ? '' : ' "${m.spokenText}"'}${m.selfCorrected ? ' · self-corrected (not counted)' : ''}';
 }
 
 String _pct(int? percent) => percent == null ? 'blank' : '$percent%';
 
-String _resultText(PhilIriPassageResult r) =>
-    '${r.silent ? 'silent · ' : ''}word reading ${_pct(r.wordReadingPercent)} (${r.accuracyLevel.label}), '
-    '${r.wordsPerMinute.round()} wpm '
-    '(${r.speed.label}) -> ${r.wordReadingLevel.label}; comprehension ${_pct(r.comprehensionPercent)} '
-    '(${r.comprehensionLevel.label}); profile ${r.profile.label}';
+String _resultText(PhilIriPassageResult r) {
+  // An imported reading with comprehension only (spec 2026-11-10 D7).
+  final wordReading = r.wordReadingAssumed
+      ? 'word reading not assessed (Struggling)'
+      : 'word reading ${_pct(r.wordReadingPercent)} (${r.accuracyLevel!.label}), '
+          '${r.wordsPerMinute!.round()} wpm (${r.speed!.label}) -> ${r.wordReadingLevel!.label}';
+  return '${r.silent ? 'silent · ' : ''}$wordReading; comprehension ${_pct(r.comprehensionPercent)} '
+      '(${r.comprehensionLevel.label}); profile ${r.profile.label}';
+}
 
 String _roundText(PhilIriRoundResult r) {
   if (r.profile == null) return 'no result yet';
   final level = r.adjustedLevel == null ? '' : ' · adjusted ${r.adjustedLevelLabel} · ${r.levelsDownLabel}';
-  return 'WR ${_pct(r.wordReadingPercent)} ${r.wordReadingLevel?.label ?? '-'}, '
-      '${r.wordsPerMinute?.round() ?? '-'} wpm ${r.speed?.label ?? '-'}, '
-      'comp ${_pct(r.comprehensionPercent)} ${r.comprehensionLevel?.label ?? '-'} -> ${r.profile!.label}$level';
+  final status = switch (r.status) {
+    PhilIriRoundStatus.assessed => '',
+    PhilIriRoundStatus.carriedOver => ' · carried over',
+    PhilIriRoundStatus.notAssessed => ' · not assessed',
+  };
+  final wr = r.wordReadingAssumed
+      ? 'WR not assessed (${r.wordReadingLevel!.label})'
+      : 'WR ${_pct(r.wordReadingPercent)} ${r.wordReadingLevel?.label ?? '-'}, '
+          '${r.wordsPerMinute?.round() ?? '-'} wpm ${r.speed?.label ?? '-'}';
+  return '$wr, comp ${_pct(r.comprehensionPercent)} ${r.comprehensionLevel?.label ?? '-'} -> ${r.profile!.label}'
+      '$level$status';
 }
 
 String _sessionLine(PhilIriAssessment s) =>

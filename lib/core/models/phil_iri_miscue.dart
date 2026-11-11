@@ -32,7 +32,9 @@ class PhilIriMiscue {
   /// Position in PhilIriPassage.words (0-based). For an insertion it is the
   /// word the inserted text comes BEFORE (words.length = after the last word).
   /// Transposition/reversal: the first of the words involved.
-  final int wordIndex;
+  /// Null = position not recorded (v40: only on a reading of an imported
+  /// session, whose source has miscue counts, not positions).
+  final int? wordIndex;
   final PhilIriMiscueType type;
   final String? spokenText;     // what the learner said / inserted, optional
   final bool selfCorrected;     // marked "S": recorded but not counted
@@ -40,7 +42,7 @@ class PhilIriMiscue {
   PhilIriMiscue({
     this.id,
     required this.readingId,
-    required this.wordIndex,
+    this.wordIndex,
     required this.type,
     this.spokenText,
     this.selfCorrected = false,
@@ -60,7 +62,7 @@ class PhilIriMiscue {
   factory PhilIriMiscue.fromMap(Map<String, Object?> m) => PhilIriMiscue(
         id: m['id'] as int?,
         readingId: m['reading_id'] as int,
-        wordIndex: m['word_index'] as int,
+        wordIndex: m['word_index'] as int?,
         type: PhilIriMiscueType.fromString(m['miscue_type'] as String),
         spokenText: m['spoken_text'] as String?,
         selfCorrected: m['self_corrected'] is bool

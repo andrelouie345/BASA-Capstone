@@ -106,7 +106,7 @@ expect~ .
 run phil-iri-passage-edit {pb} test pre
 expect Updated: [{pb}] Second, renamed · collection {col} · Grade 7 · pre · 18 words
 run phil-iri-passage-edit {pb} test later
-refuse Test type is "pre" (BOSY), "mosy" (MOSY), "post" (EOSY) or none.
+refuse Test type is a booklet label: "pre" (pretest), "mosy" (MOSY pool), "post" (posttest) or none.
 run phil-iri-passage-edit {pb} set A
 expect · pre · set A · 18 words
 run phil-iri-passage-edit {pb} selection {=2}

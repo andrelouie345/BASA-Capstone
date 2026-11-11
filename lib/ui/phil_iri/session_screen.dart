@@ -163,7 +163,8 @@ class _PhilIriSessionScreenState extends State<PhilIriSessionScreen> {
           final readings = <(PhilIriReading, PhilIriPassage?, PhilIriPassageResult?)>[];
           int? collectionId;
           for (final r in await vm.readings(widget.assessmentId)) {
-            final p = await vm.passage(r.passageId);
+            final passageId = r.passageId;
+            final p = passageId == null ? null : await vm.passage(passageId);
             collectionId ??= p?.collectionId;
             PhilIriPassageResult? score;
             if (r.isTimed) {
@@ -231,7 +232,9 @@ class _PhilIriSessionScreenState extends State<PhilIriSessionScreen> {
                     for (final (r, p, score) in d.readings)
                       ListRow(
                         leading: LetterBadge('${r.sequenceNo}', size: 36),
-                        title: p?.title ?? 'Passage #${r.passageId}',
+                        title: r.isUntitled
+                            ? 'Untitled${r.importedWordCount == null ? '' : ' (${r.importedWordCount} words)'}'
+                            : p?.title ?? 'Passage #${r.passageId}',
                         subtitle: readingMethodLabel(r.method),
                         footer: !r.isTimed
                             ? const StatusChip('not timed yet', tone: StatusTone.warn, icon: Icons.timer_off_outlined)

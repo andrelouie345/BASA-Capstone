@@ -9,7 +9,7 @@
 // moves learners. Classes are written online and mirrored to this device.
 //
 // Reading coordinator's workbook (sheets 01-40, GZ/HA; owner 2026-10-19):
-//  * not grade level ready = EOSY profile Frustration or Non-Reader; a learner
+//  * not grade level ready = EOSY profile Frustration, Struggling or Non-Reader; a learner
 //    without an EOSY reading keeps the latest round's result (it carries);
 //  * comprehension = the EOSY reading's own score when there is one, else the
 //    carried one (her sheet compared her EOSY score in percent with the
@@ -46,7 +46,7 @@ class SrpCandidate {
   final bool recommended;          // rank within the section's cap
   final bool notAssessed;          // no Phil-IRI result at all this year
   final PhilIriRound? basisRound;  // the round the result comes from (null if not assessed)
-  final PhilIriLevel profile;      // Frustration or Non-Reader
+  final PhilIriLevel profile;      // Frustration, Struggling or Non-Reader
   final int adjustedLevel;         // 0 for a Non-Reader
   final int? levelsDown;
   final SrpRankKey key;

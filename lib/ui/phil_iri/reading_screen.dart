@@ -22,9 +22,15 @@ class PhilIriReadingScreen extends StatefulWidget {
   State<PhilIriReadingScreen> createState() => _PhilIriReadingScreenState();
 }
 
+/// Where a miscue is: the word, or "position not recorded" (imported).
+String _miscueWhere(int? i, List<String> words) =>
+    i == null ? 'Position not recorded' : '“${i < words.length ? words[i] : '?'}”';
+
 class _ReadingData {
   final PhilIriReading reading;
-  final PhilIriPassage passage;
+  /// Null = imported from the workbook without a passage ("Untitled"):
+  /// no words to mark, and the ViewModel refuses edits (it may be deleted).
+  final PhilIriPassage? passage;
   final List<PhilIriMiscue> miscues;
   final List<PhilIriQuestion> questions;
   final List<PhilIriAnswer> answers;
@@ -131,8 +137,9 @@ class _PhilIriReadingScreenState extends State<PhilIriReadingScreen> {
           final vm = vms.philIri;
           final reading = (await vm.readings(widget.assessmentId)).where((r) => r.id == widget.readingId).firstOrNull;
           if (reading == null) return null;
-          final passage = await vm.passage(reading.passageId);
-          if (passage == null) return null;
+          final passageId = reading.passageId;
+          final passage = passageId == null ? null : await vm.passage(passageId);
+          if (passageId != null && passage == null) return null;
           PhilIriPassageResult? result;
           String? note;
           if (reading.isTimed) {
@@ -147,7 +154,7 @@ class _PhilIriReadingScreenState extends State<PhilIriReadingScreen> {
             reading,
             passage,
             await vm.miscues(reading.id!),
-            await vm.questions(passage.id!),
+            passage == null ? const <PhilIriQuestion>[] : await vm.questions(passage.id!),
             await vm.answers(reading.id!),
             result,
             note,
@@ -158,14 +165,29 @@ class _PhilIriReadingScreenState extends State<PhilIriReadingScreen> {
           final r = d.reading;
           final theme = Theme.of(context);
           final colors = theme.colorScheme;
-          final byWord = {for (final m in d.miscues) m.wordIndex: m};
-          final words = d.passage.words;
+          final passage = d.passage;
+          // Imported miscues may have no word position (wordIndex null).
+          final byWord = {for (final m in d.miscues) if (m.wordIndex != null) m.wordIndex!: m};
+          final words = passage?.words ?? const <String>[];
           final oneMinute = r.method == PhilIriReadingMethod.oneMinute;
+          final imported = r.importedCorrect != null;
           final summary = SectionCard(
-            title: d.passage.title,
+            title: passage?.title ?? 'Untitled',
             icon: Icons.menu_book_outlined,
-            trailing: FilledButton.tonalIcon(onPressed: () => _timing(r), icon: const Icon(Icons.timer_outlined), label: const Text('Set timing')),
+            trailing: passage == null
+                ? null
+                : FilledButton.tonalIcon(onPressed: () => _timing(r), icon: const Icon(Icons.timer_outlined), label: const Text('Set timing')),
             children: [
+              if (passage == null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                      'Imported from the workbook without a passage'
+                      '${r.importedWordCount == null ? '' : ' (${r.importedWordCount} words, typed)'}'
+                      '${r.importedCorrect == null ? '' : ' · comprehension ${r.importedCorrect}/${r.importedTotal}'}. '
+                      'It cannot be edited here; it can be deleted.',
+                      style: theme.textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant)),
+                ),
               StatGrid(tileWidth: 170, tiles: [
                 StatTile(label: 'Method', value: readingMethodLabel(r.method), icon: Icons.record_voice_over_outlined),
                 StatTile(
@@ -199,8 +221,14 @@ class _PhilIriReadingScreenState extends State<PhilIriReadingScreen> {
                           ),
                         ]),
                         const SizedBox(height: 12),
-                        if (!res.silent) Text('Word reading ${res.wordReadingPercent}% (${res.wordReadingLevel.label})'),
-                        Text('${res.wordsPerMinute.toStringAsFixed(0)} words per minute (${res.speed.label})'),
+                        // No word reading yet (comprehension only): "Not assessed" (phil-iri.md).
+                        if (!res.silent)
+                          Text(res.wordReadingLevel == null
+                              ? 'Word reading: Not assessed'
+                              : 'Word reading ${res.wordReadingPercent}% (${res.wordReadingLevel!.label})'),
+                        Text(res.wordsPerMinute == null || res.speed == null
+                            ? 'Speed: Not assessed'
+                            : '${res.wordsPerMinute!.toStringAsFixed(0)} words per minute (${res.speed!.label})'),
                         Text(res.comprehensionPercent == null
                             ? 'Comprehension: blank'
                             : 'Comprehension ${res.comprehensionPercent}% (${res.comprehensionLevel.label})'),
@@ -215,13 +243,13 @@ class _PhilIriReadingScreenState extends State<PhilIriReadingScreen> {
           final miscues = !r.method.isOral
               ? null
               : SectionCard(
-                  title: 'Miscues (${d.miscues.where((m) => m.counts).length}) · tap a word',
+                  title: 'Miscues (${d.miscues.where((m) => m.counts).length})${passage == null ? '' : ' · tap a word'}',
                   icon: Icons.spellcheck,
                   children: [
-                    if (d.passage.motivation != null)
+                    if (passage?.motivation != null)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8),
-                        child: Text(d.passage.motivation!,
+                        child: Text(passage!.motivation!,
                             style: theme.textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant)),
                       ),
                     const _Legend(),
@@ -245,9 +273,12 @@ class _PhilIriReadingScreenState extends State<PhilIriReadingScreen> {
                             background: m.selfCorrected ? colors.tertiaryContainer : colors.errorContainer,
                             foreground: m.selfCorrected ? colors.onTertiaryContainer : colors.onErrorContainer,
                           ),
-                          title: '“${m.wordIndex < words.length ? words[m.wordIndex] : '?'}”: ${m.type.label}'
+                          // Imported miscues have no word position: listed, not tappable.
+                          title: '${_miscueWhere(m.wordIndex, words)}: ${m.type.label}'
                               '${m.spokenText == null ? '' : ' (said “${m.spokenText}”)'}${m.selfCorrected ? ' · self-corrected' : ''}',
-                          onTap: m.wordIndex < words.length ? () => _word(m.wordIndex, words[m.wordIndex], m) : null,
+                          onTap: m.wordIndex != null && m.wordIndex! < words.length
+                              ? () => _word(m.wordIndex!, words[m.wordIndex!], m)
+                              : null,
                         ),
                     ],
                   ],
@@ -262,7 +293,11 @@ class _PhilIriReadingScreenState extends State<PhilIriReadingScreen> {
               : SectionCard(
                   title: 'Comprehension',
                   icon: Icons.quiz_outlined,
-                  children: [
+                  // Imported from the workbook: a count over the passage's
+                  // questions (the total the score uses), no answers to list.
+                  children: imported
+                      ? [Text('Comprehension: ${r.importedCorrect}/${d.questions.length} (imported, no per-question answers)')]
+                      : [
                     for (var i = 0; i < d.questions.length; i++) ...[
                       if (i > 0) const Divider(),
                       _QuestionTile(

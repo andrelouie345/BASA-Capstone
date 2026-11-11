@@ -11,9 +11,11 @@
 
 final _whitespace = RegExp(r'\s+');
 
-/// A passage's test type: the round it is for within its collection.
-/// 'pre' = BOSY, 'mosy' = MOSY 1-3, 'post' = EOSY; null = any round.
-/// MOSY never uses the BOSY or EOSY passages (reading coordinator, 2026-10-15).
+/// A passage's test type: its booklet label ('pre' = pretest, 'mosy' = MOSY
+/// pool, 'post' = posttest; null = none). A label only, not a rule: any
+/// grade-level passage may be read in any round (ma 2026-11-09, spec
+/// 2026-11-10-phil-iri-any-round-passages); the passage list puts the
+/// round's own label first (PhilIriRound.passageTestType).
 const philIriTestTypes = ['pre', 'mosy', 'post'];
 
 /// Characters ignored when deciding whether two passages are the same text:
@@ -39,7 +41,7 @@ class PhilIriPassage {
   final int? id;
   final int collectionId;
   final String language;        // 'English' (only language in scope)
-  final String? testType;       // one of philIriTestTypes; null = any round
+  final String? testType;       // one of philIriTestTypes (booklet label); null = none
   final String? setCode;        // 'A'..'D' for Phil-IRI sets; null otherwise
   final int? level;             // grade that reads it (4–10, up to 12 later); null in non-graded collections (FRB)
   final int? selectionNo;       // number in the collection's reading order (FRB); null otherwise

@@ -82,6 +82,20 @@ class ReportSettingsViewModel {
     );
   }
 
+  /// The stored no_comprehension_counts_FLT values (null = not set) and the
+  /// one that applies to [schoolId] (null = the region's; default off).
+  Future<({bool? region, bool? school, bool effective})> fltCountsLayers(int? schoolId) async {
+    _log('fltCountsLayers($schoolId)');
+    _requireSignIn();
+    final (region, school) = await _layers(schoolId);
+    bool? read(ReportSetting? s) => s?.settings[ReportSettings.noComprehensionCountsFltKey] as bool?;
+    return (
+      region: read(region),
+      school: read(school),
+      effective: ReportSettings.fromMap({...?region?.settings, ...?school?.settings}).noComprehensionCountsFlt,
+    );
+  }
+
   /// The stored offline sign-in windows (null = not set) and the one that
   /// applies to [schoolId] (null = the region's).
   Future<({int? region, int? school, int effective})> offlineDaysLayers(int? schoolId) async {
@@ -118,6 +132,16 @@ class ReportSettingsViewModel {
   Future<ReportSetting> setAutoApprove(int? schoolId, bool on) async {
     _log('setAutoApprove($schoolId, $on)');
     return _setKey(_writer(schoolId), schoolId, ReportSettings.syncAutoApproveKey, on);
+  }
+
+  /// Turns no_comprehension_counts_FLT on or off for the region ([schoolId]
+  /// null, superadmin) or a school (its admin/coordinator): a Phil-IRI reading
+  /// from a collection without comprehension questions (the FLT) counts as
+  /// assessed with words read and time alone. Devices get it with their next
+  /// pull.
+  Future<ReportSetting> setFltCounts(int? schoolId, bool on) async {
+    _log('setFltCounts($schoolId, $on)');
+    return _setKey(_writer(schoolId), schoolId, ReportSettings.noComprehensionCountsFltKey, on);
   }
 
   /// Sets the offline sign-in window (whole days 1-60) of the region or a
