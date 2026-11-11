@@ -1,5 +1,6 @@
 // Builds workbooks in ma's Phil-IRI/ARAL layout (G7 workbook, 2026-11 update)
-// for the workbook reader tests. Made-up names only.
+// for the workbook reader tests and the command pass (make-phil-iri-workbook).
+// Made-up names only.
 //
 // Layout (same columns as the real file): A = MALES/FEMALES labels and row
 // numbers, B = names (header "NAME OF STUDENT" at A10), G = GST raw score
