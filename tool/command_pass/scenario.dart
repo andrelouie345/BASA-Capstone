@@ -81,20 +81,25 @@ class MakeSf1Step extends Step {
   const MakeSf1Step(super.line, this.name, this.schoolB, this.grade, this.section, this.count, {this.first = 1});
 }
 
-/// `make-phil-iri-workbook <capture> <grade> <section> <count> [from=...]` and
+/// `make-phil-iri-workbook <capture> <grade> <section>[,<section2>] <count> [from=...]` and
 /// `make-phil-iri-scoresheet <capture> <grade> <section> <count> [from=...]`:
 /// a filled Phil-IRI workbook (ma's layout) or BASA scoresheet file for the
 /// school-a learners `make-sf1 ... a <grade> <section> <count> [from=...]`
 /// made (same `from`; `from=stamp` = the block the last make-sf1 from=stamp
-/// took), contents in phil_iri_fixture.dart. Not a run.
+/// took), contents in phil_iri_fixture.dart. A workbook may name a second
+/// section (sheet 03): its learners are the next block of [count], so its
+/// make-sf1 comes right after the first one's (with from=stamp: the last
+/// make-sf1 made the second section). Not a run.
 class MakePhilIriStep extends Step {
   final String name;
   final bool workbook;
   final int grade;
   final String section;
+  final String? second;
   final int count;
   final int first;
-  const MakePhilIriStep(super.line, this.name, this.workbook, this.grade, this.section, this.count, {this.first = 1});
+  const MakePhilIriStep(super.line, this.name, this.workbook, this.grade, this.section, this.count,
+      {this.first = 1, this.second});
 }
 
 /// `write-file <capture> <text...>`: write the text ({..} values filled in)
@@ -217,7 +222,15 @@ Scenario parseScenario(String batch, String source) {
             count < 1 || first == null) {
           fail('expected "$keyword <capture> <grade> <section> <count> [from=<n>|from=stamp]"');
         }
-        steps.add(MakePhilIriStep(n, p[0], keyword == 'make-phil-iri-workbook', grade, p[2], count, first: first));
+        final workbook = keyword == 'make-phil-iri-workbook';
+        final names = p[2].split(',');
+        if (names.length > 2 || names.any((x) => x.isEmpty) || (!workbook && names.length > 1)) {
+          fail(workbook
+              ? 'a workbook names one or two sections: <section>[,<section2>]'
+              : 'a scoresheet names one section');
+        }
+        steps.add(MakePhilIriStep(n, p[0], workbook, grade, names[0], count,
+            first: first, second: names.length == 2 ? names[1] : null));
         afterRun = false;
       case 'write-file':
         final sp = rest.indexOf(' ');

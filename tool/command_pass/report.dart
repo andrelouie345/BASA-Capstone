@@ -14,7 +14,7 @@ String describe(Step s) => switch (s) {
       CaptureStep() => 'capture ${s.name} = ${s.pattern.pattern}',
       SqlStep() => 'sql ${s.query} => ${s.expected}',
       MakeSf1Step() => 'make-sf1 ${s.name} ${s.schoolB ? 'b' : 'a'} ${s.grade} ${s.section} ${s.count}${_from(s.first)}',
-      MakePhilIriStep() => 'make-phil-iri-${s.workbook ? 'workbook' : 'scoresheet'} ${s.name} ${s.grade} ${s.section} ${s.count}${_from(s.first)}',
+      MakePhilIriStep() => 'make-phil-iri-${s.workbook ? 'workbook' : 'scoresheet'} ${s.name} ${s.grade} ${s.section}${s.second == null ? '' : ',${s.second}'} ${s.count}${_from(s.first)}',
       WriteFileStep() => 'write-file ${s.name} ${s.text}',
     };
 

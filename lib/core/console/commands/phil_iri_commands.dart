@@ -132,7 +132,12 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
 
       if (p != null) {
         final questions = await vm.questions(p.id!);
-        if (questions.isNotEmpty) {
+        final importedCorrect = r.importedCorrect;
+        if (questions.isNotEmpty && importedCorrect != null) {
+          // Imported from ma's workbook: a count over the passage's questions
+          // (as the score uses it), no answer rows to list.
+          out.write('\n  Comprehension: $importedCorrect/${questions.length} (imported, no per-question answers)');
+        } else if (questions.isNotEmpty) {
           final answers = {for (final a in await vm.answers(r.id!)) a.questionId: a};
           final right = answers.values.where((a) => a.isCorrect).length;
           out.write('\n  Answers: $right of ${questions.length} correct');

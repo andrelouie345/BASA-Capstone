@@ -45,6 +45,22 @@ void main() {
     ]);
   });
 
+  test('workbook with a second section: sheet 03 holds its learners, filled like sheet 01', () {
+    final path = '${dir.path}/wb2.xlsx';
+    final others = sf1Learners(runNumber: 99, grade: 7, count: 3, first: 205);
+    writePhilIriWorkbook(path,
+        school: 'ZZPASS0099 - ZZTEST PASS r99', schoolYear: '2026-2027', grade: 7, section: 'ZZTEST-G7I1',
+        learners: learners, second: (section: 'ZZTEST-G7J1', learners: others));
+    final plan = readPhilIriWorkbook(File(path).readAsBytesSync(), headers);
+    expect(plan.headerIssues, isEmpty);
+    expect(plan.problems, isEmpty);
+    expect([for (final s in plan.sections) '${s.sheet} ${s.sectionName}'],
+        ['01 ZZTEST-G7I1', '02 ZZTEST-NONE', '03 ZZTEST-G7J1']);
+    expect(plan.readings.where((r) => r.ref.sheet == '03').map((r) => '${r.learner.name} ${r.correctCount}').toList()..sort(),
+        ['${others[0].last}, ${others[0].first} 8', '${others[1].last}, ${others[1].first} 3']);
+    expect(plan.gst.where((g) => g.ref.sheet == '03').map((g) => g.score).toList()..sort(), [20, 30]);
+  });
+
   test('scoresheet: learner 1 MOSY 1 reading, learner 3 GST', () {
     final path = '${dir.path}/ss.xlsx';
     writePhilIriScoresheet(path, date: '2026-10-12', learners: learners);

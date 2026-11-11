@@ -12,6 +12,8 @@
 //     learner 2: GST 20/40; 357 words, 3:10, 20 omissions, 3/10
 //     others:    nothing (their rows are empty)
 //   sheet 02 = section "ZZTEST-NONE" (not in BASA), learner 1 with a GST.
+//   sheet 03 = the second section when one is given (import plan Task 12:
+//   two sections in one import), its learners filled like sheet 01.
 // Scoresheet (BASA file, first sheet):
 //   learner 1: MOSY 1, whole text of "The Jeepney: A Filipino Tradition"
 //              (pool passage 119), 2:30, 2 omissions, no answers
@@ -34,7 +36,7 @@ String _name(Sf1Learner l) => '${l.last}, ${l.first}';
 
 void writePhilIriWorkbook(String path,
     {required String school, required String schoolYear, required int grade, required String section,
-    required List<Sf1Learner> learners}) {
+    required List<Sf1Learner> learners, ({String section, List<Sf1Learner> learners})? second}) {
   const passage = philIriFixtureWorkbookPassage;
   WbLearner learner(int k, Sf1Learner l) => switch (k) {
         0 => WbLearner(_name(l), gst: 30, rounds: const {
@@ -45,7 +47,7 @@ void writePhilIriWorkbook(String path,
           }),
         _ => WbLearner(_name(l)),
       };
-  final all = [for (var k = 0; k < learners.length; k++) (learners[k], learner(k, learners[k]))];
+  List<(Sf1Learner, WbLearner)> filled(List<Sf1Learner> ls) => [for (var k = 0; k < ls.length; k++) (ls[k], learner(k, ls[k]))];
   WbSheet sheet(String name, String sectionName, List<(Sf1Learner, WbLearner)> rows) => WbSheet(
         name,
         section: sectionName,
@@ -58,8 +60,9 @@ void writePhilIriWorkbook(String path,
         comprehensionMax: const {PhilIriRound.bosy: 10},
       );
   File(path).writeAsBytesSync(buildPhilIriWorkbook([
-    sheet('01', section, all),
+    sheet('01', section, filled(learners)),
     sheet('02', 'ZZTEST-NONE', [(learners.first, WbLearner(_name(learners.first), gst: 12))]),
+    if (second != null) sheet('03', second.section, filled(second.learners)),
   ]));
 }
 

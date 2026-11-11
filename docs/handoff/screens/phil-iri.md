@@ -46,6 +46,8 @@ Assessment status (since 2026-11-09): each `PhilIriRoundResult` has `status` (`P
 
 Imported readings (since 2026-11-10): a reading imported from ma's workbook may have **no passage** (`PhilIriReading.isUntitled`, `passageId` null): show its title as **"Untitled"** and its word count from `importedWordCount`; there are no words to tap, no questions to answer, and the ViewModel refuses edits of it ("This reading was imported without a passage (Untitled) and cannot be edited here."), though it can be deleted. A reading may also have **comprehension only**: its `PhilIriPassageResult.wordReadingAssumed` is true and word recognition, speed, accuracy and word reading level are null: show them as **"Not assessed"**, as for a round's `wordReadingAssumed`.
 
+A workbook reading **on a passage** has no answer rows: its comprehension is the count `PhilIriReading.importedCorrect` over the passage's questions (`questions(passageId).length`, the total the score uses). When `importedCorrect` is not null, show "Comprehension: 8/10 (imported, no per-question answers)" instead of the question list (don't show every question as not answered). Its miscues have no word position (`PhilIriMiscue.wordIndex` null): list them as "position not recorded" with their type, not on the passage's words.
+
 ### Finalize
 Build: admin    Roles: admin / coordinator
 Calls:

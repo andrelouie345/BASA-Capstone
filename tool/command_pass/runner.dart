@@ -265,18 +265,24 @@ Future<List<StepResult>> runScenario(
         final path = '${devices.runDir.path}/${step.name}.xlsx';
         final now = DateTime.now();
         try {
-          final learners = sf1Learners(
-              runNumber: accounts.runNumber,
-              grade: step.grade,
-              count: step.count,
-              first: step.first != 0 ? step.first : _lastBlock(state));
+          final second = step.second;
+          // With a second section and from=stamp, the last block is the second section's.
+          final first = step.first != 0
+              ? step.first
+              : _lastBlock(state) - (second == null ? 0 : step.count);
+          List<Sf1Learner> block(int from) =>
+              sf1Learners(runNumber: accounts.runNumber, grade: step.grade, count: step.count, first: from);
+          final learners = block(first);
           if (step.workbook) {
             writePhilIriWorkbook(path,
                 school: '${sf1SchoolCode(accounts.runNumber)} - ${sf1SchoolName(accounts.runNumber)}',
                 schoolYear: currentSchoolYear(now),
                 grade: step.grade,
                 section: substitute(step.section, _vars(accounts, state)),
-                learners: learners);
+                learners: learners,
+                second: second == null
+                    ? null
+                    : (section: substitute(second, _vars(accounts, state)), learners: block(first + step.count)));
           } else {
             writePhilIriScoresheet(path,
                 date: now.subtract(const Duration(days: 30)).toIso8601String().substring(0, 10), learners: learners);
