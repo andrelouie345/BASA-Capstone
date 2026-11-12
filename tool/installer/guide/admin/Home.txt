@@ -10,6 +10,7 @@ For reading coordinators, school admins and the regional superadmin, using the *
 * [[Functions|BASA functions]]: what each part of BASA does and how to use it.
 * [[Who can do what]]: superadmin, school admin, coordinator and tutor.
 * [[Glossary]]: the terms BASA uses.
+* [[Functions:Importing data|Importing data]]: moving Phil-IRI results from the VNHS ARAL workbook or a scoresheet file into BASA.
 
 ===== Before anything else =====
 If you share this device with someone, read [[Functions:Sharing a device and switching users]] first.

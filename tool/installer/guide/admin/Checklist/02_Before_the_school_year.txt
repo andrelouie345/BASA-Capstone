@@ -27,4 +27,5 @@ BASA needs the year's learners, sections and dates before anyone can assess. Imp
 [ ] Open **Manage → Tutor assignments** and assign each tutor to the sections they assess.
 [ ] Open **Manage → Report settings**. Check the done threshold (default 85%), whether tutors' uploads are approved automatically, and the offline sign-in days (default 14).
 [ ] Open **ARAL → ARAL settings**. Check the check-in cut-off (default 75%), SHARP and KS1 extended for your school.
+[ ] //Moving from the workbook to BASA// (a school that used the VNHS ARAL workbook, also in the middle of a year): after the SF1 imports, import each section's Phil-IRI results from the workbook, then send your work ([[:Functions:Importing data|Importing data]]).
 [ ] Tell every tutor to sign in while connected and use **Sync → Download the latest data**.
