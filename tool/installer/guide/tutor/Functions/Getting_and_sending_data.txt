@@ -14,3 +14,8 @@ You work on a copy of your data on your device. You download it when connected a
 * While it waits, those records can't be changed. To change one, **withdraw** the upload, fix the record and send again.
 * If the same record was changed on the server since your download, the app asks which copy to keep: yours or the server's.
 * Open **Send my work** again later to see the decision. Approved records take their final form. A rejected upload shows the coordinator's reason and unlocks your records so you can fix them and send again.
+
+===== Undo work you haven't sent =====
+**Sync → Download the latest data → ⋮ (More) on "This device" → Delete unsent work and download**. Deletes **all** of your work on this device that is not on the server yet, then downloads the latest data. Use it only to throw away a mistake you haven't sent.
+* It deletes everything unsent, not only the mistake: send your good work first.
+* It can't be undone. An upload that is still waiting can be **withdrawn** first (then it counts as unsent); an approved one can't be undone here.
