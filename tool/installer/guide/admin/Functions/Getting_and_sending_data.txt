@@ -17,7 +17,7 @@ BASA works offline. You download a copy of your data, work on it without a conne
 * After a decision, open **Send my work** again: approved records take their final form; a rejected upload unlocks them so you can fix and resend.
 
 ===== Undo work you haven't sent =====
-**Sync → Download the latest data → ⋮ (More) on "This device" → Delete unsent work and download**. Deletes **all** of this device's work that is not on the server yet, then downloads the latest data. Use it to undo a mistake you haven't sent, for example a wrong import (imported results, a section's workbook lock, SF1 learners) or a trial run.
+**Sync → Download the latest data → ⋮ (More) on "This device" → Delete unsent work and download**. Deletes **all** of this device's work that is not on the server yet, then downloads the latest data. Use it to undo a mistake you haven't sent, for example a wrong Phil-IRI import (the imported results and the section's workbook lock) or a trial run. An SF1 import is not unsent work: it goes to the server at once, so this doesn't remove it.
 * It deletes everything unsent, not only the mistake. **Tip:** send your other work first, then do the risky step (an import, a trial). If it goes wrong, only that step is deleted.
 * It can't be undone, and it can't undo what you already sent: an admin's or coordinator's upload is applied at once.
 
