@@ -169,6 +169,13 @@ class Sf1Importer {
   Future<Sf1TrialResult> _parseSheet(Excel excelFile) async {
     final sheet = excelFile.tables[excelFile.tables.keys.first]!;
 
+    // Safety net (2026-11-12): a cell with control characters means the file
+    // was not read correctly (an .xls reader bug once turned a name into
+    // binary garbage and emptied the cells after it). Refuse the whole file:
+    // no learner is skipped silently, nothing half-read reaches the server.
+    final unreadable = sf1FirstUnreadableCell(sheet);
+    if (unreadable != null) throw FormatException(sf1UnreadableMessage(unreadable));
+
     final rawRegion = _cell(sheet, columnMap.regionRow, columnMap.regionCol);
     final regionId = Region.resolve(rawRegion);
 
@@ -416,4 +423,36 @@ class Sf1Importer {
         '${result.alreadyEnrolled} already enrolled, ${result.skippedBlankOrTotal} skipped');
     return result;
   }
+}
+
+/// The first cell (1-based row, column letter) holding a control character
+/// other than tab, line feed or carriage return, or null when there is none.
+({int row, String column})? sf1FirstUnreadableCell(Sheet sheet) {
+  for (var r = 0; r < sheet.maxRows; r++) {
+    for (var c = 0; c < sheet.maxColumns; c++) {
+      final v = sheet.cell(CellIndex.indexByColumnRow(columnIndex: c, rowIndex: r)).value;
+      if (v == null) continue;
+      for (final u in v.toString().runes) {
+        if ((u < 32 && u != 9 && u != 10 && u != 13) || u == 127) {
+          return (row: r + 1, column: _sf1ColumnLetters(c + 1));
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/// The refusal for [cell] (sf1FirstUnreadableCell).
+String sf1UnreadableMessage(({int row, String column}) cell) =>
+    "This file wasn't read correctly (row ${cell.row}, column ${cell.column} holds unreadable characters). "
+    'Open it in Excel, save it as an Excel Workbook (.xlsx) and import that file instead.';
+
+String _sf1ColumnLetters(int n) {
+  var s = '';
+  while (n > 0) {
+    final m = (n - 1) % 26;
+    s = String.fromCharCode(65 + m) + s;
+    n = (n - 1) ~/ 26;
+  }
+  return s;
 }

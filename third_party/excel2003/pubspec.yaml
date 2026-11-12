@@ -1,0 +1,8 @@
+name: excel2003
+description: A simple Dart library/plugin for reading legacy .xls Excel files. (BASA copy with an SST CONTINUE fix; see README.md.)
+version: 1.0.0+basa.1
+repository: https://github.com/ubuntu2204/excel2003
+publish_to: none
+
+environment:
+  sdk: ^3.7.2

@@ -16,7 +16,14 @@ Creation-Date: 2026-11-08T00:00:00+08:00
 3. Run the trial: BASA shows what it would import, without saving.
 4. Import.
 5. If a learner already in BASA has different details, BASA lists a conflict: keep the details in BASA or update them from the file.
-You can only import your own school's files.
+6. **Check the count**: //Inserted// plus //Already enrolled// should equal the number of learners on the SF1. If it is lower, some rows were skipped: look at the skipped rows in the trial.
+You can only import your own school's files. The import saves to the server at once (it needs a connection), so it is not "unsent work": **Delete unsent work and download** does not undo it.
+
+==== "This file wasn't read correctly" ====
+BASA refuses an SF1 when a cell holds unreadable characters (it names the row and column). Open the file in Excel, **Save As → Excel Workbook (.xlsx)**, and import that file.
+
+==== SF1s imported from .xls before this version ====
+Before this version, BASA could misread a long //.xls// SF1 (the old Excel format): a learner's name came out garbled and the learners after it were skipped without a message. If you imported an //.xls// SF1 with an older BASA, import the same file again now: learners already in BASA show as //Already enrolled//, and the missing ones are added. Then check the count (step 6).
 
 ===== Learners and roster CSV =====
 **Learners → Learners**. Pick a section to see its learners (search by name or LRN). Save the section's roster as a CSV file with the download button. In the admin build, open a learner to see their history.
