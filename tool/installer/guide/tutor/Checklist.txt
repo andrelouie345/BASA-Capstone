@@ -8,7 +8,7 @@ Work through these pages in order. Tick a box when a step is done: click it, or 
 Stage 1 is done once. Stages 2 to 8 repeat every school year: untick them at the start of a new year.
 
 ===== Every time you work =====
-[ ] When connected: **Sync → Download the latest data**.
+[ ] When connected: **Sync → Download the latest data**. After your coordinator imports results, download before assessing.
 [ ] Work (offline is fine).
 [ ] When connected again: **Sync → Send my work**.
 

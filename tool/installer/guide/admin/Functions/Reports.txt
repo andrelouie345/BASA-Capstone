@@ -21,4 +21,4 @@ Every report is made from the data on this device: download the latest data firs
 **Manage → Report settings**. For your school: the done threshold for progress monitoring (default 85%), approving uploads automatically, and the offline sign-in days (default 14).
 
 ===== Reports and files =====
-**Reports → Reports & files**. Every import and export in one place: SF1, CRLA scoresheets, the ARAL roster, and all the report files above.
+**Reports → Reports & files**. Every import and export in one place: SF1, CRLA scoresheets, Phil-IRI results (the VNHS ARAL workbook or a scoresheet file, and the scoresheet template; see [[Importing data]]), the ARAL roster, and all the report files above.

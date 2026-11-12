@@ -1,0 +1,109 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.6
+Creation-Date: 2026-11-12T00:00:00+08:00
+
+====== Importing data ======
+Bring Phil-IRI results into BASA from two kinds of file:
+* **The VNHS ARAL workbook** (the grade's //Phil-IRI-ARAL Reading Assessments// file, one sheet per section; versions v26.0531 to v26.1130). For schools that used the workbook before BASA: BASA continues where the workbook stopped.
+* **The scoresheet file**: BASA's own file for one section, laid out like the DepEd Teacher Scoresheet. Teachers fill it in from the paper scoresheets.
+
+Both are in **Reports → Reports & files → Phil-IRI results**. The import works on this device, offline too. Nothing reaches the server until you send your work.
+
+===== 1. Before you import =====
+**Import the SF1 first, then the workbook.** The Phil-IRI import never creates a school or a section: it only adds results to learners BASA already has.
+[ ] Every section you import has its SF1 in BASA (**Manage → SF1 import**). The SF1's **School ID must be the same number as the workbook's**: BASA finds the school by it.
+[ ] A school that is new to BASA is added by the **superadmin** first: **Learners → Schools → Add school**, with the exact DepEd School ID. (An SF1 import by the superadmin also creates it.)
+[ ] You import only your own school's sections (the superadmin may import any school's).
+[ ] The year's round calendar is set (**Home → Round calendar**): the workbook's readings get their dates from it.
+[ ] Send your other work first (**Sync → Send my work**). Then a wrong import can be undone without losing anything else (see 6).
+
+The order for each section: **SF1 import → Phil-IRI import** (tick, check the preview, import) **→ Send my work**.
+
+===== 2. Importing the VNHS ARAL workbook =====
+The workbook is imported **once per section and school year**. After that, BASA is the record for that section's year and the workbook can't be imported again for it.
+[ ] Open **Reports → Reports & files → Phil-IRI results** and choose **VNHS ARAL workbook (v26.0531–v26.1130)**.
+[ ] Type the workbook's path (e.g. ''C:\Users\me\Downloads\GradeE07_Phil-IRI-ARAL Reading Assessments_shared.xlsx'') and press **Preview**. A whole grade takes a little while: BASA reads every sheet.
+[ ] If a card **Column headers to check** appears, see //A column header was not found// in the FAQ below.
+[ ] Read each **Sheet** card: //importable//, //empty//, //not in BASA// (the note says why) or //already imported//. Press **Show N row(s)** to see a sheet's learners and what BASA will make of each reading.
+[ ] Use **Search learner, sheet, passage, notes** and **Show** (//Needs a pick//, //Flagged//, //Skipped//, //Unreadable cells//) to find the rows to check without scrolling.
+[ ] For each row that **needs a pick**, choose the learner in **Which BASA learner is this?** (or leave **Skip (not imported)**). BASA matches learners by name within the section; two learners with the same name, a different spelling or a different sex need your pick.
+[ ] Check **Round dates**: every reading of a round gets one date, proposed from the round calendar. The GST takes the BOSY date. A round without a date says **Pick a date (needed)**.
+[ ] Tick the sections to import. Check the **upload size** line: if it says //Too big for one upload//, tick fewer sections (see the FAQ).
+[ ] Read the warning above the button, then press **Import ticked sections**.
+[ ] **Import done** shows what was written. Press **Send my work** when you are sure (see 6).
+
+===== 3. Filling in the scoresheet file =====
+For learners assessed on paper, without the workbook.
+[ ] Open **Reports → Reports & files → Phil-IRI scoresheet template** (or **Phil-IRI results → Scoresheet file**), pick the section and press **Download template**. BASA saves ''<grade>_<section>_Phil-IRI_scoresheet.xlsx'' and shows where.
+[ ] Open it in Excel. The sheet **Learners** lists the section's learners. **Keep the LRN column as it is**: BASA finds each learner by LRN.
+[ ] **One row per reading.** A learner read more than once (another round, or the GST)? Copy the learner's row and fill one round per row. GST: Round //GST//, the date and the GST score only.
+[ ] Copy the paper into the row: **Round**, **Date**, **Passage**, **Method**, **Time** (m:ss) or **Words read** (one minute), the miscue counts, **Self-corrected**, and each answer letter in **Q1**, **Q2**, ... Pick round, method and passage from the lists (sheet **Codes**).
+[ ] **Leave a cell empty if it isn't on the paper; never guess.** A blank answer counts as wrong.
+[ ] Save the file.
+
+===== 4. Importing a scoresheet file =====
+A scoresheet file can be imported again later: what BASA already has is skipped, never overwritten.
+[ ] Open **Reports → Reports & files → Phil-IRI results** and choose **Scoresheet file**.
+[ ] Pick the section, type the file's path and press **Preview**.
+[ ] Read the rows (search and **Show** work as for the workbook). Rows BASA already has say so and are skipped.
+[ ] Press **Import**, then **Send my work** when you are sure.
+
+===== 5. Using an AI tool for big batches =====
+An AI tool can copy many paper scoresheets into the scoresheet file. Use it carefully:
+* **Privacy first.** Learner names and LRNs are personal data (Data Privacy Act, RA 10173). Check your school's and division's rules, and use only an approved account.
+* Give it the template and the scanned scoresheets, **one section at a time**, with this prompt:
+  //"Fill one row per scoresheet into this template. Use only codes from the Codes sheet. Copy numbers and answer letters exactly as written. Leave a cell empty if it's unreadable or missing. Never guess."//
+* **Always check its work against the paper.** A misread handwritten number that still looks plausible passes BASA's preview.
+
+===== 6. After importing =====
+[ ] **Send my work** (**Sync → Send my work**). A coordinator's upload is applied at once.
+[ ] Tell the tutors to **download the latest data before they assess** that round. Otherwise they don't see the imported results.
+[ ] Imported sessions are //completed//, not finalized. Finalize them as usual (**Assess → Finalize**) when the round closes.
+
+**Undo before you send.** A wrong import, or a trial run, can be undone as long as it isn't sent: **Sync → Download the latest data → ⋮ (More) on "This device" → Delete unsent work and download**. This deletes the imported results, the section's workbook lock (so the section can be imported again) and SF1 learners not sent yet. It deletes **all** unsent work on the device, so send your other work first and import after. Once sent, there is no undo. See [[Getting and sending data]].
+
+===== 7. FAQ =====
+==== A sheet says "not in BASA" ====
+The note on the sheet's card says why:
+* //school ... is not in BASA//: the superadmin adds the school (**Learners → Schools → Add school**) with the workbook's School ID; then import the section's SF1.
+* //another school's section: only its own coordinator or the superadmin imports it//: sign in as that school's coordinator or the superadmin.
+* //create section Grade ... first (SF1 import)//: import the section's SF1, with the grade, section name and school year as in the workbook (upper/lower case, spaces and punctuation don't matter).
+* //no school ID on the sheet// (superadmin only): fill in the sheet's school cell in the workbook, or import as the school's coordinator.
+* //the sheet has no school year / grade / section name//: fill in those cells of the sheet in the workbook.
+
+==== A learner needs a pick ====
+BASA matches workbook learners by name within the section. No match, two learners with the same name, or a different sex: pick the learner in **Which BASA learner is this?**, or leave **Skip (not imported)**. A skipped learner is assessed live by the tutor.
+
+==== A column header was not found ====
+The card **Column headers to check** means nothing was read: a header in the file differs from the one BASA looks for (someone renamed a column). For each field, choose the file's header, press **Check values** to see the first values under it, then **Save and preview again**. BASA remembers the header on this device. The **Column headers** button (top right) shows the headers BASA looks for and can **Reset to defaults**.
+
+==== This section's workbook was already imported ====
+The workbook is imported once per section and school year. Results added since then are entered live in BASA, or with a scoresheet file.
+
+==== Blank answers count as wrong ====
+In the scoresheet file, an empty Q cell is a question not answered: it counts as wrong, as in a live session. Record every answer.
+
+==== Some readings were skipped ====
+* **Lower-grade passages** are skipped: BASA scores a learner only on their own grade's passages.
+* **Incomplete rounds** (a passage but no time or words read) are skipped: the tutor assesses that round live.
+* A reading with words read and time but **no comprehension** is imported as a word reading; a round with **only a comprehension** is imported as comprehension only (word reading not assessed).
+* A workbook reading **without a passage** is imported as //Untitled//, with the typed word count.
+
+==== Some readings are flagged ====
+Flagged rows are imported, with a note to check: a passage the learner already read (re-read), a comprehension or GST score converted to BASA's scale (for example 6 of 20 on an 8-question passage becomes 2 of 8), an Untitled reading.
+
+==== BASA's level differs from the workbook's ====
+BASA follows DepEd's current bands and Table 8, the workbook its own cut-offs. For whole-text readings BASA also uses its own word count of the passage. The preview shows BASA's result for each row.
+
+==== Where do the dates come from? ====
+Workbook: one date per round, from the round calendar (the start of the round's window); change it in **Round dates**. The GST takes the BOSY date. Scoresheet file: each row's own date.
+Every date must be inside the section's school year (June 1 to July 31 of the next year) and not in the future. A calendar date that isn't is not proposed (the round asks for a date); a scoresheet row with such a date is skipped. Check the round calendar if a date you expected is missing.
+
+==== "Already assessed" ====
+A learner and round BASA already has (completed or finalized) is skipped. A session in progress is never touched.
+
+==== Tutors don't see the results, or a learner has two attempts ====
+The results reach tutors only after you send your work and they download the latest data. Send first, then tell them to download before assessing.
+
+==== Too big for one upload ====
+One upload holds about 6 MB. Import some sections, send your work, then import the rest. Sections already imported can't be ticked again.

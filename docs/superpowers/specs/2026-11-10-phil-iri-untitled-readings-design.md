@@ -25,7 +25,7 @@ Today BASA cannot store either: every reading needs a passage (`phil_iri_reading
 | D9 | Carrying: a reading with no word reading adds nothing to the oral/silent maxima, so an earlier round's word reading carries as today; comprehension carries as today. Adjusted grade unchanged: a comprehension-only round uses its own % (R1 D8). |
 | D10 | Workbook rows (import spec D9 amended in the same commit): passage blank + words read + time → **Untitled** (whole text/silent: the words-read cell is the word count; one minute: words read); comprehension only → **comprehension-only** reading, miscue counts on such a row dropped and flagged; passage only, nothing else → still skipped as incomplete. |
 | D11 | Preview: Untitled readings are **"import, flagged: no passage (Untitled)"**. Passage matching (D7) and the lower-grade / round-clash / re-read checks (D8) don't apply to them. The comparison with the workbook's cached levels still runs. |
-| D12 | Display: wherever a reading's passage title is shown (session view, learner history, console, screens), a null passage shows **"Untitled"**. |
+| D12 | Display: wherever a reading's passage title is shown (session view, console, screens), a null passage shows **"Untitled"**. Corrected 2026-11-12 (final review minor): learner history shows no passage titles at all, so it has nothing to show as "Untitled". |
 | D13 | Results stay computed from raw readings with the current rules (bands spec D8 amended, R1 D17); nothing derived is stored. |
 
 ## Changes

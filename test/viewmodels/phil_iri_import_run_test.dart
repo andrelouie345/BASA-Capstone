@@ -81,6 +81,7 @@ void main() {
       uploadLocal: SyncUploadLocalSqlite(db),
       headersDir: dir,
       maxBytes: maxBytes,
+      now: () => DateTime(2028, 8, 1), // after the test school year 2027-2028
     );
   }
 
@@ -251,6 +252,32 @@ void main() {
     final pBad = await vm.previewWorkbook(bytes, choices: bad);
     expect(() => vm.importWorkbook(bytes, bad, fingerprint: pBad.fingerprint),
         refused('MOSY #2: 2027-02-30 is not a date (YYYY-MM-DD).'));
+
+    const outside = PhilIriImportChoices(sheets: {'01'}, dates: {PhilIriRound.mosy2: '2026-11-10'});
+    final pOutside = await vm.previewWorkbook(bytes, choices: outside);
+    expect(() => vm.importWorkbook(bytes, outside, fingerprint: pOutside.fingerprint),
+        refused('MOSY #2: 2026-11-10 is outside school year 2027-2028.'));
+
+    const future = PhilIriImportChoices(sheets: {'01'}, dates: {PhilIriRound.mosy2: '2028-07-20'});
+    final pFuture = await build().previewWorkbook(bytes, choices: future);
+    final early = PhilIriImportViewModel(
+      auth: ctx.authVm,
+      philIri: wireTutor(ctx, wireShared(ctx)).philIriVm,
+      calendar: wireTutor(ctx, wireShared(ctx)).calendarVm,
+      sessions: PhilIriAssessmentRepositorySqlite(db),
+      gst: PhilIriGstRepositorySqlite(db),
+      passages: PhilIriPassageRepositorySqlite(db),
+      collections: PhilIriCollectionRepositorySqlite(db),
+      schools: SchoolRepositorySqlite(db),
+      sections: SectionRepositorySqlite(db),
+      students: StudentRepositorySqlite(db),
+      writer: writer,
+      uploadLocal: SyncUploadLocalSqlite(db),
+      headersDir: dir,
+      now: () => DateTime(2028, 7, 1),
+    );
+    expect(() => early.importWorkbook(bytes, future, fingerprint: pFuture.fingerprint),
+        refused('MOSY #2: 2028-07-20 is in the future.'));
 
     const good = PhilIriImportChoices(sheets: {'01'}, dates: {PhilIriRound.mosy2: '2027-11-10'});
     final pGood = await vm.previewWorkbook(bytes, choices: good);

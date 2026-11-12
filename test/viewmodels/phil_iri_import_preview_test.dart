@@ -41,6 +41,10 @@ const _coord = '00000000-0000-0000-0000-0000000098c1';
 const _tutor = '00000000-0000-0000-0000-0000000098a1';
 const _iron = 9810, _silver = 9811, _gold = 9812;
 
+/// "Today" for the ViewModel: after the whole test school year by default
+/// (its dates are in 2027-2028); a test moves it to check the future rule.
+var _today = DateTime(2028, 8, 1);
+
 // Learners of IRON (id -> last, first, middle, sex).
 const _learners = {
   9801: ('Dela Cruz', 'Juan', 'Mendoza', 'M'),
@@ -92,6 +96,7 @@ void main() {
       writer: writer,
       uploadLocal: SyncUploadLocalSqlite(db),
       headersDir: dir.path,
+      now: () => _today,
     );
 
     await db.insert('schools', {'id': _school, 'school_id': '303988', 'school_name': 'ZZ Import High'});
@@ -350,6 +355,26 @@ void main() {
     expect((await vm.previewWorkbook(workbook())).fingerprint, p.fingerprint, reason: 'same data, same fingerprint');
   });
 
+  test('a calendar date in the future or outside the school year is not proposed', () async {
+    // BOSY 2027-06-15 is past, MOSY 1 2027-09-01 is still ahead.
+    _today = DateTime(2027, 6, 20);
+    try {
+      final p = await vm.previewWorkbook(workbook());
+      expect(p.proposedDates[PhilIriRound.bosy], '2027-06-15');
+      expect(p.proposedDates[PhilIriRound.mosy1], isNull);
+    } finally {
+      _today = DateTime(2028, 8, 1);
+    }
+    // A calendar EOSY outside 2027-2028 (a wrong year on the calendar).
+    final id = await db.insert('assessment_calendar', {'school_year': _year, 'instrument': 'phil_iri', 'round': 'eosy',
+        'opens_on': '2029-03-01', 'closes_on': '2029-03-28'});
+    try {
+      expect((await vm.previewWorkbook(workbook())).proposedDates[PhilIriRound.eosy], isNull);
+    } finally {
+      await db.delete('assessment_calendar', where: 'id = ?', whereArgs: [id]);
+    }
+  });
+
   test('levels that differ from the workbook are listed; D4 miscues', () async {
     final s = sheet(await vm.previewWorkbook(workbook()), '01');
     final bosy = reading(s, 'DELA CRUZ, Juan M.', PhilIriRound.bosy);
@@ -402,6 +427,10 @@ void main() {
       '${col('GST score')}3': 12,
       '${col('LRN')}4': '999999989801', '${col('Round')}4': 'GST', '${col('Date')}4': '2027-06-18',
       '${col('GST score')}4': 30,
+      '${col('LRN')}5': '999999989802', '${col('Round')}5': 'GST', '${col('Date')}5': '2026-06-18',
+      '${col('GST score')}5': 25,
+      '${col('LRN')}6': '999999989809', '${col('Round')}6': 'GST', '${col('Date')}6': '2028-07-30',
+      '${col('GST score')}6': 22,
     });
     final p = await vm.previewScoresheet(_iron, wb.encode(), 'iron.xlsx');
     final rows = p.sections.single.rows;
@@ -417,6 +446,21 @@ void main() {
     expect(rows.firstWhere((r) => r.gst?.score == 12).notes.single,
         'LRN 999999999999 is not an active learner of this section');
     expect(rows.firstWhere((r) => r.gst?.score == 30).gstResult!.takenAt, '2027-06-18');
+    final outside = rows.firstWhere((r) => r.gst?.score == 25);
+    expect(outside.outcome, PhilIriImportOutcome.skipped);
+    expect(outside.notes.single, contains('2026-06-18 is outside school year $_year'));
+    expect(rows.firstWhere((r) => r.gst?.score == 22).outcome, PhilIriImportOutcome.import,
+        reason: 'July 30 of the second year is still inside');
+
+    _today = DateTime(2028, 7, 15);
+    try {
+      final future = (await vm.previewScoresheet(_iron, wb.encode(), 'iron.xlsx'))
+          .sections.single.rows.firstWhere((r) => r.gst?.score == 22);
+      expect(future.outcome, PhilIriImportOutcome.skipped);
+      expect(future.notes.single, contains('2028-07-30 is in the future'));
+    } finally {
+      _today = DateTime(2028, 8, 1);
+    }
   });
 
   test('upload bytes estimated within 5% of what the package gains', () async {
