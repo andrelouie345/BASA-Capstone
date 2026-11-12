@@ -67,12 +67,18 @@ An AI tool can copy many paper scoresheets into the scoresheet file. Use it care
 The note on the sheet's card says why:
 * //school ... is not in BASA//: the superadmin adds the school (**Learners → Schools → Add school**) with the workbook's School ID; then import the section's SF1.
 * //another school's section: only its own coordinator or the superadmin imports it//: sign in as that school's coordinator or the superadmin.
-* //create section Grade ... first (SF1 import)//: import the section's SF1, with the grade, section name and school year as in the workbook (upper/lower case, spaces and punctuation don't matter).
+* //create section Grade ... first (SF1 import)//: import the section's SF1, with the grade, section name and school year as in the workbook (upper/lower case, spaces and punctuation don't matter). **The section is already in BASA?** Then the workbook says something different: most often its **school year** (for example the workbook says 2027-2028 and the section in BASA is 2026-2027). Fix the school year in a copy of the workbook (in ma's workbook it is typed once, on the **STARTHERE** sheet; the section sheets copy it) and preview the copy.
 * //no school ID on the sheet// (superadmin only): fill in the sheet's school cell in the workbook, or import as the school's coordinator.
 * //the sheet has no school year / grade / section name//: fill in those cells of the sheet in the workbook.
 
 ==== A learner needs a pick ====
 BASA matches workbook learners by name within the section. No match, two learners with the same name, or a different sex: pick the learner in **Which BASA learner is this?**, or leave **Skip (not imported)**. A skipped learner is assessed live by the tutor.
+
+==== A learner is not in BASA yet (new enrollee) ====
+Learners come only from the SF1. Update the section's SF1 (a newer LIS export, or a copy with the learner's row added) and import it again: learners already in BASA are listed as //Already enrolled//, only the new ones are added. Then preview the workbook again. Tutors are told to have the class adviser enrol a new learner in LIS and to give you the learner's name, LRN and section.
+
+==== Comprehension typed as 0.1 or 0.2 ====
+In the workbook, Excel shows a blank comprehension and a 0 the same way, so the codes **0.1 = blank** (comprehension not given) and **0.2 = 0 correct** (given, none right) may be typed in the comprehension columns. BASA reads them that way. They work only in comprehension columns: anywhere else 0.1 or 0.2 is listed as an unreadable value.
 
 ==== A column header was not found ====
 The card **Column headers to check** means nothing was read: a header in the file differs from the one BASA looks for (someone renamed a column). For each field, choose the file's header, press **Check values** to see the first values under it, then **Save and preview again**. BASA remembers the header on this device. The **Column headers** button (top right) shows the headers BASA looks for and can **Reset to defaults**.
@@ -94,6 +100,8 @@ Flagged rows are imported, with a note to check: a passage the learner already r
 
 ==== BASA's level differs from the workbook's ====
 BASA follows DepEd's current bands and Table 8, the workbook its own cut-offs. For whole-text readings BASA also uses its own word count of the passage. The preview shows BASA's result for each row.
+
+BASA also **carries results up**: a round's word reading and comprehension are the best so far, so a learner never drops back (for example to Non-Reader) because of one weaker reading. The workbook scores each round alone. When that is the difference, the note also shows //this round alone//, for example: //levels differ: BASA Frustration (grade 6; this round alone: Non-Reader, grade 0), workbook Non-Reader (grade 0)//.
 
 ==== Where do the dates come from? ====
 Workbook: one date per round, from the round calendar (the start of the round's window); change it in **Round dates**. The GST takes the BOSY date. Scoresheet file: each row's own date.

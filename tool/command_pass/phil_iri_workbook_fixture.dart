@@ -40,7 +40,8 @@ class WbRound {
   final bool wordsReadFormula;
   final int? mm, ss;
   final int mispronunciation, omission, substitution, insertion, reversal, repetition;
-  final int? comprehension;
+  /// Usually a whole number; a double or text writes ma's codes (0.1 = blank, 0.2 = 0).
+  final Object? comprehension;
   final String? adjProfile;
   final int? adjLevel;
 
@@ -64,7 +65,7 @@ class WbRound {
 
 class WbLearner {
   final String name;
-  final int? gst;
+  final Object? gst; // usually a whole number; a double tests an unreadable value
   final Map<PhilIriRound, WbRound> rounds;
   const WbLearner(this.name, {this.gst, this.rounds = const {}});
 }

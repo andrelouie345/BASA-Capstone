@@ -224,7 +224,8 @@ class PhilIriRoundResult {
   final int? adjustedLevel;             // 1–12; 0 only for a Non-Reader
   final int? levelsDown;                // null for a Non-Reader
   final PhilIriPassageResult? actual;   // the round's own reading as scored
-  final int? actualAdjustedLevel;       // from [actual] alone (BOSY: GST fills a missing comprehension)
+  final PhilIriLevel? actualProfile;    // the profile [actualAdjustedLevel] is counted from
+  final int? actualAdjustedLevel;      // from [actual] alone (BOSY: GST fills a missing comprehension)
   final int? actualLevelsDown;
   /// Not assessed at all this year: assumed Struggling, 3 levels down
   /// (philIriNotAssessedResult). Never set on a real result.
@@ -260,6 +261,7 @@ class PhilIriRoundResult {
     required this.round,
     required this.given,
     this.actual,
+    this.actualProfile,
     this.actualAdjustedLevel,
     this.actualLevelsDown,
     this.notAssessed = false,
@@ -358,9 +360,11 @@ List<PhilIriRoundResult> philIriRoundResults({
     // The true score: this round's reading alone. In BOSY a reading without
     // comprehension (FLT) takes the GST's, as in the carried result.
     int? actualAdjusted;
+    PhilIriLevel? actualProfile;
     if (own != null) {
       final c = own.comprehensionScore ?? bosyGst;
       final p = _profile(own.wordReadingLevel ?? PhilIriLevel.struggling, philIriComprehensionLevel(c ?? 0, rt))!;
+      actualProfile = p;
       actualAdjusted = _adjusted(p, learnerGrade, own.comprehensionScore, bosyGst, rt);
     }
 
@@ -390,6 +394,7 @@ List<PhilIriRoundResult> philIriRoundResults({
           ? null
           : philIriLevelsDown(adjusted, learnerGrade, nonReader: profile == PhilIriLevel.nonReader),
       actual: own,
+      actualProfile: actualProfile,
       actualAdjustedLevel: actualAdjusted,
       actualLevelsDown: actualAdjusted == null
           ? null
