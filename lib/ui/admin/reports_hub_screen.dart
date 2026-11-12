@@ -10,6 +10,7 @@ import '../learners/learners_screen.dart';
 import '../reports/srp_screen.dart';
 import 'aral_report_screen.dart';
 import 'crla_import_screen.dart';
+import 'phil_iri_import_screen.dart';
 import 'report_screens.dart';
 import 'sf1_import_screen.dart';
 import 'srp_editing.dart';
@@ -40,6 +41,7 @@ class ReportsHubScreen extends StatelessWidget {
       ListCard(children: [
         tile(Icons.upload_file, 'SF1 workbook', 'Learners of a section', (_) => const Sf1ImportScreen()),
         tile(Icons.file_upload_outlined, 'CRLA scoresheet', 'A filled CRLA2 scoresheet', (_) => const CrlaImportScreen()),
+        tile(Icons.menu_book_outlined, 'Phil-IRI results', 'VNHS ARAL workbook or scoresheet file', (_) => const PhilIriImportScreen()),
         tile(Icons.group_add_outlined, 'ARAL roster', 'Preview, then import', (_) => const AralReportScreen()),
       ]),
     ]);
@@ -48,6 +50,8 @@ class ReportsHubScreen extends StatelessWidget {
       ListCard(children: [
         tile(Icons.people_outline, 'Section roster CSV', 'From the Learners screen', (_) => const LearnersScreen()),
         tile(Icons.file_download_outlined, 'CRLA scoresheet', 'Fill the CRLA2 template', (_) => const CrlaExportScreen()),
+        tile(Icons.grid_on_outlined, 'Phil-IRI scoresheet template', 'Per section, to fill from the paper',
+            (_) => const PhilIriImportScreen(scoresheet: true)),
         tile(Icons.description_outlined, 'ARAL implementation report, roster, check-ins', 'Template or CSV', (_) => const AralReportScreen()),
         tile(Icons.assessment_outlined, 'NLA portal report', 'CSV', (_) => const NlaReportScreen()),
         tile(Icons.donut_large_outlined, 'Progress monitoring', 'CSV', (_) => const ProgressScreen()),
