@@ -58,6 +58,14 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
 
+# excel2003 1.0.0 (the only release) misreads .xls text that crosses a
+# CONTINUE split in the shared string table: later text cells come back empty
+# (2026-11-12, a real SF1 lost learners). BASA uses a fixed copy; see
+# third_party/excel2003/README.md.
+dependency_overrides:
+  excel2003:
+    path: third_party/excel2003
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 

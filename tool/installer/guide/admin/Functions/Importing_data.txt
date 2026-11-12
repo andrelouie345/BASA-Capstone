@@ -60,7 +60,7 @@ An AI tool can copy many paper scoresheets into the scoresheet file. Use it care
 [ ] Tell the tutors to **download the latest data before they assess** that round. Otherwise they don't see the imported results.
 [ ] Imported sessions are //completed//, not finalized. Finalize them as usual (**Assess → Finalize**) when the round closes.
 
-**Undo before you send.** A wrong import, or a trial run, can be undone as long as it isn't sent: **Sync → Download the latest data → ⋮ (More) on "This device" → Delete unsent work and download**. This deletes the imported results, the section's workbook lock (so the section can be imported again) and SF1 learners not sent yet. It deletes **all** unsent work on the device, so send your other work first and import after. Once sent, there is no undo. See [[Getting and sending data]].
+**Undo before you send.** A wrong import, or a trial run, can be undone as long as it isn't sent: **Sync → Download the latest data → ⋮ (More) on "This device" → Delete unsent work and download**. This deletes the imported results and the section's workbook lock (so the section can be imported again). It does not remove SF1 learners: an SF1 import goes to the server at once. It deletes **all** unsent work on the device, so send your other work first and import after. Once sent, there is no undo. See [[Getting and sending data]].
 
 ===== 7. FAQ =====
 ==== A sheet says "not in BASA" ====
