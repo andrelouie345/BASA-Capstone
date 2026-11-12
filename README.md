@@ -102,7 +102,12 @@ workbook without a passage, shown as "Untitled", with a typed word count and
 comprehension total; imported readings may have comprehension only; app
 update required: **yes**, same rule) and `20261110030000` (Phil-IRI: any
 grade-level passage may be read in any round; a passage's test type is only
-a label; app update required: **yes**, same rule). Each is idempotent.
+a label; app update required: **yes**, same rule) and `20261112010000`
+(SF1 leavers: a learner's enrollment can be archived as transferred out or
+dropped out, restored, and later anonymized, only through server functions;
+the section move history `enrollment_moves` and each section's last imported
+LRN set `sf1_last_imports`; report setting `archive_keep_months`; app update
+required: **yes**, same rule). Each is idempotent.
 Do **not** run
 `supabase/migrations_archive/`.
 

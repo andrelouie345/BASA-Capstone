@@ -65,7 +65,7 @@ After the rows, a block **not on this SF1**: learners actively enrolled in this 
 
 **Import** runs as today (new learners added, enrolled rows skipped). *Moving from* and *returning* rows are **not** applied by the import: they wait for a decision like the missing learners. They are not logged to `import_conflicts`.
 
-**Decisions** (one console command per action; each calls its function after the preview's confirm code, like `phil-iri-import`):
+**Decisions** (one console command per action, each calling its function; amended 2026-11-12 while planning, owner: only `learner-anonymize` takes a preview confirm code; archive, move and restore name one learner each, like `aral-exit`, and take none. The undecided list comes from a server table `sf1_last_imports` holding each section's last imported LRN set, so every admin device sees the same list):
 - `sf1-archive <enrollmentId> transferred|dropped [note]`
 - `sf1-move <enrollmentId> <sectionId>` (a missing learner, or confirming a *moving from X* row)
 - `sf1-restore <enrollmentId> [sectionId]` (a returning learner; into the file's section)

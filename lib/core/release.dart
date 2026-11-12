@@ -34,4 +34,5 @@ const Map<String, String> basaMigrations = {
   '20261110010000': 'report_settings_flt',
   '20261110020000': 'phil_iri_untitled_readings',
   '20261110030000': 'phil_iri_any_round_passages',
+  '20261112010000': 'sf1_leavers',
 };
