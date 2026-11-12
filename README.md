@@ -107,7 +107,14 @@ a label; app update required: **yes**, same rule) and `20261112010000`
 dropped out, restored, and later anonymized, only through server functions;
 the section move history `enrollment_moves` and each section's last imported
 LRN set `sf1_last_imports`; report setting `archive_keep_months`; app update
-required: **yes**, same rule). Each is idempotent.
+required: **yes**, same rule) and `20261112020000` (SF1 leavers, part 2: a
+learner moves to another section of the same grade with this school year's
+CRLA, Phil-IRI and GST records, finalized rounds included; restoring into
+another section moves too; the old section's tutor can still upload work
+done before the move, and the upload puts it in the new section and says so
+in its note; an archived learner's records stop an upload; the upload's
+shape check is back in `sync_apply`; app update required: **yes**, same
+rule). Each is idempotent.
 Do **not** run
 `supabase/migrations_archive/`.
 
