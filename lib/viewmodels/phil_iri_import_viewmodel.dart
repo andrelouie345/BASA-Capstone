@@ -56,6 +56,7 @@ import '../core/services/phil_iri_workbook_reader.dart';
 import '../core/services/sync_upload_rules.dart';
 import '../core/services/table_reader.dart';
 import '../core/services/xlsx_cells.dart';
+import '../core/services/school_year_dates.dart';
 import 'auth_viewmodel.dart';
 import 'phil_iri_viewmodel.dart';
 import 'round_calendar_viewmodel.dart';
@@ -228,6 +229,7 @@ class PhilIriImportViewModel {
   final SyncUploadLocalRepository _uploadLocal;
   final String _headersDir;
   final int _maxBytes;
+  final DateTime Function() _now;
 
   PhilIriImportViewModel({
     required AuthViewModel auth,
@@ -244,8 +246,10 @@ class PhilIriImportViewModel {
     required SyncUploadLocalRepository uploadLocal,
     required String headersDir,
     int? maxBytes,
+    DateTime Function()? now,
     Logger? logger,
   })  : _maxBytes = maxBytes ?? maxPackageBytes,
+        _now = now ?? DateTime.now,
         _auth = auth,
         _philIri = philIri,
         _calendar = calendar,
@@ -319,7 +323,9 @@ class PhilIriImportViewModel {
         final w = e.window;
         if (w.instrument != CalendarInstrument.philIri || w.skipped || w.opensOn == null) continue;
         final round = PhilIriRound.values.where((r) => r.name == w.round).firstOrNull;
-        if (round != null) proposed[round] = w.opensOn;
+        // A calendar date in the future or outside the year is not proposed:
+        // the coordinator picks one (follow-up 2026-11-12).
+        if (round != null && _dateProblem(w.opensOn!, first.schoolYear) == null) proposed[round] = w.opensOn;
       }
     }
     final dates = {for (final r in PhilIriRound.values) r: choices.dates[r] ?? proposed[r]};
@@ -523,7 +529,11 @@ class PhilIriImportViewModel {
 
     // Columns the device database fills in: created_at on every row (SQLite's
     // "YYYY-MM-DD HH:MM:SS"), attempt_no (sessions, GST), imported_at (lock).
-    final now = DateTime.now().toUtc().toIso8601String();
+    // completed_at: a fixed stamp of the longest ISO length (with
+    // microseconds), not DateTime.now(): its length varies (no microseconds
+    // part when they are 0), which made two estimates of the same preview
+    // differ by a few bytes (suite flake, 2026-11-12).
+    const now = '2000-01-01T00:00:00.000000Z';
     const stamp = '2000-01-01 00:00:00';
     for (final r in rows.where((r) => r.outcome != PhilIriImportOutcome.skipped)) {
       final g = r.gstResult;
@@ -604,6 +614,10 @@ class PhilIriImportViewModel {
       final date = preview.proposedDates[round];
       if (date == null || date.trim().isEmpty) throw ViewModelException('Give a date for ${round.label}.');
       if (!_isDate(date)) throw ViewModelException('${round.label}: $date is not a date (YYYY-MM-DD).');
+      for (final year in {for (final s in ticked) s.section!.schoolYear}) {
+        final problem = _dateProblem(date, year);
+        if (problem != null) throw ViewModelException('${round.label}: $date $problem.');
+      }
     }
     _checkUploadSize(ticked, preview.unsentBytes);
     return _write(preview, ticked, lock: true);
@@ -623,6 +637,15 @@ class PhilIriImportViewModel {
     if (preview.fingerprint != fingerprint) throw const ViewModelException(staleMessage);
     _checkUploadSize(preview.sections, preview.unsentBytes);
     return _write(preview, preview.sections, lock: false);
+  }
+
+  /// Why [date] can't be a record of [schoolYear] ("is in the future", "is
+  /// outside school year ..."), or null when it can (school_year_dates.dart,
+  /// the rule ARAL sessions use too).
+  String? _dateProblem(String date, String schoolYear) {
+    if (date.compareTo(isoDay(_now())) > 0) return 'is in the future';
+    if (!dateInSchoolYear(date, schoolYear)) return 'is outside school year $schoolYear';
+    return null;
   }
 
   static bool _isDate(String s) {
@@ -816,6 +839,8 @@ class PhilIriImportViewModel {
 
 /// One preview run: caches content and thresholds, keeps the existing
 /// sessions it saw (for the fingerprint).
+bool _isDateText(String s) => PhilIriImportViewModel._isDate(s);
+
 class _Run {
   final PhilIriImportViewModel vm;
   final PhilIriImportPlan plan;
@@ -975,6 +1000,13 @@ class _Run {
         notes.add('GST ${g.score} of $fileMax scaled to $score of $gradeMax');
       }
       final date = source == PhilIriImportSource.workbook ? dates[PhilIriRound.bosy] : g.date;
+      final gstDateProblem = source == PhilIriImportSource.scoresheet && date != null && _isDateText(date)
+          ? vm._dateProblem(date, section.schoolYear)
+          : null;
+      if (gstDateProblem != null) {
+        rows.add(skip('the date $date $gstDateProblem'));
+        continue;
+      }
       final result = PhilIriGstResult(
         studentId: s.id!,
         schoolId: section.schoolId,
@@ -1024,6 +1056,15 @@ class _Run {
       }
       if (state != null) {
         readingRows.add(skip('already assessed this round'));
+        continue;
+      }
+      // Scoresheet rows carry their own date (the workbook's are checked at import).
+      final rowDate = r.date;
+      final rowDateProblem = source == PhilIriImportSource.scoresheet && rowDate != null && _isDateText(rowDate)
+          ? vm._dateProblem(rowDate, section.schoolYear)
+          : null;
+      if (rowDateProblem != null) {
+        readingRows.add(skip('the date $rowDate $rowDateProblem'));
         continue;
       }
       final roundKey = '${s.id}|${r.round.name}';

@@ -36,6 +36,7 @@ import '../core/services/sync_upload_rules.dart' show pendingLockMessage;
 import 'auth_viewmodel.dart';
 import '../core/services/auth_messages.dart';
 import 'viewmodel_exception.dart';
+import '../core/services/school_year_dates.dart';
 
 /// Check-in assessments come after these session numbers (DepEd: 32 sessions,
 /// check-ins after 16 and 32).
@@ -576,8 +577,7 @@ class AralSessionViewModel {
     if (date.compareTo(_date(DateTime.now())) > 0) {
       throw ViewModelException('The session date $date is in the future.');
     }
-    final start = int.parse(schoolYear.substring(0, 4));
-    if (date.compareTo('$start-06-01') < 0 || date.compareTo('${start + 1}-07-31') > 0) {
+    if (!dateInSchoolYear(date, schoolYear)) {
       throw ViewModelException('The session date $date is outside school year $schoolYear.');
     }
   }

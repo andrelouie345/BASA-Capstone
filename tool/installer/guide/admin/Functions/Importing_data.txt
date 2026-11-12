@@ -12,7 +12,7 @@ Both are in **Reports → Reports & files → Phil-IRI results**. The import wor
 ===== 1. Before you import =====
 **Import the SF1 first, then the workbook.** The Phil-IRI import never creates a school or a section: it only adds results to learners BASA already has.
 [ ] Every section you import has its SF1 in BASA (**Manage → SF1 import**). The SF1's **School ID must be the same number as the workbook's**: BASA finds the school by it.
-[ ] A school that is new to BASA is created by its first SF1 import. That may need the superadmin.
+[ ] A school that is new to BASA is added by the **superadmin** first: **Learners → Schools → Add school**, with the exact DepEd School ID. (An SF1 import by the superadmin also creates it.)
 [ ] You import only your own school's sections (the superadmin may import any school's).
 [ ] The year's round calendar is set (**Home → Round calendar**): the workbook's readings get their dates from it.
 [ ] Send your other work first (**Sync → Send my work**). Then a wrong import can be undone without losing anything else (see 6).
@@ -65,7 +65,7 @@ An AI tool can copy many paper scoresheets into the scoresheet file. Use it care
 ===== 7. FAQ =====
 ==== A sheet says "not in BASA" ====
 The note on the sheet's card says why:
-* //school ... is not in BASA//: import that section's SF1, with the workbook's School ID.
+* //school ... is not in BASA//: the superadmin adds the school (**Learners → Schools → Add school**) with the workbook's School ID; then import the section's SF1.
 * //another school's section: only its own coordinator or the superadmin imports it//: sign in as that school's coordinator or the superadmin.
 * //create section Grade ... first (SF1 import)//: import the section's SF1, with the grade, section name and school year as in the workbook (upper/lower case, spaces and punctuation don't matter).
 * //no school ID on the sheet// (superadmin only): fill in the sheet's school cell in the workbook, or import as the school's coordinator.
@@ -97,6 +97,7 @@ BASA follows DepEd's current bands and Table 8, the workbook its own cut-offs. F
 
 ==== Where do the dates come from? ====
 Workbook: one date per round, from the round calendar (the start of the round's window); change it in **Round dates**. The GST takes the BOSY date. Scoresheet file: each row's own date.
+Every date must be inside the section's school year (June 1 to July 31 of the next year) and not in the future. A calendar date that isn't is not proposed (the round asks for a date); a scoresheet row with such a date is skipped. Check the round calendar if a date you expected is missing.
 
 ==== "Already assessed" ====
 A learner and round BASA already has (completed or finalized) is skipped. A session in progress is never touched.

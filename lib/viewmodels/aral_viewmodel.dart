@@ -45,7 +45,7 @@ import '../core/repositories/user_repository.dart';
 import '../core/services/aral_rules.dart';
 import '../core/services/csv.dart';
 import '../core/services/crla_rules.dart' show crlaAtGradeLevel;
-import '../core/services/phil_iri_results.dart' show philIriNotAssessedResult;
+import '../core/services/phil_iri_results.dart' show PhilIriRoundResult, philIriNotAssessedResult;
 import '../core/services/normalizers.dart';
 import '../core/services/sync_upload_rules.dart' show pendingLockMessage;
 import 'aral_class_viewmodel.dart' show aralPlacementRefusal, aralPlacementDbRefusals;
@@ -349,8 +349,7 @@ class AralViewModel {
         aralPhilIriPlacement(adjustedLevel: adjusted, grade: grade, foundationalProgram: foundationalProgram);
     final key = AralRankKey.philIri(bosy);
     final level = adjusted == 0 ? 'non-reader' : 'reads at Grade $adjusted';
-    final scores = '${gstOnly ? 'no reading' : 'word reading ${_pct(key.wordRecognition)}'}, comprehension '
-        '${bosy.comprehensionBlank ? '-' : _pct(key.comprehension)}, ${_wpm(bosy.wordsPerMinute)}';
+    final scores = aralPhilIriScoresText(bosy, gstOnly: gstOnly);
     return AralCandidate(
       student: s,
       grade: grade,
@@ -1107,4 +1106,24 @@ class AralViewModel {
     return '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-'
         '${d.day.toString().padLeft(2, '0')}';
   }
+}
+
+/// The scores in a Phil-IRI-based ARAL proposal reason: word reading,
+/// comprehension and speed of the BOSY result. A BOSY with no word reading
+/// yet (comprehension only, nothing earlier: [PhilIriRoundResult.wordReadingAssumed])
+/// says "not assessed" instead of 0% / "- wpm"; ranking still counts it as
+/// Struggling (AralRankKey.philIri).
+String aralPhilIriScoresText(PhilIriRoundResult bosy, {required bool gstOnly}) {
+  String pct(double? fraction) => fraction == null ? '-' : '${(fraction * 100).round()}%';
+  final word = gstOnly
+      ? 'no reading'
+      : bosy.wordReadingAssumed
+          ? 'word reading not assessed'
+          : 'word reading ${pct(bosy.wordReadingScore ?? 0)}';
+  final speed = bosy.wordReadingAssumed && !gstOnly
+      ? 'speed not assessed'
+      : bosy.wordsPerMinute == null
+          ? '- wpm'
+          : '${bosy.wordsPerMinute!.round()} wpm';
+  return '$word, comprehension ${bosy.comprehensionBlank ? '-' : pct(bosy.comprehensionScore)}, $speed';
 }

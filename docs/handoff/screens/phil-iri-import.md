@@ -50,7 +50,7 @@ Calls:
 - `importWorkbook(bytes, choices, fingerprint: preview.fingerprint)` → `PhilIriImportResult`
 - `importScoresheet(sectionId, bytes, fileName, fingerprint: preview.fingerprint)` → `PhilIriImportResult`
 Result: `sessionIds`, `gstIds` (new, not uploaded yet), `failed` (learner row → reason; the others were written), `nothingToImport` (ticked sheets with only skipped rows). Then point the coordinator to the upload (sync screen).
-Errors: `PhilIriImportViewModel.staleMessage` (the data changed since the preview: preview again), `Tick at least one section.`, `Sheet X can't be imported: <status>.`, `Give a date for <round>.`, `<round>: … is not a date (YYYY-MM-DD).`, upload-size refusals (`Upload first.` or a section too big for one upload), header issues.
+Errors: `PhilIriImportViewModel.staleMessage` (the data changed since the preview: preview again), `Tick at least one section.`, `Sheet X can't be imported: <status>.`, `Give a date for <round>.`, `<round>: … is not a date (YYYY-MM-DD).`, `<round>: … is outside school year …` / `<round>: … is in the future.` (a calendar date like that is not proposed: the round shows as needing a date), upload-size refusals (`Upload first.` or a section too big for one upload), header issues.
 Console: `phil-iri-import-workbook`, `phil-iri-import-scoresheet`
 
 ### Download template (per section)
