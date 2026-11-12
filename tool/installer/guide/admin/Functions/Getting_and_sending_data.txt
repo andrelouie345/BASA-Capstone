@@ -16,6 +16,11 @@ BASA works offline. You download a copy of your data, work on it without a conne
 * If someone changed the same record on the server since your download, BASA asks which copy to keep (yours or the server's) before sending.
 * After a decision, open **Send my work** again: approved records take their final form; a rejected upload unlocks them so you can fix and resend.
 
+===== Undo work you haven't sent =====
+**Sync → Download the latest data → ⋮ (More) on "This device" → Delete unsent work and download**. Deletes **all** of this device's work that is not on the server yet, then downloads the latest data. Use it to undo a mistake you haven't sent, for example a wrong import (imported results, a section's workbook lock, SF1 learners) or a trial run.
+* It deletes everything unsent, not only the mistake. **Tip:** send your other work first, then do the risky step (an import, a trial). If it goes wrong, only that step is deleted.
+* It can't be undone, and it can't undo what you already sent: an admin's or coordinator's upload is applied at once.
+
 ===== Review uploads =====
 **Sync → Review uploads** (admin build). Lists your school's uploads waiting for a decision (the superadmin sees every school). Open one to see what it holds, then **approve** it or **reject** it with a reason the tutor will read. Approving does not change your own device: download the latest data to see the result.
 
