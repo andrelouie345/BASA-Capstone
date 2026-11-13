@@ -8,6 +8,7 @@ import '../models/school.dart';
 import '../models/section.dart';
 import '../models/student.dart';
 import '../models/import_conflict.dart';
+import '../models/sf1_missing_learner.dart';
 import '../models/region.dart';
 import '../repositories/school_repository.dart';
 import '../repositories/section_repository.dart';
@@ -21,6 +22,10 @@ class Sf1ImportResult {
   int conflicts = 0;
   int alreadyEnrolled = 0;
   int skippedBlankOrTotal = 0;
+
+  /// Moving and returning rows: not applied by the import, they wait for the
+  /// coordinator's decision (sf1-move / sf1-restore).
+  int waiting = 0;
 }
 
 /// One parsed data row's outcome, before any write happens.
@@ -28,9 +33,25 @@ class Sf1TrialRow {
   final int rowIndex;
   final String? lrn;
   final String name;
-  final String outcome; // 'insert' | 'conflict' | 'enrolled' (already in this section) | 'skip'
+  /// 'insert' | 'conflict' | 'enrolled' (already in this section) | 'skip'
+  /// | 'moving' (active in another section of the school, same grade)
+  /// | 'returning' (archived this year at this school, same grade).
+  final String outcome;
   final String? reason;
-  final int? existingStudentId; // set only when outcome == 'conflict'
+  final int? existingStudentId; // set when outcome is 'conflict', 'moving' or 'returning'
+
+  /// 'moving': the section the learner is active in now.
+  final int? fromSectionId;
+  final String? fromSectionName;
+
+  /// 'moving' and 'returning': the learner's enrollment this school year
+  /// (what sf1-move / sf1-restore take).
+  final int? enrollmentId;
+
+  /// 'returning': when and why the learner was archived (the enrollment's
+  /// status, `transferred_out` or `dropped_out`).
+  final String? leftOn;
+  final String? leftReason;
 
   Sf1TrialRow({
     required this.rowIndex,
@@ -39,6 +60,11 @@ class Sf1TrialRow {
     required this.outcome,
     this.reason,
     this.existingStudentId,
+    this.fromSectionId,
+    this.fromSectionName,
+    this.enrollmentId,
+    this.leftOn,
+    this.leftReason,
   });
 }
 
@@ -54,7 +80,11 @@ class Sf1TrialResult {
   final String gradeLevel;
   final String sectionName;
   final List<Sf1TrialRow> rows;
-  final Map<int, Student> parsedStudents; // rowIndex -> parsed Student, insert+conflict rows only
+  final Map<int, Student> parsedStudents; // rowIndex -> parsed Student, every row but 'skip'
+
+  /// "Not on this SF1": learners active in the file's section this school
+  /// year whose LRN isn't in the file. Empty when the section doesn't exist yet.
+  final List<Sf1MissingLearner> missing;
 
   Sf1TrialResult({
     required this.rawRegion,
@@ -67,12 +97,15 @@ class Sf1TrialResult {
     required this.sectionName,
     required this.rows,
     required this.parsedStudents,
+    this.missing = const [],
   });
 
   int get wouldInsert => rows.where((r) => r.outcome == 'insert').length;
   int get wouldConflict => rows.where((r) => r.outcome == 'conflict').length;
   int get wouldSkip => rows.where((r) => r.outcome == 'skip').length;
   int get alreadyEnrolled => rows.where((r) => r.outcome == 'enrolled').length;
+  int get wouldMove => rows.where((r) => r.outcome == 'moving').length;
+  int get wouldReturn => rows.where((r) => r.outcome == 'returning').length;
 }
 
 /// Reason recorded for a row whose LRN belongs to a learner in another school.
@@ -208,9 +241,9 @@ class Sf1Importer {
             gradeLevel: gradeLevel,
             sectionName: sectionName,
           ));
-    final enrolledLrns = existingSection == null
-        ? <String>{}
-        : (await studentRepo.getBySection(existingSection.id!)).map((s) => s.lrn).toSet();
+    final sectionLearners =
+        existingSection == null ? <Student>[] : await studentRepo.getBySection(existingSection.id!);
+    final enrolledLrns = sectionLearners.map((s) => s.lrn).toSet();
 
     final rows = <Sf1TrialRow>[];
     final parsedStudents = <int, Student>{};
@@ -281,16 +314,34 @@ class Sf1Importer {
         // here (RLS) and only shows up as a duplicate LRN at insert time.
         rows.add(Sf1TrialRow(rowIndex: row, lrn: lrn, name: displayName, outcome: 'insert'));
       } else {
-        rows.add(Sf1TrialRow(
+        rows.add(await _existingLearnerRow(
           rowIndex: row,
           lrn: lrn,
           name: displayName,
-          outcome: 'conflict',
-          reason: 'LRN already exists (existing student id ${existing.id})',
-          existingStudentId: existing.id,
+          existing: existing,
+          schoolId: existingSchool?.id,
+          schoolYear: schoolYear,
+          gradeLevel: gradeLevel,
         ));
       }
       parsedStudents[row] = parsed;
+    }
+
+    // "Not on this SF1" (spec section 2, D9): learners active in this section
+    // this year whose LRN the file doesn't hold. Every LRN cell counts, even
+    // a row skipped for a blank name or sex: that learner is on the file.
+    final fileLrns = {for (final r in rows) ?r.lrn};
+    final missing = <Sf1MissingLearner>[];
+    for (final s in sectionLearners) {
+      if (fileLrns.contains(s.lrn)) continue;
+      final e = await studentRepo.enrollmentInYear(s.id!, schoolYear);
+      if (e == null || e.status != 'active') continue;
+      missing.add(Sf1MissingLearner(
+        enrollmentId: e.enrollmentId,
+        studentId: s.id!,
+        lrn: s.lrn,
+        name: '${s.lastName}, ${s.firstName}${s.middleName != null ? " ${s.middleName}" : ""}',
+      ));
     }
 
     return Sf1TrialResult(
@@ -307,6 +358,63 @@ class Sf1Importer {
       sectionName: sectionName,
       rows: rows,
       parsedStudents: parsedStudents,
+      missing: missing,
+    );
+  }
+
+  /// The row of an LRN the server already holds (not active in this
+  /// section). SF1 leavers (spec section 2, D6-D8): this school year's
+  /// enrollment at this school decides it. Active in another section of the
+  /// same grade -> 'moving'; archived, same grade -> 'returning'; another
+  /// grade -> a conflict (moves and restores are same grade only, D7). Any
+  /// other case (no enrollment this year, another school, the school not in
+  /// BASA yet) stays today's generic conflict. An anonymized learner never
+  /// gets here: their LRN is `ANON-<id>` (D2), so findByLrn doesn't find them.
+  Future<Sf1TrialRow> _existingLearnerRow({
+    required int rowIndex,
+    required String lrn,
+    required String name,
+    required Student existing,
+    required int? schoolId,
+    required String schoolYear,
+    required String gradeLevel,
+  }) async {
+    Sf1TrialRow conflict(String reason) => Sf1TrialRow(
+        rowIndex: rowIndex, lrn: lrn, name: name, outcome: 'conflict', reason: reason, existingStudentId: existing.id);
+
+    final e = schoolId == null ? null : await studentRepo.enrollmentInYear(existing.id!, schoolYear);
+    if (e == null || e.schoolId != schoolId) {
+      return conflict('LRN already exists (existing student id ${existing.id})');
+    }
+    final active = e.status == 'active';
+    if (e.gradeLevel != gradeLevel) {
+      return conflict(active
+          ? "active in ${e.sectionName} (Grade ${e.gradeLevel}): other grade, can't move"
+          : "archived in ${e.sectionName} (Grade ${e.gradeLevel}): other grade, can't restore");
+    }
+    if (active) {
+      return Sf1TrialRow(
+        rowIndex: rowIndex,
+        lrn: lrn,
+        name: name,
+        outcome: 'moving',
+        reason: 'moving from ${e.sectionName}',
+        existingStudentId: existing.id,
+        fromSectionId: e.sectionId,
+        fromSectionName: e.sectionName,
+        enrollmentId: e.enrollmentId,
+      );
+    }
+    return Sf1TrialRow(
+      rowIndex: rowIndex,
+      lrn: lrn,
+      name: name,
+      outcome: 'returning',
+      reason: 'archived on ${e.leftOn}, ${e.status.replaceAll('_', ' ')}',
+      existingStudentId: existing.id,
+      enrollmentId: e.enrollmentId,
+      leftOn: e.leftOn,
+      leftReason: e.status,
     );
   }
 
@@ -381,6 +489,13 @@ class Sf1Importer {
         result.alreadyEnrolled++;
         continue;
       }
+      if (row.outcome == 'moving' || row.outcome == 'returning') {
+        // Waits for the coordinator (sf1-move / sf1-restore), never a
+        // conflict; an archived enrollment couldn't be upserted anyway (RLS
+        // lets clients write only active rows).
+        result.waiting++;
+        continue;
+      }
 
       final studentParsed = parsed.parsedStudents[row.rowIndex]!;
 
@@ -420,7 +535,8 @@ class Sf1Importer {
     }
 
     _log('done: ${result.inserted} inserted, ${result.conflicts} conflicts, '
-        '${result.alreadyEnrolled} already enrolled, ${result.skippedBlankOrTotal} skipped');
+        '${result.alreadyEnrolled} already enrolled, ${result.waiting} waiting (moving/returning), '
+        '${result.skippedBlankOrTotal} skipped');
     return result;
   }
 }

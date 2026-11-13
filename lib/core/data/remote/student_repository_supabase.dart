@@ -65,6 +65,29 @@ class StudentRepositorySupabase implements StudentRepository {
   }
 
   @override
+  Future<EnrollmentInYear?> enrollmentInYear(int studentId, String schoolYear) async {
+    final rows = await client
+        .from('enrollments')
+        .select('id, section_id, status, left_on, section:sections(section_name, grade_level, school_id)')
+        .eq('student_id', studentId)
+        .eq('school_year', schoolYear)
+        .limit(1);
+    if (rows.isEmpty) return null;
+    final r = rows.first;
+    final sec = r['section'] as Map<String, dynamic>?;
+    if (sec == null) return null; // section not readable: treat as no enrollment
+    return (
+      enrollmentId: r['id'] as int,
+      sectionId: r['section_id'] as int,
+      sectionName: sec['section_name'] as String,
+      gradeLevel: sec['grade_level'] as String,
+      schoolId: sec['school_id'] as int,
+      status: r['status'] as String,
+      leftOn: r['left_on'] as String?,
+    );
+  }
+
+  @override
   Future<int> enroll({required int studentId, required int sectionId, required String schoolYear, int? id}) async {
     final row = await client
         .from('enrollments')
