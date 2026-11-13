@@ -8,7 +8,10 @@
 # Flow: archive x3 -> X3 shows x3 returning -> restore; x4 moved from X's
 # missing list (sf1_missing); x3 moved from Y's file (sf1_incoming); tutor1's
 # GST for x4, entered in X before the move, is uploaded afterwards and follows
-# x4 into Y (the upload's note); y2 archived and not yet anonymizable.
+# x4 into Y (the upload's note); tutor1's offline GSTs for x1 and x2, x2
+# archived meanwhile: the preview lists x2's, sync-resolve ... server drops
+# it, x1's uploads (final review I1; needs migration 20261113010000); y2
+# archived and not yet anonymizable.
 
 device a8-pc admin fresh
 as coord
@@ -20,6 +23,8 @@ make-sf1 sf1_a8x a 7 ZZTEST-A8X{stamp} 4 from=stamp
 run import-trial "{sf1_a8x}"
 expect Would insert: 4, would conflict: 0, already enrolled: 0, would skip: 0, moving from another section: 0, returning: 0
 expect Not on this SF1: none.
+capture fn_x1 = \[\d+\] INSERT: [^,\n]+, (Learner\d{3})
+capture fn_x2 = (?:\[\d+\] INSERT: [^\n]*\n)\[\d+\] INSERT: [^,\n]+, (Learner\d{3})
 capture fn_x3 = (?:\[\d+\] INSERT: [^\n]*\n){2}\[\d+\] INSERT: [^,\n]+, (Learner\d{3})
 capture fn_x4 = (?:\[\d+\] INSERT: [^\n]*\n){3}\[\d+\] INSERT: [^,\n]+, (Learner\d{3})
 run import-students "{sf1_a8x}"
@@ -32,6 +37,8 @@ run import-students "{sf1_a8y}"
 expect Inserted: 2, Conflicts: 0
 capture sec_y = resolved section: 7 - ZZTEST-A8Y{stamp} \({year}\) \(id=(\d+)\)
 run student-list-section {sec_x}
+capture s_x1 = (\d+) \| \d+ \| [^,\n]+, {fn_x1}
+capture s_x2 = (\d+) \| \d+ \| [^,\n]+, {fn_x2}
 capture s_x3 = (\d+) \| \d+ \| [^,\n]+, {fn_x3}
 capture s_x4 = (\d+) \| \d+ \| [^,\n]+, {fn_x4}
 run student-list-section {sec_y}
@@ -149,6 +156,48 @@ device a8-phone tutor
 run sync-status
 expect Upload {up_a8} applied: 1 row(s) now on the server. 1 record followed a section move.
 sql select count(*) from phil_iri_gst_results where student_id = {s_x4} and section_id = {sec_y} => 1
+
+# --- tutor1's offline GSTs; x2 is archived before they are uploaded (I1) -----------
+# (Needs migration 20261113010000: sync_archived_learners.)
+run phil-iri-gst {s_x1} {sec_x} {year} {=22}
+expect 22/40
+run phil-iri-gst {s_x2} {sec_x} {year} {=23}
+expect 23/40
+device a8-pc admin
+make-sf1 sf1_a8x4 a 7 ZZTEST-A8X{stamp} 1 from=last-4
+run import-trial "{sf1_a8x4}"
+expect Not on this SF1 (1)
+capture e_x2 = enrollment (\d+) \| student {s_x2} \|
+run sf1-archive {e_x2} dropped
+expect Enrollment {e_x2} archived (dropped out)
+device a8-phone tutor
+run sync-preview
+expect~ phil_iri_gst_results -\d+: a new record of [^\n]+ \(archived on {today}, dropped out\); the server refuses it\.
+capture gst_x2 = phil_iri_gst_results (-\d+): a new record of
+run sync-upload yes
+refuse Resolve these first (sync-resolve <table> <key> mine|server):
+run sync-resolve phil_iri_gst_results {gst_x2} mine
+refuse Refused: phil_iri_gst_results {gst_x2} is a new record of
+run sync-resolve phil_iri_gst_results {gst_x2} server
+expect Dropped phil_iri_gst_results {gst_x2} and its items from this device
+run sync-resolve phil_iri_gst_results {gst_x2} server
+refuse Nothing to resolve for phil_iri_gst_results {gst_x2}.
+run sync-preview
+expect Ready: run "sync-upload yes".
+run sync-upload yes
+expect waiting for approval.
+capture up_a8b = Upload (\d+)
+device a8-pc admin
+run sync-approve {up_a8b}
+expect Upload {up_a8b} applied.
+# sql reads the current device's copy: check on the tutor's device after it
+# takes the decision in (the admin's device hasn't pulled yet).
+device a8-phone tutor
+run sync-status
+expect Upload {up_a8b} applied: 1 row(s) now on the server.
+sql select count(*) from phil_iri_gst_results where student_id = {s_x1} and section_id = {sec_x} and id > 0 => 1
+sql select count(*) from phil_iri_gst_results where student_id = {s_x2} => 0
+sql select count(*) from phil_iri_gst_results where id < 0 => 0
 
 # --- y2 transfers out; not anonymizable yet ---------------------------------------
 device a8-pc admin

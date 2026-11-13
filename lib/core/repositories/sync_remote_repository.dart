@@ -32,6 +32,11 @@ abstract class SyncRemoteRepository {
 
   Future<void> withdraw(int uploadId);
 
+  /// Of these (learner, school year) pairs, the ones whose enrollment that
+  /// year is archived (sync_archived_learners; only learners the caller
+  /// may read or had in a section before a move). SF1 leavers D11.
+  Future<List<SyncArchivedLearner>> archivedLearners(List<(int studentId, String schoolYear)> learners);
+
   // ---- Approver (S6) ----
 
   /// Uploads of [schoolId] (null = every school the caller may read) with

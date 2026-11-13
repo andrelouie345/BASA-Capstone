@@ -157,6 +157,9 @@ class ImportViewModel {
   /// 'skip' closes the conflict. 'update' overwrites the stored learner with
   /// the incoming SF1 data and enrolls them into the conflict's section
   /// (which moves them there; for a transfer that is a superadmin action).
+  /// Refused when the learner already has an enrollment that school year at
+  /// the conflict's school, or an archived one at another school
+  /// ([importResolveEnrolledRefusal]): sf1-move / sf1-restore do that.
   Future<ConflictResolution> resolve(int id, String action) async {
     _log('resolve($id, $action)');
     if (action != 'skip' && action != 'update') {
@@ -181,32 +184,39 @@ class ImportViewModel {
           : 'No existing learner with LRN ${conflict.lrn}.');
     }
 
+    final section = conflict.sectionId == null ? null : await cloud.sections.getById(conflict.sectionId!);
+    if (section != null) {
+      final e = await cloud.students.enrollmentInYear(existing.id!, section.schoolYear);
+      final refusal = e == null ? null : importResolveEnrolledRefusal(conflict, section, e);
+      if (refusal != null) {
+        _log('refused: learner ${existing.id} already enrolled in ${section.schoolYear} (${e!.status})');
+        throw ViewModelException(refusal);
+      }
+    }
+
     final incoming = jsonDecode(conflict.incomingDataJson) as Map<String, Object?>;
     await cloud.students.update(Student.fromMap({...incoming, 'id': existing.id, 'school_id': existing.schoolId}));
 
     Section? enrolledIn;
-    if (conflict.sectionId != null) {
-      final section = await cloud.sections.getById(conflict.sectionId!);
-      if (section != null) {
-        final enrollmentId = await cloud.students.enroll(
-          studentId: existing.id!,
-          sectionId: section.id!,
-          schoolYear: section.schoolYear,
-        );
-        await _localSections.upsertWithId(section);
-        await _localStudents.upsertWithId(Student.fromMap({
-          ...incoming,
-          'id': existing.id,
-          'school_id': section.schoolId, // the enrollment moved the learner there
-        }));
-        await _localStudents.enroll(
-          studentId: existing.id!,
-          sectionId: section.id!,
-          schoolYear: section.schoolYear,
-          id: enrollmentId,
-        );
-        enrolledIn = section;
-      }
+    if (section != null) {
+      final enrollmentId = await cloud.students.enroll(
+        studentId: existing.id!,
+        sectionId: section.id!,
+        schoolYear: section.schoolYear,
+      );
+      await _localSections.upsertWithId(section);
+      await _localStudents.upsertWithId(Student.fromMap({
+        ...incoming,
+        'id': existing.id,
+        'school_id': section.schoolId, // the enrollment moved the learner there
+      }));
+      await _localStudents.enroll(
+        studentId: existing.id!,
+        sectionId: section.id!,
+        schoolYear: section.schoolYear,
+        id: enrollmentId,
+      );
+      enrolledIn = section;
     }
 
     await _markResolved(cloud, id, 'resolved_updated');
@@ -261,6 +271,52 @@ class ImportViewModel {
       throw ViewModelException(e.message);
     }
   }
+}
+
+/// Why `import-resolve <id> update` can't enroll the learner into the
+/// conflict's [section] when they already have enrollment [e] that school
+/// year (SF1 leavers I3): at the same school, a section change goes through
+/// the move/restore functions (same grade, this year's records follow, the
+/// history is written, pending uploads are checked), never an upsert. An
+/// archived enrollment at another school can't be upserted either (clients
+/// write only active rows). Null = go on (no enrollment, or active at
+/// another school: the superadmin's transfer).
+String? importResolveEnrolledRefusal(ImportConflict conflict, Section section, EnrollmentInYear e) {
+  final id = conflict.id;
+  final skip = 'then close this conflict with import-resolve $id skip.';
+  final where = '${e.sectionName} (Grade ${e.gradeLevel})';
+  final sameGrade = e.gradeLevel == section.gradeLevel;
+  final archived = e.status != 'active';
+  final left = 'archived on ${e.leftOn ?? '?'} (${e.status.replaceAll('_', ' ')})';
+  if (e.schoolId != section.schoolId) {
+    if (!archived) return null;
+    return 'Refused: LRN ${conflict.lrn} was $left at another school this school year, in $where, so they '
+        'cannot be enrolled here this year by resolving the conflict. For now: that school restores them '
+        '(sf1-restore ${e.enrollmentId}), then resolve again; this year\'s records stay under that school.';
+  }
+  if (!archived) {
+    if (e.sectionId == section.id) {
+      return 'Refused: LRN ${conflict.lrn} is already active in $where this school year: nothing to enroll; '
+          'close this conflict with import-resolve $id skip.';
+    }
+    if (!sameGrade) {
+      return 'Refused: LRN ${conflict.lrn} is active in $where this school year, and moves are same grade only, '
+          'so this is a decision by hand (e.g. archive them there); $skip';
+    }
+    return 'Refused: LRN ${conflict.lrn} is already active in $where this school year. Move them with '
+        'sf1-move ${e.enrollmentId} ${section.id} (this year\'s records follow), $skip';
+  }
+  if (e.sectionId == section.id) {
+    return 'Refused: LRN ${conflict.lrn} was $left in $where this school year. Restore them with '
+        'sf1-restore ${e.enrollmentId}, $skip';
+  }
+  if (!sameGrade) {
+    return 'Refused: LRN ${conflict.lrn} was $left in $where this school year, and a restore into another '
+        'section is same grade only: sf1-restore ${e.enrollmentId} puts them back in ${e.sectionName}, or decide '
+        'by hand; $skip';
+  }
+  return 'Refused: LRN ${conflict.lrn} was $left in $where this school year. Restore them into this section '
+      'with sf1-restore ${e.enrollmentId} ${section.id} (this year\'s records follow), $skip';
 }
 
 /// Null when a school-bound caller may import a roster of school

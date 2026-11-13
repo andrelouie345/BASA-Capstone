@@ -28,7 +28,7 @@ Today an SF1 re-import only adds learners ("Already enrolled" for the rest) and 
 |---|----------|
 | D1 | Transferred out / dropped out = **archive**: the enrollment's status changes; nothing is deleted. |
 | D2 | After the archive period a learner is **anonymized, never deleted** (option B): personal fields cleared, records and **sex** kept (NLA filter); grade comes from the section. LRN becomes `ANON-<id>` (NOT NULL, unique). An anonymized learner can't be matched again: a returner comes in as a new learner. |
-| D3 | Anonymizing is **never automatic**: an admin/coordinator runs it (preview + confirm code). Only learners whose every enrollment is archived, the newest archived more than `archive_keep_months` ago, **and** whose school year has ended (so EOSY and year reports are not shifted). |
+| D3 | Anonymizing is **never automatic**: an admin/coordinator runs it (preview + confirm code). Only learners whose **latest school year's** enrollment is archived, more than `archive_keep_months` ago, **and** only once that school year has ended (so EOSY and year reports are not shifted); earlier years, active or archived, don't block (owner 2026-11-12, Task 1 q1). |
 | D4 | Who may archive, move, restore, anonymize: the **superadmin**, or the learner's school's **admin/coordinator** (option A). Admin build only; tutors refused. |
 | D5 | A section move takes **this school year's** CRLA, Phil-IRI and GST records with it (new `section_id`); earlier years stay with their own sections. |
 | D6 | A move is detected **from both files**: re-importing X lists the learner as missing ("moved to section …"); importing Y shows the row as "moving from X" instead of the generic conflict. One shared move action; whichever comes first, the move happens once. |
@@ -95,7 +95,7 @@ Refused while a pending upload holds the learner's records (D11).
 - **Pending uploads** (D11): archive and move refuse, naming the upload; the coordinator approves or rejects it first.
 - **Unsent device work** (D11): on upload, `sync_apply`
   - **moved learner**: re-points an incoming CRLA / Phil-IRI / GST record of this school year whose section is no longer the learner's to the learner's current section (same school, same grade), and notes it on the upload ("N records followed a section move");
-  - **archived learner**: refuses the upload with a named message ("<name> was archived on <date> (<reason>): ask the coordinator to restore them, or delete these records with `sync-resolve`").
+  - **archived learner**: refuses the upload with a named message ("<name> was archived on <date> (<reason>): ask the coordinator to restore them, or drop these records with `sync-resolve <table> <key> server` (sync-preview lists them)"). Since 20261113010000 (final review I1, owner 2026-11-13) the device checks first: `sync-preview` lists each new CRLA / Phil-IRI / GST record of a learner archived that year (`sync_archived_learners`), the upload refuses until they are resolved, `sync-resolve <table> <key> server` drops such a record and its items from the device and `mine` is refused.
   This is a small change to the approved sync design (spec 2026-10-20); the only alternative is refusing moved learners too, which would fail a tutor's whole upload after any routine move.
 
 ## 5. Settings, RLS, code, testing

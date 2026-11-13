@@ -43,7 +43,7 @@ Console: `sf1-restore`
 
 ### Anonymize archived learners
 Build: admin    Roles: admin / coordinator / superadmin
-Purpose: learners whose every enrollment is archived, the newest more than `archive_keep_months` ago, and whose school year has ended. Never automatic. Show a clear warning: it can't be undone (name, LRN, birth date and contact details cleared; sex and records kept; the learner can't be matched again).
+Purpose: learners whose latest school year's enrollment is archived, more than `archive_keep_months` ago, and only once that school year has ended; earlier years (active or archived) don't block. Never automatic. Show a clear warning: it can't be undone (name, LRN, birth date and contact details cleared; sex and records kept; the learner can't be matched again).
 Calls:
 - `anonymizePreview({schoolId})` → `(learners: List<AnonymizeCandidate>, code: String)` (`studentId`, `lrn`/`name` from the device copy or null, `leftOn`, `schoolYear`)
 - `anonymize(code, {schoolId})` → `int` (how many); `lastMessage`. Refused with `leaverAnonymizeStaleMessage` when the list changed since the preview (preview again).

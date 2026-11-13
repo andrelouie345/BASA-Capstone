@@ -36,4 +36,5 @@ const Map<String, String> basaMigrations = {
   '20261110030000': 'phil_iri_any_round_passages',
   '20261112010000': 'sf1_leavers',
   '20261112020000': 'sf1_leaver_moves_sync',
+  '20261113010000': 'sf1_leavers_fixes',
 };

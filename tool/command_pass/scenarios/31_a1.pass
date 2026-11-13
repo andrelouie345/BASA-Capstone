@@ -94,25 +94,31 @@ run show-conflict {cf_1}
 expect Section: {sec_m} | 8 - ZZTEST-M{stamp} ({year})
 expect Status: pending
 expect "last_name":"ZZTESTA"
-# update = take the incoming row: the learner moves to the new section.
+# update would move a Grade 7 learner into a Grade 8 section: refused since the
+# SF1 leavers final review (I3: moves are same grade only, through sf1-move);
+# the conflict stays pending and the learner stays in G7.
 run resolve-conflict {cf_1} update
-expect Conflict {cf_1}: student {s_g7_1} updated, enrolled into section {sec_m} ({year}).
+refuse Resolve failed: Refused: LRN
+expect is active in ZZTEST-G7 (Grade 7) this school year, and moves are same grade only, so this is a decision by hand
+run show-conflict {cf_1}
+expect Status: pending
+run student-list-section {sec_m}
+expect (no students found in this section)
 run resolve-conflict {cf_1} skip
-refuse Resolve failed: Conflict {cf_1} is already resolved_updated.
+expect Conflict {cf_1}: resolved (skipped).
+run resolve-conflict {cf_1} skip
+refuse Resolve failed: Conflict {cf_1} is already resolved_skipped.
 run resolve-conflicts-all skip
 expect resolved (skipped).
 run list-conflicts
 expect (no pending conflicts)
-run student-list-section {sec_m}
-expect 9990
-expect ZZTESTA, Learner001
-# Move them back: the G7 roster again, take the incoming row.
-run import-students "{sf1_g7}"
-expect Inserted: 0, Conflicts: 1, Already enrolled: 3
-run resolve-conflicts-all update
-expect student {s_g7_1} updated, enrolled into section {sec_g7} ({year}).
 run student-list-section {sec_g7}
 expect ZZTESTA, Learner001
+# The G7 roster again: nobody moved, so everyone is already enrolled.
+run import-students "{sf1_g7}"
+expect Inserted: 0, Conflicts: 0, Already enrolled: 4
+run resolve-conflicts-all update
+expect (no pending conflicts)
 run section-delete {sec_m}
 refuse Delete failed: Section is still in use
 run column-map-set dataStartRow {=7}

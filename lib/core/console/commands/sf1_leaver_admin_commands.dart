@@ -124,8 +124,8 @@ void registerSf1LeaverCommands(ConsoleRegistry registry, LearnerLeaversViewModel
   });
 
   add('learner-anonymize-preview',
-      'learner-anonymize-preview [school=<id>] — learners archived long enough to be anonymized (every enrollment '
-          'archived, the latest more than archive_keep_months ago, its school year ended) and the confirm code '
+      'learner-anonymize-preview [school=<id>] — learners archived long enough to be anonymized (their latest school '
+          'year archived more than archive_keep_months ago and ended; earlier years do not count) and the confirm code '
           'learner-anonymize needs (online)', (args) async {
     const usage = 'Usage: learner-anonymize-preview [school=<id>]';
     final (rest, school) = _school(args, usage);

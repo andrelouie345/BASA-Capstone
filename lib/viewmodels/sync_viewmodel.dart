@@ -142,16 +142,20 @@ class SyncViewModel {
   /// Settles one problem of [preview]: [SyncChoice.mine] keeps this device's
   /// change (overwriting the server's newer version), [SyncChoice.server]
   /// drops it and takes the server's copy of the record and its items.
+  /// A NEW record of a learner archived that school year (SF1 leavers D11,
+  /// owner 2026-11-13): "server" drops it and its items from this device
+  /// (the server refuses it); "mine" is refused.
   Future<SyncResolution> resolve(String table, String key, SyncChoice choice) async {
     _log('resolve($table, $key, ${choice.name})');
     _guard();
     if (await _uploadLocal.isPending(table, key)) throw ViewModelException(pendingLockMessage);
     final package = await _uploadLocal.buildPackage(release: release);
     final r = package.records
-        .where((r) => r.table == table && r.rowKey == key && !r.isFollowUp && r.op != 'insert')
+        .where((r) => r.table == table && r.rowKey == key && !r.isFollowUp)
         .firstOrNull;
     if (r == null) throw ViewModelException('Nothing to resolve for $table $key.');
     final remote = _remote;
+    if (r.op == 'insert') return _resolveNew(remote, r, choice);
     final server = await _server('read $table $key from the server',
         () async => (await remote.rowsWhere(table, r.keyColumn, [r.key])).firstOrNull);
     final version = (server?['row_version'] as num?)?.toInt();
@@ -173,6 +177,34 @@ class SyncViewModel {
       await _uploadLocal.restoreServerCopy(table, key, rows);
     }
     return SyncResolution(table: table, key: key, choice: choice, serverVersion: version);
+  }
+
+  /// A new record: only one of an archived learner has something to resolve.
+  Future<SyncResolution> _resolveNew(SyncRemoteRepository remote, SyncRecord r, SyncChoice choice) async {
+    final learner = _learnerOf(r);
+    final archived = learner == null
+        ? null
+        : (await _server('check the learner on the server', () => remote.archivedLearners([learner]))).firstOrNull;
+    if (archived == null) throw ViewModelException('Nothing to resolve for ${r.table} ${r.rowKey}.');
+    if (choice == SyncChoice.mine) {
+      throw ViewModelException('Refused: ${r.table} ${r.rowKey} is a new record of '
+          '${syncArchivedLearnerText(archived)}, and the server refuses new records of an archived learner, '
+          'so yours cannot be kept. Ask the coordinator to restore the learner, then upload; '
+          'or drop it with sync-resolve ${r.table} ${r.rowKey} server.');
+    }
+    await _uploadLocal.restoreServerCopy(r.table, r.rowKey, const {});
+    _log('dropped new ${r.table} ${r.rowKey} (archived learner ${archived.studentId})');
+    return SyncResolution(table: r.table, key: r.rowKey, choice: choice, droppedNew: true);
+  }
+
+  /// (learner, school year) of a new record of a [syncLearnerTables] table
+  /// about a learner the server has (positive id); else null.
+  (int, String)? _learnerOf(SyncRecord r) {
+    if (r.op != 'insert' || r.isFollowUp || !syncLearnerTables.contains(r.table)) return null;
+    final id = r.row?['student_id'];
+    final year = r.row?['school_year'];
+    if (id is! int || id <= 0 || year is! String) return null;
+    return (id, year);
   }
 
   /// Takes in the server's decisions on this device's uploads: an applied
@@ -414,15 +446,34 @@ class SyncViewModel {
   String _plain(Object e) => e is PostgrestException ? e.message : '$e';
 
   /// Version conflicts and records the server no longer gives this user
-  /// (spec 5.1).
+  /// (spec 5.1), and new records of a learner archived that school year
+  /// (SF1 leavers D11: the server would refuse the whole upload).
   Future<List<SyncProblem>> _problems(SyncPackage p) async {
     final byTable = <String, List<SyncRecord>>{};
+    final newOfLearner = <(SyncRecord, (int, String))>[];
     for (final r in p.records) {
       if (r.isFollowUp) continue; // checked through the record it follows
-      if (r.op != 'insert') byTable.putIfAbsent(r.table, () => []).add(r);
+      if (r.op != 'insert') {
+        byTable.putIfAbsent(r.table, () => []).add(r);
+      } else if (_learnerOf(r) case final l?) {
+        newOfLearner.add((r, l));
+      }
     }
     final remote = _remote;
     final out = <SyncProblem>[];
+    if (newOfLearner.isNotEmpty) {
+      final archived = {
+        for (final a in await remote.archivedLearners({for (final x in newOfLearner) x.$2}.toList()))
+          (a.studentId, a.schoolYear): a,
+      };
+      for (final (r, l) in newOfLearner) {
+        final a = archived[l];
+        if (a != null) {
+          out.add(SyncProblem(
+              table: r.table, key: r.rowKey, kind: learnerArchivedKind, learner: syncArchivedLearnerText(a)));
+        }
+      }
+    }
     for (final e in byTable.entries) {
       final keyColumn = e.value.first.keyColumn;
       final rows = await remote.rowsWhere(e.key, keyColumn, [for (final r in e.value) r.key],

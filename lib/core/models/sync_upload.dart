@@ -91,21 +91,45 @@ class SyncProblem {
   final String table;
   final String key;
 
-  /// 'conflict' (server version moved on) or 'server_deleted' (the server no
-  /// longer gives this record).
+  /// 'conflict' (server version moved on), 'server_deleted' (the server no
+  /// longer gives this record) or [learnerArchivedKind] (a new record of a
+  /// learner archived that school year: the server refuses it).
   final String kind;
   final int? baseVersion;
   final int? serverVersion;
 
-  const SyncProblem({required this.table, required this.key, required this.kind, this.baseVersion, this.serverVersion});
+  /// For [learnerArchivedKind]: the learner, e.g. "Cruz, J. (archived on
+  /// 2026-11-12, dropped out)".
+  final String? learner;
+
+  const SyncProblem(
+      {required this.table, required this.key, required this.kind, this.baseVersion, this.serverVersion, this.learner});
 
   @override
   String toString() => switch (kind) {
         'conflict' => '$table $key: changed on the server (yours from version $baseVersion, server now $serverVersion)',
         'server_deleted' => '$table $key: no longer on the server for you (deleted, or out of your sections)',
+        learnerArchivedKind => '$table $key: a new record of $learner; the server refuses it. '
+            'Ask the coordinator to restore the learner, or drop it with sync-resolve $table $key server',
         _ => '$table $key: $kind',
       };
 }
+
+/// [SyncProblem.kind] of a new record whose learner was archived in that
+/// school year (SF1 leavers D11): only "server" (drop it) resolves it.
+const learnerArchivedKind = 'learner_archived';
+
+/// Tables whose new records follow a moved learner or stop on an archived
+/// one at upload (sync_apply, SF1 leavers D11).
+const syncLearnerTables = {'crla_assessments', 'phil_iri_assessments', 'phil_iri_gst_results'};
+
+/// A learner's archived enrollment in one school year, as the server holds
+/// it (sync_archived_learners).
+typedef SyncArchivedLearner = ({int studentId, String schoolYear, String status, String? leftOn, String? name});
+
+/// "Cruz, J. (archived on 2026-11-12, dropped out)".
+String syncArchivedLearnerText(SyncArchivedLearner a) =>
+    '${a.name ?? 'learner ${a.studentId}'} (archived on ${a.leftOn ?? '?'}, ${a.status.replaceAll('_', ' ')})';
 
 /// One of the signed-in user's uploads, as the server holds it (never the
 /// payload).
@@ -274,10 +298,18 @@ class SyncResolution {
   /// The server's version now, or null when the server no longer has it.
   final int? serverVersion;
 
-  const SyncResolution({required this.table, required this.key, required this.choice, this.serverVersion});
+  /// A new record of an archived learner, dropped from this device with its
+  /// items (never on the server).
+  final bool droppedNew;
+
+  const SyncResolution(
+      {required this.table, required this.key, required this.choice, this.serverVersion, this.droppedNew = false});
 
   @override
-  String toString() => choice == SyncChoice.mine
+  String toString() => droppedNew
+      ? 'Dropped $table $key and its items from this device: the server refuses new records of an archived learner. '
+          'The rest of your work can be uploaded.'
+      : choice == SyncChoice.mine
       ? serverVersion == null
           ? 'Kept your delete of $table $key (the server no longer has it either).'
           : 'Kept yours for $table $key (will overwrite server version $serverVersion).'

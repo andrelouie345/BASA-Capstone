@@ -114,7 +114,11 @@ another section moves too; the old section's tutor can still upload work
 done before the move, and the upload puts it in the new section and says so
 in its note; an archived learner's records stop an upload; the upload's
 shape check is back in `sync_apply`; app update required: **yes**, same
-rule). Each is idempotent.
+rule) and `20261113010000` (SF1 leavers fixes: a device can see which of its
+new records belong to an archived learner and drop them with `sync-resolve
+<table> <key> server`; anonymizing also clears the archive note and closes the
+learner's pending import conflicts; an anonymized learner can't be enrolled
+again; app update required: no). Each is idempotent.
 Do **not** run
 `supabase/migrations_archive/`.
 
