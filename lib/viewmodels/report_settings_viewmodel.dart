@@ -110,6 +110,20 @@ class ReportSettingsViewModel {
     );
   }
 
+  /// The stored archive_keep_months values (null = not set) and the one
+  /// that applies to [schoolId] (null = the region's; default 6).
+  Future<({int? region, int? school, int effective})> archiveKeepMonthsLayers(int? schoolId) async {
+    _log('archiveKeepMonthsLayers($schoolId)');
+    _requireSignIn();
+    final (region, school) = await _layers(schoolId);
+    int? read(ReportSetting? s) => (s?.settings[ReportSettings.archiveKeepMonthsKey] as num?)?.toInt();
+    return (
+      region: read(region),
+      school: read(school),
+      effective: ReportSettings.fromMap({...?region?.settings, ...?school?.settings}).archiveKeepMonths,
+    );
+  }
+
   Future<(ReportSetting?, ReportSetting?)> _layers(int? schoolId) async =>
       (await _local.getRegion(), schoolId == null ? null : await _local.getForSchool(schoolId));
 
@@ -154,6 +168,18 @@ class ReportSettingsViewModel {
           '${ReportSettings.maxOfflineSigninDays} days, not $days.');
     }
     return _setKey(cloud, schoolId, ReportSettings.offlineSigninDaysKey, days);
+  }
+
+  /// Sets how long archived learners are kept (whole months 1-120) before
+  /// they may be anonymized, for the region or a school (SF1 leavers D12).
+  Future<ReportSetting> setArchiveKeepMonths(int? schoolId, int months) async {
+    _log('setArchiveKeepMonths($schoolId, $months)');
+    final cloud = _writer(schoolId);
+    if (months < ReportSettings.minArchiveKeepMonths || months > ReportSettings.maxArchiveKeepMonths) {
+      throw ViewModelException('Archived learners are kept ${ReportSettings.minArchiveKeepMonths} to '
+          '${ReportSettings.maxArchiveKeepMonths} months, not $months.');
+    }
+    return _setKey(cloud, schoolId, ReportSettings.archiveKeepMonthsKey, months);
   }
 
   /// Removes a school's override so the region values apply again.

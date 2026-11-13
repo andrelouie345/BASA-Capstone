@@ -3,6 +3,7 @@
 // history (admin build; spec docs/superpowers/specs/2026-10-25-learner-history-design.md).
 // Local only: the history reads the device copy.
 import '../models/aral_enrollment.dart';
+import '../models/enrollment_move.dart';
 import '../models/srp_class.dart';
 import '../models/student.dart';
 
@@ -15,6 +16,8 @@ class LearnerSectionRow {
   final String gradeLevel;   // bare numeric string
   final int schoolId;
   final String? schoolName;  // null when the school row is not on this device
+  final String? leftOn;      // set when archived (ISO date)
+  final String? leftNote;    // optional, only when archived
 
   const LearnerSectionRow({
     required this.schoolYear,
@@ -24,7 +27,19 @@ class LearnerSectionRow {
     required this.gradeLevel,
     required this.schoolId,
     required this.schoolName,
+    this.leftOn,
+    this.leftNote,
   });
+}
+
+/// One section move of the learner (enrollment_moves) with both sections'
+/// names (null when that section is not on this device).
+class LearnerMoveRow {
+  final EnrollmentMove move;
+  final String? fromSectionName;
+  final String? toSectionName;
+
+  const LearnerMoveRow({required this.move, required this.fromSectionName, required this.toSectionName});
 }
 
 abstract class LearnerHistoryRepository {
@@ -33,6 +48,8 @@ abstract class LearnerHistoryRepository {
   /// Every enrollments row of the learner joined to sections (and schools, when on
   /// the device); school_year DESC. At most one per year (UNIQUE student, year).
   Future<List<LearnerSectionRow>> sectionEnrollments(int studentId);
+  /// Every enrollment_moves row of the learner; school_year DESC, moved_on ASC.
+  Future<List<LearnerMoveRow>> moves(int studentId);
   /// Every aral_enrollments row of the learner, all years; school_year DESC, entered_on ASC.
   Future<List<AralEnrollment>> aralEntries(int studentId);
   /// The SRP classes the learner is a member of (srp_class_members -> srp_classes); school_year DESC.

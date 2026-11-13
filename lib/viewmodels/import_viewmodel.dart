@@ -8,6 +8,7 @@ import '../core/models/section.dart';
 import '../core/models/student.dart';
 import '../core/models/user_role.dart';
 import '../core/repositories/import_conflict_repository.dart';
+import '../core/repositories/learner_leaver_repository.dart';
 import '../core/repositories/school_repository.dart';
 import '../core/repositories/section_repository.dart';
 import '../core/repositories/student_repository.dart';
@@ -23,11 +24,15 @@ class ImportCloudRepos {
   final StudentRepository students;
   final ImportConflictRepository conflicts;
 
+  /// Saves each import's LRN set (sf1_last_imports, SF1 leavers D9).
+  final LearnerLeaverRepository leavers;
+
   const ImportCloudRepos({
     required this.schools,
     required this.sections,
     required this.students,
     required this.conflicts,
+    required this.leavers,
   });
 }
 
@@ -113,8 +118,24 @@ class ImportViewModel {
     final cloud = _cloud();
     final result = await _wrapFormat(
         () => _importer(cloud).import(filePath, check: (parsed) => _checkOwnSchool(cloud, parsed)));
+    await _saveLastImport(cloud, result);
     if (pendingConflicts.isNotEmpty || result.conflicts > 0) await loadPendingConflicts();
     return result;
+  }
+
+  /// The file's LRN set becomes the section's last import, so the learners
+  /// active there but not on it are listed as undecided (sf1-missing) on
+  /// every admin device. The import itself is already done: a failure here
+  /// is a warning on the result, not an error.
+  Future<void> _saveLastImport(ImportCloudRepos cloud, Sf1ImportResult result) async {
+    if (result.sectionId == null || result.schoolId == null || result.schoolYear == null) return;
+    try {
+      await cloud.leavers.saveLastImport(result.sectionId!, result.schoolId!, result.schoolYear!, result.fileLrns);
+    } catch (e) {
+      result.lastImportWarning = 'The import is done, but its list of learners was not saved on the server, '
+          'so learners not on this SF1 are not listed: import the file again.';
+      _log('WARNING: saveLastImport failed ($e)');
+    }
   }
 
   /// Oldest first.

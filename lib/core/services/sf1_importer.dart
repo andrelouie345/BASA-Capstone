@@ -26,6 +26,18 @@ class Sf1ImportResult {
   /// Moving and returning rows: not applied by the import, they wait for the
   /// coordinator's decision (sf1-move / sf1-restore).
   int waiting = 0;
+
+  /// The file's section (found or created) and every LRN cell of the file,
+  /// sorted, without repeats: the set saved as the section's last import
+  /// (sf1_last_imports, SF1 leavers D9). Set once the section is resolved.
+  int? sectionId;
+  int? schoolId;
+  String? schoolYear;
+  List<String> fileLrns = const [];
+
+  /// Set by the ViewModel when the import worked but its LRN set could not
+  /// be saved on the server.
+  String? lastImportWarning;
 }
 
 /// One parsed data row's outcome, before any write happens.
@@ -459,6 +471,12 @@ class Sf1Importer {
     ));
     await localSectionRepo.upsertWithId(section);
     _log('resolved section: $section (id=${section.id})');
+    result
+      ..sectionId = section.id
+      ..schoolId = section.schoolId
+      ..schoolYear = section.schoolYear
+      // Every LRN cell, as the trial's missing check counts them.
+      ..fileLrns = ({for (final r in parsed.rows) ?r.lrn}.toList()..sort());
 
     // A re-import must not stack a second identical pending conflict.
     final pendingHere = (await conflictRepo.getPending())

@@ -13,11 +13,18 @@ class Sf1MissingLearner {
   /// "Last, First" (with the middle name when known).
   final String name;
 
+  /// The section the learner is missing from: set on the school-wide list
+  /// (sf1_missing); null in an import trial (the file's own section).
+  final int? sectionId;
+  final String? sectionName;
+
   const Sf1MissingLearner({
     required this.enrollmentId,
     required this.studentId,
     required this.lrn,
     required this.name,
+    this.sectionId,
+    this.sectionName,
   });
 
   @override

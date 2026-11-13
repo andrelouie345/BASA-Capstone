@@ -47,6 +47,7 @@ Forbidden: only an admin or coordinator imports Phil-IRI results.
 A referral needs who referred the learner and why.
 This learner left ARAL; reactivate them before placing them in a class.
 A class needs a name.
+Forbidden: only an admin or coordinator archives, moves or restores learners.
 # One string from each admin-only file without a refusal of its own
 " (expected skip or update).
 LRN registered at another school (transfer) - only the superadmin can resolve
@@ -63,6 +64,7 @@ AralReportViewModel
 AralRosterImportViewModel
 TutorSectionAssignmentViewModel
 PhilIriImportViewModel
+LearnerLeaversViewModel
 
 [debug]
 # both console titles ("BASA Debug Console", "BASA Tutor Debug Console"): each

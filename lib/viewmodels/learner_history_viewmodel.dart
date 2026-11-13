@@ -18,6 +18,7 @@ import '../core/console/logger.dart';
 import '../core/models/aral_enrollment.dart';
 import '../core/models/crla_assessment.dart' show CrlaRound;
 import '../core/models/crla_result.dart';
+import '../core/models/enrollment_move.dart';
 import '../core/models/student.dart';
 import '../core/models/user.dart';
 import '../core/models/user_role.dart';
@@ -51,10 +52,40 @@ class LearnerHistoryEnrollment {
   final String sectionName;
   final String gradeLevel;
   final String? schoolName; // null when the school is not on this device
+  /// enrollments.status: active, transferred_out or dropped_out (SF1 leavers).
   final String status;
 
+  /// Set when archived: the date (ISO) and the optional note.
+  final String? leftOn;
+  final String? leftNote;
+
   const LearnerHistoryEnrollment(
-      {required this.sectionName, required this.gradeLevel, required this.schoolName, required this.status});
+      {required this.sectionName,
+      required this.gradeLevel,
+      required this.schoolName,
+      required this.status,
+      this.leftOn,
+      this.leftNote});
+}
+
+/// A section move in the year (SF1 leavers): the enrollment row shows only
+/// the section the learner is in now.
+class LearnerHistoryMove {
+  final String movedOn; // ISO date
+  final int fromSectionId;
+  final String? fromSectionName; // null when the section is not on this device
+  final int toSectionId;
+  final String? toSectionName;
+  final EnrollmentMoveSource source;
+
+  const LearnerHistoryMove({
+    required this.movedOn,
+    required this.fromSectionId,
+    required this.fromSectionName,
+    required this.toSectionId,
+    required this.toSectionName,
+    required this.source,
+  });
 }
 
 /// The year's Summer Remediation class.
@@ -115,10 +146,13 @@ class LearnerHistoryYear {
   /// At most one (one ARAL entry per learner per year).
   final List<LearnerHistoryAral> aral;
   final LearnerHistorySrp? srp;
+  /// Section moves of the year, oldest first.
+  final List<LearnerHistoryMove> moves;
 
   const LearnerHistoryYear({
     required this.schoolYear,
     required this.enrollments,
+    this.moves = const [],
     required this.crla,
     required this.philIri,
     required this.aral,
@@ -222,6 +256,7 @@ class LearnerHistoryViewModel {
     final gsts = await _gst.getByStudent(id);
     final aral = await _history.aralEntries(id);
     final srp = await _history.srpClasses(id);
+    final moves = await _history.moves(id);
 
     final years = {
       ...sections.map((r) => r.schoolYear),
@@ -230,6 +265,7 @@ class LearnerHistoryViewModel {
       ...gsts.map((r) => r.schoolYear),
       ...aral.map((r) => r.schoolYear),
       ...srp.map((r) => r.schoolYear),
+      ...moves.map((r) => r.move.schoolYear),
     }.toList()
       ..sort((a, b) => b.compareTo(a));
 
@@ -246,7 +282,23 @@ class LearnerHistoryViewModel {
         enrollments: [
           for (final r in sections.where((r) => r.schoolYear == year))
             LearnerHistoryEnrollment(
-                sectionName: r.sectionName, gradeLevel: r.gradeLevel, schoolName: r.schoolName, status: r.status),
+                sectionName: r.sectionName,
+                gradeLevel: r.gradeLevel,
+                schoolName: r.schoolName,
+                status: r.status,
+                leftOn: r.leftOn,
+                leftNote: r.leftNote),
+        ],
+        moves: [
+          for (final m in moves.where((m) => m.move.schoolYear == year))
+            LearnerHistoryMove(
+              movedOn: m.move.movedOn,
+              fromSectionId: m.move.fromSectionId,
+              fromSectionName: m.fromSectionName,
+              toSectionId: m.move.toSectionId,
+              toSectionName: m.toSectionName,
+              source: m.move.source,
+            ),
         ],
         crla: _crlaByRound(crla.where((r) => r.schoolYear == year)),
         philIri: [for (final sectionId in philIriSections) await _philIriIn(id, sectionId, year)],

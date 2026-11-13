@@ -10,6 +10,7 @@ import '../../viewmodels/crla_import_viewmodel.dart';
 import '../../viewmodels/phil_iri_import_viewmodel.dart';
 import '../../viewmodels/import_viewmodel.dart';
 import '../../viewmodels/learner_history_viewmodel.dart';
+import '../../viewmodels/learner_leavers_viewmodel.dart';
 import '../../viewmodels/login_log_viewmodel.dart';
 import '../../viewmodels/sync_review_viewmodel.dart';
 import '../../viewmodels/tutor_section_assignment_viewmodel.dart';
@@ -46,6 +47,7 @@ import '../data/local/crla_assessment_repository_sqlite.dart';
 import '../data/local/crla_result_repository_sqlite.dart';
 import '../data/local/aral_session_repository_sqlite.dart';
 import '../data/local/learner_history_repository_sqlite.dart';
+import '../data/local/learner_leaver_local_writes.dart';
 import '../data/local/phil_iri_assessment_repository_sqlite.dart';
 import '../data/local/phil_iri_gst_repository_sqlite.dart';
 import '../data/local/phil_iri_collection_repository_sqlite.dart';
@@ -60,6 +62,7 @@ import '../data/local/student_repository_sqlite.dart';
 import '../data/local/sync_review_local_sqlite.dart';
 import '../data/local/user_repository_sqlite.dart';
 import '../data/remote/import_conflict_repository_supabase.dart';
+import '../data/remote/learner_leaver_repository_supabase.dart';
 import '../data/remote/school_repository_supabase.dart';
 import '../data/remote/section_repository_supabase.dart';
 import '../data/remote/student_repository_supabase.dart';
@@ -84,6 +87,7 @@ class AdminVms {
   final TutorSectionAssignmentViewModel tutorSectionVm;
   final LearnerHistoryViewModel learnerHistoryVm;
   final PhilIriImportViewModel philIriImportVm;
+  final LearnerLeaversViewModel learnerLeaversVm;
 
   AdminVms({
     required this.bootstrapVm,
@@ -97,6 +101,7 @@ class AdminVms {
     required this.tutorSectionVm,
     required this.learnerHistoryVm,
     required this.philIriImportVm,
+    required this.learnerLeaversVm,
   });
 }
 
@@ -113,6 +118,7 @@ AdminViewModels adminViewModels(AdminVms a) => AdminViewModels(
       aralReport: a.aralReportVm,
       learnerHistory: a.learnerHistoryVm,
       philIriImport: a.philIriImportVm,
+      learnerLeavers: a.learnerLeaversVm,
     );
 
 Future<AdminVms> wireAdmin(AppContext ctx, SharedVms s, TutorVms t) async {
@@ -137,6 +143,7 @@ Future<AdminVms> wireAdmin(AppContext ctx, SharedVms s, TutorVms t) async {
       sections: SectionRepositorySupabase(client),
       students: StudentRepositorySupabase(client),
       conflicts: ImportConflictRepositorySupabase(client),
+      leavers: LearnerLeaverRepositorySupabase(client),
     ),
     localSchools: SchoolRepositorySqlite(db),
     localSections: s.sectionRepo,
@@ -234,6 +241,17 @@ Future<AdminVms> wireAdmin(AppContext ctx, SharedVms s, TutorVms t) async {
   );
   vms.register('PhilIriImportViewModel', philIriImportVm);
 
+  // SF1 leavers: archive, move, restore, anonymize (server functions, online),
+  // each result copied onto this device.
+  final learnerLeaversVm = LearnerLeaversViewModel(
+    auth: authVm,
+    cloud: LearnerLeaverRepositorySupabase.new,
+    mirror: (result) => mirrorLeaverResult(db, result),
+    localStudent: LearnerHistoryRepositorySqlite(db).student,
+    logger: session,
+  );
+  vms.register('LearnerLeaversViewModel', learnerLeaversVm);
+
   return AdminVms(
     userVm: userVm,
     importVm: importVm,
@@ -246,6 +264,7 @@ Future<AdminVms> wireAdmin(AppContext ctx, SharedVms s, TutorVms t) async {
     tutorSectionVm: tutorSectionVm,
     learnerHistoryVm: learnerHistoryVm,
     philIriImportVm: philIriImportVm,
+    learnerLeaversVm: learnerLeaversVm,
   );
 }
 

@@ -8,7 +8,9 @@
 // (whole days 1-60, default 14; sync spec 2.4), sync_auto_approve (bool,
 // default false; sync S6), no_comprehension_counts_FLT (bool, default false;
 // owner 2026-11-10: a Phil-IRI reading from a collection without
-// comprehension questions, e.g. the FLT, counts as assessed).
+// comprehension questions, e.g. the FLT, counts as assessed),
+// archive_keep_months (whole months 1-120, default 6; SF1 leavers D12: how
+// long an archived learner is kept before they may be anonymized).
 import 'dart:convert';
 
 class ReportSetting {
@@ -56,6 +58,10 @@ class ReportSettings {
   static const noComprehensionCountsFltKey = 'no_comprehension_counts_FLT';
   static const minOfflineSigninDays = 1;
   static const maxOfflineSigninDays = 60;
+  static const archiveKeepMonthsKey = 'archive_keep_months';
+  static const defaultArchiveKeepMonths = 6;
+  static const minArchiveKeepMonths = 1;
+  static const maxArchiveKeepMonths = 120;
 
   /// Share of a section's enrolled learners that must be assessed in a round
   /// for the section to count as done (progress monitoring, reminders).
@@ -73,11 +79,16 @@ class ReportSettings {
   /// reminders, dashboard). Off: assessed needs a comprehension entry.
   final bool noComprehensionCountsFlt;
 
+  /// Months an archived learner is kept before they may be anonymized (the
+  /// server's learner_anonymize_eligible reads the same key).
+  final int archiveKeepMonths;
+
   const ReportSettings({
     this.doneThreshold = defaultDoneThreshold,
     this.offlineSigninDays = defaultOfflineSigninDays,
     this.syncAutoApprove = false,
     this.noComprehensionCountsFlt = false,
+    this.archiveKeepMonths = defaultArchiveKeepMonths,
   });
 
   factory ReportSettings.fromMap(Map<String, Object?> m) => ReportSettings(
@@ -85,6 +96,7 @@ class ReportSettings {
         offlineSigninDays: (m[offlineSigninDaysKey] as num?)?.toInt() ?? defaultOfflineSigninDays,
         syncAutoApprove: m[syncAutoApproveKey] == true,
         noComprehensionCountsFlt: m[noComprehensionCountsFltKey] == true,
+        archiveKeepMonths: (m[archiveKeepMonthsKey] as num?)?.toInt() ?? defaultArchiveKeepMonths,
       );
 }
 

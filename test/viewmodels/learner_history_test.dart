@@ -8,6 +8,7 @@ import 'package:basa_capstone/core/models/aral_class.dart';
 import 'package:basa_capstone/core/models/aral_enrollment.dart';
 import 'package:basa_capstone/core/models/aral_session.dart';
 import 'package:basa_capstone/core/models/crla_assessment.dart' show CrlaRound;
+import 'package:basa_capstone/core/models/enrollment_move.dart';
 import 'package:basa_capstone/core/models/phil_iri_assessment.dart' show PhilIriRound;
 import 'package:basa_capstone/core/services/auth_messages.dart';
 import 'package:basa_capstone/core/wiring/app_context.dart';
@@ -164,6 +165,17 @@ void main() {
       }
     }
 
+    // 9907 (SF1 leavers): archived in 2025-2026, moved 9902 -> 9903 in 2026-2027.
+    await db.insert('students', {'id': 9907, 'lrn': '999999999907', 'last_name': 'ZZLH', 'first_name': 'L9907',
+        'school_id': _school});
+    await db.insert('enrollments', {'student_id': 9907, 'section_id': 9905, 'school_year': '2025-2026',
+        'status': 'dropped_out', 'left_on': '2026-03-02', 'left_by': _coord, 'left_note': 'moved away'});
+    final moved = await db.insert('enrollments',
+        {'student_id': 9907, 'section_id': 9903, 'school_year': '2026-2027', 'status': 'active'});
+    await db.insert('enrollment_moves', {'id': 9901, 'enrollment_id': moved, 'student_id': 9907, 'school_id': _school,
+        'school_year': '2026-2027', 'from_section_id': 9902, 'to_section_id': 9903, 'moved_on': '2026-09-15',
+        'moved_by': _coord, 'source': 'sf1_missing'});
+
     await signInAs(_coord, 'coord@lh', 'coordinator', _school);
     // Grade 4: GST in two sections (moved learner, Review Focus 2 and 5), ARAL in a class.
     await t.philIriVm.recordGst(studentId: 9901, sectionId: 9903, schoolYear: '2026-2027', totalScore: 6);
@@ -285,6 +297,24 @@ void main() {
     final row = report.sections.expand((s) => s.learners).singleWhere((l) => l.enrollment.id == 9906);
     expect(row.after16!.passed, isTrue);
     expect(row.after16!.checkin.id, 9907);
+  });
+
+  test('an archived year shows the status and date; a move shows its sections', () async {
+    await signInAs(_coord, 'coord@lh', 'coordinator', _school);
+    final h = await vm.history(9907);
+    expect(h.years.map((y) => y.schoolYear), ['2026-2027', '2025-2026']);
+    final archived = h.years.last.enrollments.single;
+    expect(archived.status, 'dropped_out');
+    expect(archived.leftOn, '2026-03-02');
+    expect(archived.leftNote, 'moved away');
+    expect(h.years.last.moves, isEmpty);
+    final current = h.years.first;
+    expect(current.enrollments.single.leftOn, isNull);
+    final move = current.moves.single;
+    expect(move.movedOn, '2026-09-15');
+    expect(move.fromSectionName, 'S4-A');
+    expect(move.toSectionName, 'S4-B');
+    expect(move.source, EnrollmentMoveSource.sf1Missing);
   });
 
   test('a blank LRN is refused', () async {

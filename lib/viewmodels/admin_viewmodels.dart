@@ -10,6 +10,7 @@ import 'aral_roster_import_viewmodel.dart';
 import 'crla_import_viewmodel.dart';
 import 'import_viewmodel.dart';
 import 'learner_history_viewmodel.dart';
+import 'learner_leavers_viewmodel.dart';
 import 'login_log_viewmodel.dart';
 import 'phil_iri_import_viewmodel.dart';
 import 'sync_review_viewmodel.dart';
@@ -35,6 +36,9 @@ class AdminViewModels {
   /// Phil-IRI results from ma's workbook or a BASA scoresheet file.
   final PhilIriImportViewModel philIriImport;
 
+  /// SF1 leavers: archive, move, restore and anonymize learners.
+  final LearnerLeaversViewModel learnerLeavers;
+
   AdminViewModels({
     required this.bootstrap,
     required this.users,
@@ -47,5 +51,6 @@ class AdminViewModels {
     required this.aralReport,
     required this.learnerHistory,
     required this.philIriImport,
+    required this.learnerLeavers,
   });
 }

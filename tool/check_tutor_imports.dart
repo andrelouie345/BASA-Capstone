@@ -51,6 +51,10 @@ const _adminFiles = [
   'core/services/phil_iri_scoresheet_template.dart',
   'core/services/phil_iri_import_matching.dart',
   'core/services/phil_iri_import_headers.dart',
+  // SF1 leavers (spec 2026-11-12-sf1-leavers-design): admin build only.
+  'viewmodels/learner_leavers_viewmodel.dart',
+  'core/repositories/learner_leaver_repository.dart',
+  'core/data/remote/learner_leaver_repository_supabase.dart',
 ];
 
 bool isAdminFile(String path) =>
