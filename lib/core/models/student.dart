@@ -24,6 +24,11 @@ class Student {
   final String? remarks;
   final int? schoolId;
 
+  /// Set when the learner was anonymized (SF1 leavers D2, server function
+  /// learner_anonymize only): personal fields cleared, LRN `ANON-<id>`, sex
+  /// kept. ISO timestamp.
+  final String? anonymizedAt;
+
   Student({
     this.id,
     required this.lrn,
@@ -47,7 +52,10 @@ class Student {
     this.learningModality,
     this.remarks,
     this.schoolId,
+    this.anonymizedAt,
   });
+
+  bool get isAnonymized => anonymizedAt != null;
 
   Map<String, Object?> toMap() => {
         if (id != null) 'id': id,
@@ -72,6 +80,10 @@ class Student {
         'learning_modality': learningModality,
         'remarks': remarks,
         'school_id': schoolId,
+        // Only the server sets it (its function); omitted when null so a
+        // write never clears it and the cloud insert/update policies (which
+        // require it null) see no change.
+        if (anonymizedAt != null) 'anonymized_at': anonymizedAt,
       };
 
   factory Student.fromMap(Map<String, Object?> m) => Student(
@@ -97,5 +109,6 @@ class Student {
         learningModality: m['learning_modality'] as String?,
         remarks: m['remarks'] as String?,
         schoolId: m['school_id'] as int?,
+        anonymizedAt: m['anonymized_at'] as String?,
       );
 }

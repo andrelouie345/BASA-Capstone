@@ -80,7 +80,13 @@ class LocalDatabase {
         // v43: Phil-IRI reading trigger no longer checks the round's test type
         // (no table change; the bump makes onUpgrade recreate the triggers);
         // cloud 20261110030000.
-        version: 43,
+        // v44: SF1 leavers (cloud 20261112010000 + 20261112020000):
+        // enrollments.left_on / left_by / left_note with the status rule as
+        // triggers (check_enrollment_status*), students.anonymized_at,
+        // enrollment_moves (pull mirror, not synced); the finalized Phil-IRI
+        // trigger lets a sync-bypass write through (mirrored moves).
+        // upgradeLearnerLeaversForV44, on create and every upgrade.
+        version: 44,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
@@ -90,6 +96,7 @@ class LocalDatabase {
           ''');
           await _createRegionsTable(db);
           await _createStudentTables(db);
+          await upgradeLearnerLeaversForV44(db);
           await _createUserManagementTables(db);
           await _createCrlaTables(db);
           await _createCrlaScoreTables(db);
@@ -129,6 +136,9 @@ class LocalDatabase {
           if (!studentsHasSchoolId) {
             await db.execute('ALTER TABLE students ADD COLUMN school_id INTEGER REFERENCES schools(id)');
           }
+
+          // v44. Checked by column / IF NOT EXISTS: runs on every upgrade.
+          await upgradeLearnerLeaversForV44(db);
 
           final regionsExists = (await db.rawQuery(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='regions'",
@@ -232,6 +242,60 @@ class LocalDatabase {
     return _db!;
   }
 
+  /// v44, SF1 leavers (spec docs/superpowers/specs/2026-11-12-sf1-leavers-design.md
+  /// section 1; cloud 20261112010000): the enrollment archive columns, the
+  /// learner's anonymized_at, the enrollment_moves mirror (pull only, never
+  /// synced: the server's move function writes it) and the enrollment status
+  /// rule. SQLite can't add a CHECK to an existing column, so the rule is a
+  /// pair of BEFORE INSERT / UPDATE triggers (the cloud's CHECKs
+  /// enrollments_status_check and enrollments_left) on every device, new or
+  /// upgraded. Column adds guarded by PRAGMA table_info; safe to run again.
+  static Future<void> upgradeLearnerLeaversForV44(Database db) async {
+    Future<Set<String>> columns(String t) async =>
+        (await db.rawQuery('PRAGMA table_info($t)')).map((c) => c['name'] as String).toSet();
+
+    final enrollmentCols = await columns('enrollments');
+    if (!enrollmentCols.contains('left_on')) await db.execute('ALTER TABLE enrollments ADD COLUMN left_on TEXT');
+    if (!enrollmentCols.contains('left_by')) {
+      await db.execute('ALTER TABLE enrollments ADD COLUMN left_by TEXT REFERENCES users(id)');
+    }
+    if (!enrollmentCols.contains('left_note')) await db.execute('ALTER TABLE enrollments ADD COLUMN left_note TEXT');
+    if (!(await columns('students')).contains('anonymized_at')) {
+      await db.execute('ALTER TABLE students ADD COLUMN anonymized_at TEXT');
+    }
+
+    const rule = '''
+      BEGIN
+        SELECT RAISE(ABORT, 'An enrollment status is active, transferred_out or dropped_out')
+        WHERE NEW.status IS NULL OR NEW.status NOT IN ('active', 'transferred_out', 'dropped_out');
+        SELECT RAISE(ABORT, 'An archived enrollment has left_on and left_by, an active one has neither')
+        WHERE (NEW.status <> 'active') <> (NEW.left_on IS NOT NULL AND NEW.left_by IS NOT NULL);
+        SELECT RAISE(ABORT, 'Only an archived enrollment has a left_note')
+        WHERE NEW.left_note IS NOT NULL AND NEW.status = 'active';
+      END''';
+    await db.execute('DROP TRIGGER IF EXISTS check_enrollment_status');
+    await db.execute('CREATE TRIGGER check_enrollment_status BEFORE INSERT ON enrollments $rule');
+    await db.execute('DROP TRIGGER IF EXISTS check_enrollment_status_upd');
+    await db.execute('CREATE TRIGGER check_enrollment_status_upd BEFORE UPDATE ON enrollments $rule');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS enrollment_moves (
+        id INTEGER PRIMARY KEY,
+        enrollment_id INTEGER NOT NULL REFERENCES enrollments(id),
+        student_id INTEGER NOT NULL REFERENCES students(id),
+        school_id INTEGER NOT NULL REFERENCES schools(id),
+        school_year TEXT NOT NULL,
+        from_section_id INTEGER NOT NULL REFERENCES sections(id),
+        to_section_id INTEGER NOT NULL REFERENCES sections(id),
+        moved_on TEXT NOT NULL,
+        moved_by TEXT REFERENCES users(id),
+        source TEXT NOT NULL CHECK (source IN ('sf1_missing', 'sf1_incoming', 'return'))
+      )
+    ''');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS enrollment_moves_student ON enrollment_moves (student_id, school_year)');
+  }
+
   static Future<void> _createRegionsTable(Database db) async {
     await db.execute('''
       CREATE TABLE regions (
@@ -313,7 +377,8 @@ class LocalDatabase {
         remarks TEXT,
         school_id INTEGER REFERENCES schools(id),
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        anonymized_at TEXT
       )
     ''');
 
@@ -324,6 +389,11 @@ class LocalDatabase {
         section_id INTEGER NOT NULL REFERENCES sections(id),
         school_year TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'active',
+        -- v44 (SF1 leavers): archive details; the status rule is a trigger
+        -- (upgradeLearnerLeaversForV44) so new and upgraded devices agree.
+        left_on TEXT,
+        left_by TEXT REFERENCES users(id),
+        left_note TEXT,
         UNIQUE(student_id, school_year)
       )
     ''');

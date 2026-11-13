@@ -32,6 +32,20 @@ import '../core/services/calendar_rules.dart';
 import 'auth_viewmodel.dart';
 import 'viewmodel_exception.dart';
 
+/// The pull's refusal when kept work points at data the server no longer
+/// gives this user. When that is a learner or a section (e.g. the learner
+/// moved to another section, SF1 leavers D14), the upload still takes the
+/// work, so uploading comes first; discard-local deletes the work.
+String pullOrphansRefusal(List<PullOrphan> orphans) {
+  final head = 'Refused, nothing was changed: ${orphans.length} record(s) on this device point at '
+      'data the server no longer gives you:\n${orphans.map((o) => '  $o').join('\n')}\n';
+  if (orphans.any((o) => o.refTable == 'students' || o.refTable == 'sections')) {
+    return '${head}Upload this device\'s work first (sync-upload), then pull again. '
+        'Only if the upload can\'t go: pull-cloud yes discard-local (it deletes this work).';
+  }
+  return '${head}To go on, download again and delete this device\'s unsent work (pull-cloud yes discard-local).';
+}
+
 class SyncViewModel {
   final ScopedLogger _log;
   final AuthViewModel _auth;
@@ -102,9 +116,7 @@ class SyncViewModel {
       merge = await _local.mergePull(fetched,
           userId: preview.currentUserId!, email: preview.currentEmail, discardLocal: discardLocal);
     } on PullOrphansException catch (e) {
-      throw ViewModelException('Refused, nothing was changed: ${e.orphans.length} record(s) on this device point at '
-          'data the server no longer gives you:\n${e.orphans.map((o) => '  $o').join('\n')}\n'
-          'To go on, download again and delete this device\'s unsent work (pull-cloud yes discard-local).');
+      throw ViewModelException(pullOrphansRefusal(e.orphans));
     } catch (e) {
       throw ViewModelException('Pull stopped, nothing was changed (rolled back): $e');
     }
