@@ -43,6 +43,18 @@ class LearnerLeaverRepositorySupabase implements LearnerLeaverRepository {
       _rows('sf1_missing', {'p_school_id': schoolId, 'p_section_id': sectionId});
 
   @override
+  Future<({int sectionId, int schoolId})?> enrollmentPlace(int enrollmentId) async {
+    final row = await _client
+        .from('enrollments')
+        .select('section_id, sections!inner(school_id)')
+        .eq('id', enrollmentId)
+        .maybeSingle();
+    if (row == null) return null;
+    final section = row['sections'] as Map;
+    return (sectionId: (row['section_id'] as num).toInt(), schoolId: (section['school_id'] as num).toInt());
+  }
+
+  @override
   Future<void> saveLastImport(int sectionId, int schoolId, String schoolYear, List<String> lrns) async {
     await _client.from('sf1_last_imports').upsert(
       {'section_id': sectionId, 'school_id': schoolId, 'school_year': schoolYear, 'lrns': lrns},

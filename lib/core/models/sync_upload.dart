@@ -127,6 +127,10 @@ class SyncUploadRow {
   final DateTime? decidedAt;
   final Map<String, Object?> summary;
 
+  /// What the server noted on an applied upload, e.g. "2 records followed a
+  /// section move" (SF1 leavers D11); null when nothing.
+  final String? note;
+
   /// The package; only read for one upload (SyncReviewViewModel.details).
   final Map<String, Object?>? payload;
 
@@ -142,6 +146,7 @@ class SyncUploadRow {
     this.idMap = const {},
     this.decidedAt,
     this.summary = const {},
+    this.note,
   });
 
   int get total => (summary['total'] as num?)?.toInt() ?? 0;
@@ -182,6 +187,7 @@ class SyncUploadRow {
         decidedAt: m['decided_at'] == null ? null : DateTime.parse(m['decided_at'] as String),
         summary: Map<String, Object?>.from((m['summary'] as Map?) ?? const {}),
         payload: (m['payload'] as Map?)?.cast<String, Object?>(),
+        note: m['note'] as String?,
       );
 }
 
@@ -202,7 +208,10 @@ class SyncApplyResult {
   final String status;
   final String? reason;
   final List<SyncProblem> conflicts;
-  const SyncApplyResult({required this.status, this.reason, this.conflicts = const []});
+
+  /// The server's note on an applied upload (see [SyncUploadRow.note]).
+  final String? note;
+  const SyncApplyResult({required this.status, this.reason, this.conflicts = const [], this.note});
 }
 
 /// What happened to an upload since this device last looked.
@@ -215,11 +224,20 @@ class SyncOutcome {
   /// Rows of this device that it covered (records and their items).
   final int records;
 
-  const SyncOutcome({required this.uploadId, required this.status, required this.records, this.reason, this.conflicts = const []});
+  /// The server's note on an applied upload (see [SyncUploadRow.note]).
+  final String? note;
+
+  const SyncOutcome(
+      {required this.uploadId,
+      required this.status,
+      required this.records,
+      this.reason,
+      this.conflicts = const [],
+      this.note});
 
   @override
   String toString() => switch (status) {
-        'applied' => 'Upload $uploadId applied: $records row(s) now on the server.',
+        'applied' => 'Upload $uploadId applied: $records row(s) now on the server.${note == null ? '' : ' $note.'}',
         'rejected' => 'Upload $uploadId rejected: ${reason ?? "no reason given"}. Its $records row(s) can be changed again.',
         'error' => 'Upload $uploadId failed on the server: ${reason ?? "unknown error"}. Its $records row(s) can be changed again.',
         'withdrawn' => 'Upload $uploadId withdrawn; its $records row(s) can be changed again.',

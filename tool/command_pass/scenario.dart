@@ -70,7 +70,11 @@ class SqlStep extends Step {
 /// so a second section of the same grade gets different LRNs; `from=stamp`
 /// ([first] 0) takes the run's next unused block of indexes (200 up, kept in
 /// the run's state), so a rerun of the batch on the same run gets new
-/// learners. Not a run: checks cannot follow it.
+/// learners. `from=last`, `from=last+<k>` or `from=last-<k>` ([lastOffset])
+/// starts at the first index of the block the last `from=stamp` took, moved
+/// by k, without taking a new block: a later file of the same learners (a
+/// re-import that leaves some out, or another section's file that holds
+/// some of them). Not a run: checks cannot follow it.
 class MakeSf1Step extends Step {
   final String name;
   final bool schoolB;
@@ -78,7 +82,14 @@ class MakeSf1Step extends Step {
   final String section;
   final int count;
   final int first;
-  const MakeSf1Step(super.line, this.name, this.schoolB, this.grade, this.section, this.count, {this.first = 1});
+  final int? lastOffset;
+
+  /// `as=<grade>`: the learners (LRNs, names) of that grade's block, in a
+  /// file whose header says [grade] (a learner of another grade on a
+  /// section's SF1); null = [grade].
+  final int? learnerGrade;
+  const MakeSf1Step(super.line, this.name, this.schoolB, this.grade, this.section, this.count,
+      {this.first = 1, this.lastOffset, this.learnerGrade});
 }
 
 /// `make-phil-iri-workbook <capture> <grade> <section>[,<section2>] <count> [from=...]` and
@@ -201,16 +212,27 @@ Scenario parseScenario(String batch, String source) {
         if (arrow <= 0) fail('expected "sql <query> => <value>"');
         steps.add(SqlStep(n, rest.substring(0, arrow).trim(), rest.substring(arrow + 4).trim()));
       case 'make-sf1':
-        final p = rest.split(RegExp(r'\s+'));
-        final shapeOk = p.length == 5 || (p.length == 6 && p[5].startsWith('from='));
+        final all = rest.split(RegExp(r'\s+'));
+        // `as=<grade>` (anywhere after the count): the learners of that
+        // grade's LRN block in a file of another grade.
+        final asArg = all.length > 5 ? all.skip(5).where((t) => t.startsWith('as=')).toList() : const <String>[];
+        final p = [for (final t in all) if (!asArg.contains(t)) t];
+        final asGrade = asArg.length != 1 ? null : int.tryParse(asArg.single.substring(3));
+        final shapeOk = (p.length == 5 || (p.length == 6 && p[5].startsWith('from='))) &&
+            asArg.length <= 1 &&
+            (asArg.isEmpty || asGrade != null);
         final grade = shapeOk ? int.tryParse(p[2]) : null;
         final count = shapeOk ? int.tryParse(p[4]) : null;
-        final first = shapeOk && p.length == 6 ? fromArg(p[5]) : 1;
+        final last = shapeOk && p.length == 6 ? RegExp(r'^from=last(?:([+-])(\d+))?$').firstMatch(p[5]) : null;
+        final lastOffset = last == null ? null : (last[1] == '-' ? -1 : 1) * int.parse(last[2] ?? '0');
+        final first = lastOffset != null ? 0 : (shapeOk && p.length == 6 ? fromArg(p[5]) : 1);
         if (!shapeOk || !const {'a', 'b'}.contains(p[1]) || grade == null || count == null || count < 1 ||
             first == null || (first == 0 && p[1] == 'b')) {
-          fail('expected "make-sf1 <capture> a|b <grade> <section> <count> [from=<n>|from=stamp]" (stamp: school a)');
+          fail('expected "make-sf1 <capture> a|b <grade> <section> <count> '
+              '[from=<n>|from=stamp|from=last[+-<k>]] [as=<grade>]" (stamp, last: school a)');
         }
-        steps.add(MakeSf1Step(n, p[0], p[1] == 'b', grade, p[3], count, first: first));
+        steps.add(MakeSf1Step(n, p[0], p[1] == 'b', grade, p[3], count,
+            first: first, lastOffset: lastOffset, learnerGrade: asGrade));
         afterRun = false;
       case 'make-phil-iri-workbook' || 'make-phil-iri-scoresheet':
         final p = rest.split(RegExp(r'\s+'));

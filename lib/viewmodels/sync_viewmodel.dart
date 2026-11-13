@@ -222,7 +222,13 @@ class SyncViewModel {
           await _uploadLocal.releaseUpload(id);
       }
       _log('upload $id: ${row.status}');
-      out.add(SyncOutcome(uploadId: id, status: row.status, records: records, reason: row.reason, conflicts: row.conflicts));
+      out.add(SyncOutcome(
+          uploadId: id,
+          status: row.status,
+          records: records,
+          reason: row.reason,
+          conflicts: row.conflicts,
+          note: row.note));
     }
     return out;
   }

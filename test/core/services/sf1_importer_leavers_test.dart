@@ -136,6 +136,8 @@ void main() {
     expect(r.leftOn, '2026-10-01');
     expect(r.leftReason, 'dropped_out');
     expect(r.reason, 'archived on 2026-10-01, dropped out');
+    expect(r.fromSectionId, 42); // archived in G4-B, on G4-A's file
+    expect(r.fromSectionName, 'G4-B');
   });
 
   test('archived learner of another grade is a conflict', () async {
@@ -165,6 +167,7 @@ void main() {
     expect(r.leftOn, '2026-10-01');
     expect(r.leftReason, 'dropped_out');
     expect(r.reason, 'archived on 2026-10-01, dropped out');
+    expect(r.fromSectionName, 'G4-A');
   });
 
   test('anonymized learner is a plain insert', () async {

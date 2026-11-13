@@ -52,7 +52,8 @@ class Sf1TrialRow {
   final String? reason;
   final int? existingStudentId; // set when outcome is 'conflict', 'moving' or 'returning'
 
-  /// 'moving': the section the learner is active in now.
+  /// 'moving': the section the learner is active in now; 'returning': the
+  /// section they were archived in (it can differ from the file's section).
   final int? fromSectionId;
   final String? fromSectionName;
 
@@ -424,6 +425,8 @@ class Sf1Importer {
       outcome: 'returning',
       reason: 'archived on ${e.leftOn}, ${e.status.replaceAll('_', ' ')}',
       existingStudentId: existing.id,
+      fromSectionId: e.sectionId,
+      fromSectionName: e.sectionName,
       enrollmentId: e.enrollmentId,
       leftOn: e.leftOn,
       leftReason: e.status,

@@ -66,11 +66,38 @@ void registerImportCommands(ConsoleRegistry registry, ImportViewModel vm) {
         buf.writeln('School: ${t.schoolIdCode} | ${t.schoolName}');
         buf.writeln('Section: ${t.gradeLevel} - ${t.sectionName} (${t.schoolYear})');
         buf.writeln('Would insert: ${t.wouldInsert}, would conflict: ${t.wouldConflict}, '
-            'already enrolled: ${t.alreadyEnrolled}, would skip: ${t.wouldSkip}');
+            'already enrolled: ${t.alreadyEnrolled}, would skip: ${t.wouldSkip}, '
+            'moving from another section: ${t.wouldMove}, returning: ${t.wouldReturn}');
         buf.writeln('(A learner registered at another school shows as INSERT here and becomes a transfer conflict on import.)');
         buf.writeln('---');
         for (final row in t.rows) {
-          buf.writeln('[${row.rowIndex}] ${row.outcome.toUpperCase()}: ${row.name}${row.reason != null ? " (${row.reason})" : ""}');
+          final decide = switch (row.outcome) {
+            'moving' => ' -> enrollment ${row.enrollmentId}: confirm with sf1-move ${row.enrollmentId} <this section id>',
+            // Archived in this section: restored in place. Archived in
+            // another: the file's section must be named, or the learner
+            // goes back to the old one.
+            'returning' => row.fromSectionName == null || row.fromSectionName == t.sectionName
+                ? ' -> enrollment ${row.enrollmentId}: confirm with sf1-restore ${row.enrollmentId}'
+                : ' -> enrollment ${row.enrollmentId} (archived in ${row.fromSectionName}): confirm with '
+                    'sf1-restore ${row.enrollmentId} <this section id>',
+            _ => '',
+          };
+          buf.writeln('[${row.rowIndex}] ${row.outcome.toUpperCase()}: ${row.name}'
+              '${row.reason != null ? " (${row.reason})" : ""}$decide');
+        }
+        if (t.wouldMove + t.wouldReturn > 0) {
+          buf.writeln('(Moving and returning rows are not applied by the import: they wait for the decision above.)');
+        }
+        buf.writeln('---');
+        if (t.missing.isEmpty) {
+          buf.writeln('Not on this SF1: none.');
+        } else {
+          buf.writeln('Not on this SF1 (${t.missing.length}): active in this section, missing from the file:');
+          for (final m in t.missing) {
+            buf.writeln('  enrollment ${m.enrollmentId} | student ${m.studentId} | LRN ${m.lrn} | ${m.name}');
+          }
+          buf.writeln('Decide per learner after the import: sf1-archive <enrollmentId> transferred|dropped, '
+              'sf1-move <enrollmentId> <sectionId>; undecided learners stay active (sf1-missing lists them).');
         }
         return buf.toString();
       } catch (e) {
@@ -86,8 +113,14 @@ void registerImportCommands(ConsoleRegistry registry, ImportViewModel vm) {
       if (args.isEmpty) return 'Usage: import-students <file.xlsx>';
       try {
         final result = await vm.import(args[0]);
+        final waiting = result.waiting == 0
+            ? ''
+            : '\n${result.waiting} moving or returning learner(s) wait for a decision (import-trial shows them: '
+                'sf1-move / sf1-restore).';
+        final warning = result.lastImportWarning == null ? '' : '\nWarning: ${result.lastImportWarning}';
         return 'Inserted: ${result.inserted}, Conflicts: ${result.conflicts}, '
-            'Already enrolled: ${result.alreadyEnrolled}, Skipped: ${result.skippedBlankOrTotal}';
+            'Already enrolled: ${result.alreadyEnrolled}, Skipped: ${result.skippedBlankOrTotal}, '
+            'Waiting: ${result.waiting}$waiting$warning';
       } catch (e) {
         return 'Import failed: $e';
       }

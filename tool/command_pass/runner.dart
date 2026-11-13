@@ -232,7 +232,13 @@ Future<List<StepResult>> runScenario(
         final path = '${devices.runDir.path}/${step.name}.xlsx';
         final int first;
         try {
-          first = step.first != 0 ? step.first : _allocate(step.count, state);
+          final offset = step.lastOffset;
+          first = offset != null
+              ? _lastBlock(state) + offset
+              : step.first != 0
+                  ? step.first
+                  : _allocate(step.count, state);
+          if (first < 1) throw StateError('from=last$offset: the block starts below index 1');
         } on StateError catch (e) {
           add(step, StepOutcome(false, e.message));
           continue;
@@ -248,7 +254,7 @@ Future<List<StepResult>> runScenario(
               section: substitute(step.section, _vars(accounts, state)),
               learners: sf1Learners(
                   runNumber: accounts.runNumber,
-                  grade: step.grade,
+                  grade: step.learnerGrade ?? step.grade,
                   count: step.count,
                   schoolB: step.schoolB,
                   first: first));

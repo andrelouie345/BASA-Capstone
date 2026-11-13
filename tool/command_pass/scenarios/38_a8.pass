@@ -1,0 +1,223 @@
+# A8 SF1 leavers (spec docs/superpowers/specs/2026-11-12-sf1-leavers-design.md,
+# plan Task 6): learners who are no longer on a section's SF1.
+# Section X gets four new learners (x1-x4), section Y two (y1-y2), all Grade 7,
+# one block of learner indexes (from=stamp), so a rerun gets new learners and
+# new sections. Later files reuse the block (from=last-<k>):
+#   X2 = x1, x2 (x3 and x4 are missing);  X3 = x1, x2, x3;
+#   Y2 = x3, x4, y1, y2 (x3 is "moving from X", x4 is in Y by then).
+# Flow: archive x3 -> X3 shows x3 returning -> restore; x4 moved from X's
+# missing list (sf1_missing); x3 moved from Y's file (sf1_incoming); tutor1's
+# GST for x4, entered in X before the move, is uploaded afterwards and follows
+# x4 into Y (the upload's note); y2 archived and not yet anonymizable.
+
+device a8-pc admin fresh
+as coord
+run pull-cloud yes
+expect users:
+
+# --- Two sections ------------------------------------------------------------
+make-sf1 sf1_a8x a 7 ZZTEST-A8X{stamp} 4 from=stamp
+run import-trial "{sf1_a8x}"
+expect Would insert: 4, would conflict: 0, already enrolled: 0, would skip: 0, moving from another section: 0, returning: 0
+expect Not on this SF1: none.
+capture fn_x3 = (?:\[\d+\] INSERT: [^\n]*\n){2}\[\d+\] INSERT: [^,\n]+, (Learner\d{3})
+capture fn_x4 = (?:\[\d+\] INSERT: [^\n]*\n){3}\[\d+\] INSERT: [^,\n]+, (Learner\d{3})
+run import-students "{sf1_a8x}"
+expect Inserted: 4, Conflicts: 0, Already enrolled: 0, Skipped: 0, Waiting: 0
+capture sec_x = resolved section: 7 - ZZTEST-A8X{stamp} \({year}\) \(id=(\d+)\)
+make-sf1 sf1_a8y a 7 ZZTEST-A8Y{stamp} 2 from=stamp
+run import-trial "{sf1_a8y}"
+capture fn_y2 = (?:\[\d+\] INSERT: [^\n]*\n)\[\d+\] INSERT: [^,\n]+, (Learner\d{3})
+run import-students "{sf1_a8y}"
+expect Inserted: 2, Conflicts: 0
+capture sec_y = resolved section: 7 - ZZTEST-A8Y{stamp} \({year}\) \(id=(\d+)\)
+run student-list-section {sec_x}
+capture s_x3 = (\d+) \| \d+ \| [^,\n]+, {fn_x3}
+capture s_x4 = (\d+) \| \d+ \| [^,\n]+, {fn_x4}
+run student-list-section {sec_y}
+capture s_y2 = (\d+) \| \d+ \| [^,\n]+, {fn_y2}
+# Nothing is missing yet: the section's last import has everyone.
+run sf1-missing {sec_y}
+expect No learner of section {sec_y} is missing from its last imported SF1.
+
+# --- tutor1 enters a GST for x4 in X (not uploaded yet) ---------------------
+run assign-section {tutor1_id} {sec_x}
+expect Assigned tutor {tutor1_id} to section {sec_x}
+device a8-phone tutor fresh
+as tutor1
+run pull-cloud yes
+expect users:
+run phil-iri-gst {s_x4} {sec_x} {year} 25
+expect 25/40
+# (The tutor build has none of the sf1-* / learner-anonymize* commands:
+# test/core/wiring/command_sets_test.dart.)
+
+# --- Re-import X without x3 and x4 ---------------------------------------------
+device a8-pc admin
+make-sf1 sf1_a8x2 a 7 ZZTEST-A8X{stamp} 2 from=last-4
+run import-trial "{sf1_a8x2}"
+expect already enrolled: 2
+expect Not on this SF1 (2): active in this section, missing from the file:
+capture e_x3 = enrollment (\d+) \| student {s_x3} \|
+capture e_x4 = enrollment (\d+) \| student {s_x4} \|
+run import-students "{sf1_a8x2}"
+expect Inserted: 0, Conflicts: 0, Already enrolled: 2
+run sf1-missing {sec_x}
+expect Not on the latest SF1 - undecided (2):
+expect enrollment {e_x3} | student {s_x3}
+expect enrollment {e_x4} | student {s_x4}
+expect | section {sec_x} ZZTEST-A8X{stamp}
+run sf1-missing nine
+refuse Invalid sectionId: "nine"
+run sf1-missing {sec_x} school=abc
+refuse Invalid school: "abc"
+# A school-bound coordinator can't name another school.
+run sf1-missing school={schoolB}
+refuse Forbidden: you can only manage your own school's learners.
+
+# --- x3 drops out: archived, then returns on X's next SF1 ----------------------
+run sf1-archive {e_x3} left
+refuse The reason is transferred or dropped (got "left").
+run sf1-archive {e_x3}
+refuse Usage: sf1-archive <enrollmentId> transferred|dropped [note...]
+run sf1-archive {e_x3} dropped ZZ stopped coming in October
+expect Enrollment {e_x3} archived (dropped out): saved on the server; pull to refresh this device.
+sql select status || '|' || (left_on = '{today}') || '|' || left_note from enrollments where id = {e_x3} => dropped_out|1|ZZ stopped coming in October
+run sf1-missing {sec_x}
+expect Not on the latest SF1 - undecided (1):
+expect enrollment {e_x4}
+# Archiving twice is refused by the server.
+run sf1-archive {e_x3} dropped
+refuse The database refused it:
+run learner-history {s_x3}
+expect dropped_out, left {today} (ZZ stopped coming in October)
+make-sf1 sf1_a8x3 a 7 ZZTEST-A8X{stamp} 3 from=last-4
+run import-trial "{sf1_a8x3}"
+expect returning: 1
+expect~ RETURNING: [^\n]*{fn_x3} \(archived on {today}, dropped out\) -> enrollment {e_x3}: confirm with sf1-restore {e_x3}
+expect Not on this SF1 (1)
+expect enrollment {e_x4}
+run import-students "{sf1_a8x3}"
+expect Already enrolled: 2, Skipped: 0, Waiting: 1
+expect 1 moving or returning learner(s) wait for a decision
+sql select status from enrollments where id = {e_x3} => dropped_out
+run sf1-restore {e_x3}
+expect Enrollment {e_x3} restored: saved on the server; pull to refresh this device. ARAL is not restored
+sql select status || '|' || coalesce(left_on, '-') from enrollments where id = {e_x3} => active|-
+run sf1-restore {e_x3}
+refuse The database refused it:
+run sf1-restore {e_x3} x
+refuse Invalid sectionId: "x"
+
+# --- x4 moves to Y from X's missing list --------------------------------------
+# Another grade is refused (moves are same grade only).
+run sf1-move {e_x4} {sec_g2}
+refuse The database refused it:
+run sf1-move {e_x4}
+refuse Usage: sf1-move <enrollmentId> <sectionId> [school=<id>]
+run sf1-move {e_x4} {sec_y}
+expect Enrollment {e_x4} moved to section {sec_y} with this year's records (0 CRLA, 0 Phil-IRI, 0 GST): saved on the server; pull to refresh this device.
+sql select section_id = {sec_y} from enrollments where id = {e_x4} => 1
+sql select source from enrollment_moves where enrollment_id = {e_x4} => sf1_missing
+run sf1-missing {sec_x}
+expect No learner of section {sec_x} is missing from its last imported SF1.
+
+# --- x3 moves to Y, confirmed from Y's file --------------------------------------
+make-sf1 sf1_a8y2 a 7 ZZTEST-A8Y{stamp} 4 from=last-2
+run import-trial "{sf1_a8y2}"
+expect moving from another section: 1, returning: 0
+expect~ MOVING: [^\n]*{fn_x3} \(moving from ZZTEST-A8X{stamp}\) -> enrollment {e_x3}: confirm with sf1-move {e_x3}
+expect already enrolled: 3
+run import-students "{sf1_a8y2}"
+expect Waiting: 1
+run sf1-move {e_x3} {sec_y}
+expect Enrollment {e_x3} moved to section {sec_y}
+sql select source from enrollment_moves where enrollment_id = {e_x3} => sf1_incoming
+run import-trial "{sf1_a8y2}"
+expect already enrolled: 4
+expect Not on this SF1: none.
+
+# --- tutor1's GST for x4 follows the move ---------------------------------------
+device a8-phone tutor
+run sync-upload yes
+expect waiting for approval.
+capture up_a8 = Upload (\d+)
+device a8-pc admin
+run sync-approve {up_a8}
+expect Upload {up_a8} applied. 1 record followed a section move.
+device a8-phone tutor
+run sync-status
+expect Upload {up_a8} applied: 1 row(s) now on the server. 1 record followed a section move.
+sql select count(*) from phil_iri_gst_results where student_id = {s_x4} and section_id = {sec_y} => 1
+
+# --- y2 transfers out; not anonymizable yet ---------------------------------------
+device a8-pc admin
+make-sf1 sf1_a8y3 a 7 ZZTEST-A8Y{stamp} 3 from=last-2
+run import-trial "{sf1_a8y3}"
+expect Not on this SF1 (1)
+capture e_y2 = enrollment (\d+) \| student {s_y2} \|
+run import-students "{sf1_a8y3}"
+expect Already enrolled: 3
+# This device's unsent record of y2 stops the archive until it is uploaded.
+run phil-iri-gst {s_y2} {sec_y} {year} {=30}
+expect 30/40
+run sf1-archive {e_y2} transferred "ZZ moved to another division"
+refuse This device has 1 record of this learner that is not on the server yet: upload this device's work first (sync-upload), then try again.
+run sync-upload yes
+expect~ [Aa]pplied
+run sf1-archive {e_y2} transferred "ZZ moved to another division"
+expect Enrollment {e_y2} archived (transferred out): saved on the server; pull to refresh this device.
+run archive-keep-months {school}
+expect~ Archived learners kept: region .* · applies \d+ months
+run archive-keep-months {school} {=0}
+refuse Archived learners are kept 1 to 120 months, not 0.
+run archive-keep-months {school} {=121}
+refuse Archived learners are kept 1 to 120 months, not 121.
+run archive-keep-months {school} {=1}
+expect Archived learners of school {school} are kept 1 month before they may be anonymized.
+run archive-keep-months {school}
+expect · school 1 month · applies 1 month
+# Archived today and the school year hasn't ended: nobody yet, even at 1 month.
+run learner-anonymize-preview
+expect No learner can be anonymized now.
+capture code_a8 = confirm code: ([0-9a-f]{12})
+run learner-anonymize abcdefabcdef
+refuse The list changed since the preview: preview again (learner-anonymize-preview).
+run learner-anonymize {code_a8}
+expect No learner can be anonymized now.
+run learner-anonymize
+refuse Usage: learner-anonymize <code> [school=<id>]
+run archive-keep-months {school} {=6}
+expect kept 6 months
+
+# --- The coordinator's device after a pull ------------------------------------------
+run pull-cloud yes
+expect users:
+sql select count(*) from enrollment_moves where enrollment_id in ({e_x3}, {e_x4}) => 2
+sql select count(*) from phil_iri_gst_results where student_id = {s_x4} and section_id = {sec_y} => 1
+run learner-history {s_x4}
+expect~ Moved {today}: ZZTEST-A8X{stamp} \(section {sec_x}\) -> ZZTEST-A8Y{stamp} \(section {sec_y}\), decided from the old section's SF1
+run learner-history {s_x3}
+expect Section: Grade 7 ZZTEST-A8Y{stamp}
+expect~ Moved {today}: ZZTEST-A8X{stamp} \(section {sec_x}\) -> ZZTEST-A8Y{stamp} \(section {sec_y}\), confirmed from the new section's SF1
+run learner-history {s_y2}
+expect transferred_out, left {today} (ZZ moved to another division)
+# School-wide (other batches' sections may list learners of their own).
+run sf1-missing
+expect~ No learner is missing from a section's last imported SF1\.|Not on the latest SF1 - undecided
+
+# --- The superadmin names the school; a tutor is refused ----------------------------
+device a8-super admin fresh
+as super
+run sf1-missing
+refuse Give the school: the superadmin has no school of their own.
+run sf1-missing {sec_y} school={school}
+expect No learner of section {sec_y} is missing from its last imported SF1.
+run learner-anonymize-preview school={school}
+expect No learner can be anonymized now.
+device a8-tutor-pc admin fresh
+as tutor1
+run sf1-missing
+refuse Forbidden: only an admin or coordinator archives, moves or restores learners.
+run sf1-archive {e_x4} dropped
+refuse Forbidden: only an admin or coordinator archives, moves or restores learners.

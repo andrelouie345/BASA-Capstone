@@ -5,6 +5,7 @@
 import '../console_command.dart';
 import '../console_registry.dart';
 import '../../models/aral_enrollment.dart' show AralBasisSource;
+import '../../models/enrollment_move.dart' show EnrollmentMoveSource;
 import '../../../viewmodels/learner_history_viewmodel.dart';
 
 class _Usage implements Exception {
@@ -52,7 +53,11 @@ String _text(LearnerHistory h) {
     out.write('\n== ${y.schoolYear} ==');
     for (final e in y.enrollments) {
       out.write('\n  Section: Grade ${e.gradeLevel} ${e.sectionName} (${e.schoolName ?? 'school not on this device'}), '
-          '${e.status}');
+          '${e.status}${e.leftOn == null ? '' : ', left ${e.leftOn}'}${e.leftNote == null ? '' : ' (${e.leftNote})'}');
+    }
+    for (final m in y.moves) {
+      out.write('\n  Moved ${m.movedOn}: ${m.fromSectionName ?? 'section'} (section ${m.fromSectionId}) -> '
+          '${m.toSectionName ?? 'section'} (section ${m.toSectionId}), ${_moveSource(m.source)}');
     }
     for (final round in y.crla.entries) {
       for (final lang in round.value.entries) {
@@ -100,4 +105,10 @@ String _checkin(LearnerHistoryCheckin c) => switch (c) {
       LearnerHistoryCheckin.failed => 'failed',
       LearnerHistoryCheckin.notTaken => 'not taken',
       LearnerHistoryCheckin.unavailable => 'not available',
+    };
+
+String _moveSource(EnrollmentMoveSource s) => switch (s) {
+      EnrollmentMoveSource.sf1Missing => "decided from the old section's SF1",
+      EnrollmentMoveSource.sf1Incoming => "confirmed from the new section's SF1",
+      EnrollmentMoveSource.returned => 'restored into another section',
     };

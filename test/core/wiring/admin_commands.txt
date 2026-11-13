@@ -79,6 +79,7 @@ aral-tutor-summary
 aral-tutors
 aral-unmark
 aral-update
+archive-keep-months
 assign-section
 bootstrap-admin
 bosy-masterlist
@@ -121,6 +122,8 @@ help
 import-preview
 import-students
 import-trial
+learner-anonymize
+learner-anonymize-preview
 learner-history
 learner-history-lrn
 list-conflicts
@@ -211,6 +214,10 @@ section-delete
 section-list
 section-update
 set-text
+sf1-archive
+sf1-missing
+sf1-move
+sf1-restore
 show-conflict
 sign-in
 sign-in-offline

@@ -36,6 +36,7 @@ import '../console/commands/reminder_admin_commands.dart';
 import '../console/commands/report_settings_commands.dart';
 import '../console/commands/school_admin_commands.dart';
 import '../console/commands/section_admin_commands.dart';
+import '../console/commands/sf1_leaver_admin_commands.dart';
 import '../console/commands/srp_admin_commands.dart';
 import '../console/commands/sync_admin_commands.dart';
 import '../console/commands/trend_admin_commands.dart';
@@ -248,6 +249,7 @@ Future<AdminVms> wireAdmin(AppContext ctx, SharedVms s, TutorVms t) async {
     cloud: LearnerLeaverRepositorySupabase.new,
     mirror: (result) => mirrorLeaverResult(db, result),
     localStudent: LearnerHistoryRepositorySqlite(db).student,
+    unsentRecords: (enrollmentId) => leaverUnsentRecords(db, enrollmentId),
     logger: session,
   );
   vms.register('LearnerLeaversViewModel', learnerLeaversVm);
@@ -298,4 +300,5 @@ void registerAdminCommands(AppContext ctx, SharedVms s, TutorVms t, AdminVms a) 
   registerAralExportCommands(r, t.aralVm, a.aralReportVm, t.aralCheckinVm);
   registerAralRosterImportCommands(r, a.aralRosterImportVm);
   registerLearnerHistoryCommands(r, a.learnerHistoryVm);
+  registerSf1LeaverCommands(r, a.learnerLeaversVm);
 }

@@ -49,6 +49,7 @@ Purpose: one learner's progress by school year, from the records on this device:
 Calls:
 - `AdminScope.of(context).learnerHistory.history(studentId)` / `historyByLrn(lrn)` → `LearnerHistory`: `student`, `years` (latest first), `scopeNote` (show it when not null: "Only your school's records are shown.")
 - Each `LearnerHistoryYear`: `schoolYear`, `enrollments` (at most one: section name, grade, school (null = school not on this device), status), `crla` (round → test → profile; tests are "MT (<language>)", "Filipino", "English" in that order; null profile = "no profile"), `philIri` (one `LearnerHistoryPhilIri` per section, two after a section move: `sectionName`, `results` = `PhilIriLearnerResults`, or `results` null and `unavailable` = the note to show), `aral` (0 or 1 `LearnerHistoryAral`: `enrollment` (program, entered/exited + reason, `basisSource`, `referredBy`/`referralReason`), `className` (null = waiting for a class), `tutorName`, `attendance.label`, `checkin16`/`checkin32` = passed / failed / notTaken / unavailable, `unavailable` = the note to show when the check-ins can't be read), `srp` (class, tutor, room) and `isEmpty` (show "No assessments recorded")
+- SF1 leavers (since 2026-11-13): each enrollment also has `leftOn` / `leftNote` (set when archived: status `transferred_out` / `dropped_out`), and each year has `moves` (`LearnerHistoryMove`: `movedOn`, from/to section id and name, `source` = decided from the old section's SF1 / confirmed from the new section's SF1 / restored into another section). Show them with the section line.
 - A part that can't be read on this device comes with a note starting "Not available on this device: "; show the note there and the rest of the history as usual.
 Errors: not signed in; `Forbidden: only an admin or coordinator can view learner history.`; `Forbidden: that learner is not in your school.`; `Learner not found on this device. Download the latest data first (pull-cloud).`; `No learner with LRN <lrn> on this device. Download the latest data first (pull-cloud).`; `Enter an LRN.` (ViewModelException).
 Console: `learner-history`, `learner-history-lrn`
@@ -62,6 +63,7 @@ Calls:
 - `loadPendingConflicts()` → `pendingConflicts`; `getConflict(id)`; `resolve(id, 'skip'|'update')`; `resolveAll(action)`
 Live previews: none.
 Errors: another school's file, unreadable workbook (ViewModelException).
+Learners who are missing from the file, moving from another section or returning: see `sf1-leavers.md` (the trial result's `missing`, `wouldMove`, `wouldReturn`; the import's `waiting`, `lastImportWarning`).
 Console: `column-map-show`, `column-map-set`, `import-preview`, `import-trial`, `import-students`, `list-conflicts`, `show-conflict`, `resolve-conflict`, `resolve-conflicts-all`
 
 ### Login logs

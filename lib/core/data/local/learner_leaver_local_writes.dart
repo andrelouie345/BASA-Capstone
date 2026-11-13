@@ -22,6 +22,7 @@
 // skipped (an admin's copy may not have them).
 import 'package:sqflite_common/sqflite.dart';
 
+import '../pull_tables.dart';
 import 'mirror_write.dart';
 import 'sync_local_writes.dart';
 
@@ -95,3 +96,31 @@ Future<void> mirrorLeaverResult(Database db, Map<String, dynamic> result) async 
 }
 
 Map<String, dynamic>? _row(Object? v) => v is Map ? Map<String, dynamic>.from(v) : null;
+
+/// The learner's records on this device that an archive, move or restore
+/// would change (or stop at upload) but that are not on the server as they
+/// are here: new (never uploaded), edited (journaled in sync_changes) or
+/// waiting in an upload (sync_pending, which also holds an upload in flight:
+/// its locks are written before it is sent). Only the learner of
+/// [enrollmentId], only that enrollment's school year, only the four
+/// learner-keyed records the server functions touch. 0 when the enrollment
+/// is not on this device (nothing of the learner can be unsent here then).
+Future<int> leaverUnsentRecords(DatabaseExecutor db, int enrollmentId) async {
+  final e = await db.query('enrollments',
+      columns: ['student_id', 'school_year'], where: 'id = ?', whereArgs: [enrollmentId], limit: 1);
+  if (e.isEmpty) return 0;
+  final student = e.first['student_id'], year = e.first['school_year'];
+  var n = 0;
+  for (final t in const ['crla_assessments', 'phil_iri_assessments', 'phil_iri_gst_results', 'aral_enrollments']) {
+    final key = syncedTables[t]!;
+    final rows = await db.rawQuery('''
+      SELECT COUNT(*) AS n FROM $t r
+      WHERE r.student_id = ? AND r.school_year = ?
+        AND (r.origin = 'local'
+          OR EXISTS (SELECT 1 FROM sync_changes c WHERE c.table_name = '$t' AND c.row_key = CAST(r.$key AS TEXT))
+          OR EXISTS (SELECT 1 FROM sync_pending p WHERE p.table_name = '$t' AND p.row_key = CAST(r.$key AS TEXT)))
+    ''', [student, year]);
+    n += (rows.first['n'] as num).toInt();
+  }
+  return n;
+}

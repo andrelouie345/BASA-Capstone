@@ -76,20 +76,22 @@ expect dataStartRow: 6
 # Moving a learner to another section through an SF1 import. The new
 # section keeps the move as history, so it can't be deleted afterwards: each
 # invocation uses its own section name ({stamp}).
-make-sf1 sf1_a1 a 7 ZZTEST-M{stamp} 2
+# Since SF1 leavers a same-grade move is a "moving" row (sf1-move, batch a8); a learner
+# of another grade is still a conflict, so the file is Grade 8 with the G7 learners.
+make-sf1 sf1_a1 a 8 ZZTEST-M{stamp} 2 as=7
 run import-preview "{sf1_a1}" {=6}
 expect [0] 9990
 expect [2] ZZTESTA
 expect [6] M
-# The two G7 learners in another section: conflicts, not silent moves.
+# The two G7 learners on a Grade 8 section's SF1: conflicts, not silent moves.
 run import-students "{sf1_a1}"
 expect Inserted: 0, Conflicts: 2, Already enrolled: 0, Skipped: 0
-capture sec_m = resolved section: 7 - ZZTEST-M{stamp} \({year}\) \(id=(\d+)\)
+capture sec_m = resolved section: 8 - ZZTEST-M{stamp} \({year}\) \(id=(\d+)\)
 run list-conflicts
-expect LRN already exists (existing student id {s_g7_1})
+expect active in ZZTEST-G7 (Grade 7): other grade, can't move
 capture cf_1 = (\d+): LRN \d+7001
 run show-conflict {cf_1}
-expect Section: {sec_m} | 7 - ZZTEST-M{stamp} ({year})
+expect Section: {sec_m} | 8 - ZZTEST-M{stamp} ({year})
 expect Status: pending
 expect "last_name":"ZZTESTA"
 # update = take the incoming row: the learner moves to the new section.

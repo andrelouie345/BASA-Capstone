@@ -134,4 +134,23 @@ void registerReportSettingsCommands(ConsoleRegistry registry, ReportSettingsView
     return 'Offline sign-in window for ${_who(schoolId)}: $n days. Tablets get it after their next pull-cloud.'
         '${warn()}';
   });
+
+  String months(int? v) => v == null ? 'not set' : '$v month${v == 1 ? '' : 's'}';
+
+  add('archive-keep-months',
+      "archive-keep-months <region|schoolId> [1-120] — show (this device's copy) or set how many months archived "
+          'learners are kept before they may be anonymized (archive_keep_months, default 6, online)', (args) async {
+    const usage = 'Usage: archive-keep-months <region|schoolId> [1-120]';
+    if (args.isEmpty || args.length > 2) throw const _Usage(usage);
+    final schoolId = _school(args[0]);
+    if (args.length == 1) {
+      final l = await vm.archiveKeepMonthsLayers(schoolId);
+      return 'Archived learners kept: region ${months(l.region)}'
+          '${schoolId == null ? '' : ' · school ${months(l.school)}'} · applies ${months(l.effective)}';
+    }
+    final n = int.tryParse(args[1]);
+    if (n == null) throw _Usage('The period is a whole number of months (got "${args[1]}"). $usage');
+    await vm.setArchiveKeepMonths(schoolId, n);
+    return 'Archived learners of ${_who(schoolId)} are kept ${months(n)} before they may be anonymized.${warn()}';
+  });
 }

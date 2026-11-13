@@ -32,6 +32,10 @@ abstract class LearnerLeaverRepository {
   /// first_name, section_id, section_name}` of the school (or one section).
   Future<List<Map<String, dynamic>>> missing(int schoolId, {int? sectionId});
 
+  /// The enrollment's section and that section's school, as the server
+  /// holds them; null when the caller can't read it (or it doesn't exist).
+  Future<({int sectionId, int schoolId})?> enrollmentPlace(int enrollmentId);
+
   /// Creates or replaces the section's row of sf1_last_imports (who and when
   /// are stamped by the server).
   Future<void> saveLastImport(int sectionId, int schoolId, String schoolYear, List<String> lrns);

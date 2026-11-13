@@ -8,10 +8,12 @@
 import 'dart:io';
 
 import 'package:basa_capstone/core/data/local/import_conflict_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/local/learner_leaver_local_writes.dart';
 import 'package:basa_capstone/core/data/local/local_database.dart';
 import 'package:basa_capstone/core/data/local/school_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/section_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/student_repository_sqlite.dart';
+import 'package:basa_capstone/core/data/local/sync_local_writes.dart';
 import 'package:basa_capstone/core/models/enrollment.dart';
 import 'package:basa_capstone/core/models/report_setting.dart';
 import 'package:basa_capstone/core/models/student.dart';
@@ -26,8 +28,9 @@ import 'package:basa_capstone/viewmodels/report_settings_viewmodel.dart';
 import 'package:basa_capstone/viewmodels/viewmodel_exception.dart';
 import 'package:excel_plus/excel_plus.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' show ClientException;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:supabase/supabase.dart' show SupabaseClient;
+import 'package:supabase/supabase.dart' show PostgrestException, SupabaseClient;
 
 import '../helpers/fake_online_auth.dart';
 
@@ -49,6 +52,9 @@ class _FakeLeavers implements LearnerLeaverRepository {
   final calls = <String>[];
   List<Map<String, dynamic>> eligible = [];
 
+  /// Thrown by archive() when set (server and network errors).
+  Object? archiveError;
+
   /// Section id -> the last import's LRNs (sf1_last_imports).
   final lastImports = <int, ({int schoolId, String schoolYear, List<String> lrns})>{};
 
@@ -58,6 +64,7 @@ class _FakeLeavers implements LearnerLeaverRepository {
   @override
   Future<Map<String, dynamic>> archive(int enrollmentId, String reason, String? note) async {
     calls.add('archive($enrollmentId, $reason, $note)');
+    if (archiveError != null) throw archiveError!;
     return {
       'enrollment': {'id': enrollmentId, 'student_id': 7, 'section_id': 41, 'school_year': _year, 'status': reason,
           'left_on': '2026-11-13', 'left_by': 'u', 'left_note': note},
@@ -104,6 +111,15 @@ class _FakeLeavers implements LearnerLeaverRepository {
   Future<List<Map<String, dynamic>>> anonymizeEligible(int schoolId) async {
     calls.add('anonymizeEligible($schoolId)');
     return eligible;
+  }
+
+  /// Enrollment id -> its section and school (enrollmentPlace).
+  final places = <int, ({int sectionId, int schoolId})>{};
+
+  @override
+  Future<({int sectionId, int schoolId})?> enrollmentPlace(int enrollmentId) async {
+    calls.add('enrollmentPlace($enrollmentId)');
+    return places[enrollmentId];
   }
 
   @override
@@ -154,11 +170,14 @@ void main() {
   late List<Map<String, dynamic>> mirrored;
   late FakeOnlineAuth auth;
 
-  LearnerLeaversViewModel vmFor(FakeOnlineAuth a, {Map<int, Student>? students}) => LearnerLeaversViewModel(
+  LearnerLeaversViewModel vmFor(FakeOnlineAuth a,
+          {Map<int, Student>? students, Future<int> Function(int enrollmentId)? unsent}) =>
+      LearnerLeaversViewModel(
         auth: a,
         cloud: (_) => repo,
         mirror: (r) async => mirrored.add(r),
         localStudent: (id) async => students?[id],
+        unsentRecords: unsent ?? (_) async => 0,
       );
 
   setUp(() {
@@ -229,6 +248,18 @@ void main() {
       expect(vm.lastMessage, out.message);
     });
 
+    test('server and network errors come back as short messages', () async {
+      final vm = vmFor(auth);
+      repo.archiveError = const PostgrestException(message: 'boom', code: 'XX000');
+      await expectLater(vm.archive(11, EnrollmentStatus.droppedOut), _refused('The database refused it: boom.'));
+      repo.archiveError = const SocketException('no route');
+      await expectLater(vm.archive(11, EnrollmentStatus.droppedOut), _refused(leaverUnreachableMessage));
+      repo.archiveError = ClientException('Connection closed');
+      await expectLater(vm.archive(11, EnrollmentStatus.droppedOut), _refused(leaverUnreachableMessage));
+      repo.archiveError = StateError('a bug');
+      await expectLater(vm.archive(11, EnrollmentStatus.droppedOut), throwsStateError);
+    });
+
     test('archive refuses active as a reason', () async {
       await expectLater(vmFor(auth).archive(11, EnrollmentStatus.active),
           _refused('The reason must be transferred out or dropped out.'));
@@ -243,6 +274,46 @@ void main() {
       expect(out.move!.toSectionId, 42);
       expect(out.message, contains('1 CRLA, 2 Phil-IRI, 0 GST'));
       expect(out.message, contains('saved on the server; pull to refresh this device'));
+    });
+
+    test("move decides the source from the learner's own enrollment", () async {
+      repo.places[11] = (sectionId: 41, schoolId: 1);
+      repo.places[12] = (sectionId: 41, schoolId: 1);
+      repo.lastImports[41] = (schoolId: 1, schoolYear: _year, lrns: ['999999000012']);
+      repo.active[41] = [
+        {'enrollment_id': 11, 'student_id': 7, 'lrn': '999999000011', 'last_name': 'Fixture', 'first_name': 'Eleven'},
+        {'enrollment_id': 12, 'student_id': 8, 'lrn': '999999000012', 'last_name': 'Fixture', 'first_name': 'Twelve'},
+      ];
+      final vm = vmFor(auth);
+      await vm.move(11, 42); // left off section 41's last SF1
+      await vm.move(12, 42); // on it: confirmed from the new section's file
+      expect(repo.calls.where((c) => c.startsWith('move(')), ['move(11, 42, sf1_missing)', 'move(12, 42, sf1_incoming)']);
+      expect(repo.calls, contains('missing(1, 41)'));
+    });
+
+    test('the superadmin moves without a school; a wrong school is refused', () async {
+      repo.places[11] = (sectionId: 41, schoolId: 1);
+      final superVm = vmFor(FakeOnlineAuth(UserRole.admin));
+      await superVm.move(11, 42);
+      expect(repo.calls.last, 'move(11, 42, sf1_incoming)');
+      await expectLater(superVm.move(11, 42, schoolId: 5), _refused('Enrollment 11 is at school 1, not school 5.'));
+      await expectLater(superVm.move(99, 42), _refused('Enrollment 99 not found (or not one you can manage).'));
+    });
+
+    test("archive, move and restore into another section wait for this device's unsent work", () async {
+      final vm = vmFor(auth, unsent: (id) async => id == 11 ? 2 : 0);
+      final upload = leaverUploadFirstMessage(2);
+      expect(upload, "This device has 2 records of this learner that are not on the server yet: upload this "
+          "device's work first (sync-upload), then try again.");
+      await expectLater(vm.archive(11, EnrollmentStatus.droppedOut), _refused(upload));
+      await expectLater(vm.move(11, 42, source: 'sf1_incoming'), _refused(upload));
+      await expectLater(vm.restore(11, toSectionId: 42), _refused(upload));
+      expect(repo.calls, isEmpty);
+      // Into their own section only the enrollment changes: not blocked.
+      await vm.restore(11);
+      // Another learner's unsent work doesn't block this one.
+      await vm.archive(12, EnrollmentStatus.droppedOut);
+      expect(repo.calls, ['restore(11, null)', 'archive(12, dropped_out, null)']);
     });
 
     test('move refuses another source', () async {
@@ -265,7 +336,11 @@ void main() {
 
     test('a failed device copy still reports the server change', () async {
       final vm = LearnerLeaversViewModel(
-          auth: auth, cloud: (_) => repo, mirror: (_) async => throw StateError('disk'), localStudent: (_) async => null);
+          auth: auth,
+          cloud: (_) => repo,
+          mirror: (_) async => throw StateError('disk'),
+          localStudent: (_) async => null,
+          unsentRecords: (_) async => 0);
       final out = await vm.archive(11, EnrollmentStatus.droppedOut);
       expect(out.mirrored, isFalse);
       expect(out.message, contains("saved on the server, but this device's copy was not updated"));
@@ -342,6 +417,39 @@ void main() {
       File(path).writeAsBytesSync(excel.save()!);
       return path;
     }
+
+    test('unsent work blocks only its own learner (device copy)', () async {
+      await db.insert('sections', {'id': 61, 'school_id': 1, 'school_year': _year, 'grade_level': '4', 'section_name': 'G4-U'});
+      for (final i in [1, 2, 3]) {
+        await db.insert('students', {'id': 6100 + i, 'lrn': '99999906100$i', 'last_name': 'ZZU', 'first_name': 'L$i',
+            'school_id': 1});
+        await db.insert('enrollments',
+            {'id': 6110 + i, 'student_id': 6100 + i, 'section_id': 61, 'school_year': _year, 'status': 'active'});
+      }
+      Map<String, Object?> gst(int id, int student, String origin) => {'id': id, 'student_id': student, 'school_id': 1,
+          'section_id': 61, 'school_year': _year, 'attempt_no': 1, 'max_score': 40, 'total_score': 20,
+          'taken_at': '2026-10-01', 'origin': origin, 'row_version': origin == 'cloud' ? 1 : null};
+      await db.transaction((txn) => withSyncBypass(txn, () async {
+            // Learner 1: a pulled GST with an edit journaled (unsent edit).
+            await txn.insert('phil_iri_gst_results', gst(5001, 6101, 'cloud'));
+            await txn.insert('sync_changes',
+                {'table_name': 'phil_iri_gst_results', 'row_key': '5001', 'op': 'update', 'base_version': 1});
+            // Learner 2: a pulled GST waiting in an upload.
+            await txn.insert('phil_iri_gst_results', gst(5002, 6102, 'cloud'));
+            await txn.insert('sync_pending', {'table_name': 'phil_iri_gst_results', 'row_key': '5002', 'upload_id': 9});
+            // Learner 3: only a pulled, unchanged GST.
+            await txn.insert('phil_iri_gst_results', gst(5003, 6103, 'cloud'));
+          }));
+      expect(await leaverUnsentRecords(db, 6111), 1);
+      expect(await leaverUnsentRecords(db, 6112), 1);
+      expect(await leaverUnsentRecords(db, 6113), 0);
+      expect(await leaverUnsentRecords(db, 999), 0); // not on this device
+      final vm = vmFor(auth, unsent: (id) => leaverUnsentRecords(db, id));
+      await expectLater(vm.archive(6111, EnrollmentStatus.droppedOut), _refused(leaverUploadFirstMessage(1)));
+      await expectLater(vm.move(6112, 62, source: 'sf1_incoming'), _refused(leaverUploadFirstMessage(1)));
+      await vm.archive(6113, EnrollmentStatus.droppedOut);
+      expect(repo.calls, ['archive(6113, dropped_out, null)']);
+    });
 
     test('import saves the file LRNs; missing lists the active learners not in them', () async {
       final schools = SchoolRepositorySqlite(db);

@@ -14,9 +14,12 @@
 //
 // Only anonymizing takes a confirm code (owner 2026-11-12): it acts on a
 // whole list; archive, move and restore name one learner each.
+import 'dart:async' show TimeoutException;
 import 'dart:convert';
+import 'dart:io' show SocketException;
 
 import 'package:crypto/crypto.dart';
+import 'package:http/http.dart' show ClientException;
 import 'package:supabase/supabase.dart' show PostgrestException, SupabaseClient;
 
 import '../core/console/logger.dart';
@@ -40,6 +43,16 @@ const leaverNotMirroredNote = "saved on the server, but this device's copy was n
 /// Shown when the anonymize code no longer matches the list.
 /// (Wording rule, console_wording_test: the command goes in brackets.)
 const leaverAnonymizeStaleMessage = 'The list changed since the preview: preview again (learner-anonymize-preview).';
+
+/// Refuses an archive, move or restore while this device holds the learner's
+/// records that are not on the server yet ([n] of them): the server change
+/// would turn them into a sync conflict, or stop the upload.
+String leaverUploadFirstMessage(int n) => 'This device has $n record${n == 1 ? '' : 's'} of this learner that '
+    "${n == 1 ? 'is' : 'are'} not on the server yet: upload this device's work first (sync-upload), then try again.";
+
+/// Shown when the server could not be reached during an action.
+const leaverUnreachableMessage = 'The server could not be reached: check the connection, then download the latest '
+    'data to see whether the change was saved (pull-cloud).';
 
 /// What one archive, move or restore did.
 class LearnerLeaverOutcome {
@@ -81,6 +94,7 @@ class LearnerLeaversViewModel {
   final LearnerLeaverRepository Function(SupabaseClient client) _cloudFor;
   final Future<void> Function(Map<String, dynamic> result) _mirror;
   final Future<Student?> Function(int studentId) _localStudent;
+  final Future<int> Function(int enrollmentId) _unsentRecords;
 
   /// The message of the last action (archive, move, restore, anonymize).
   String? lastMessage;
@@ -90,8 +104,10 @@ class LearnerLeaversViewModel {
     required LearnerLeaverRepository Function(SupabaseClient client) cloud,
     required Future<void> Function(Map<String, dynamic> result) mirror,
     required Future<Student?> Function(int studentId) localStudent,
+    required Future<int> Function(int enrollmentId) unsentRecords,
     Logger? logger,
   })  : _auth = auth,
+        _unsentRecords = unsentRecords,
         _cloudFor = cloud,
         _mirror = mirror,
         _localStudent = localStudent,
@@ -128,6 +144,7 @@ class LearnerLeaversViewModel {
     _log('archive($enrollmentId, ${reason.value})');
     final (repo, _) = _cloud(null, needSchool: false);
     if (!reason.isArchived) throw const ViewModelException('The reason must be transferred out or dropped out.');
+    await _requireNothingUnsent(enrollmentId);
     final trimmed = note?.trim();
     final result = await _server(
         () => repo.archive(enrollmentId, reason.value, trimmed == null || trimmed.isEmpty ? null : trimmed));
@@ -138,16 +155,37 @@ class LearnerLeaversViewModel {
 
   /// Moves an active learner to another section of the same school, year
   /// and grade, with this year's CRLA, Phil-IRI and GST records (spec D5-D7).
-  /// [source]: `sf1_missing` (from the old section's list) or `sf1_incoming`
-  /// (confirmed from the new section's file).
-  Future<LearnerLeaverOutcome> move(int enrollmentId, int toSectionId, {required String source}) async {
+  /// [source] is decided here when left out, from the learner's own data:
+  /// `sf1_missing` when the enrollment is on its section's missing list (the
+  /// old section's last SF1 left the learner out), else `sf1_incoming`
+  /// (confirmed from the new section's file). Both can be true (left off X's
+  /// re-import AND on Y's file): the missing list wins, it was X's import
+  /// that left them out first. [schoolId] (the superadmin may give it) must
+  /// be the enrollment's school when given.
+  Future<LearnerLeaverOutcome> move(int enrollmentId, int toSectionId, {String? source, int? schoolId}) async {
     _log('move($enrollmentId, $toSectionId, $source)');
-    final (repo, _) = _cloud(null, needSchool: false);
-    if (source != EnrollmentMoveSource.sf1Missing.value && source != EnrollmentMoveSource.sf1Incoming.value) {
+    final (repo, _) = _cloud(schoolId, needSchool: false);
+    if (source != null &&
+        source != EnrollmentMoveSource.sf1Missing.value &&
+        source != EnrollmentMoveSource.sf1Incoming.value) {
       throw const ViewModelException('The move source must be sf1_missing or sf1_incoming.');
     }
-    final result = await _server(() => repo.move(enrollmentId, toSectionId, source));
+    await _requireNothingUnsent(enrollmentId);
+    final chosen = source ?? await _moveSource(repo, enrollmentId, schoolId);
+    final result = await _server(() => repo.move(enrollmentId, toSectionId, chosen));
     return _finish(result, 'Enrollment $enrollmentId moved to section $toSectionId ${_movedCounts(result)}:', '');
+  }
+
+  Future<String> _moveSource(LearnerLeaverRepository repo, int enrollmentId, int? schoolId) async {
+    final place = await _server(() => repo.enrollmentPlace(enrollmentId));
+    if (place == null) throw ViewModelException('Enrollment $enrollmentId not found (or not one you can manage).');
+    if (schoolId != null && schoolId != place.schoolId) {
+      throw ViewModelException('Enrollment $enrollmentId is at school ${place.schoolId}, not school $schoolId.');
+    }
+    final missing = await _server(() => repo.missing(place.schoolId, sectionId: place.sectionId));
+    return missing.any((r) => (r['enrollment_id'] as num).toInt() == enrollmentId)
+        ? EnrollmentMoveSource.sf1Missing.value
+        : EnrollmentMoveSource.sf1Incoming.value;
   }
 
   /// Restores an archived learner (spec D8): into their own section, or
@@ -155,6 +193,9 @@ class LearnerLeaversViewModel {
   Future<LearnerLeaverOutcome> restore(int enrollmentId, {int? toSectionId}) async {
     _log('restore($enrollmentId, $toSectionId)');
     final (repo, _) = _cloud(null, needSchool: false);
+    // Into another section the learner's records move as in [move]; into
+    // their own section only the enrollment (not a synced record) changes.
+    if (toSectionId != null) await _requireNothingUnsent(enrollmentId);
     final result = await _server(() => repo.restore(enrollmentId, toSectionId));
     final where = result['move'] != null ? ' into section $toSectionId ${_movedCounts(result)}' : '';
     return _finish(result, 'Enrollment $enrollmentId restored$where:',
@@ -235,14 +276,29 @@ class LearnerLeaversViewModel {
     return (repo, schoolId);
   }
 
-  /// The server's refusals (the functions raise readable messages).
+  /// Refuses while this device holds the learner's records not on the server
+  /// yet (owner 2026-11-13): the server change would bump them under an
+  /// unsent edit (a sync conflict) or stop the upload (archived learner).
+  Future<void> _requireNothingUnsent(int enrollmentId) async {
+    final n = await _unsentRecords(enrollmentId);
+    if (n > 0) throw ViewModelException(leaverUploadFirstMessage(n));
+  }
+
+  /// The server's refusals (the functions raise readable messages), and a
+  /// lost connection, as messages a screen or the console shows as they are.
   Future<T> _server<T>(Future<T> Function() call) async {
     try {
       return await call();
     } on PostgrestException catch (e) {
       if (e.code == '42501') throw const ViewModelException('Forbidden: the database refused this change.');
-      if (e.code == 'P0001' || e.code == '23514') throw ViewModelException('The database refused it: ${e.message}.');
-      rethrow;
+      throw ViewModelException('The database refused it: ${e.message}.');
+    } on SocketException {
+      throw const ViewModelException(leaverUnreachableMessage);
+    } on TimeoutException {
+      throw const ViewModelException(leaverUnreachableMessage);
+    } on ClientException {
+      // The supabase client's lost connection (package:http).
+      throw const ViewModelException(leaverUnreachableMessage);
     }
   }
 

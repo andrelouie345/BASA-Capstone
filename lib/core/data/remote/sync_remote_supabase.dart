@@ -6,7 +6,7 @@ import '../../repositories/sync_remote_repository.dart';
 
 /// Upload columns read back (never the payload: listings stay small).
 const _uploadColumns =
-    'id, uploader_id, school_id, status, reason, conflicts, id_map, created_at, decided_at, summary';
+    'id, uploader_id, school_id, status, reason, conflicts, id_map, created_at, decided_at, summary, note';
 
 class SyncRemoteSupabase implements SyncRemoteRepository {
   final SupabaseClient _client;
@@ -76,7 +76,10 @@ class SyncRemoteSupabase implements SyncRemoteRepository {
   Future<SyncApplyResult> apply(int uploadId) async {
     final r = Map<String, dynamic>.from(await _client.rpc('sync_apply', params: {'p_id': uploadId}) as Map);
     return SyncApplyResult(
-        status: r['status'] as String, reason: r['reason'] as String?, conflicts: parseSyncConflicts(r['conflicts']));
+        status: r['status'] as String,
+        reason: r['reason'] as String?,
+        conflicts: parseSyncConflicts(r['conflicts']),
+        note: r['note'] as String?);
   }
 
   @override
