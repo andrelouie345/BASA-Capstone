@@ -21,6 +21,12 @@ abstract class LearnerLeaverRepository {
   /// `{enrollment}`, or the move's result.
   Future<Map<String, dynamic>> restore(int enrollmentId, int? toSectionId);
 
+  /// sf1_transfer_in (D15): school B's import conflict [conflictId] for a
+  /// learner enrolled this school year at another school. Returns
+  /// `{enrollment, student, move, from_school: {id, name}, from_section:
+  /// {id, name}, exited_aral_enrollment_id}`.
+  Future<Map<String, dynamic>> transferIn(int conflictId);
+
   /// learner_anonymize. Returns `{student}`.
   Future<Map<String, dynamic>> anonymize(int studentId);
 

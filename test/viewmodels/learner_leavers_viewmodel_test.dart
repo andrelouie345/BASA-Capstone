@@ -100,6 +100,12 @@ class _FakeLeavers implements LearnerLeaverRepository {
   }
 
   @override
+  Future<Map<String, dynamic>> transferIn(int conflictId) async {
+    calls.add('transferIn($conflictId)');
+    return {};
+  }
+
+  @override
   Future<Map<String, dynamic>> anonymize(int studentId) async {
     calls.add('anonymize($studentId)');
     return {

@@ -175,6 +175,24 @@ void main() {
     await db.insert('enrollment_moves', {'id': 9901, 'enrollment_id': moved, 'student_id': 9907, 'school_id': _school,
         'school_year': '2026-2027', 'from_section_id': 9902, 'to_section_id': 9903, 'moved_on': '2026-09-15',
         'moved_by': _coord, 'source': 'sf1_missing'});
+    // ... and later transferred in from another school (D15): that school's
+    // section (77001) is not on this device, the row's snapshot names it.
+    await db.insert('enrollment_moves', {'id': 9902, 'enrollment_id': moved, 'student_id': 9907, 'school_id': _school,
+        'school_year': '2026-2027', 'from_section_id': 77001, 'to_section_id': 9903, 'moved_on': '2026-10-20',
+        'moved_by': _coord, 'source': 'transfer_in', 'from_school_id': 77, 'from_school_name': 'ZZ Far School',
+        'from_section_name': 'Far-4', 'from_status': 'transferred_out', 'from_left_on': '2026-10-18'});
+    // 9908 (D15, review I1): transferred away from this school to _other.
+    // The device holds the name-only row (now at _other), this school's GST
+    // and the transfer row; not the enrollment at _other.
+    await db.insert('students', {'id': 9908, 'lrn': '999999999908', 'last_name': 'ZZLH', 'first_name': 'L9908',
+        'school_id': _other});
+    await db.insert('phil_iri_gst_results', {'id': 9908, 'student_id': 9908, 'school_id': _school, 'section_id': 9902,
+        'school_year': '2026-2027', 'attempt_no': 1, 'max_score': 40, 'total_score': 18, 'taken_at': '2026-08-03',
+        'row_version': 1, 'origin': 'cloud'});
+    await db.insert('enrollment_moves', {'id': 9903, 'enrollment_id': 99080, 'student_id': 9908, 'school_id': _other,
+        'school_year': '2026-2027', 'from_section_id': 9902, 'to_section_id': 9904, 'moved_on': '2026-10-21',
+        'moved_by': null, 'source': 'transfer_in', 'from_school_id': _school, 'from_school_name': 'ZZ History',
+        'from_section_name': 'S4-A', 'from_status': 'transferred_out', 'from_left_on': '2026-10-20'});
 
     await signInAs(_coord, 'coord@lh', 'coordinator', _school);
     // Grade 4: GST in two sections (moved learner, Review Focus 2 and 5), ARAL in a class.
@@ -310,11 +328,22 @@ void main() {
     expect(h.years.last.moves, isEmpty);
     final current = h.years.first;
     expect(current.enrollments.single.leftOn, isNull);
-    final move = current.moves.single;
+    expect(current.moves, hasLength(2));
+    final move = current.moves.first;
     expect(move.movedOn, '2026-09-15');
     expect(move.fromSectionName, 'S4-A');
     expect(move.toSectionName, 'S4-B');
     expect(move.source, EnrollmentMoveSource.sf1Missing);
+    expect(move.isTransfer, isFalse);
+    // The transfer (D15): the other school and its section from the snapshot.
+    final transfer = current.moves.last;
+    expect(transfer.isTransfer, isTrue);
+    expect(transfer.movedOn, '2026-10-20');
+    expect(transfer.fromSchoolName, 'ZZ Far School');
+    expect(transfer.fromSectionName, 'Far-4');
+    expect(transfer.fromStatus, 'transferred_out');
+    expect(transfer.fromLeftOn, '2026-10-18');
+    expect(transfer.toSectionName, 'S4-B');
   });
 
   test('a blank LRN is refused', () async {
@@ -351,6 +380,22 @@ void main() {
     await signInAs(_coord, 'coord@lh', 'coordinator', _school);
     await expectLater(vm.history(9902), _refused('Forbidden: that learner is not in your school.'));
     await expectLater(vm.history(9904), _refused('Forbidden: that learner is not in your school.')); // Review Focus 1
+  });
+
+  test('a learner transferred away from this school: its records and the transfer line (D15, review I1)', () async {
+    await signInAs(_coord, 'coord@lh', 'coordinator', _school);
+    final h = await vm.history(9908);
+    final year = h.years.single;
+    expect(year.schoolYear, '2026-2027');
+    expect(year.enrollments, isEmpty); // the enrollment at the other school is not on this device
+    final t = year.moves.single;
+    expect(t.isTransfer, isTrue);
+    expect(t.fromSchoolName, 'ZZ History');
+    expect(t.fromSectionName, 'S4-A');
+    expect(t.fromLeftOn, '2026-10-20');
+    // Another school's coordinator (no transfer from their school) is still refused.
+    await signInAs('00000000-0000-0000-0000-0000000099c2', 'coord2@lh', 'coordinator', 9999);
+    await expectLater(vm.history(9908), _refused('Forbidden: that learner is not in your school.'));
   });
 
   test('unknown id and LRN give the pull-cloud messages', () async {

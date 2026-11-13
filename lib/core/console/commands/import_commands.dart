@@ -11,6 +11,14 @@ import '../../../viewmodels/import_viewmodel.dart';
 void registerImportCommands(ConsoleRegistry registry, ImportViewModel vm) {
   String describe(ConflictResolution r) {
     if (r.action == 'skip') return 'Conflict ${r.conflictId}: resolved (skipped).';
+    final t = r.transferredFrom;
+    if (t != null) {
+      final school = t.schoolName ?? 'another school';
+      return 'Conflict ${r.conflictId}: student ${r.studentId} transferred in from $school'
+          '${t.sectionName == null ? '' : ' (${t.sectionName})'}, enrolled into section ${r.enrolledIn!.id} '
+          "(${r.enrolledIn!.schoolYear}); this year's records stay at $school."
+          '${r.deviceWarning == null ? '' : '\n${r.deviceWarning}'}';
+    }
     final where = r.enrolledIn == null
         ? ' (no visible section on record — enrollment skipped)'
         : ', enrolled into section ${r.enrolledIn!.id} (${r.enrolledIn!.schoolYear})';

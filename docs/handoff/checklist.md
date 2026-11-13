@@ -81,3 +81,4 @@ The debug console (`lib/ui/debug/`) is a developer tool, not an app screen: leav
 | 61 | SF1 trial: moving, returning, not on this SF1 (decisions per learner) | screen | admin | [sf1-leavers.md](screens/sf1-leavers.md#sf1-import-trial-moving-returning-not-on-this-sf1) |  |  |
 | 62 | Undecided learners (school-wide; archive, move, restore) | screen | admin | [sf1-leavers.md](screens/sf1-leavers.md#undecided-learners-school-wide) |  |  |
 | 63 | Anonymize archived learners (preview, confirm) | screen | admin | [sf1-leavers.md](screens/sf1-leavers.md#anonymize-archived-learners) |  |  |
+| 64 | Cross-school transfers, superadmin only (transfer conflicts across schools, incl. learners still active at the other school; detailed refusals) — not built yet | screen | admin (superadmin) | [sf1-leavers.md](screens/sf1-leavers.md#cross-school-transfers-superadmin-only--not-built-yet) |  |  |

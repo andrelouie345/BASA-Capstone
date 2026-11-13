@@ -25,15 +25,15 @@ const _year = '2026-2027';
 /// The server: which learners are archived, and what an upload sent.
 class _FakeRemote implements SyncRemoteRepository {
   final archived = <SyncArchivedLearner>[];
-  final asked = <List<(int, String)>>[];
+  final asked = <List<SyncLearnerKey>>[];
   Map<String, Object?>? sentPayload;
 
   @override
-  Future<List<SyncArchivedLearner>> archivedLearners(List<(int studentId, String schoolYear)> learners) async {
+  Future<List<SyncArchivedLearner>> archivedLearners(List<SyncLearnerKey> learners) async {
     asked.add(learners);
     return [
       for (final a in archived)
-        if (learners.contains((a.studentId, a.schoolYear))) a,
+        if (learners.contains((a.studentId, a.schoolYear, a.schoolId))) a,
     ];
   }
 
@@ -119,14 +119,16 @@ void main() {
   test('nothing archived: no problem, and a new record has nothing to resolve', () async {
     final p = await vm.preview();
     expect(p.problems, isEmpty);
-    expect(remote.asked.single.toSet(), {(7101, _year), (7102, _year)});
+    expect(remote.asked.single.toSet(), {(7101, _year, 1), (7102, _year, 1)});
     await expectLater(vm.resolve('phil_iri_gst_results', '-1', SyncChoice.server),
         throwsA(isA<ViewModelException>().having((e) => e.message, 'message', 'Nothing to resolve for phil_iri_gst_results -1.')));
     expect(await gstIds(), [-2, -1]);
   });
 
   test('an archived learner: listed, mine refused, server drops it, the rest uploads', () async {
-    remote.archived.add((studentId: 7101, schoolYear: _year, status: 'dropped_out', leftOn: '2026-11-10', name: 'ZZArch1, L.'));
+    remote.archived.add(
+        (studentId: 7101, schoolYear: _year, schoolId: 1, status: 'dropped_out', leftOn: '2026-11-10', name: 'ZZArch1, L.',
+            transferredOn: null));
 
     final p = await vm.preview();
     expect(p.problems.map((x) => '$x'), [
@@ -164,5 +166,26 @@ void main() {
     expect(sent.uploadId, 77);
     final records = (remote.sentPayload!['records'] as List).cast<Map<String, Object?>>();
     expect(records.map((x) => '${x['table']} ${(x['key'] as Map).values.single}'), ['phil_iri_gst_results -2']);
+  });
+
+  test('a learner transferred to another school (D15): listed, mine refused without "restore", server drops it',
+      () async {
+    await db.insert('phil_iri_gst_results', {'id': -9, 'student_id': 7102, 'school_id': 1, 'section_id': 71,
+        'school_year': _year, 'max_score': 40, 'total_score': 21, 'taken_at': '2026-11-06', 'origin': 'local'});
+    remote.archived.add((studentId: 7102, schoolYear: _year, schoolId: 1, status: 'transferred_out',
+        leftOn: '2026-11-10', name: 'ZZArch2, L.', transferredOn: '2026-11-12'));
+    final p = await vm.preview();
+    final problem = p.problems.singleWhere((x) => x.key == '-9');
+    expect(problem.transferred, isTrue);
+    expect('$problem', 'phil_iri_gst_results -9: a new record of ZZArch2, L. (transferred to another school on '
+        '2026-11-12); the server refuses it. Drop it with sync-resolve phil_iri_gst_results -9 server');
+    await expectLater(
+        vm.resolve('phil_iri_gst_results', '-9', SyncChoice.mine),
+        throwsA(isA<ViewModelException>().having((e) => e.message, 'message',
+            'Refused: phil_iri_gst_results -9 is a new record of ZZArch2, L. (transferred to another school on '
+                '2026-11-12), and the server refuses new records of a learner who left this school, so yours cannot '
+                'be kept: drop it with sync-resolve phil_iri_gst_results -9 server.')));
+    expect((await vm.resolve('phil_iri_gst_results', '-9', SyncChoice.server)).droppedNew, isTrue);
+    expect(await db.query('phil_iri_gst_results', where: 'id = -9'), isEmpty);
   });
 }

@@ -88,8 +88,12 @@ class MakeSf1Step extends Step {
   /// file whose header says [grade] (a learner of another grade on a
   /// section's SF1); null = [grade].
   final int? learnerGrade;
+
+  /// `lrns=a` (school b only): school a's learners in school b's file (a
+  /// same-server transfer, D15); from=stamp / from=last are school a's blocks.
+  final bool aLearners;
   const MakeSf1Step(super.line, this.name, this.schoolB, this.grade, this.section, this.count,
-      {this.first = 1, this.lastOffset, this.learnerGrade});
+      {this.first = 1, this.lastOffset, this.learnerGrade, this.aLearners = false});
 }
 
 /// `make-phil-iri-workbook <capture> <grade> <section>[,<section2>] <count> [from=...]` and
@@ -216,23 +220,29 @@ Scenario parseScenario(String batch, String source) {
         // `as=<grade>` (anywhere after the count): the learners of that
         // grade's LRN block in a file of another grade.
         final asArg = all.length > 5 ? all.skip(5).where((t) => t.startsWith('as=')).toList() : const <String>[];
-        final p = [for (final t in all) if (!asArg.contains(t)) t];
+        // `lrns=a` (school b only): school a's learners (their LRNs, from the
+        // same block) in school b's file: a same-server transfer (D15).
+        final lrnsArg = all.length > 5 ? all.skip(5).where((t) => t.startsWith('lrns=')).toList() : const <String>[];
+        final p = [for (final t in all) if (!asArg.contains(t) && !lrnsArg.contains(t)) t];
         final asGrade = asArg.length != 1 ? null : int.tryParse(asArg.single.substring(3));
+        final aLearners = lrnsArg.length == 1 && lrnsArg.single == 'lrns=a';
         final shapeOk = (p.length == 5 || (p.length == 6 && p[5].startsWith('from='))) &&
             asArg.length <= 1 &&
-            (asArg.isEmpty || asGrade != null);
+            (asArg.isEmpty || asGrade != null) &&
+            (lrnsArg.isEmpty || (aLearners && p[1] == 'b'));
         final grade = shapeOk ? int.tryParse(p[2]) : null;
         final count = shapeOk ? int.tryParse(p[4]) : null;
         final last = shapeOk && p.length == 6 ? RegExp(r'^from=last(?:([+-])(\d+))?$').firstMatch(p[5]) : null;
         final lastOffset = last == null ? null : (last[1] == '-' ? -1 : 1) * int.parse(last[2] ?? '0');
         final first = lastOffset != null ? 0 : (shapeOk && p.length == 6 ? fromArg(p[5]) : 1);
         if (!shapeOk || !const {'a', 'b'}.contains(p[1]) || grade == null || count == null || count < 1 ||
-            first == null || (first == 0 && p[1] == 'b')) {
+            first == null || (first == 0 && p[1] == 'b' && !aLearners)) {
           fail('expected "make-sf1 <capture> a|b <grade> <section> <count> '
-              '[from=<n>|from=stamp|from=last[+-<k>]] [as=<grade>]" (stamp, last: school a)');
+              '[from=<n>|from=stamp|from=last[+-<k>]] [as=<grade>] [lrns=a]" (stamp, last: school a\'s '
+              'learners: school a, or school b with lrns=a)');
         }
         steps.add(MakeSf1Step(n, p[0], p[1] == 'b', grade, p[3], count,
-            first: first, lastOffset: lastOffset, learnerGrade: asGrade));
+            first: first, lastOffset: lastOffset, learnerGrade: asGrade, aLearners: aLearners));
         afterRun = false;
       case 'make-phil-iri-workbook' || 'make-phil-iri-scoresheet':
         final p = rest.split(RegExp(r'\s+'));

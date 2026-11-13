@@ -56,6 +56,12 @@ String _text(LearnerHistory h) {
           '${e.status}${e.leftOn == null ? '' : ', left ${e.leftOn}'}${e.leftNote == null ? '' : ' (${e.leftNote})'}');
     }
     for (final m in y.moves) {
+      if (m.isTransfer) {
+        out.write('\n  Transferred in ${m.movedOn}: from ${m.fromSchoolName ?? 'another school'} '
+            '(${m.fromSectionName ?? 'section'}, ${(m.fromStatus ?? 'archived').replaceAll('_', ' ')} '
+            '${m.fromLeftOn ?? '?'}) -> ${m.toSectionName ?? 'section'} (section ${m.toSectionId})');
+        continue;
+      }
       out.write('\n  Moved ${m.movedOn}: ${m.fromSectionName ?? 'section'} (section ${m.fromSectionId}) -> '
           '${m.toSectionName ?? 'section'} (section ${m.toSectionId}), ${_moveSource(m.source)}');
     }
@@ -111,4 +117,5 @@ String _moveSource(EnrollmentMoveSource s) => switch (s) {
       EnrollmentMoveSource.sf1Missing => "decided from the old section's SF1",
       EnrollmentMoveSource.sf1Incoming => "confirmed from the new section's SF1",
       EnrollmentMoveSource.returned => 'restored into another section',
+      EnrollmentMoveSource.transferIn => 'transferred in from another school',
     };

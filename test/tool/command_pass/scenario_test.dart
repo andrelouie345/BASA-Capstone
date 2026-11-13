@@ -120,6 +120,17 @@ expect ZZTEST
     expect(() => parseScenario('x', 'make-sf1 f a 7 S 2 from=last*2'), throwsFormatException);
   });
 
+  test('parses make-sf1 lrns=a (school a learners in school b file)', () {
+    MakeSf1Step one(String tail) => parseScenario('x', 'make-sf1 f b 7 S 1 $tail').steps.single as MakeSf1Step;
+    final t = one('from=last+1 lrns=a');
+    expect([t.schoolB, t.aLearners, t.lastOffset], [true, true, 1]);
+    expect(one('from=last-4 lrns=a as=7').learnerGrade, 7);
+    expect(one('from=3').aLearners, isFalse);
+    expect(() => parseScenario('x', 'make-sf1 f a 7 S 1 from=last lrns=a'), throwsFormatException);
+    expect(() => parseScenario('x', 'make-sf1 f b 7 S 1 from=last lrns=b'), throwsFormatException);
+    expect(() => parseScenario('x', 'make-sf1 f b 7 S 1 from=last lrns=a lrns=a'), throwsFormatException);
+  });
+
   test('parses make-sf1 as=<grade>', () {
     MakeSf1Step one(String tail) => parseScenario('x', 'make-sf1 f a 8 S 2 $tail').steps.single as MakeSf1Step;
     expect(one('as=7').learnerGrade, 7);

@@ -86,7 +86,12 @@ class LocalDatabase {
         // enrollment_moves (pull mirror, not synced); the finalized Phil-IRI
         // trigger lets a sync-bypass write through (mirrored moves).
         // upgradeLearnerLeaversForV44, on create and every upgrade.
-        version: 44,
+        // v45: same-server transfers (cloud 20261113020000):
+        // enrollment_moves rebuilt with source 'transfer_in' and the
+        // from_school_id / from_school_name / from_section_name /
+        // from_status / from_left_on columns (upgradeEnrollmentMovesForV45,
+        // right after v44, on create and every upgrade).
+        version: 45,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
@@ -97,6 +102,7 @@ class LocalDatabase {
           await _createRegionsTable(db);
           await _createStudentTables(db);
           await upgradeLearnerLeaversForV44(db);
+          await upgradeEnrollmentMovesForV45(db);
           await _createUserManagementTables(db);
           await _createCrlaTables(db);
           await _createCrlaScoreTables(db);
@@ -139,6 +145,8 @@ class LocalDatabase {
 
           // v44. Checked by column / IF NOT EXISTS: runs on every upgrade.
           await upgradeLearnerLeaversForV44(db);
+          // v45. Skipped when the table already has the transfer columns.
+          await upgradeEnrollmentMovesForV45(db);
 
           final regionsExists = (await db.rawQuery(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='regions'",
@@ -294,6 +302,53 @@ class LocalDatabase {
     ''');
     await db.execute(
         'CREATE INDEX IF NOT EXISTS enrollment_moves_student ON enrollment_moves (student_id, school_year)');
+  }
+
+  /// v45, same-server transfers (spec D15; cloud 20261113020000):
+  /// enrollment_moves gets source 'transfer_in' and the other school's side
+  /// (from_school_id, from_school_name, from_section_name, from_status,
+  /// from_left_on) with the cloud's rule (the from_* columns exactly on a
+  /// transfer). The source CHECK changes, so the table is rebuilt, copying
+  /// every row (a pull mirror: no row_version, no triggers). Skipped when
+  /// from_school_id is already there; safe to run again.
+  static Future<void> upgradeEnrollmentMovesForV45(Database db) async {
+    final cols = (await db.rawQuery('PRAGMA table_info(enrollment_moves)')).map((c) => c['name'] as String).toSet();
+    if (cols.contains('from_school_id')) return;
+    await db.transaction((txn) async {
+      await txn.execute('''
+        CREATE TABLE enrollment_moves_v45 (
+          id INTEGER PRIMARY KEY,
+          enrollment_id INTEGER NOT NULL REFERENCES enrollments(id),
+          student_id INTEGER NOT NULL REFERENCES students(id),
+          school_id INTEGER NOT NULL REFERENCES schools(id),
+          school_year TEXT NOT NULL,
+          from_section_id INTEGER NOT NULL REFERENCES sections(id),
+          to_section_id INTEGER NOT NULL REFERENCES sections(id),
+          moved_on TEXT NOT NULL,
+          moved_by TEXT REFERENCES users(id),
+          source TEXT NOT NULL CHECK (source IN ('sf1_missing', 'sf1_incoming', 'return', 'transfer_in')),
+          from_school_id INTEGER REFERENCES schools(id),
+          from_school_name TEXT,
+          from_section_name TEXT,
+          from_status TEXT CHECK (from_status IS NULL OR from_status IN ('transferred_out', 'dropped_out')),
+          from_left_on TEXT,
+          CHECK ((source = 'transfer_in') = (from_school_id IS NOT NULL AND from_status IS NOT NULL
+                                             AND from_left_on IS NOT NULL))
+        )
+      ''');
+      if (cols.isNotEmpty) {
+        await txn.execute('''
+          INSERT INTO enrollment_moves_v45 (id, enrollment_id, student_id, school_id, school_year, from_section_id,
+                                            to_section_id, moved_on, moved_by, source)
+          SELECT id, enrollment_id, student_id, school_id, school_year, from_section_id,
+                 to_section_id, moved_on, moved_by, source FROM enrollment_moves
+        ''');
+        await txn.execute('DROP TABLE enrollment_moves');
+      }
+      await txn.execute('ALTER TABLE enrollment_moves_v45 RENAME TO enrollment_moves');
+      await txn.execute(
+          'CREATE INDEX IF NOT EXISTS enrollment_moves_student ON enrollment_moves (student_id, school_year)');
+    });
   }
 
   static Future<void> _createRegionsTable(Database db) async {

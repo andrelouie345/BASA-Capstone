@@ -49,11 +49,27 @@ Calls:
 - `anonymize(code, {schoolId})` → `int` (how many); `lastMessage`. Refused with `leaverAnonymizeStaleMessage` when the list changed since the preview (preview again).
 Console: `learner-anonymize-preview`, `learner-anonymize`
 
+### Cross-school transfers (superadmin only) — NOT BUILT YET
+Build: admin    Roles: **superadmin only** (school-bound admins and coordinators don't see this screen)
+Purpose: every pending transfer conflict across schools (an SF1 that lists a learner enrolled this school year at another school), each resolved by transferring the learner in (SF1 leavers D15). Also how a mistaken transfer is undone (a conflict at the first school, resolved here even while the learner is active at the second). Only here can a learner who is **still active** at the other school be transferred: they are archived there as transferred out first. A school's own admin/coordinator resolves only learners the other school already archived, from the SF1 import screen (`admin.md`, *SF1 import*), and gets one neutral refusal for everything else.
+Calls:
+- `ImportViewModel.loadPendingConflicts()` → `pendingConflicts` (the superadmin sees every school's); `getConflict(id)` → the conflict and its section.
+- `resolve(id, 'update')` → `ConflictResolution` with `transferredFrom` (`schoolName`, `sectionName`): "Transferred in from <school> (<section>); this year's records stay at <school>." `resolve(id, 'skip')` closes it.
+- Refusals come back as `The database refused it: <message>.`. The superadmin gets the detailed reason, to show as is:
+  - the SF1 row doesn't match the learner with this LRN (last name, first name or birth date differ). **No override, even for the superadmin**: fix the name or birth date at the learner's school first, then resolve again;
+  - no learner with that LRN;
+  - the conflict names another learner;
+  - no enrollment this year at another school (nothing to transfer);
+  - same grade only;
+  - an upload holds the learner's records (approve or reject it first);
+  - already enrolled at this school (use sf1-move / sf1-restore).
+Console: `list-conflicts`, `show-conflict`, `resolve-conflict`, `resolve-conflicts-all` (same commands as the SF1 import; the superadmin's console).
+
 ### Archive period (report setting)
 Build: admin    Roles: admin / coordinator (school), superadmin (region)
 Calls: `ReportSettingsViewModel.archiveKeepMonthsLayers(schoolId)` → `(region, school, effective)`; `setArchiveKeepMonths(schoolId, months)` (whole months 1-120, default 6). Goes with the other report settings (`reports.md`).
 Console: `archive-keep-months`
 
 ### Learner history and sync (no new screen)
-- `LearnerHistoryViewModel`: `LearnerHistoryEnrollment.leftOn` / `leftNote`, `LearnerHistoryYear.moves` (`LearnerHistoryMove`: date, from/to section, source). Show them in the history screen (`admin.md`, *Learner history*). Console: `learner-history`, `learner-history-lrn`.
+- `LearnerHistoryViewModel`: `LearnerHistoryEnrollment.leftOn` / `leftNote`, `LearnerHistoryYear.moves` (`LearnerHistoryMove`: date, from/to section, source; a transfer also has `isTransfer`, `fromSchoolName`, `fromStatus`, `fromLeftOn`). The school a learner was transferred away from can still open their history (its own records and the transfer line). Show them in the history screen (`admin.md`, *Learner history*). Console: `learner-history`, `learner-history-lrn`.
 - Sync: `SyncOutcome.note` / `SyncApproveResult.note` (e.g. "1 record followed a section move") are part of their `toString()`; show them with the upload result (`sync.md`).

@@ -78,6 +78,14 @@ class LearnerHistoryMove {
   final String? toSectionName;
   final EnrollmentMoveSource source;
 
+  /// A transfer in from another school (source transferIn, D15): that
+  /// school's name, and its archive of the enrollment (status, ISO date).
+  final String? fromSchoolName;
+  final String? fromStatus;
+  final String? fromLeftOn;
+
+  bool get isTransfer => source == EnrollmentMoveSource.transferIn;
+
   const LearnerHistoryMove({
     required this.movedOn,
     required this.fromSectionId,
@@ -85,6 +93,9 @@ class LearnerHistoryMove {
     required this.toSectionId,
     required this.toSectionName,
     required this.source,
+    this.fromSchoolName,
+    this.fromStatus,
+    this.fromLeftOn,
   });
 }
 
@@ -246,10 +257,16 @@ class LearnerHistoryViewModel {
   }
 
   Future<LearnerHistory> _build(User me, Student s) async {
-    if (me.schoolId != null && s.schoolId != me.schoolId) {
+    final id = s.id!;
+    // A learner transferred away from this school (SF1 leavers D15, review
+    // I1): the school still sees what its device holds of them (its own
+    // records, the transfer line, the name; RLS gave it nothing more).
+    if (me.schoolId != null &&
+        s.schoolId != me.schoolId &&
+        !(await _history.moves(id)).any(
+            (m) => m.move.source == EnrollmentMoveSource.transferIn && m.move.fromSchoolId == me.schoolId)) {
       throw const ViewModelException('Forbidden: that learner is not in your school.');
     }
-    final id = s.id!;
     final sections = await _history.sectionEnrollments(id);
     final crla = await _crlaResults.getByStudent(id);
     final philIriSessions = await _philIriSessions.getByStudent(id);
@@ -294,10 +311,15 @@ class LearnerHistoryViewModel {
             LearnerHistoryMove(
               movedOn: m.move.movedOn,
               fromSectionId: m.move.fromSectionId,
-              fromSectionName: m.fromSectionName,
+              // Another school's section is not on this device: the
+              // transfer row's snapshot names it.
+              fromSectionName: m.fromSectionName ?? m.move.fromSectionName,
               toSectionId: m.move.toSectionId,
               toSectionName: m.toSectionName,
               source: m.move.source,
+              fromSchoolName: m.move.fromSchoolName,
+              fromStatus: m.move.fromStatus,
+              fromLeftOn: m.move.fromLeftOn,
             ),
         ],
         crla: _crlaByRound(crla.where((r) => r.schoolYear == year)),

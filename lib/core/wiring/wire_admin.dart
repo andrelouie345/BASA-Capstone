@@ -150,6 +150,7 @@ Future<AdminVms> wireAdmin(AppContext ctx, SharedVms s, TutorVms t) async {
     localSections: s.sectionRepo,
     localStudents: s.studentRepo,
     columnMap: columnMap,
+    mirror: (result) => mirrorLeaverResult(db, result),
     logger: session,
   );
   vms.register('ImportViewModel', importVm);

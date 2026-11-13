@@ -86,20 +86,23 @@ class SyncRemoteSupabase implements SyncRemoteRepository {
   Future<void> withdraw(int uploadId) => _client.rpc('sync_withdraw', params: {'p_id': uploadId});
 
   @override
-  Future<List<SyncArchivedLearner>> archivedLearners(List<(int studentId, String schoolYear)> learners) async {
+  Future<List<SyncArchivedLearner>> archivedLearners(List<SyncLearnerKey> learners) async {
     if (learners.isEmpty) return const [];
     final rows = await _client.rpc('sync_archived_learners', params: {
       'p_student_ids': [for (final l in learners) l.$1],
       'p_school_years': [for (final l in learners) l.$2],
+      'p_school_ids': [for (final l in learners) l.$3],
     });
     return [
       for (final r in (rows as List).cast<Map<String, dynamic>>())
         (
           studentId: (r['student_id'] as num).toInt(),
           schoolYear: r['school_year'] as String,
+          schoolId: (r['school_id'] as num).toInt(),
           status: r['status'] as String,
           leftOn: r['left_on'] as String?,
           name: r['learner'] as String?,
+          transferredOn: r['transferred_on'] as String?,
         ),
     ];
   }

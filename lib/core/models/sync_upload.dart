@@ -102,13 +102,25 @@ class SyncProblem {
   /// 2026-11-12, dropped out)".
   final String? learner;
 
+  /// For [learnerArchivedKind]: the learner was transferred to another
+  /// school that year (SF1 leavers D15): nobody here can restore them.
+  final bool transferred;
+
   const SyncProblem(
-      {required this.table, required this.key, required this.kind, this.baseVersion, this.serverVersion, this.learner});
+      {required this.table,
+      required this.key,
+      required this.kind,
+      this.baseVersion,
+      this.serverVersion,
+      this.learner,
+      this.transferred = false});
 
   @override
   String toString() => switch (kind) {
         'conflict' => '$table $key: changed on the server (yours from version $baseVersion, server now $serverVersion)',
         'server_deleted' => '$table $key: no longer on the server for you (deleted, or out of your sections)',
+        learnerArchivedKind when transferred => '$table $key: a new record of $learner; the server refuses it. '
+            'Drop it with sync-resolve $table $key server',
         learnerArchivedKind => '$table $key: a new record of $learner; the server refuses it. '
             'Ask the coordinator to restore the learner, or drop it with sync-resolve $table $key server',
         _ => '$table $key: $kind',
@@ -125,11 +137,29 @@ const syncLearnerTables = {'crla_assessments', 'phil_iri_assessments', 'phil_iri
 
 /// A learner's archived enrollment in one school year, as the server holds
 /// it (sync_archived_learners).
-typedef SyncArchivedLearner = ({int studentId, String schoolYear, String status, String? leftOn, String? name});
+/// [schoolId] is the record's school: a learner transferred away from it
+/// that year is listed too, with that school's archive (I2).
+typedef SyncArchivedLearner = ({
+  int studentId,
+  String schoolYear,
+  int schoolId,
+  String status,
+  String? leftOn,
+  String? name,
 
-/// "Cruz, J. (archived on 2026-11-12, dropped out)".
-String syncArchivedLearnerText(SyncArchivedLearner a) =>
-    '${a.name ?? 'learner ${a.studentId}'} (archived on ${a.leftOn ?? '?'}, ${a.status.replaceAll('_', ' ')})';
+  /// Set when the learner was transferred away from [schoolId] that year
+  /// (ISO date); [status]/[leftOn] are then that school's archive.
+  String? transferredOn,
+});
+
+/// (learner, school year, the record's school) of a new record.
+typedef SyncLearnerKey = (int studentId, String schoolYear, int schoolId);
+
+/// "Cruz, J. (archived on 2026-11-12, dropped out)", or "Cruz, J.
+/// (transferred to another school on 2026-11-13)".
+String syncArchivedLearnerText(SyncArchivedLearner a) => a.transferredOn != null
+    ? '${a.name ?? 'learner ${a.studentId}'} (transferred to another school on ${a.transferredOn})'
+    : '${a.name ?? 'learner ${a.studentId}'} (archived on ${a.leftOn ?? '?'}, ${a.status.replaceAll('_', ' ')})';
 
 /// One of the signed-in user's uploads, as the server holds it (never the
 /// payload).

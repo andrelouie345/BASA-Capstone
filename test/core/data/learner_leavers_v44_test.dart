@@ -51,8 +51,8 @@ void main() {
         await txn.delete('sync_meta', where: "key = 'sync_bypass'");
       });
 
-  test('the local database is v44 with the leaver columns and table', () async {
-    expect((await db.rawQuery('PRAGMA user_version')).single.values.single, 44);
+  test('the local database (v44 or newer) has the leaver columns and table', () async {
+    expect((await db.rawQuery('PRAGMA user_version')).single.values.single as int, greaterThanOrEqualTo(44));
     expect(await columns('enrollments'), containsAll(['left_on', 'left_by', 'left_note']));
     expect(await columns('students'), contains('anonymized_at'));
     expect(await columns('enrollment_moves'), containsAll([
@@ -314,7 +314,7 @@ void main() {
     await LocalDatabase.close();
     db = await LocalDatabase.instance(dir);
 
-    expect((await db.rawQuery('PRAGMA user_version')).single.values.single, 44);
+    expect((await db.rawQuery('PRAGMA user_version')).single.values.single as int, greaterThanOrEqualTo(44));
     expect(await count('SELECT COUNT(*) FROM enrollments'), before);
     expect(await columns('enrollments'), containsAll(['left_on', 'left_by', 'left_note']));
     expect(await columns('students'), contains('anonymized_at'));

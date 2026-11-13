@@ -256,7 +256,7 @@ Future<List<StepResult>> runScenario(
                   runNumber: accounts.runNumber,
                   grade: step.learnerGrade ?? step.grade,
                   count: step.count,
-                  schoolB: step.schoolB,
+                  schoolB: step.schoolB && !step.aLearners,
                   first: first));
         } catch (e) {
           add(step, StepOutcome(false, 'cannot write the SF1 workbook: $e'));

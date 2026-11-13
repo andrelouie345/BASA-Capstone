@@ -121,9 +121,18 @@ class Sf1TrialResult {
   int get wouldReturn => rows.where((r) => r.outcome == 'returning').length;
 }
 
-/// Reason recorded for a row whose LRN belongs to a learner in another school.
-const transferConflictReason =
+/// Reason recorded for a row whose LRN belongs to a learner in another school
+/// (since SF1 leavers D15, owner 2026-11-13: says who can resolve it).
+const transferConflictReason = 'LRN registered at another school (transfer) - the superadmin resolves it, '
+    "or this school's admin/coordinator when the other school archived the learner";
+
+/// The reason older conflict rows hold (before D15); still recognised.
+const legacyTransferConflictReason =
     'LRN registered at another school (transfer) - only the superadmin can resolve';
+
+/// Is [reason] a transfer conflict's (new or old text)?
+bool isTransferConflictReason(String reason) =>
+    reason == transferConflictReason || reason == legacyTransferConflictReason;
 
 class Sf1Importer {
   final SchoolRepository schoolRepo;       // Supabase — source of truth

@@ -15,7 +15,11 @@ enum EnrollmentMoveSource {
   sf1Incoming('sf1_incoming'),
 
   /// A restore of an archived learner into another section.
-  returned('return');
+  returned('return'),
+
+  /// A transfer in from another school (sf1_transfer_in, D15): the from_*
+  /// fields hold the other school's side.
+  transferIn('transfer_in');
 
   final String value;
   const EnrollmentMoveSource(this.value);
@@ -42,6 +46,15 @@ class EnrollmentMove {
   final String? movedBy;
   final EnrollmentMoveSource source;
 
+  /// A transfer only: the school the learner left, its name and the
+  /// section's name then (snapshots: the receiving school can't read them),
+  /// and that school's archive of the enrollment (status, ISO date).
+  final int? fromSchoolId;
+  final String? fromSchoolName;
+  final String? fromSectionName;
+  final String? fromStatus;
+  final String? fromLeftOn;
+
   EnrollmentMove({
     this.id,
     required this.enrollmentId,
@@ -53,6 +66,11 @@ class EnrollmentMove {
     required this.movedOn,
     this.movedBy,
     required this.source,
+    this.fromSchoolId,
+    this.fromSchoolName,
+    this.fromSectionName,
+    this.fromStatus,
+    this.fromLeftOn,
   });
 
   Map<String, Object?> toMap() => {
@@ -66,6 +84,11 @@ class EnrollmentMove {
         'moved_on': movedOn,
         'moved_by': movedBy,
         'source': source.value,
+        if (fromSchoolId != null) 'from_school_id': fromSchoolId,
+        if (fromSchoolName != null) 'from_school_name': fromSchoolName,
+        if (fromSectionName != null) 'from_section_name': fromSectionName,
+        if (fromStatus != null) 'from_status': fromStatus,
+        if (fromLeftOn != null) 'from_left_on': fromLeftOn,
       };
 
   factory EnrollmentMove.fromMap(Map<String, Object?> m) => EnrollmentMove(
@@ -79,5 +102,10 @@ class EnrollmentMove {
         movedOn: m['moved_on'] as String,
         movedBy: m['moved_by'] as String?,
         source: EnrollmentMoveSource.fromValue(m['source'] as String),
+        fromSchoolId: m['from_school_id'] as int?,
+        fromSchoolName: m['from_school_name'] as String?,
+        fromSectionName: m['from_section_name'] as String?,
+        fromStatus: m['from_status'] as String?,
+        fromLeftOn: m['from_left_on'] as String?,
       );
 }

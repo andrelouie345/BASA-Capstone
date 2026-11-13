@@ -31,6 +31,10 @@ class LearnerLeaverRepositorySupabase implements LearnerLeaverRepository {
       _call('sf1_restore_learner', {'p_enrollment_id': enrollmentId, 'p_to_section_id': toSectionId});
 
   @override
+  Future<Map<String, dynamic>> transferIn(int conflictId) =>
+      _call('sf1_transfer_in', {'p_conflict_id': conflictId});
+
+  @override
   Future<Map<String, dynamic>> anonymize(int studentId) =>
       _call('learner_anonymize', {'p_student_id': studentId});
 

@@ -118,7 +118,14 @@ rule) and `20261113010000` (SF1 leavers fixes: a device can see which of its
 new records belong to an archived learner and drop them with `sync-resolve
 <table> <key> server`; anonymizing also clears the archive note and closes the
 learner's pending import conflicts; an anonymized learner can't be enrolled
-again; app update required: no). Each is idempotent.
+again; app update required: no) and `20261113020000` (SF1 leavers, same-server
+transfer: `resolve-conflict <id> update` moves a learner archived at
+another school (a learner still active there: the superadmin only) into this
+school's section of the same grade if the SF1's name and birth date match, keeps
+that school's records of the year there and writes a transfer line in the
+learner history; only the server functions change a learner's section; a
+tutor's view of an archived learner is this school year's; app update
+required: **yes**, same rule). Each is idempotent.
 Do **not** run
 `supabase/migrations_archive/`.
 

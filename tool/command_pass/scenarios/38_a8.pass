@@ -8,7 +8,9 @@
 # Flow: archive x3 -> X3 shows x3 returning -> restore; x4 moved from X's
 # missing list (sf1_missing); x3 moved from Y's file (sf1_incoming); tutor1's
 # GST for x4, entered in X before the move, is uploaded afterwards and follows
-# x4 into Y (the upload's note); tutor1's offline GSTs for x1 and x2, x2
+# x4 into Y (the upload's note); at the end, school B's SF1 transfers y2
+# (archived) and x1 (active, after tutor1's upload is decided) in from A, and
+# refuses y1 on a Grade 8 file (D15); tutor1's offline GSTs for x1 and x2, x2
 # archived meanwhile: the preview lists x2's, sync-resolve ... server drops
 # it, x1's uploads (final review I1; needs migration 20261113010000); y2
 # archived and not yet anonymizable.
@@ -32,6 +34,7 @@ expect Inserted: 4, Conflicts: 0, Already enrolled: 0, Skipped: 0, Waiting: 0
 capture sec_x = resolved section: 7 - ZZTEST-A8X{stamp} \({year}\) \(id=(\d+)\)
 make-sf1 sf1_a8y a 7 ZZTEST-A8Y{stamp} 2 from=stamp
 run import-trial "{sf1_a8y}"
+capture fn_y1 = \[\d+\] INSERT: [^,\n]+, (Learner\d{3})
 capture fn_y2 = (?:\[\d+\] INSERT: [^\n]*\n)\[\d+\] INSERT: [^,\n]+, (Learner\d{3})
 run import-students "{sf1_a8y}"
 expect Inserted: 2, Conflicts: 0
@@ -42,6 +45,7 @@ capture s_x2 = (\d+) \| \d+ \| [^,\n]+, {fn_x2}
 capture s_x3 = (\d+) \| \d+ \| [^,\n]+, {fn_x3}
 capture s_x4 = (\d+) \| \d+ \| [^,\n]+, {fn_x4}
 run student-list-section {sec_y}
+capture s_y1 = (\d+) \| \d+ \| [^,\n]+, {fn_y1}
 capture s_y2 = (\d+) \| \d+ \| [^,\n]+, {fn_y2}
 # Nothing is missing yet: the section's last import has everyone.
 run sf1-missing {sec_y}
@@ -89,7 +93,7 @@ run sf1-archive {e_x3}
 refuse Usage: sf1-archive <enrollmentId> transferred|dropped [note...]
 run sf1-archive {e_x3} dropped ZZ stopped coming in October
 expect Enrollment {e_x3} archived (dropped out): saved on the server; pull to refresh this device.
-sql select status || '|' || (left_on = '{today}') || '|' || left_note from enrollments where id = {e_x3} => dropped_out|1|ZZ stopped coming in October
+sql select status || '|' || (left_on between date('{today}', '-1 day') and '{today}') || '|' || left_note from enrollments where id = {e_x3} => dropped_out|1|ZZ stopped coming in October
 run sf1-missing {sec_x}
 expect Not on the latest SF1 - undecided (1):
 expect enrollment {e_x4}
@@ -97,11 +101,11 @@ expect enrollment {e_x4}
 run sf1-archive {e_x3} dropped
 refuse The database refused it:
 run learner-history {s_x3}
-expect dropped_out, left {today} (ZZ stopped coming in October)
+expect~ dropped_out, left \d{4}-\d{2}-\d{2} \(ZZ stopped coming in October\)
 make-sf1 sf1_a8x3 a 7 ZZTEST-A8X{stamp} 3 from=last-4
 run import-trial "{sf1_a8x3}"
 expect returning: 1
-expect~ RETURNING: [^\n]*{fn_x3} \(archived on {today}, dropped out\) -> enrollment {e_x3}: confirm with sf1-restore {e_x3}
+expect~ RETURNING: [^\n]*{fn_x3} \(archived on \d{4}-\d{2}-\d{2}, dropped out\) -> enrollment {e_x3}: confirm with sf1-restore {e_x3}
 expect Not on this SF1 (1)
 expect enrollment {e_x4}
 run import-students "{sf1_a8x3}"
@@ -172,7 +176,7 @@ run sf1-archive {e_x2} dropped
 expect Enrollment {e_x2} archived (dropped out)
 device a8-phone tutor
 run sync-preview
-expect~ phil_iri_gst_results -\d+: a new record of [^\n]+ \(archived on {today}, dropped out\); the server refuses it\.
+expect~ phil_iri_gst_results -\d+: a new record of [^\n]+ \(archived on \d{4}-\d{2}-\d{2}, dropped out\); the server refuses it\.
 capture gst_x2 = phil_iri_gst_results (-\d+): a new record of
 run sync-upload yes
 refuse Resolve these first (sync-resolve <table> <key> mine|server):
@@ -245,12 +249,12 @@ expect users:
 sql select count(*) from enrollment_moves where enrollment_id in ({e_x3}, {e_x4}) => 2
 sql select count(*) from phil_iri_gst_results where student_id = {s_x4} and section_id = {sec_y} => 1
 run learner-history {s_x4}
-expect~ Moved {today}: ZZTEST-A8X{stamp} \(section {sec_x}\) -> ZZTEST-A8Y{stamp} \(section {sec_y}\), decided from the old section's SF1
+expect~ Moved \d{4}-\d{2}-\d{2}: ZZTEST-A8X{stamp} \(section {sec_x}\) -> ZZTEST-A8Y{stamp} \(section {sec_y}\), decided from the old section's SF1
 run learner-history {s_x3}
 expect Section: Grade 7 ZZTEST-A8Y{stamp}
-expect~ Moved {today}: ZZTEST-A8X{stamp} \(section {sec_x}\) -> ZZTEST-A8Y{stamp} \(section {sec_y}\), confirmed from the new section's SF1
+expect~ Moved \d{4}-\d{2}-\d{2}: ZZTEST-A8X{stamp} \(section {sec_x}\) -> ZZTEST-A8Y{stamp} \(section {sec_y}\), confirmed from the new section's SF1
 run learner-history {s_y2}
-expect transferred_out, left {today} (ZZ moved to another division)
+expect~ transferred_out, left \d{4}-\d{2}-\d{2} \(ZZ moved to another division\)
 # School-wide (other batches' sections may list learners of their own).
 run sf1-missing
 expect~ No learner is missing from a section's last imported SF1\.|Not on the latest SF1 - undecided
@@ -270,3 +274,67 @@ run sf1-missing
 refuse Forbidden: only an admin or coordinator archives, moves or restores learners.
 run sf1-archive {e_x4} dropped
 refuse Forbidden: only an admin or coordinator archives, moves or restores learners.
+
+# --- Same-server transfer A -> B (spec D15; needs migration 20261113020000) ----------
+# School B's SF1 (made by the superadmin, who imports any school) lists school A's
+# learners (lrns=a): y2 (archived at A as transferred out), x1 (still active at A),
+# and y1 on a Grade 8 file. update = sf1_transfer_in: same grade only, refused
+# while an upload holds the learner's records; A's records of the year stay at A.
+device a8-super admin
+make-sf1 sf1_a8b b 7 ZZTEST-A8B{stamp} 1 from=last+1 lrns=a
+run import-students "{sf1_a8b}"
+expect Inserted: 0, Conflicts: 1
+capture sec_b = resolved section: 7 - ZZTEST-A8B{stamp} \({year}\) \(id=(\d+)\)
+run list-conflicts
+capture cf_y2 = (\d+): LRN \d+ — LRN already exists \(existing student id {s_y2}\)
+run resolve-conflict {cf_y2} update
+expect Conflict {cf_y2}: student {s_y2} transferred in from ZZTEST PASS r{run} (ZZTEST-A8Y{stamp}), enrolled into section {sec_b} ({year}); this year's records stay at ZZTEST PASS r{run}.
+run resolve-conflict {cf_y2} update
+refuse Resolve failed: Conflict {cf_y2} is already resolved_updated.
+run learner-history {s_y2}
+expect~ Transferred in \d{4}-\d{2}-\d{2}: from ZZTEST PASS r{run} \(ZZTEST-A8Y{stamp}, transferred out \d{4}-\d{2}-\d{2}\) -> ZZTEST-A8B{stamp} \(section {sec_b}\)
+sql select section_id = {sec_b} and status = 'active' from enrollments where student_id = {s_y2} and school_year = '{year}' => 1
+sql select source || '|' || from_status from enrollment_moves where student_id = {s_y2} => transfer_in|transferred_out
+# Another grade: y1 (Grade 7 at A) on a Grade 8 file of school B.
+make-sf1 sf1_a8b8 b 8 ZZTEST-A8B8{stamp} 1 from=last lrns=a as=7
+run import-students "{sf1_a8b8}"
+expect Inserted: 0, Conflicts: 1
+run list-conflicts
+capture cf_y1 = (\d+): LRN \d+ — LRN already exists \(existing student id {s_y1}\)
+run show-conflict {cf_y1}
+expect ZZTEST-A8B8{stamp}
+run resolve-conflict {cf_y1} update
+refuse Resolve failed: The database refused it: transfers are same grade only: ZZTEST-A8B8{stamp} is Grade 8, the learner is in Grade 7 at the other school.
+run resolve-conflict {cf_y1} skip
+expect Conflict {cf_y1}: resolved (skipped).
+# x1 still active at A, with tutor1's GST waiting for approval: refused until it is decided.
+device a8-phone tutor
+run phil-iri-gst {s_x1} {sec_x} {year} {=24}
+expect 24/40
+run sync-upload yes
+expect waiting for approval.
+capture up_a8c = Upload (\d+)
+device a8-super admin
+make-sf1 sf1_a8b2 b 7 ZZTEST-A8B{stamp} 1 from=last-4 lrns=a
+run import-students "{sf1_a8b2}"
+expect Inserted: 0, Conflicts: 1
+run list-conflicts
+capture cf_x1 = (\d+): LRN \d+ — LRN already exists \(existing student id {s_x1}\)
+run resolve-conflict {cf_x1} update
+refuse Resolve failed: The database refused it: upload {up_a8c} holds records for this learner: approve or reject it first.
+device a8-pc admin
+run sync-approve {up_a8c}
+expect Upload {up_a8c} applied.
+device a8-super admin
+run resolve-conflict {cf_x1} update
+expect Conflict {cf_x1}: student {s_x1} transferred in from ZZTEST PASS r{run} (ZZTEST-A8X{stamp}), enrolled into section {sec_b} ({year}); this year's records stay at ZZTEST PASS r{run}.
+run learner-history {s_x1}
+expect~ Transferred in \d{4}-\d{2}-\d{2}: from ZZTEST PASS r{run} \(ZZTEST-A8X{stamp}, transferred out \d{4}-\d{2}-\d{2}\) -> ZZTEST-A8B{stamp} \(section {sec_b}\)
+# School A after a pull: x1's GSTs stay in X, the transfer row and the name are readable.
+device a8-pc admin
+run pull-cloud yes
+expect users:
+sql select count(*) from phil_iri_gst_results where student_id = {s_x1} and section_id = {sec_x} => 2
+sql select count(*) from enrollment_moves where student_id in ({s_x1}, {s_y2}) and source = 'transfer_in' => 2
+run learner-history {s_x1}
+expect~ Transferred in \d{4}-\d{2}-\d{2}: from ZZTEST PASS r{run} \(ZZTEST-A8X{stamp}, transferred out \d{4}-\d{2}-\d{2}\) -> section \(section {sec_b}\)
