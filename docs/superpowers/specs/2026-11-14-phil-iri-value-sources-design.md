@@ -68,6 +68,11 @@ BOSY the GST fills a missing comprehension).
   add up to the enrolment. The export header says so ("Values: actual; not
   assessed this round counted as 3-LD Frustration"). Under carried, Form 2b is
   unchanged (a learner with no comprehension at all is in no band).
+  Amended 2026-11-14 (owner, option A, found while writing scenario a9):
+  under actual, a learner who read in the round but has 0% or a blank
+  comprehension counts in 3-LD Frustration too (otherwise they would count
+  less than a learner who didn't read, and the bands would not add up).
+  Carried keeps ma's rule (0 or none = in no band).
 - **D9 Ranking list:** admin build only (admin/coordinator of the school, or
   the superadmin); scope one section, one grade of the school, or the whole
   school (Grades 4-10); values from `values_ranking` (default actual).

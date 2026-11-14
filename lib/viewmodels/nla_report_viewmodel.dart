@@ -594,8 +594,14 @@ class NlaReportViewModel {
         // A Non-Reader counts once in 3-LD Frustration, whatever the
         // comprehension (spec 2026-11-09 D15); under actual so does a learner
         // not read this round (the stand-in; spec 2026-11-14 D8).
+        // Under actual an own reading with 0% or a blank comprehension counts
+        // there too, so the bands add up to the enrolment (owner 2026-11-14,
+        // option A); under carried it stays in no band (ma's 0 rule).
         final rr = res.view(round, values);
-        final band = rr.profile == PhilIriLevel.nonReader || rr.notAssessedThisRound
+        final noComprehension = (rr.comprehensionScore ?? 0) <= 0;
+        final band = rr.profile == PhilIriLevel.nonReader ||
+                rr.notAssessedThisRound ||
+                (values == PhilIriValues.actual && noComprehension)
             ? NlaBand.ld3Frustration
             : nlaBand(rr.comprehensionScore);
         if (band != null) row.band(round, band).add(sex);

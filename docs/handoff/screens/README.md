@@ -12,6 +12,7 @@ What each screen of BASA needs from the backend: which ViewModel calls serve it,
 | `crla.md` | CRLA assessment, results, stories, thresholds, scoresheet import/export |
 | `phil-iri.md` | GST, Phil-IRI sessions, readings, miscues, answers, rubric, results, content, thresholds |
 | `phil-iri-import.md` | Phil-IRI import: ma's workbook and the BASA scoresheet file (headers step, preview, one-time warning, template) |
+| `value-sources.md` | Phil-IRI value switches (carried / actual per list, in Report settings) and the ranking list |
 | `sf1-leavers.md` | SF1 leavers: moving / returning rows and the *Not on this SF1* block of the SF1 trial, undecided learners, archive, move, restore, anonymize, archive period |
 | `aral.md` | ARAL roster, classes, sessions/attendance, IRIP, check-ins, materials, readability, reports, settings |
 | `reports.md` | NLA report, progress monitoring, BOSY masterlist, SRP, report settings |

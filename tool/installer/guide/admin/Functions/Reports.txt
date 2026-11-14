@@ -17,8 +17,14 @@ Every report is made from the data on this device: download the latest data firs
 ===== Summer Remediation Program (SRP) =====
 **ARAL → Summer Remediation**. The ranked SRP candidates and the SRP classes: build them per section and class size, move learners, and set each class's tutor, room and schedule. SRP tutors see their own classes.
 
+===== Ranking list =====
+**Reports → Ranking list**. The learners with the lowest scores in one round: pick the round, what to rank by (word reading accuracy, reading speed or comprehension), how many (default 10), and one section, one grade or the whole school. Learners with the same score share a place, so the list can be longer than the number you asked for. Learners with no score for what you picked (not assessed that round, a silent reading has no accuracy, only comprehension was imported, no comprehension entered) are listed below it with the reason. Save as CSV.
+
 ===== Report settings =====
 **Manage → Report settings**. For your school: the done threshold for progress monitoring (default 85%), approving uploads automatically, and the offline sign-in days (default 14).
+
+==== Which Phil-IRI scores a list shows ====
+Each list shows one kind of score, chosen per list: **carried** (the best so far: a learner keeps their best result into the next rounds) or **actual** (each round's own reading only; a learner who did not read in that round counts as not assessed: Struggling, 3 levels down). The lists: ARAL (proposals, automatic updates and the implementation report), BOSY masterlist, NLA portal report (Form 2b; under actual, a learner not read in a round, or who read but got 0% or no comprehension, counts in 3-LD Frustration), SRP, the learner pages (a learner's results and history), and the ranking list. All are carried at first, except the ranking list (actual). Every list and file says which it used ("Values: carried" or "Values: actual"). Progress monitoring and reminders are not affected: they always count a learner's own reading.
 
 ===== Reports and files =====
 **Reports → Reports & files**. Every import and export in one place: SF1, CRLA scoresheets, Phil-IRI results (the VNHS ARAL workbook or a scoresheet file, and the scoresheet template; see [[Importing data]]), the ARAL roster, and all the report files above.
