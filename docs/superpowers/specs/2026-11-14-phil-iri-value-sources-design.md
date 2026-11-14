@@ -155,9 +155,16 @@ Callers:
   comprehension when there is one, else carried).
 - **Learner history** (`LearnerHistoryViewModel`): the Phil-IRI line per round
   from the view; "(carried)" mark only under carried.
-- **Tutor's `phil-iri-results`**: header line "Values: …"; one line per round
-  from the view (the separate "true score" line goes away); in-progress
-  sessions show as today.
+- **Tutor's `phil-iri-results`**: one line per round from the view (the
+  separate "true score" line goes away); in-progress sessions show as today.
+  **Changed 2026-11-15 (owner/ma): a tutor is never told which values a page
+  shows.** `PhilIriLearnerResults.showValues` (false when a tutor is signed
+  in) drops the "Values: …" header, the "(carried)" mark and the "carried over"
+  / "not assessed" status, and says "No reading this round" for a round
+  without a reading under both values. Admins and coordinators keep the header
+  ("Values: …") and the marks. The values themselves still follow
+  `values_learner_pages`. (A tutor who knows which rounds they read can still
+  infer it; nothing says it outright.)
 
 ### Ranking list
 
