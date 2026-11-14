@@ -8,6 +8,7 @@ import '../core/models/section.dart';
 import '../core/models/student.dart';
 import '../core/models/user_role.dart';
 import '../core/repositories/import_conflict_repository.dart';
+import '../core/repositories/learner_leaver_repository.dart';
 import '../core/repositories/school_repository.dart';
 import '../core/repositories/section_repository.dart';
 import '../core/repositories/student_repository.dart';
@@ -23,11 +24,15 @@ class ImportCloudRepos {
   final StudentRepository students;
   final ImportConflictRepository conflicts;
 
+  /// Saves each import's LRN set (sf1_last_imports, SF1 leavers D9).
+  final LearnerLeaverRepository leavers;
+
   const ImportCloudRepos({
     required this.schools,
     required this.sections,
     required this.students,
     required this.conflicts,
+    required this.leavers,
   });
 }
 
@@ -38,7 +43,16 @@ class ConflictResolution {
   final int? studentId; // set for 'update'
   final Section? enrolledIn; // null when the conflict had no (visible) section
 
-  const ConflictResolution(this.conflictId, this.action, {this.studentId, this.enrolledIn});
+  /// Set when 'update' transferred the learner in from another school
+  /// (sf1_transfer_in, D15): that school's name and the section they left.
+  final ({String? schoolName, String? sectionName})? transferredFrom;
+
+  /// Set when the server change is saved but this device's copy could not
+  /// be updated (pull to refresh).
+  final String? deviceWarning;
+
+  const ConflictResolution(this.conflictId, this.action,
+      {this.studentId, this.enrolledIn, this.transferredFrom, this.deviceWarning});
 }
 
 /// SF1 roster import and import-conflict review. Admin/coordinator only;
@@ -53,6 +67,10 @@ class ImportViewModel {
   final StudentRepository _localStudents;
   final Sf1ColumnMap columnMap;
 
+  /// Copies a server function's result onto this device
+  /// (mirrorLeaverResult); null = nothing to copy (tests).
+  final Future<void> Function(Map<String, dynamic> result)? _mirror;
+
   List<ImportConflict> pendingConflicts = [];
 
   ImportViewModel({
@@ -62,8 +80,10 @@ class ImportViewModel {
     required SectionRepository localSections,
     required StudentRepository localStudents,
     required this.columnMap,
+    Future<void> Function(Map<String, dynamic> result)? mirror,
     Logger? logger,
   })  : _auth = auth,
+        _mirror = mirror,
         _cloudFor = cloudFactory,
         _localSchools = localSchools,
         _localSections = localSections,
@@ -113,8 +133,24 @@ class ImportViewModel {
     final cloud = _cloud();
     final result = await _wrapFormat(
         () => _importer(cloud).import(filePath, check: (parsed) => _checkOwnSchool(cloud, parsed)));
+    await _saveLastImport(cloud, result);
     if (pendingConflicts.isNotEmpty || result.conflicts > 0) await loadPendingConflicts();
     return result;
+  }
+
+  /// The file's LRN set becomes the section's last import, so the learners
+  /// active there but not on it are listed as undecided (sf1-missing) on
+  /// every admin device. The import itself is already done: a failure here
+  /// is a warning on the result, not an error.
+  Future<void> _saveLastImport(ImportCloudRepos cloud, Sf1ImportResult result) async {
+    if (result.sectionId == null || result.schoolId == null || result.schoolYear == null) return;
+    try {
+      await cloud.leavers.saveLastImport(result.sectionId!, result.schoolId!, result.schoolYear!, result.fileLrns);
+    } catch (e) {
+      result.lastImportWarning = 'The import is done, but its list of learners was not saved on the server, '
+          'so learners not on this SF1 are not listed: import the file again.';
+      _log('WARNING: saveLastImport failed ($e)');
+    }
   }
 
   /// Oldest first.
@@ -136,6 +172,11 @@ class ImportViewModel {
   /// 'skip' closes the conflict. 'update' overwrites the stored learner with
   /// the incoming SF1 data and enrolls them into the conflict's section
   /// (which moves them there; for a transfer that is a superadmin action).
+  /// Refused when the learner already has an enrollment that school year at
+  /// the conflict's school ([importResolveEnrolledRefusal]): sf1-move /
+  /// sf1-restore do that. An enrollment that year at another school is a
+  /// transfer (sf1_transfer_in, D15): same grade only, that school's records
+  /// stay there, the learner history gets a transfer line.
   Future<ConflictResolution> resolve(int id, String action) async {
     _log('resolve($id, $action)');
     if (action != 'skip' && action != 'update') {
@@ -153,43 +194,90 @@ class ImportViewModel {
       return ConflictResolution(id, action);
     }
 
+    final section = conflict.sectionId == null ? null : await cloud.sections.getById(conflict.sectionId!);
     final existing = await cloud.students.findByLrn(conflict.lrn);
     if (existing == null) {
-      throw ViewModelException(conflict.reason == transferConflictReason
-          ? 'LRN ${conflict.lrn} belongs to a learner in another school; only the superadmin can resolve it.'
+      // A learner of another school is hidden from this school: the server
+      // function looks them up and decides (D15).
+      if (isTransferConflictReason(conflict.reason) && section != null) {
+        return _transferIn(cloud, conflict, section);
+      }
+      throw ViewModelException(isTransferConflictReason(conflict.reason)
+          ? 'LRN ${conflict.lrn} belongs to a learner in another school, and the conflict has no section to enroll them into.'
           : 'No existing learner with LRN ${conflict.lrn}.');
+    }
+
+    if (section != null) {
+      final e = await cloud.students.enrollmentInYear(existing.id!, section.schoolYear);
+      // Enrolled this school year at another school, archived or still
+      // active: a transfer (D15, review I2 q11).
+      if (e != null && e.schoolId != section.schoolId) return _transferIn(cloud, conflict, section);
+      final refusal = e == null ? null : importResolveEnrolledRefusal(conflict, section, e);
+      if (refusal != null) {
+        _log('refused: learner ${existing.id} already enrolled in ${section.schoolYear} (${e!.status})');
+        throw ViewModelException(refusal);
+      }
     }
 
     final incoming = jsonDecode(conflict.incomingDataJson) as Map<String, Object?>;
     await cloud.students.update(Student.fromMap({...incoming, 'id': existing.id, 'school_id': existing.schoolId}));
 
     Section? enrolledIn;
-    if (conflict.sectionId != null) {
-      final section = await cloud.sections.getById(conflict.sectionId!);
-      if (section != null) {
-        final enrollmentId = await cloud.students.enroll(
-          studentId: existing.id!,
-          sectionId: section.id!,
-          schoolYear: section.schoolYear,
-        );
-        await _localSections.upsertWithId(section);
-        await _localStudents.upsertWithId(Student.fromMap({
-          ...incoming,
-          'id': existing.id,
-          'school_id': section.schoolId, // the enrollment moved the learner there
-        }));
-        await _localStudents.enroll(
-          studentId: existing.id!,
-          sectionId: section.id!,
-          schoolYear: section.schoolYear,
-          id: enrollmentId,
-        );
-        enrolledIn = section;
-      }
+    if (section != null) {
+      final enrollmentId = await cloud.students.enroll(
+        studentId: existing.id!,
+        sectionId: section.id!,
+        schoolYear: section.schoolYear,
+      );
+      await _localSections.upsertWithId(section);
+      await _localStudents.upsertWithId(Student.fromMap({
+        ...incoming,
+        'id': existing.id,
+        'school_id': section.schoolId, // the enrollment moved the learner there
+      }));
+      await _localStudents.enroll(
+        studentId: existing.id!,
+        sectionId: section.id!,
+        schoolYear: section.schoolYear,
+        id: enrollmentId,
+      );
+      enrolledIn = section;
     }
 
     await _markResolved(cloud, id, 'resolved_updated');
     return ConflictResolution(id, action, studentId: existing.id, enrolledIn: enrolledIn);
+  }
+
+  /// sf1_transfer_in: the learner leaves the other school's section this
+  /// school year (archived there as transferred out if still active) and
+  /// becomes active in [section]; that school's records of the year stay
+  /// there; the transfer is written to the learner's history.
+  Future<ConflictResolution> _transferIn(ImportCloudRepos cloud, ImportConflict conflict, Section section) async {
+    final Map<String, dynamic> r;
+    try {
+      r = await cloud.leavers.transferIn(conflict.id!);
+    } on PostgrestException catch (e) {
+      _log('transfer refused: ${e.message}');
+      throw ViewModelException('The database refused it: ${e.message}.');
+    }
+    pendingConflicts.removeWhere((c) => c.id == conflict.id);
+    String? warning;
+    try {
+      await _localSections.upsertWithId(section);
+      await _mirror?.call(r);
+    } catch (e) {
+      warning = "Saved on the server, but this device's copy was not updated: pull to refresh (pull-cloud yes).";
+      _log('WARNING: transfer mirror failed ($e)');
+    }
+    final student = r['student'] as Map;
+    final from = r['from_school'] as Map?;
+    final fromSection = r['from_section'] as Map?;
+    _log('transferred learner ${student['id']} in from school ${from?['id']}');
+    return ConflictResolution(conflict.id!, 'update',
+        studentId: (student['id'] as num).toInt(),
+        enrolledIn: section,
+        transferredFrom: (schoolName: from?['name'] as String?, sectionName: fromSection?['name'] as String?),
+        deviceWarning: warning);
   }
 
   /// Resolves every pending conflict the same way. One failure doesn't stop
@@ -240,6 +328,45 @@ class ImportViewModel {
       throw ViewModelException(e.message);
     }
   }
+}
+
+/// Why `resolve-conflict <id> update` can't enroll the learner into the
+/// conflict's [section] when they already have enrollment [e] that school
+/// year (SF1 leavers I3): at the same school, a section change goes through
+/// the move/restore functions (same grade, this year's records follow, the
+/// history is written, pending uploads are checked), never an upsert. Null
+/// = go on (another school's enrollment is a transfer: sf1_transfer_in).
+String? importResolveEnrolledRefusal(ImportConflict conflict, Section section, EnrollmentInYear e) {
+  final id = conflict.id;
+  final skip = 'then close this conflict with resolve-conflict $id skip.';
+  final where = '${e.sectionName} (Grade ${e.gradeLevel})';
+  final sameGrade = e.gradeLevel == section.gradeLevel;
+  final archived = e.status != 'active';
+  final left = 'archived on ${e.leftOn ?? '?'} (${e.status.replaceAll('_', ' ')})';
+  if (e.schoolId != section.schoolId) return null;
+  if (!archived) {
+    if (e.sectionId == section.id) {
+      return 'Refused: LRN ${conflict.lrn} is already active in $where this school year: nothing to enroll; '
+          'close this conflict with resolve-conflict $id skip.';
+    }
+    if (!sameGrade) {
+      return 'Refused: LRN ${conflict.lrn} is active in $where this school year, and moves are same grade only, '
+          'so this is a decision by hand (e.g. archive them there); $skip';
+    }
+    return 'Refused: LRN ${conflict.lrn} is already active in $where this school year. Move them with '
+        'sf1-move ${e.enrollmentId} ${section.id} (this year\'s records follow), $skip';
+  }
+  if (e.sectionId == section.id) {
+    return 'Refused: LRN ${conflict.lrn} was $left in $where this school year. Restore them with '
+        'sf1-restore ${e.enrollmentId}, $skip';
+  }
+  if (!sameGrade) {
+    return 'Refused: LRN ${conflict.lrn} was $left in $where this school year, and a restore into another '
+        'section is same grade only: sf1-restore ${e.enrollmentId} puts them back in ${e.sectionName}, or decide '
+        'by hand; $skip';
+  }
+  return 'Refused: LRN ${conflict.lrn} was $left in $where this school year. Restore them into this section '
+      'with sf1-restore ${e.enrollmentId} ${section.id} (this year\'s records follow), $skip';
 }
 
 /// Null when a school-bound caller may import a roster of school

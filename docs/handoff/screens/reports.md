@@ -39,7 +39,8 @@ Calls:
 - `ReportSettingsViewModel.effective(schoolId)` → `ReportSettings`; `doneThresholdLayers`, `autoApproveLayers`, `offlineDaysLayers`, `fltCountsLayers` → `(region, school, effective)`
 - `setDoneThreshold`, `setAutoApprove`, `setOfflineDays`, `setFltCounts`, `resetSchool`
 - FLT setting (key `no_comprehension_counts_FLT`, on/off, **off by default**, since 2026-11-10): when on, a Phil-IRI reading from a collection without comprehension questions (the Foundational Literacy Test) counts as assessed in progress, reminders and the dashboard. Show it as a switch like auto-approve, e.g. "Count FLT readings as assessed".
-Console: `report-settings-show`, `report-settings-set`, `report-settings-reset`, `sync-auto-approve`, `flt-counts`, `offline-days`, `offline-days-set`
+- Archive period (key `archive_keep_months`, whole months 1-120, default 6): `archiveKeepMonthsLayers`, `setArchiveKeepMonths` (SF1 leavers, `sf1-leavers.md`).
+Console: `report-settings-show`, `report-settings-set`, `report-settings-reset`, `sync-auto-approve`, `flt-counts`, `offline-days`, `offline-days-set`, `archive-keep-months`
 
 ### Reports & files (hub)
 Build: admin    Roles: coordinator / admin / superadmin

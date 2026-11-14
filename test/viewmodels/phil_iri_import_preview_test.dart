@@ -388,6 +388,26 @@ void main() {
     expect(miscues.every((m) => m.wordIndex == null), isTrue);
   });
 
+  test("a levels-differ note also gives the round's own reading when the carried result differs", () async {
+    // Like ma's G7 sheet 09 row 25: BOSY 54% accuracy, then MOSY 1 alone 16% (Non-Reader) with a 0.1 comprehension;
+    // BASA carries BOSY's word reading up, the workbook uses the round alone.
+    final p = await vm.previewWorkbook(buildPhilIriWorkbook([
+      WbSheet('01', section: 'IRON', schoolYear: _year, methods: const {PhilIriRound.bosy: 'Whole-Text Reading'}, males: const [
+        WbLearner('DELA CRUZ, Juan M.', gst: 20, rounds: {
+          PhilIriRound.bosy: WbRound(passage: '7C Dust', wordsRead: 150, mm: 2, mispronunciation: 69, comprehension: 4),
+          PhilIriRound.mosy1: WbRound(passage: '7D2 Ecosystems', wordsRead: 25, mispronunciation: 21, comprehension: 0.1,
+              adjProfile: 'Non-Reader', adjLevel: 0),
+        }),
+      ]),
+    ]));
+    final m1 = reading(sheet(p, '01'), 'DELA CRUZ, Juan M.', PhilIriRound.mosy1);
+    expect(m1.basaProfile, isNot('Non-Reader'), reason: 'word reading carries up from BOSY');
+    expect(m1.notes, [
+      'levels differ: BASA ${m1.basaProfile} (grade ${m1.basaAdjustedLevel}; this round alone: Non-Reader, grade 0), '
+          'workbook Non-Reader (grade 0)',
+    ]);
+  });
+
   test('header issues stop the preview; headerSamples shows values, never names', () async {
     final renamed = buildPhilIriWorkbook([iron(renames: const {'# of Words Read': 'Words'})]);
     final p = await vm.previewWorkbook(renamed);

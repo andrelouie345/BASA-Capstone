@@ -1,6 +1,7 @@
 // lib/core/data/local/learner_history_repository_sqlite.dart
 import 'package:sqflite_common/sqflite.dart';
 import '../../models/aral_enrollment.dart';
+import '../../models/enrollment_move.dart';
 import '../../models/srp_class.dart';
 import '../../models/student.dart';
 import '../../repositories/learner_history_repository.dart';
@@ -24,7 +25,7 @@ class LearnerHistoryRepositorySqlite implements LearnerHistoryRepository {
   @override
   Future<List<LearnerSectionRow>> sectionEnrollments(int studentId) async {
     final rows = await db.rawQuery('''
-      SELECT e.school_year, e.status, s.id AS section_id, s.section_name, s.grade_level,
+      SELECT e.school_year, e.status, e.left_on, e.left_note, s.id AS section_id, s.section_name, s.grade_level,
              s.school_id, sc.school_name
       FROM enrollments e
       JOIN sections s ON s.id = e.section_id
@@ -42,6 +43,28 @@ class LearnerHistoryRepositorySqlite implements LearnerHistoryRepository {
           gradeLevel: r['grade_level'] as String,
           schoolId: r['school_id'] as int,
           schoolName: r['school_name'] as String?,
+          leftOn: r['left_on'] as String?,
+          leftNote: r['left_note'] as String?,
+        ),
+    ];
+  }
+
+  @override
+  Future<List<LearnerMoveRow>> moves(int studentId) async {
+    final rows = await db.rawQuery('''
+      SELECT m.*, f.section_name AS from_name, t.section_name AS to_name
+      FROM enrollment_moves m
+      LEFT JOIN sections f ON f.id = m.from_section_id
+      LEFT JOIN sections t ON t.id = m.to_section_id
+      WHERE m.student_id = ?
+      ORDER BY m.school_year DESC, m.moved_on, m.id
+    ''', [studentId]);
+    return [
+      for (final r in rows)
+        LearnerMoveRow(
+          move: EnrollmentMove.fromMap(r),
+          fromSectionName: r['from_name'] as String?,
+          toSectionName: r['to_name'] as String?,
         ),
     ];
   }

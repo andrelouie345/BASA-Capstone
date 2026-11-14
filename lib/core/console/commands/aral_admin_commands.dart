@@ -6,6 +6,7 @@ import '../console_registry.dart';
 import '../date_args.dart';
 import '../../../viewmodels/aral_viewmodel.dart';
 import '../../models/aral_enrollment.dart';
+import '../../models/report_setting.dart' show philIriValuesLabel;
 import 'aral_command_helpers.dart';
 
 void registerAralAdminCommands(ConsoleRegistry registry, AralViewModel vm) {
@@ -44,7 +45,8 @@ void registerAralAdminCommands(ConsoleRegistry registry, AralViewModel vm) {
         '${c.rank == null ? '  ' : '#${c.rank}'} | ${c.student.id} | ${c.name} | ${c.status.name}'
             '${c.suggestion == null ? '' : ' -> ${c.suggestion!.label}'} | ${c.reason}',
     ];
-    return '${lines.join('\n')}\n'
+    final values = vm.lastProposalValues;
+    return '${values == null ? '' : '${philIriValuesLabel(values)}\n'}${lines.join('\n')}\n'
         '${count[AralCandidateStatus.proposed]} proposed, '
         '${count[AralCandidateStatus.notQualified]} at/above grade level, ${count[AralCandidateStatus.noResult]} '
         'without a result, ${count[AralCandidateStatus.enrolled]} already in ARAL.';

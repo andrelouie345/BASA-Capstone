@@ -102,7 +102,34 @@ workbook without a passage, shown as "Untitled", with a typed word count and
 comprehension total; imported readings may have comprehension only; app
 update required: **yes**, same rule) and `20261110030000` (Phil-IRI: any
 grade-level passage may be read in any round; a passage's test type is only
-a label; app update required: **yes**, same rule). Each is idempotent.
+a label; app update required: **yes**, same rule) and `20261112010000`
+(SF1 leavers: a learner's enrollment can be archived as transferred out or
+dropped out, restored, and later anonymized, only through server functions;
+the section move history `enrollment_moves` and each section's last imported
+LRN set `sf1_last_imports`; report setting `archive_keep_months`; app update
+required: **yes**, same rule) and `20261112020000` (SF1 leavers, part 2: a
+learner moves to another section of the same grade with this school year's
+CRLA, Phil-IRI and GST records, finalized rounds included; restoring into
+another section moves too; the old section's tutor can still upload work
+done before the move, and the upload puts it in the new section and says so
+in its note; an archived learner's records stop an upload; the upload's
+shape check is back in `sync_apply`; app update required: **yes**, same
+rule) and `20261113010000` (SF1 leavers fixes: a device can see which of its
+new records belong to an archived learner and drop them with `sync-resolve
+<table> <key> server`; anonymizing also clears the archive note and closes the
+learner's pending import conflicts; an anonymized learner can't be enrolled
+again; app update required: no) and `20261113020000` (SF1 leavers, same-server
+transfer: `resolve-conflict <id> update` moves a learner archived at
+another school (a learner still active there: the superadmin only) into this
+school's section of the same grade if the SF1's name and birth date match, keeps
+that school's records of the year there and writes a transfer line in the
+learner history; only the server functions change a learner's section; a
+tutor's view of an archived learner is this school year's; app update
+required: **yes**, same rule) and `20261114010000` (report settings: six
+switches for which Phil-IRI values a list shows, carried or actual
+(`values_aral`, `values_bosy_masterlist`, `values_form2b`, `values_srp`,
+`values_learner_pages`, `values_ranking`; console `value-sources`,
+`value-source-set`); app update required: no). Each is idempotent.
 Do **not** run
 `supabase/migrations_archive/`.
 

@@ -6,7 +6,7 @@ import '../../repositories/sync_remote_repository.dart';
 
 /// Upload columns read back (never the payload: listings stay small).
 const _uploadColumns =
-    'id, uploader_id, school_id, status, reason, conflicts, id_map, created_at, decided_at, summary';
+    'id, uploader_id, school_id, status, reason, conflicts, id_map, created_at, decided_at, summary, note';
 
 class SyncRemoteSupabase implements SyncRemoteRepository {
   final SupabaseClient _client;
@@ -76,11 +76,36 @@ class SyncRemoteSupabase implements SyncRemoteRepository {
   Future<SyncApplyResult> apply(int uploadId) async {
     final r = Map<String, dynamic>.from(await _client.rpc('sync_apply', params: {'p_id': uploadId}) as Map);
     return SyncApplyResult(
-        status: r['status'] as String, reason: r['reason'] as String?, conflicts: parseSyncConflicts(r['conflicts']));
+        status: r['status'] as String,
+        reason: r['reason'] as String?,
+        conflicts: parseSyncConflicts(r['conflicts']),
+        note: r['note'] as String?);
   }
 
   @override
   Future<void> withdraw(int uploadId) => _client.rpc('sync_withdraw', params: {'p_id': uploadId});
+
+  @override
+  Future<List<SyncArchivedLearner>> archivedLearners(List<SyncLearnerKey> learners) async {
+    if (learners.isEmpty) return const [];
+    final rows = await _client.rpc('sync_archived_learners', params: {
+      'p_student_ids': [for (final l in learners) l.$1],
+      'p_school_years': [for (final l in learners) l.$2],
+      'p_school_ids': [for (final l in learners) l.$3],
+    });
+    return [
+      for (final r in (rows as List).cast<Map<String, dynamic>>())
+        (
+          studentId: (r['student_id'] as num).toInt(),
+          schoolYear: r['school_year'] as String,
+          schoolId: (r['school_id'] as num).toInt(),
+          status: r['status'] as String,
+          leftOn: r['left_on'] as String?,
+          name: r['learner'] as String?,
+          transferredOn: r['transferred_on'] as String?,
+        ),
+    ];
+  }
 
   @override
   Future<List<SyncUploadRow>> schoolUploads({int? schoolId, required List<String> statuses}) async {
