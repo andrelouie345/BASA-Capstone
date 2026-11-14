@@ -1,7 +1,8 @@
 // lib/ui/admin/report_screens.dart
 // Reports (docs/handoff/screens/reports.md): the NLA portal report with its
 // filters, progress monitoring, the BOSY masterlist, and the report
-// settings (done threshold, auto-approve, offline sign-in days). Each
+// settings (done threshold, auto-approve, offline sign-in days, archive
+// period, the Phil-IRI carried/actual value switches). Each
 // report shows the ViewModel's CSV as a table and saves it. Admin build only.
 import 'package:flutter/material.dart';
 
@@ -131,8 +132,24 @@ class _Settings {
   final ({double? region, double? school, double effective}) done;
   final ({bool? region, bool? school, bool effective}) auto;
   final ({int? region, int? school, int effective}) offline;
-  const _Settings(this.done, this.auto, this.offline);
+  final ({int? region, int? school, int effective}) archive;
+  final Map<PhilIriValueList, ({PhilIriValues? region, PhilIriValues? school, PhilIriValues effective})> values;
+  const _Settings(this.done, this.auto, this.offline, this.archive, this.values);
 }
+
+String _valuesName(PhilIriValues v) => switch (v) {
+  PhilIriValues.carried => 'Carried',
+  PhilIriValues.actual => 'Actual',
+};
+
+String _valueListLabel(PhilIriValueList l) => switch (l) {
+  PhilIriValueList.aral => 'ARAL (proposals, updates, implementation report)',
+  PhilIriValueList.bosyMasterlist => 'BOSY masterlist',
+  PhilIriValueList.form2b => 'NLA report (Form 2b) and band trend',
+  PhilIriValueList.srp => 'SRP candidates',
+  PhilIriValueList.learnerPages => 'Learner pages (Phil-IRI results, history)',
+  PhilIriValueList.ranking => 'Ranking list',
+};
 
 class ReportSettingsScreen extends StatefulWidget {
   const ReportSettingsScreen({super.key});
@@ -153,19 +170,36 @@ class _ReportSettingsScreenState extends State<ReportSettingsScreen> {
       r = await runAction(context, () => vm.setAutoApprove(schoolId, on), done: 'Saved.', where: 'ReportSettings');
     } else {
       final f = await askFields(context,
-          title: what == 'done' ? 'Done threshold (%)' : 'Offline sign-in days',
+          title: switch (what) {
+            'done' => 'Done threshold (%)',
+            'archive' => 'Archive period (months, 1-120)',
+            _ => 'Offline sign-in days',
+          },
           fields: [FieldSpec('v', 'Value', initial: what == 'done' ? ((current as double) * 100).toStringAsFixed(1) : '$current', number: true)]);
       if (f == null || !mounted) return;
       if (what == 'done') {
         final pct = double.tryParse(f['v']!);
         if (pct == null) return;
         r = await runAction(context, () => vm.setDoneThreshold(schoolId, pct / 100), done: 'Saved.', where: 'ReportSettings');
+      } else if (what == 'archive') {
+        final months = int.tryParse(f['v']!);
+        if (months == null) return;
+        r = await runAction(context, () => vm.setArchiveKeepMonths(schoolId, months), done: 'Saved.', where: 'ReportSettings');
       } else {
         final days = int.tryParse(f['v']!);
         if (days == null) return;
         r = await runAction(context, () => vm.setOfflineDays(schoolId, days), done: 'Saved.', where: 'ReportSettings');
       }
     }
+    if (r != null && mounted) setState(() => _reload++);
+  }
+
+  Future<void> _setValues(int? schoolId, PhilIriValueList list) async {
+    final vm = vmsOf(context).reportSettings;
+    final v = await pickOne<PhilIriValues>(context,
+        title: _valueListLabel(list), options: PhilIriValues.values, label: (v) => philIriValuesLabel(v).replaceFirst('Values: ', ''));
+    if (v == null || !mounted) return;
+    final r = await runAction(context, () => vm.setValueSource(schoolId, list, v), done: 'Saved.', where: 'ReportSettings');
     if (r != null && mounted) setState(() => _reload++);
   }
 
@@ -179,7 +213,8 @@ class _ReportSettingsScreenState extends State<ReportSettingsScreen> {
         reloadKey: _reload,
         load: (vms) async {
           final s = vms.reportSettings;
-          return _Settings(await s.doneThresholdLayers(schoolId), await s.autoApproveLayers(schoolId), await s.offlineDaysLayers(schoolId));
+          return _Settings(await s.doneThresholdLayers(schoolId), await s.autoApproveLayers(schoolId), await s.offlineDaysLayers(schoolId),
+              await s.archiveKeepMonthsLayers(schoolId), await s.valueSourceLayers(schoolId));
         },
         builder: (context, l, _) {
           String pct(double? v) => v == null ? '—' : thresholdPercent(v);
@@ -201,6 +236,20 @@ class _ReportSettingsScreenState extends State<ReportSettingsScreen> {
                   () => _set(schoolId, 'auto', l.auto.effective)),
               row('Offline sign-in days', '${l.offline.effective}', '${l.offline.region ?? '—'}', '${l.offline.school ?? '—'}',
                   () => _set(schoolId, 'offline', l.offline.effective)),
+              row('Archive period (months)', '${l.archive.effective}', '${l.archive.region ?? '—'}', '${l.archive.school ?? '—'}',
+                  () => _set(schoolId, 'archive', l.archive.effective)),
+            ]),
+            SectionCard(title: 'Phil-IRI values', children: [
+              const Text("Each list shows one kind of value: carried = the best so far; actual = each round's own reading."),
+              for (final list in PhilIriValueList.values)
+                row(
+                  _valueListLabel(list),
+                  _valuesName(l.values[list]!.effective),
+                  l.values[list]!.region == null ? '—' : _valuesName(l.values[list]!.region!).toLowerCase(),
+                  l.values[list]!.school == null ? '—' : _valuesName(l.values[list]!.school!).toLowerCase(),
+                  () => _setValues(schoolId, list),
+                ),
+              Text('A change reaches other devices after their next download.', style: Theme.of(context).textTheme.bodySmall),
             ]),
             if (schoolId != null)
               OutlinedButton.icon(
