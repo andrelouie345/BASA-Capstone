@@ -7,6 +7,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../../core/models/report_setting.dart' show PhilIriValueList, PhilIriValues, philIriValuesLabel;
 import '../../viewmodels/app_viewmodels.dart';
 import '../../viewmodels/aral_roster_import_viewmodel.dart';
 import '../common/csv_table.dart';
@@ -111,11 +112,17 @@ class _BodyState extends State<_Body> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        LoadView<String>(
+        LoadView<(String, PhilIriValues)>(
           where: 'AralReport',
           reloadKey: '$id-$year',
-          load: (_) => admin.aralReport.implementationReportCsv(schoolId: id, schoolYear: year),
-          builder: (context, csv, _) => CsvTableView(csv: csv, fileName: 'ARAL_implementation_$year.csv', title: 'Implementation report'),
+          load: (vms) async => (
+            await admin.aralReport.implementationReportCsv(schoolId: id, schoolYear: year),
+            await vms.philIri.valueSource(id, PhilIriValueList.aral),
+          ),
+          builder: (context, r, _) => withValuesNote(
+            'Grades 4-10: ${philIriValuesLabel(r.$2)}',
+            CsvTableView(csv: r.$1, fileName: 'ARAL_implementation_$year.csv', title: 'Implementation report'),
+          ),
         ),
         const SizedBox(height: 16),
         LayoutBuilder(builder: (context, c) {

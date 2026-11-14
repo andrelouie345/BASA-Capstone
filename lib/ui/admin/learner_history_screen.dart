@@ -5,11 +5,13 @@
 // shows its note in place. Admin build only.
 import 'package:flutter/material.dart';
 
+import '../../core/models/report_setting.dart' show philIriValuesLabel;
 import '../../core/models/section.dart';
 import '../../core/models/student.dart';
 import '../../viewmodels/learner_history_viewmodel.dart';
 import '../common/pickers.dart';
 import '../common/screen_kit.dart';
+import '../phil_iri/learner_results_screen.dart' show roundViewText;
 import 'admin_scope.dart';
 
 class LearnerHistoryScreen extends StatefulWidget {
@@ -253,17 +255,11 @@ class _YearCard extends StatelessWidget {
             if (p.sectionName != null) Text(p.sectionName!, style: text.labelLarge),
             if (p.results == null)
               Text(p.unavailable ?? 'No results.', style: text.bodyMedium?.copyWith(color: colors.onSurfaceVariant))
-            else
-              for (final r in p.results!.rounds)
-                InfoRow(
-                  r.round.label,
-                  r.notAssessed
-                      ? 'not assessed'
-                      : [
-                          r.profile?.label ?? 'no profile',
-                          if (r.adjustedLevelLabel != null) r.adjustedLevelLabel!,
-                        ].join(' · '),
-                ),
+            else ...[
+              // One kind of value, as the school's learner-pages switch says.
+              for (final r in p.results!.rounds) InfoRow(r.round.label, roundViewText(p.results!.view(r.round))),
+              Text(philIriValuesLabel(p.results!.values), style: text.bodySmall?.copyWith(color: colors.onSurfaceVariant)),
+            ],
           ],
         ],
         for (final a in year.aral) ...[

@@ -4,6 +4,7 @@
 // class's name, room, schedule, tutor, learners and deletion. Admin build only.
 import 'package:flutter/material.dart';
 
+import '../../core/models/report_setting.dart' show philIriValuesLabel;
 import '../../viewmodels/srp_viewmodel.dart';
 import '../common/csv_table.dart';
 import '../common/pickers.dart';
@@ -138,6 +139,7 @@ class _CandidatesScreen extends StatelessWidget {
         load: (vms) => vms.srp.candidates(schoolId: schoolId, schoolYear: year),
         builder: (context, list, _) => PageBody(maxWidth: 1200, children: [
           Text('Ranked weakest first; the first ${list.perSection} of each section are recommended.'),
+          ValuesNote(philIriValuesLabel(list.values)),
           CsvTableView(csv: srpListCsv(list), fileName: 'SRP_candidates_$year.csv'),
         ]),
       ),

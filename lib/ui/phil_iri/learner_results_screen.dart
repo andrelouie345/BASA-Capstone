@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/models/phil_iri_types.dart';
+import '../../core/models/report_setting.dart' show PhilIriValues, philIriValuesLabel;
 import '../../core/models/section.dart';
 import '../../core/models/student.dart';
 import '../../viewmodels/phil_iri_viewmodel.dart';
@@ -25,10 +26,15 @@ class LearnerResultsScreen extends StatelessWidget {
         where: 'LearnerResults',
         load: (vms) => vms.philIri.learnerResults(studentId: student.id!, sectionId: section.id!, schoolYear: section.schoolYear),
         builder: (context, r, _) {
+          // One kind of value, as the school's learner-pages switch says.
           final rounds = [
             for (final x in r.rounds)
-              SectionCard(title: x.round.label, icon: Icons.event_note_outlined, trailing: roundResultChip(x), children: roundResultRows(x)),
+              () {
+                final v = r.view(x.round);
+                return SectionCard(title: x.round.label, icon: Icons.event_note_outlined, trailing: roundViewChip(v), children: roundViewRows(v));
+              }(),
           ];
+          final end = r.endView();
           return PageBody(
             maxWidth: 1200,
             children: [
@@ -43,9 +49,11 @@ class LearnerResultsScreen extends StatelessWidget {
                       icon: Icons.quiz_outlined,
                     ),
                     StatTile(label: 'Rounds assessed', value: '${r.rounds.where((x) => !x.notAssessed).length}/${r.rounds.length}', icon: Icons.event_available_outlined),
-                    if (r.end != null) StatTile(label: 'End result', value: r.end!.profile?.label ?? '—', icon: Icons.flag_outlined),
+                    if (end != null) StatTile(label: 'End result', value: end.profile?.label ?? '—', icon: Icons.flag_outlined),
                   ]),
-                  if (r.end != null) ...[const SizedBox(height: 12), InfoRow('End result', roundResultText(r.end!))],
+                  if (end != null) ...[const SizedBox(height: 12), InfoRow('End result', roundViewText(end))],
+                  const SizedBox(height: 12),
+                  ValuesNote(philIriValuesLabel(r.values)),
                 ],
               ),
               if (rounds.isEmpty) const EmptyNote('No Phil-IRI rounds for this learner yet.', icon: Icons.menu_book_outlined),
@@ -127,25 +135,42 @@ class _LearnerResultsPickScreenState extends State<LearnerResultsPickScreen> {
   }
 }
 
-/// One line for a round's result.
-String roundResultText(PhilIriRoundResult x) => x.notAssessed
-    ? 'not assessed'
-    : [x.profile?.label ?? 'no profile', ?x.adjustedLevelLabel].join(' · ');
+/// One line for a round as the learner pages show it (carried or actual,
+/// [PhilIriLearnerResults.values]); also used by the learner history.
+String roundViewText(PhilIriRoundView v) {
+  if (v.notAssessedThisRound) return 'not assessed this round · ${v.adjustedLevelLabel} (${v.levelsDownLabel})';
+  if (v.notAssessed) return 'not assessed';
+  return [v.profile?.label ?? 'no profile', ?v.adjustedLevelLabel].join(' · ');
+}
 
 /// A round's profile as a chip ("not assessed" when it wasn't).
-StatusChip roundResultChip(PhilIriRoundResult x) => x.notAssessed
-    ? const StatusChip('not assessed', icon: Icons.remove_circle_outline)
-    : StatusChip(x.profile?.label ?? 'no profile', tone: philIriLevelTone(x.profile));
+StatusChip roundViewChip(PhilIriRoundView v) => v.notAssessedThisRound
+    ? const StatusChip('not assessed this round', icon: Icons.remove_circle_outline, tone: StatusTone.warn)
+    : v.notAssessed
+        ? const StatusChip('not assessed', icon: Icons.remove_circle_outline)
+        : StatusChip(v.profile?.label ?? 'no profile', tone: philIriLevelTone(v.profile));
 
-List<Widget> roundResultRows(PhilIriRoundResult x) {
-  if (x.notAssessed) return const [EmptyNote('Not assessed.', icon: Icons.event_busy_outlined)];
+List<Widget> roundViewRows(PhilIriRoundView v) {
+  if (v.notAssessedThisRound) {
+    return [
+      const EmptyNote('No reading of their own this round: counted as Struggling.', icon: Icons.event_busy_outlined),
+      if (v.adjustedLevelLabel != null) InfoRow('Level', '${v.adjustedLevelLabel} (${v.levelsDownLabel ?? ''})'),
+    ];
+  }
+  if (v.notAssessed) return const [EmptyNote('Not assessed.', icon: Icons.event_busy_outlined)];
+  final wordReading = v.wordReadingAssumed
+      ? 'not assessed (${v.wordReadingLevel?.label ?? 'Struggling'})'
+      : v.wordReadingPercent == null
+          ? '—'
+          : '${v.wordReadingPercent}%${v.silentOnly ? ' (silent, not measured)' : ''} (${v.wordReadingLevel?.label ?? '—'})';
   return [
-    InfoRow('Profile', x.profile?.label ?? '—'),
-    InfoRow('Word reading', x.wordReadingPercent == null ? '—' : '${x.wordReadingPercent}% (${x.wordReadingLevel?.label ?? '—'})'),
-    InfoRow('Speed', x.wordsPerMinute == null ? '—' : '${x.wordsPerMinute!.toStringAsFixed(0)} wpm (${x.speed?.label ?? '—'})'),
-    InfoRow('Comprehension', x.comprehensionPercent == null ? 'blank' : '${x.comprehensionPercent}% (${x.comprehensionLevel?.label ?? '—'})'),
-    if (x.adjustedLevelLabel != null) InfoRow('Level', '${x.adjustedLevelLabel} (${x.levelsDownLabel ?? ''})'),
-    if (x.actualAdjustedLevelLabel != null) InfoRow('This round alone', '${x.actualAdjustedLevelLabel} (${x.actualLevelsDownLabel ?? ''})'),
-    if (!x.given) const InfoRow('Note', 'Carried from an earlier round'),
+    InfoRow('Profile', v.profile?.label ?? '—'),
+    InfoRow('Word reading', wordReading),
+    InfoRow('Speed', v.wordsPerMinute == null ? '—' : '${v.wordsPerMinute!.toStringAsFixed(0)} wpm (${v.speed?.label ?? '—'})'),
+    InfoRow('Comprehension', v.comprehensionPercent == null ? 'blank' : '${v.comprehensionPercent}% (${v.comprehensionLevel?.label ?? '—'})'),
+    if (v.adjustedLevelLabel != null) InfoRow('Level', '${v.adjustedLevelLabel} (${v.levelsDownLabel ?? ''})'),
+    // Monitoring status shows under carried only (as the console prints it).
+    if (v.values == PhilIriValues.carried && v.status == PhilIriRoundStatus.carriedOver)
+      const InfoRow('Note', 'Carried from an earlier round'),
   ];
 }

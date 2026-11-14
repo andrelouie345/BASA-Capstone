@@ -5,8 +5,10 @@
 // profiles, ARAL exits and activity.
 import 'package:flutter/material.dart';
 
+import '../../core/models/report_setting.dart' show PhilIriValueList;
 import '../../core/models/section.dart';
 import '../../core/models/trend_chart.dart';
+import '../../viewmodels/nla_report_viewmodel.dart' show nlaValuesLabel;
 import '../common/pickers.dart';
 import '../common/screen_kit.dart';
 import '../common/signed_in_user.dart';
@@ -63,23 +65,36 @@ class _TrendsScreenState extends State<TrendsScreen> {
           else if (scope == null)
             const EmptyNote('Pick a section to see its trends.', icon: Icons.class_outlined),
           if (_year != null && scope != null)
-            LoadView<List<(TrendChart, bool)>>(
+            LoadView<(List<(TrendChart, bool)>, String?)>(
               where: 'TrendsScreen',
               reloadKey: '$_year-$_kind-${_section?.id}',
               load: (vms) async {
                 final t = vms.trend, y = _year!;
                 final activity = await t.aralActivity(scope, y);
-                if (!admin) return [(activity.sessions, false), (activity.attendance, false)];
-                return [
-                  (await t.completion(scope, y), false),
-                  (await t.bandDistribution(scope, y), false),
-                  (await t.crlaProfiles(scope, y), false),
-                  (await t.aralExits(scope, y), false),
-                  (activity.sessions, false),
-                  (activity.attendance, false),
-                ];
+                if (!admin) return ([(activity.sessions, false), (activity.attendance, false)], null);
+                // The band chart follows each school's Form 2b values switch.
+                final bandSchool = switch (scope) {
+                  SchoolScope(:final schoolId) => schoolId,
+                  SectionScope() => _section?.schoolId,
+                  _ => null,
+                };
+                final bandValues = bandSchool == null
+                    ? "Values: each school's own Form 2b setting (carried or actual)"
+                    : nlaValuesLabel(await vms.philIri.valueSource(bandSchool, PhilIriValueList.form2b));
+                return (
+                  [
+                    (await t.completion(scope, y), false),
+                    (await t.bandDistribution(scope, y), false),
+                    (await t.crlaProfiles(scope, y), false),
+                    (await t.aralExits(scope, y), false),
+                    (activity.sessions, false),
+                    (activity.attendance, false),
+                  ],
+                  bandValues,
+                );
               },
-              builder: (context, charts, _) {
+              builder: (context, loaded, _) {
+                final (charts, bandValues) = loaded;
                 // Same order as the load above.
                 final icons = charts.length == 2
                     ? const [Icons.event_repeat, Icons.how_to_reg_outlined]
@@ -105,8 +120,11 @@ class _TrendsScreenState extends State<TrendsScreen> {
                             child: Card(
                               child: Padding(
                                 padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-                                child: TrendChartView(
-                                    chart: charts[i].$1, percent: charts[i].$2, icon: icons[i % icons.length]),
+                                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                                  TrendChartView(chart: charts[i].$1, percent: charts[i].$2, icon: icons[i % icons.length]),
+                                  // The Form 2b band chart (second in the admin list).
+                                  if (i == 1 && bandValues != null) ...[const SizedBox(height: 12), ValuesNote(bandValues)],
+                                ]),
                               ),
                             ),
                           ),

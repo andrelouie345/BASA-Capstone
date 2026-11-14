@@ -635,6 +635,22 @@ class NoticeBanner extends StatelessWidget {
   }
 }
 
+/// Which Phil-IRI values a list shows ("Values: carried …" / "Values: actual …",
+/// from `philIriValuesLabel` / `nlaValuesLabel`), shown above the list.
+class ValuesNote extends StatelessWidget {
+  final String label;
+  const ValuesNote(this.label, {super.key});
+
+  @override
+  Widget build(BuildContext context) => NoticeBanner(label, icon: Icons.swap_vert, tone: StatusTone.neutral);
+}
+
+/// [child] with a [ValuesNote] above it.
+Widget withValuesNote(String label, Widget child) => Column(
+  crossAxisAlignment: CrossAxisAlignment.stretch,
+  children: [ValuesNote(label), const SizedBox(height: 12), child],
+);
+
 /// At least this wide: the main action sits in the app bar, not a floating button.
 const wideActionWidth = 600.0;
 

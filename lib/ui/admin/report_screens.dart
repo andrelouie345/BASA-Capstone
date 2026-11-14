@@ -70,7 +70,8 @@ class _NlaReportScreenState extends State<NlaReportScreen> {
               where: 'NlaReport',
               reloadKey: '$schoolId-$year',
               load: (vms) => vms.nlaReport.report(schoolId: schoolId, schoolYear: year),
-              builder: (context, r, _) => CsvTableView(csv: nlaReportCsv(r, filter), fileName: 'NLA_report_$year.csv'),
+              builder: (context, r, _) =>
+                  withValuesNote(nlaValuesLabel(r.values), CsvTableView(csv: nlaReportCsv(r, filter), fileName: 'NLA_report_$year.csv')),
             ),
           ),
         ],
@@ -119,7 +120,8 @@ class BosyMasterlistScreen extends StatelessWidget {
               where: 'BosyMasterlist',
               reloadKey: '$schoolId-$year',
               load: (vms) => vms.nlaReport.bosyMasterlist(schoolId: schoolId, schoolYear: year),
-              builder: (context, l, _) => CsvTableView(csv: bosyMasterlistCsv(l), fileName: 'BOSY_masterlist_$year.csv'),
+              builder: (context, l, _) =>
+                  withValuesNote(philIriValuesLabel(l.values), CsvTableView(csv: bosyMasterlistCsv(l), fileName: 'BOSY_masterlist_$year.csv')),
             ),
           ),
         ],

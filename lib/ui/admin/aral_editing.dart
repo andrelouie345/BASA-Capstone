@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import '../../core/models/aral_class.dart';
 import '../../core/models/aral_enrollment.dart';
 import '../../core/models/aral_material.dart';
+import '../../core/models/report_setting.dart' show philIriValuesLabel;
 import '../../core/models/section.dart';
 import '../../core/models/student.dart';
 import '../../viewmodels/aral_viewmodel.dart';
@@ -73,7 +74,11 @@ class AdminAralRosterEditor extends AralRosterEditor {
           for (final c in list)
             '${studentLabel(c.student)}: ${c.status.name}${c.suggestion == null ? '' : ' → ${c.suggestion!.label}'} (${c.reason})',
         ].join('\n');
-        await showTextDialog(context, title: '$proposed proposed', text: text.isEmpty ? 'No learners.' : text);
+        // Grades 4-10: which Phil-IRI values the proposals used (null for Grades 1-3).
+        final values = aral.lastProposalValues;
+        final body = text.isEmpty ? 'No learners.' : text;
+        await showTextDialog(context,
+            title: '$proposed proposed', text: values == null ? body : '${philIriValuesLabel(values)}\n\n$body');
         if (proposed == 0 || !context.mounted) return false;
         if (!await confirm(context, title: 'Enroll the $proposed proposed learner(s)?', action: 'Enroll') || !context.mounted) return false;
         final r = await runAction(context, () => aral.enrollProposed(sectionId: section.id!, schoolYear: section.schoolYear),

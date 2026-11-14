@@ -45,4 +45,5 @@ No new calls; each result object has `values`:
 - BOSY masterlist: `BosyMasterlist.values`; under actual a GST-only BOSY is listed as not assessed;
 - SRP: `SrpList.values`;
 - ARAL implementation report: `AralImplementationReport.values`; ARAL proposals: `AralViewModel.lastProposalValues` after `propose()` (null for Grades 1-3);
-- learner pages: `PhilIriLearnerResults.values`, rounds from `view(round)`, end from `endView()` (see `phil-iri.md`).
+- learner pages: `PhilIriLearnerResults.values`, rounds from `view(round)`, end from `endView()` (see `phil-iri.md`); never `rounds` / `end` directly (those are always carried);
+- band trend chart (`TrendViewModel.bandDistribution`): the chart has no `values`; for a school or a section read `PhilIriViewModel.valueSource(schoolId, PhilIriValueList.form2b)`; a region chart mixes each school's own setting, so say that.
