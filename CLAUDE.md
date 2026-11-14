@@ -72,7 +72,7 @@ Module checklist: Login/user management (done), Learner Management (covered by s
 - The tutor build must not contain admin code. Split rule = live RLS: a write a tutor's policy refuses, or a read the ViewModel refuses to tutors, is admin. Admin-only commands live in `*_admin_commands.dart` or in the wholly admin command files listed in `tool/check_tutor_imports.dart`.
 - No console in shipped release builds (`basaHasConsole = kDebugMode || basaScanBuild`, written at the call site). Scan builds (`--dart-define=BASA_SCAN_BUILD=true`, made only by `build_release.ps1`, never shipped) compile the console in so every ViewModel method a build can call is in it.
 - Checks: `dart run tool/check_tutor_imports.dart` and `dart run tool/check_vm_boundary.dart` after every piece; `tool/build_release.ps1` per release (import walk, ViewModel boundary, both builds for Android + Windows, two scan APKs, marker scan with an admin self-test: every `[admin]` marker must be in the admin scan build and in no tutor build).
-- Coordinators use the admin build. Tutor console: 126 commands (`test/core/wiring/tutor_commands.txt`); admin console: 266.
+- Coordinators use the admin build. Tutor console: 126 commands (`test/core/wiring/tutor_commands.txt`); admin console: 268.
 
 ## Parked / known follow-ups
 - DB-switching redesign (above).

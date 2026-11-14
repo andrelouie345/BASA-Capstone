@@ -35,7 +35,9 @@ Future<void> main() async {
   var printed = session.entries.length;
   int lineNo = 0;
   while (true) {
-    stdout.write(' $lineNo :::> ');
+    lineNo++;
+
+    stdout.write(' ${lineNo.toString().padLeft(4)}>>>> ');
     final line = stdin.readLineSync(encoding: utf8); // not the Windows codepage
     if (line == null || line.trim() == 'exit') break; // null = end of piped input
     await session.run(line);
