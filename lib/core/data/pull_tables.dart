@@ -20,6 +20,8 @@ const pullOrder = <String, String>{
   'tutor_section_assignments': 'id',
   'students': 'id',
   'enrollments': 'id',
+  // v44: section move history (SF1 leavers); read-only on the device, not synced.
+  'enrollment_moves': 'id',
   'crla_stories': 'id',
   'crla_thresholds': 'id',
   'crla_assessments': 'id',
@@ -98,6 +100,7 @@ const pullClearOrder = [
   'import_conflicts',
   'report_settings',
   'assessment_calendar',
+  'enrollment_moves',
   'enrollments',
   'students',
   'tutor_section_assignments',

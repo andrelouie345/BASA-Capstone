@@ -26,6 +26,7 @@ import '../file_output.dart';
 import '../../../viewmodels/nla_report_viewmodel.dart';
 import '../../models/phil_iri_assessment.dart' show PhilIriRound;
 import '../../models/phil_iri_types.dart' show PhilIriLevel;
+import '../../models/report_setting.dart' show philIriValuesLabel;
 import '../../models/report_types.dart' show NlaBand, NlaCounts, NlaGstBand;
 
 class _Usage implements Exception {
@@ -114,6 +115,7 @@ String _v(NlaCounts c, NlaReportFilter f) {
 String _text(NlaReport report, NlaReportFilter f) {
   final out = StringBuffer('NLA report (Phil-IRI for JHS Form 2b) | school ${report.schoolId} | ${report.schoolYear} '
       '| as of ${report.asOf}');
+  out.write('\n${nlaValuesLabel(report.values)}');
   void block(NlaSectionReport r, String name) {
     out.write('\n$name');
     if (f.blocks.contains(NlaBlock.enrolment)) out.write('\n  Enrolment: ${_v(r.enrolment, f)}');
@@ -242,6 +244,7 @@ const _masterlistOptions = '[sections=<id,...>] [asof=YYYY-MM-DD]';
 String _masterlistText(BosyMasterlist list) {
   final out = StringBuffer('Masterlist of learners not grade level ready at BOSY | school ${list.schoolId} '
       '| ${list.schoolYear} | as of ${list.asOf}');
+  out.write('\n${philIriValuesLabel(list.values)}');
   for (final s in list.sections) {
     out.write('\nG${s.grade} ${s.section.sectionName} (#${s.section.id}): ${s.learners.length} of ${s.enrolled} listed');
     for (final (i, e) in s.learners.indexed) {

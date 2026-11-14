@@ -5,6 +5,8 @@
 import '../console_command.dart';
 import '../console_registry.dart';
 import '../../models/aral_enrollment.dart' show AralBasisSource;
+import '../../models/enrollment_move.dart' show EnrollmentMoveSource;
+import '../../models/report_setting.dart' show PhilIriValues, philIriValuesLabel;
 import '../../../viewmodels/learner_history_viewmodel.dart';
 
 class _Usage implements Exception {
@@ -52,7 +54,17 @@ String _text(LearnerHistory h) {
     out.write('\n== ${y.schoolYear} ==');
     for (final e in y.enrollments) {
       out.write('\n  Section: Grade ${e.gradeLevel} ${e.sectionName} (${e.schoolName ?? 'school not on this device'}), '
-          '${e.status}');
+          '${e.status}${e.leftOn == null ? '' : ', left ${e.leftOn}'}${e.leftNote == null ? '' : ' (${e.leftNote})'}');
+    }
+    for (final m in y.moves) {
+      if (m.isTransfer) {
+        out.write('\n  Transferred in ${m.movedOn}: from ${m.fromSchoolName ?? 'another school'} '
+            '(${m.fromSectionName ?? 'section'}, ${(m.fromStatus ?? 'archived').replaceAll('_', ' ')} '
+            '${m.fromLeftOn ?? '?'}) -> ${m.toSectionName ?? 'section'} (section ${m.toSectionId})');
+        continue;
+      }
+      out.write('\n  Moved ${m.movedOn}: ${m.fromSectionName ?? 'section'} (section ${m.fromSectionId}) -> '
+          '${m.toSectionName ?? 'section'} (section ${m.toSectionId}), ${_moveSource(m.source)}');
     }
     for (final round in y.crla.entries) {
       for (final lang in round.value.entries) {
@@ -66,14 +78,24 @@ String _text(LearnerHistory h) {
         continue;
       }
       final g = r.gst;
+      // One kind of values (values_learner_pages, spec 2026-11-14 D11): the
+      // "(carried)" mark only under carried; under actual a round without a
+      // reading of its own is "not assessed this round".
+      final carried = r.values == PhilIriValues.carried;
       final rounds = [
         for (final round in r.rounds)
-          if (round.profile != null) '${round.round.label} ${round.profile!.label}${round.given ? '' : ' (carried)'}',
+          if (round.profile != null)
+            switch (r.view(round.round)) {
+              final v when v.notAssessedThisRound => '${round.round.label} not assessed this round',
+              final v => '${round.round.label} ${v.profile!.label}${carried && !round.given ? ' (carried)' : ''}',
+            },
       ];
+      final end = r.endView();
       out.write('\n  Phil-IRI ${p.sectionName ?? 'section'} (section ${p.sectionId}): '
           'GST ${g == null ? 'none' : '${g.totalScore}/${g.maxScore}'}; '
           '${rounds.isEmpty ? 'no round results' : rounds.join(', ')}; '
-          'end ${r.end == null ? 'none yet' : '${r.end!.round.label} ${r.end!.profile?.label ?? '-'}'}');
+          'end ${end == null ? 'none yet' : '${end.round.label} ${end.profile?.label ?? '-'}'}; '
+          '${philIriValuesLabel(r.values)}');
     }
     for (final a in y.aral) {
       final e = a.enrollment;
@@ -100,4 +122,11 @@ String _checkin(LearnerHistoryCheckin c) => switch (c) {
       LearnerHistoryCheckin.failed => 'failed',
       LearnerHistoryCheckin.notTaken => 'not taken',
       LearnerHistoryCheckin.unavailable => 'not available',
+    };
+
+String _moveSource(EnrollmentMoveSource s) => switch (s) {
+      EnrollmentMoveSource.sf1Missing => "decided from the old section's SF1",
+      EnrollmentMoveSource.sf1Incoming => "confirmed from the new section's SF1",
+      EnrollmentMoveSource.returned => 'restored into another section',
+      EnrollmentMoveSource.transferIn => 'transferred in from another school',
     };

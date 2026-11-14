@@ -110,6 +110,39 @@ class ReportSettingsViewModel {
     );
   }
 
+  /// The stored archive_keep_months values (null = not set) and the one
+  /// that applies to [schoolId] (null = the region's; default 6).
+  Future<({int? region, int? school, int effective})> archiveKeepMonthsLayers(int? schoolId) async {
+    _log('archiveKeepMonthsLayers($schoolId)');
+    _requireSignIn();
+    final (region, school) = await _layers(schoolId);
+    int? read(ReportSetting? s) => (s?.settings[ReportSettings.archiveKeepMonthsKey] as num?)?.toInt();
+    return (
+      region: read(region),
+      school: read(school),
+      effective: ReportSettings.fromMap({...?region?.settings, ...?school?.settings}).archiveKeepMonths,
+    );
+  }
+
+  /// Per Phil-IRI list: the stored values (null = not set, or a value this
+  /// app doesn't know) and the one that applies to [schoolId] (null = the
+  /// region's; defaults: ranking actual, the rest carried).
+  Future<Map<PhilIriValueList, ({PhilIriValues? region, PhilIriValues? school, PhilIriValues effective})>>
+      valueSourceLayers(int? schoolId) async {
+    _log('valueSourceLayers($schoolId)');
+    _requireSignIn();
+    final (region, school) = await _layers(schoolId);
+    final effective = ReportSettings.fromMap({...?region?.settings, ...?school?.settings});
+    return {
+      for (final l in PhilIriValueList.values)
+        l: (
+          region: PhilIriValueList.parse(region?.settings[l.key]),
+          school: PhilIriValueList.parse(school?.settings[l.key]),
+          effective: effective.valueSource(l),
+        ),
+    };
+  }
+
   Future<(ReportSetting?, ReportSetting?)> _layers(int? schoolId) async =>
       (await _local.getRegion(), schoolId == null ? null : await _local.getForSchool(schoolId));
 
@@ -144,6 +177,14 @@ class ReportSettingsViewModel {
     return _setKey(_writer(schoolId), schoolId, ReportSettings.noComprehensionCountsFltKey, on);
   }
 
+  /// Sets which Phil-IRI values [list] shows (carried or actual) for the
+  /// region ([schoolId] null, superadmin) or a school (its admin/
+  /// coordinator). Devices get it with their next pull.
+  Future<ReportSetting> setValueSource(int? schoolId, PhilIriValueList list, PhilIriValues values) async {
+    _log('setValueSource($schoolId, ${list.key}, ${values.name})');
+    return _setKey(_writer(schoolId), schoolId, list.key, values.name);
+  }
+
   /// Sets the offline sign-in window (whole days 1-60) of the region or a
   /// school. Tablets get it with their next pull.
   Future<ReportSetting> setOfflineDays(int? schoolId, int days) async {
@@ -154,6 +195,18 @@ class ReportSettingsViewModel {
           '${ReportSettings.maxOfflineSigninDays} days, not $days.');
     }
     return _setKey(cloud, schoolId, ReportSettings.offlineSigninDaysKey, days);
+  }
+
+  /// Sets how long archived learners are kept (whole months 1-120) before
+  /// they may be anonymized, for the region or a school (SF1 leavers D12).
+  Future<ReportSetting> setArchiveKeepMonths(int? schoolId, int months) async {
+    _log('setArchiveKeepMonths($schoolId, $months)');
+    final cloud = _writer(schoolId);
+    if (months < ReportSettings.minArchiveKeepMonths || months > ReportSettings.maxArchiveKeepMonths) {
+      throw ViewModelException('Archived learners are kept ${ReportSettings.minArchiveKeepMonths} to '
+          '${ReportSettings.maxArchiveKeepMonths} months, not $months.');
+    }
+    return _setKey(cloud, schoolId, ReportSettings.archiveKeepMonthsKey, months);
   }
 
   /// Removes a school's override so the region values apply again.

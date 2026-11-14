@@ -34,6 +34,8 @@
 // Self-correction -> self-corrected. A comprehension above the block's
 // maximum is a problem and is dropped; an Untitled reading's comprehension
 // needs the maximum (it is the total it is out of).
+// Comprehension codes (ma, 2026-11-12; comprehension columns only, every
+// block and sheet): 0.1 = blank, 0.2 = 0 correct (assessed).
 import '../models/phil_iri_assessment.dart' show PhilIriRound;
 import '../models/phil_iri_import.dart';
 import '../models/phil_iri_miscue.dart';
@@ -302,7 +304,7 @@ class _SheetReader {
 
   /// A typed whole number >= 0, or null (blank, a formula, or unreadable:
   /// then a problem is listed).
-  int? _typedInt(int col, int row) {
+  int? _typedInt(int col, int row, {String expected = 'a whole number is expected'}) {
     final v = at(col, row);
     if (v == null || isFormula(col, row)) return null;
     int? n;
@@ -315,10 +317,24 @@ class _SheetReader {
       n = int.tryParse(v.trim());
     }
     if (n == null || n < 0) {
-      _problem(col, row, 'unreadable value "$v" (a whole number is expected)');
+      _problem(col, row, 'unreadable value "$v" ($expected)');
       return null;
     }
     return n;
+  }
+
+  /// A comprehension cell: ma's codes first (an Excel quirk shows a blank and
+  /// a 0 alike, so she types 0.1 = blank and 0.2 = 0 correct; number or text),
+  /// then a typed whole number as [_typedInt]. Returns (correct, entered).
+  (int?, bool) _comprehension(int col, int row) {
+    final v = at(col, row);
+    if (v != null && !isFormula(col, row)) {
+      final n = v is num ? v.toDouble() : (v is String ? double.tryParse(v.trim()) : null);
+      if (n != null && (n - 0.1).abs() < 1e-9) return (null, false);
+      if (n != null && (n - 0.2).abs() < 1e-9) return (0, true);
+    }
+    final correct = _typedInt(col, row, expected: 'a whole number is expected, or 0.1 = blank / 0.2 = 0');
+    return (correct, correct != null);
   }
 
   void _problem(int col, int row, String message) => out.problems.add(
@@ -342,8 +358,7 @@ class _SheetReader {
 
     final compCell = f['wb.comprehension']!;
     final max = _numberBelow(compCell);
-    var correct = _typedInt(compCell.col, row);
-    final compEntered = correct != null;
+    var (correct, compEntered) = _comprehension(compCell.col, row);
     if (correct != null && max != null && correct > max) {
       _problem(compCell.col, row, 'comprehension $correct is more than the maximum $max, not imported');
       correct = null;

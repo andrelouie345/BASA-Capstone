@@ -361,18 +361,28 @@ run reminders-coordinator {school} {year}
 expect [ARAL] 1 ARAL learner in a class of another grade.
 expect~ 9990\d{8}  ZZTESTB, Learner002  \(ARAL #-?\d+\)
 
-# --- An SF1 section move inside the school (same grade): aral-move follows it --------------
+# --- An SF1 section move inside the school (same grade): the ARAL entry follows it --------
+# Since SF1 leavers (Task 4/6) the row is "moving from G7C", confirmed with
+# sf1-move, which moves the ARAL roster entry on the server too (aral-move then
+# has nothing to do). The device's unsent ARAL edits go up first: the move
+# bumps the learner's roster row on the server, so an older device edit of it
+# would become a sync conflict.
+run sync-upload yes
+expect~ [Aa]pplied
 make-sf1 sf1_mv a 7 ZZTEST-G7M{stamp} 1 from=116
 run import-students "{sf1_mv}"
-expect Inserted: 0, Conflicts: 1, Already enrolled: 0, Skipped: 0
-run resolve-conflicts-all update
-expect~ .
+expect Inserted: 0, Conflicts: 0, Already enrolled: 0, Skipped: 0, Waiting: 1
+capture sec_mv = resolved section: 7 - ZZTEST-G7M{stamp} \({year}\) \(id=(\d+)\)
+run import-trial "{sf1_mv}"
+capture en_c16 = MOVING: [^|]*Learner116 \(moving from ZZTEST-G7C\) -> enrollment (\d+)
+run sf1-move {en_c16} {sec_mv}
+expect moved to section {sec_mv}
 run aral-move {e_c15}
 refuse ZZTESTK, Learner115 is already in section {sec_g7c}.
 run aral-move {e_c16}
-expect Updated: #{e_c16} | ZZTESTL, Learner116 ({s_c16}) | KS3 Basic | active | class "ZZ A4 Basic {stamp}"
-run sync-upload yes
-expect~ [Aa]pplied
+refuse ZZTESTL, Learner116 is already in section {sec_mv}.
+run aral-roster {sec_mv} {year}
+expect #{e_c16} | ZZTESTL, Learner116 ({s_c16}) | KS3 Basic | active | class "ZZ A4 Basic {stamp}"
 
 # --- The new class tutor reads the moved learner's marks in the old class's session --------
 run aral-class-place {e_c2} {class_1}
@@ -418,9 +428,9 @@ expect Upload {up_a4t2} applied.
 # The moved learner goes back to G7C (SF1), the session and the roster rows go,
 # then the classes.
 run import-students "{sf1_g7c}"
-expect~ Conflicts: 1
-run resolve-conflicts-all update
-expect~ .
+expect~ Waiting: 1
+run sf1-move {en_c16} {sec_g7c}
+expect moved to section {sec_g7c}
 run pull-cloud yes
 expect users:
 run aral-class-delete {cb_srv}

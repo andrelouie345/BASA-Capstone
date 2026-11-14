@@ -34,7 +34,7 @@ import '../models/aral_enrollment.dart';
 import '../models/crla_assessment.dart' show CrlaRound;
 import '../models/crla_result.dart';
 import 'crla_rules.dart';
-import 'phil_iri_results.dart' show PhilIriRoundResult;
+import 'phil_iri_results.dart' show PhilIriRoundResult, PhilIriRoundView;
 
 /// At most this many ACTIVE learners in one ARAL class (DepEd Memorandum 064
 /// s. 2025, Encl. 2 item 7; hard stop on the device and the cloud). Exited
@@ -255,6 +255,10 @@ class AralRankKey implements Comparable<AralRankKey> {
   const AralRankKey(this.wordRecognition, this.comprehension, this.speed);
 
   factory AralRankKey.philIri(PhilIriRoundResult r) =>
+      AralRankKey(r.wordReadingScore ?? 0, r.comprehensionScore ?? 0, r.wordsPerMinute ?? 0);
+
+  /// The same key from a round as a list shows it (carried or actual values).
+  factory AralRankKey.philIriView(PhilIriRoundView r) =>
       AralRankKey(r.wordReadingScore ?? 0, r.comprehensionScore ?? 0, r.wordsPerMinute ?? 0);
 
   /// CRLA's pct_correct_words_read is already a fraction (words_read /

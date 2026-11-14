@@ -110,6 +110,36 @@ expect ZZTEST
     expect(() => parseScenario('x', 'make-sf1 f a 7 S'), throwsFormatException);
   });
 
+  test('parses make-sf1 from=last with an offset', () {
+    MakeSf1Step one(String from) => parseScenario('x', 'make-sf1 f a 7 S 2 $from').steps.single as MakeSf1Step;
+    expect(one('from=last').lastOffset, 0);
+    expect(one('from=last+3').lastOffset, 3);
+    expect(one('from=last-4').lastOffset, -4);
+    expect(one('from=stamp').lastOffset, isNull);
+    expect(() => parseScenario('x', 'make-sf1 f b 7 S 2 from=last'), throwsFormatException);
+    expect(() => parseScenario('x', 'make-sf1 f a 7 S 2 from=last*2'), throwsFormatException);
+  });
+
+  test('parses make-sf1 lrns=a (school a learners in school b file)', () {
+    MakeSf1Step one(String tail) => parseScenario('x', 'make-sf1 f b 7 S 1 $tail').steps.single as MakeSf1Step;
+    final t = one('from=last+1 lrns=a');
+    expect([t.schoolB, t.aLearners, t.lastOffset], [true, true, 1]);
+    expect(one('from=last-4 lrns=a as=7').learnerGrade, 7);
+    expect(one('from=3').aLearners, isFalse);
+    expect(() => parseScenario('x', 'make-sf1 f a 7 S 1 from=last lrns=a'), throwsFormatException);
+    expect(() => parseScenario('x', 'make-sf1 f b 7 S 1 from=last lrns=b'), throwsFormatException);
+    expect(() => parseScenario('x', 'make-sf1 f b 7 S 1 from=last lrns=a lrns=a'), throwsFormatException);
+  });
+
+  test('parses make-sf1 as=<grade>', () {
+    MakeSf1Step one(String tail) => parseScenario('x', 'make-sf1 f a 8 S 2 $tail').steps.single as MakeSf1Step;
+    expect(one('as=7').learnerGrade, 7);
+    expect([one('from=3 as=7').first, one('from=3 as=7').learnerGrade], [3, 7]);
+    expect(one('from=3').learnerGrade, isNull);
+    expect(() => parseScenario('x', 'make-sf1 f a 8 S 2 as=x'), throwsFormatException);
+    expect(() => parseScenario('x', 'make-sf1 f a 8 S 2 as=7 as=6'), throwsFormatException);
+  });
+
   test('parses make-phil-iri-workbook with one or two sections', () {
     final one = parseScenario('x', 'make-phil-iri-workbook wb 7 ZZTEST-A 3 from=stamp').steps.single as MakePhilIriStep;
     expect([one.workbook, one.section, one.second, one.count, one.first], [true, 'ZZTEST-A', null, 3, 0]);

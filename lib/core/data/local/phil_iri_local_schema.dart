@@ -525,12 +525,20 @@ Future<void> createPhilIriLocalSchema(Database db) async {
   ''');
   // Lifecycle for local sessions (cloud trigger phil_iri_assessments_before_update).
   // The attempt_no assignment above is the one other update allowed.
+  // v44: every write under the sync bypass skips all three checks below
+  // (finalized, fixed fields, finalize-only-when-completed): the pull, the
+  // sync take-in, the v34 renumber and mirrorLeaverResult (a mirrored learner
+  // move gives a finalized session its new section, the cloud's
+  // basa.moving_learner exception). Wider than the cloud's section-only
+  // exception; the bypass row only exists inside withSyncBypass's
+  // transaction, so device code never reaches it.
   await db.execute('DROP TRIGGER IF EXISTS check_phil_iri_assessment_update');
   await db.execute('''
     CREATE TRIGGER check_phil_iri_assessment_update
     BEFORE UPDATE ON phil_iri_assessments
     WHEN OLD.origin = 'local' AND NEW.origin = 'local'
          AND NOT (OLD.attempt_no = 0 AND NEW.attempt_no > 0)
+         AND NOT EXISTS (SELECT 1 FROM sync_meta WHERE key = 'sync_bypass')
     BEGIN
       SELECT RAISE(ABORT, 'A finalized Phil-IRI assessment cannot be changed')
       WHERE OLD.status = 'finalized';

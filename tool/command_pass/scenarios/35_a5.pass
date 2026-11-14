@@ -292,9 +292,9 @@ expect BOSY ARAL (Division): 3-LD M 0 F 1 T 1 | 2-LD M 0 F 0 T 0 | total M 0 F 1
 expect~ SCHOOL TOTAL \(\d+ section\(s\)\)
 expect Enrolment: M 10 F 10 T 20
 run nla-report {school} {year} sections={sec_g7c} sex=f rounds=bosy blocks=form2b,aral rows=sections
-expect~ \| as of {today}\nG7 ZZTEST-G7C \(#{sec_g7c}\)\n  BOSY: assessed F 1 \| GLR F 0 \| 2-LD Ind F 0, Ins F 0, Frus F 0 = F 0 \| 3-LD Ind F 0, Ins F 0, Frus F 1 = F 1\n  BOSY ARAL \(Division\): 3-LD F 1 \| 2-LD F 0 \| total F 1
+expect~ \| as of {today}\nValues: carried \(best so far\)\nG7 ZZTEST-G7C \(#{sec_g7c}\)\n  BOSY: assessed F 1 \| GLR F 0 \| 2-LD Ind F 0, Ins F 0, Frus F 0 = F 0 \| 3-LD Ind F 0, Ins F 0, Frus F 1 = F 1\n  BOSY ARAL \(Division\): 3-LD F 1 \| 2-LD F 0 \| total F 1
 run nla-report {school} {year} rows=total blocks=enrolment
-expect~ \| as of {today}\nSCHOOL TOTAL \(\d+ section\(s\)\)\n  Enrolment: M 10 F 10 T 20
+expect~ \| as of {today}\nValues: carried \(best so far\)\nSCHOOL TOTAL \(\d+ section\(s\)\)\n  Enrolment: M 10 F 10 T 20
 run nla-report {school} {year} rounds=mosy9
 refuse rounds are bosy, mosy1, mosy2, mosy3, eosy (got "mosy9")
 run nla-report {school} {year} blocks=charts
@@ -346,7 +346,7 @@ expect 1. ZZTESTA, Learner001 ({lrn_g7_1}, M) · adjusted grade 4 · 3-LD, 3 dow
 expect G7 ZZTEST-G7C (#{sec_g7c}): 16 of 16 listed
 expect~ 16\. ZZTESTZ, Learner104 \(9990\d{4}7104, F\) · adjusted grade 1 · 3-LD, 6 down · Struggling · comprehension 25\.0%
 run bosy-masterlist {school} {year} sections={sec_g7c}
-expect~ \| as of {today}\nG7 ZZTEST-G7C \(#{sec_g7c}\): 16 of 16 listed\n
+expect~ \| as of {today}\nValues: carried \(best so far\)\nG7 ZZTEST-G7C \(#{sec_g7c}\): 16 of 16 listed\n
 run bosy-masterlist {school} {year} asof={=20261024}
 refuse asof must be a real YYYY-MM-DD date (got "20261024")
 run bosy-masterlist {school} {year} rows=total

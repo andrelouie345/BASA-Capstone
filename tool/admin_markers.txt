@@ -26,6 +26,7 @@ create-user
 bootstrap-admin
 sync_reject
 crla_regenerate_results
+sf1_transfer_in
 # Refusals in admin-only methods
 Forbidden: only an admin or coordinator reviews uploads.
 Forbidden: you can only create users for your own school.
@@ -47,9 +48,10 @@ Forbidden: only an admin or coordinator imports Phil-IRI results.
 A referral needs who referred the learner and why.
 This learner left ARAL; reactivate them before placing them in a class.
 A class needs a name.
+Forbidden: only an admin or coordinator archives, moves or restores learners.
 # One string from each admin-only file without a refusal of its own
 " (expected skip or update).
-LRN registered at another school (transfer) - only the superadmin can resolve
+or this school's admin/coordinator when the other school archived the learner
 The scoresheet has no assessment type (C3); give the round (bosy, mosy or eosy).
 cloud login-log read failed:
 
@@ -63,6 +65,8 @@ AralReportViewModel
 AralRosterImportViewModel
 TutorSectionAssignmentViewModel
 PhilIriImportViewModel
+LearnerLeaversViewModel
+PhilIriRankingViewModel
 
 [debug]
 # both console titles ("BASA Debug Console", "BASA Tutor Debug Console"): each

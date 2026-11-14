@@ -79,6 +79,7 @@ aral-tutor-summary
 aral-tutors
 aral-unmark
 aral-update
+archive-keep-months
 assign-section
 bootstrap-admin
 bosy-masterlist
@@ -121,6 +122,8 @@ help
 import-preview
 import-students
 import-trial
+learner-anonymize
+learner-anonymize-preview
 learner-history
 learner-history-lrn
 list-conflicts
@@ -178,6 +181,8 @@ phil-iri-passages-for
 phil-iri-question-add
 phil-iri-question-delete
 phil-iri-question-update
+phil-iri-rank
+phil-iri-rank-export
 phil-iri-read
 phil-iri-reading-delete
 phil-iri-reopen
@@ -211,6 +216,10 @@ section-delete
 section-list
 section-update
 set-text
+sf1-archive
+sf1-missing
+sf1-move
+sf1-restore
 show-conflict
 sign-in
 sign-in-offline
@@ -252,6 +261,8 @@ unassign-section
 user-create
 user-list
 user-set-active
+value-source-set
+value-sources
 version-app
 version-check
 whoami
