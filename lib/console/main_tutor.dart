@@ -27,14 +27,20 @@ Future<void> main() async {
 
   stdout.writeln('BASA tutor console ready. Type "help", or "exit" to quit.');
   var printed = session.entries.length;
+  int lineNo = 0;
   while (true) {
-    stdout.write('> ');
+    stdout.write(' $lineNo :::> ');
     final line = stdin.readLineSync(encoding: utf8); // not the Windows codepage
     if (line == null || line.trim() == 'exit') break; // null = end of piped input
     await session.run(line);
+
     for (final e in session.entries.skip(printed)) {
       if (e.type == ConsoleEntryType.input) continue;
-      stdout.writeln(e.type == ConsoleEntryType.log ? '[${e.source}] ${e.message}' : e.message);
+      final text = e.type == ConsoleEntryType.log ? '[${e.source}] ${e.message}' : e.message;
+      for (final l in text.split('\n')) {
+        lineNo++;
+        stdout.writeln('${lineNo.toString().padLeft(4)}:::>  $l');
+      }
     }
     printed = session.entries.length;
   }
