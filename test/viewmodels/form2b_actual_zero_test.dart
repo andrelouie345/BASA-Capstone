@@ -20,7 +20,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import '../helpers/offline_owner.dart';
 
 const _year = '2026-2027';
-const _sec = 95, z = 971, k = 972, r = 973;
+const _sec = 95, z = 971, k = 972, r = 973, _sec96 = 96, g = 974;
 const mosy1 = PhilIriRound.mosy1;
 
 void main() {
@@ -62,6 +62,17 @@ void main() {
       }
       await vm.complete(s.id!);
     }
+    // Section 96 (review I1): G 974 GST 36/40 (90%), BOSY oral reading with no
+    // comprehension entry (as an FLT reading): the GST stands for BOSY's
+    // comprehension under both values.
+    await db.insert('sections', {'id': _sec96, 'school_id': 1, 'school_year': _year, 'grade_level': '7', 'section_name': 'S96'});
+    await db.insert('students', {'id': g, 'lrn': '99999999$g', 'last_name': 'L$g', 'first_name': 'F', 'school_id': 1, 'sex': 'M'});
+    await db.insert('enrollments', {'student_id': g, 'section_id': _sec96, 'school_year': _year, 'status': 'active'});
+    await vm.recordGst(studentId: g, sectionId: _sec96, schoolYear: _year, totalScore: 36, takenAt: DateTime(2026, 6, 20));
+    final s = await vm.startSession(
+        studentId: g, sectionId: _sec96, schoolYear: _year, round: PhilIriRound.bosy, assessedAt: DateTime(2026, 6, 25));
+    await vm.startReading(assessmentId: s.id!, passageId: 701, method: PhilIriReadingMethod.oneMinute, wordsRead: 120);
+    await vm.complete(s.id!);
   });
 
   Future<void> values(PhilIriValues? v) async {
@@ -85,5 +96,14 @@ void main() {
     final row = (await t.nlaReportVm.report(schoolId: 1, schoolYear: _year, sectionIds: {_sec})).sections.single;
     expect(row.band(mosy1, NlaBand.ld3Frustration).total, 0);
     expect(row.assessed(mosy1).total, 1); // R only
+  });
+
+  test('BOSY reading without comprehension + GST: banded by the GST under both values (review I1)', () async {
+    for (final v in [PhilIriValues.actual, null]) {
+      await values(v);
+      final row = (await t.nlaReportVm.report(schoolId: 1, schoolYear: _year, sectionIds: {_sec96})).sections.single;
+      expect(row.band(PhilIriRound.bosy, NlaBand.glr).total, 1, reason: '$v');
+      expect(row.band(PhilIriRound.bosy, NlaBand.ld3Frustration).total, 0, reason: '$v');
+    }
   });
 }

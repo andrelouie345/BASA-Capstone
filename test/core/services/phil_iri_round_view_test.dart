@@ -90,6 +90,24 @@ void main() {
     expect((c.notAssessedThisRound, c.comprehensionScore, c.profile), (false, 0.9, b.profile));
   });
 
+  test('actual BOSY without comprehension (FLT): the GST fills it, as in the profile (review I1)', () {
+    // BOSY oral reading, no comprehension entry; GST 90%.
+    final rounds = philIriRoundResults(
+        learnerGrade: 7, gstScore: 0.9, readings: {bosy: oneMinute(120, 0, null), mosy1: oneMinute(120, 0, null)});
+    final b = at(rounds, bosy);
+    final a = viewOf(b, actual);
+    expect(a.comprehensionScore, 0.9);
+    expect(a.comprehensionLevel, b.comprehensionLevel); // the GST's level, not a blank's Struggling
+    expect((a.profile, a.adjustedLevel), (b.actualProfile, b.actualAdjustedLevel));
+    // The GST fills BOSY only: a later round without comprehension stays blank.
+    final m = viewOf(at(rounds, mosy1), actual);
+    expect(m.comprehensionScore, isNull);
+    expect(m.comprehensionLevel, at(rounds, mosy1).actual!.comprehensionLevel);
+    // No GST: BOSY stays blank too.
+    final noGst = viewOf(at(philIriRoundResults(learnerGrade: 7, readings: {bosy: oneMinute(120, 0, null)}), bosy), actual);
+    expect(noGst.comprehensionScore, isNull);
+  });
+
   test('silent only: word reading 1.0 marked silentOnly under both values', () {
     final rounds = philIriRoundResults(learnerGrade: 7, readings: {bosy: silent(90, 8)});
     final b = at(rounds, bosy);

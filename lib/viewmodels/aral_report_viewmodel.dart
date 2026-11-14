@@ -55,6 +55,17 @@ const aralReportNoResult = 'no result';
 /// coordinator 2026-10-16). The template puts them under Frustration.
 const aralReportNotAssessed = '3-LD (not assessed)';
 
+/// The template export's note on the [count] "$aralReportNotAssessed" cells.
+/// Under actual the count also holds learners without a reading of their own
+/// in those rounds, not only learners not assessed at all (final review m1).
+String aralNotAssessedNote(int count, PhilIriValues values, String asOf) {
+  final who = values == PhilIriValues.actual
+      ? 'learners without a reading of their own in those rounds by $asOf'
+      : 'learners not assessed at all by $asOf';
+  return '$count BOSY/MOSY count(s) are $who: counted under Frustration (3 levels down) as the reading '
+      'coordinator asked; the CSV shows them as "$aralReportNotAssessed".';
+}
+
 /// One section's row.
 class AralSectionReportRow {
   final Section section;
@@ -293,10 +304,7 @@ class AralReportViewModel {
       notes.add('${philIriValuesLabel(report.values)}: each count is the latest round the learner read by '
           '${report.asOf}; a learner without a reading of their own counts as not assessed.');
     }
-    if (notAssessed > 0) {
-      notes.add('$notAssessed BOSY/MOSY count(s) are learners not assessed at all by ${report.asOf}: counted under '
-          'Frustration (3 levels down) as the reading coordinator asked; the CSV shows them as "$aralReportNotAssessed".');
-    }
+    if (notAssessed > 0) notes.add(aralNotAssessedNote(notAssessed, report.values, report.asOf));
     if (unplaced > 0) {
       notes.add('$unplaced BOSY/MOSY count(s) had no Phil-IRI result yet (or were at grade level): they are in the '
           'TOTAL ARAL LEARNERS columns but not in Frustration/Instructional; see the CSV for them.');

@@ -73,6 +73,11 @@ BOSY the GST fills a missing comprehension).
   comprehension counts in 3-LD Frustration too (otherwise they would count
   less than a learner who didn't read, and the bands would not add up).
   Carried keeps ma's rule (0 or none = in no band).
+  Amended 2026-11-14 (final review I1, owner option A): in BOSY a reading
+  without a comprehension entry (e.g. the FLT) takes the GST's comprehension
+  under actual too, as `actualProfile` already did, so Form 2b bands it by the
+  GST (not 3-LD), the learner pages show the GST % and level, and the ranking
+  ranks it by the GST on comprehension. Only BOSY; no GST = still blank.
 - **D9 Ranking list:** admin build only (admin/coordinator of the school, or
   the superadmin); scope one section, one grade of the school, or the whole
   school (Grades 4-10); values from `values_ranking` (default actual).

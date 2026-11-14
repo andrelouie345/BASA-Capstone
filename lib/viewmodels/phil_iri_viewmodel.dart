@@ -77,8 +77,10 @@ class PhilIriLearnerResults {
 
   /// [r] under [values]: under actual, a round without a reading of its own
   /// is "not assessed this round".
-  PhilIriRoundView view(PhilIriRound r) => philIriRoundView(rounds.firstWhere((x) => x.round == r), values,
-      ownReading: rounds.firstWhere((x) => x.round == r).given, learnerGrade: learnerGrade);
+  PhilIriRoundView view(PhilIriRound r) {
+    final result = rounds.firstWhere((x) => x.round == r);
+    return philIriRoundView(result, values, ownReading: result.given, learnerGrade: learnerGrade);
+  }
 
   /// The end result under [values]: carried = [end]; actual = the last round
   /// with a reading of its own (null when none).

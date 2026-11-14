@@ -467,7 +467,8 @@ class PhilIriRoundView {
 /// The round as a list shows it under [values]. carried: [r] unchanged.
 /// actual: [r]'s own reading only (scores and levels from r.actual; profile,
 /// adjusted level and levels down from actualProfile / actualAdjustedLevel /
-/// actualLevelsDown); without an own reading ([ownReading] false, or nothing
+/// actualLevelsDown; BOSY without a comprehension entry takes the GST's, like
+/// actualProfile); without an own reading ([ownReading] false, or nothing
 /// scored) the not-assessed stand-in for [learnerGrade], flagged
 /// notAssessedThisRound (spec 2026-11-14 D5).
 PhilIriRoundView philIriRoundView(PhilIriRoundResult r, PhilIriValues values,
@@ -507,6 +508,11 @@ PhilIriRoundView philIriRoundView(PhilIriRoundResult r, PhilIriValues values,
       status: r.status,
     );
   }
+  // BOSY without a comprehension entry (e.g. the FLT): the GST stands for it,
+  // as in actualProfile / actualAdjustedLevel (final review I1, owner
+  // 2026-11-14 option A). The BOSY carried comprehension is then exactly the
+  // GST (comprehension starts from it), with the round's thresholds.
+  final gstFills = r.round == PhilIriRound.bosy && a.comprehensionScore == null && r.comprehensionScore != null;
   return PhilIriRoundView(
     round: r.round,
     values: values,
@@ -515,8 +521,8 @@ PhilIriRoundView philIriRoundView(PhilIriRoundResult r, PhilIriValues values,
     accuracyLevel: a.accuracyLevel,
     speed: a.speed,
     wordReadingLevel: a.wordReadingAssumed ? PhilIriLevel.struggling : a.wordReadingLevel,
-    comprehensionScore: a.comprehensionScore,
-    comprehensionLevel: a.comprehensionLevel,
+    comprehensionScore: gstFills ? r.comprehensionScore : a.comprehensionScore,
+    comprehensionLevel: gstFills ? r.comprehensionLevel : a.comprehensionLevel,
     silentOnly: a.silent && !a.wordReadingAssumed,
     wordReadingAssumed: a.wordReadingAssumed,
     profile: r.actualProfile,

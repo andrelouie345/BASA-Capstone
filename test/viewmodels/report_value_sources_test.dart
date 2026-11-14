@@ -25,6 +25,7 @@ import 'package:basa_capstone/core/wiring/app_context.dart';
 import 'package:basa_capstone/core/wiring/wire_admin.dart';
 import 'package:basa_capstone/core/wiring/wire_shared.dart';
 import 'package:basa_capstone/core/wiring/wire_tutor.dart';
+import 'package:basa_capstone/viewmodels/aral_report_viewmodel.dart' show aralNotAssessedNote;
 import 'package:basa_capstone/viewmodels/aral_viewmodel.dart';
 import 'package:basa_capstone/viewmodels/nla_report_viewmodel.dart';
 import 'package:basa_capstone/viewmodels/srp_viewmodel.dart';
@@ -252,5 +253,14 @@ void main() {
     expect(carried.kind, AralUpdateKind.exited);
     expect(carried.reason, startsWith('Phil-IRI MOSY #2 ('));
     expect(carried.reason, isNot(contains('(actual)')));
+  });
+
+  test('ARAL template note: the not-assessed count is worded for the values (review m1)', () {
+    // Carried: the text scenario a4b pins, unchanged.
+    expect(aralNotAssessedNote(4, PhilIriValues.carried, '2026-11-14'),
+        startsWith('4 BOSY/MOSY count(s) are learners not assessed at all by 2026-11-14: counted under Frustration'));
+    final a = aralNotAssessedNote(2, PhilIriValues.actual, '2026-11-14');
+    expect(a, startsWith('2 BOSY/MOSY count(s) are learners without a reading of their own in those rounds by 2026-11-14'));
+    expect(a, isNot(contains('not assessed at all')));
   });
 }
