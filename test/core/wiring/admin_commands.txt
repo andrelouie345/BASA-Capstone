@@ -259,6 +259,8 @@ unassign-section
 user-create
 user-list
 user-set-active
+value-source-set
+value-sources
 version-app
 version-check
 whoami

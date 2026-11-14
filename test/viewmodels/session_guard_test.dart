@@ -190,6 +190,7 @@ void main() {
       'settings.autoApproveLayers': () => rs.autoApproveLayers(1),
       'settings.offlineDaysLayers': () => rs.offlineDaysLayers(1),
       'settings.archiveKeepMonthsLayers': () => rs.archiveKeepMonthsLayers(1),
+      'settings.valueSourceLayers': () => rs.valueSourceLayers(1),
     };
     for (final e in calls.entries) {
       await expectLater(e.value(), _refused, reason: e.key);

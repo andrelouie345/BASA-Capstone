@@ -38,4 +38,5 @@ const Map<String, String> basaMigrations = {
   '20261112020000': 'sf1_leaver_moves_sync',
   '20261113010000': 'sf1_leavers_fixes',
   '20261113020000': 'sf1_transfer_in',
+  '20261114010000': 'report_settings_values',
 };

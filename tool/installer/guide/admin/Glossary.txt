@@ -37,4 +37,4 @@ Learner Reference Number: the learner's DepEd number. BASA uses it to tell learn
 School Form 1: the DepEd school register of a section's learners. BASA imports it.
 
 ===== NLA =====
-DepEd's portal where the coordinator enters the school's reading assessment results (from **Reports → NLA portal report**).
+Numeracy and Literacy Assessment: DepEd's portal where the coordinator enters the school's reading assessment results (from **Reports → NLA portal report**).

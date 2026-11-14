@@ -10,8 +10,49 @@
 // owner 2026-11-10: a Phil-IRI reading from a collection without
 // comprehension questions, e.g. the FLT, counts as assessed),
 // archive_keep_months (whole months 1-120, default 6; SF1 leavers D12: how
-// long an archived learner is kept before they may be anonymized).
+// long an archived learner is kept before they may be anonymized), and the
+// six Phil-IRI value switches values_aral, values_bosy_masterlist,
+// values_form2b, values_srp, values_learner_pages (default "carried") and
+// values_ranking (default "actual"): "carried" | "actual", which Phil-IRI
+// values a list shows (spec 2026-11-14 value sources D1-D3; anything else
+// stored reads as the key's default).
 import 'dart:convert';
+
+/// Which Phil-IRI values a list shows: carried (the best so far, carried
+/// into later rounds) or actual (each round's own reading). [name] is the
+/// stored string.
+enum PhilIriValues { carried, actual }
+
+/// The lists a school switches between carried and actual values, with
+/// their report_settings key, console name and default.
+enum PhilIriValueList {
+  aral('values_aral', 'aral', PhilIriValues.carried),
+  bosyMasterlist('values_bosy_masterlist', 'bosy-masterlist', PhilIriValues.carried),
+  form2b('values_form2b', 'form2b', PhilIriValues.carried),
+  srp('values_srp', 'srp', PhilIriValues.carried),
+  learnerPages('values_learner_pages', 'learner-pages', PhilIriValues.carried),
+  ranking('values_ranking', 'ranking', PhilIriValues.actual);
+
+  final String key;
+  final String cliName;
+  final PhilIriValues defaultValue;
+  const PhilIriValueList(this.key, this.cliName, this.defaultValue);
+
+  /// The stored value, or null when [raw] is anything but "carried" /
+  /// "actual" (a missing key, a typo, another type).
+  static PhilIriValues? parse(Object? raw) {
+    for (final v in PhilIriValues.values) {
+      if (raw == v.name) return v;
+    }
+    return null;
+  }
+}
+
+/// The header line a list prints for its values.
+String philIriValuesLabel(PhilIriValues v) => switch (v) {
+      PhilIriValues.carried => 'Values: carried (best so far)',
+      PhilIriValues.actual => "Values: actual (each round's own reading)",
+    };
 
 class ReportSetting {
   final int? id;
@@ -83,13 +124,30 @@ class ReportSettings {
   /// server's learner_anonymize_eligible reads the same key).
   final int archiveKeepMonths;
 
+  /// Which Phil-IRI values each list shows (every list present).
+  final Map<PhilIriValueList, PhilIriValues> valueSources;
+
+  /// The values [list] shows.
+  PhilIriValues valueSource(PhilIriValueList list) => valueSources[list] ?? list.defaultValue;
+
+  /// Every list at its default (keep in step with [PhilIriValueList]).
+  static const Map<PhilIriValueList, PhilIriValues> defaultValueSources = {
+    PhilIriValueList.aral: PhilIriValues.carried,
+    PhilIriValueList.bosyMasterlist: PhilIriValues.carried,
+    PhilIriValueList.form2b: PhilIriValues.carried,
+    PhilIriValueList.srp: PhilIriValues.carried,
+    PhilIriValueList.learnerPages: PhilIriValues.carried,
+    PhilIriValueList.ranking: PhilIriValues.actual,
+  };
+
   const ReportSettings({
     this.doneThreshold = defaultDoneThreshold,
     this.offlineSigninDays = defaultOfflineSigninDays,
     this.syncAutoApprove = false,
     this.noComprehensionCountsFlt = false,
     this.archiveKeepMonths = defaultArchiveKeepMonths,
-  });
+    Map<PhilIriValueList, PhilIriValues>? valueSources,
+  }) : valueSources = valueSources ?? defaultValueSources;
 
   factory ReportSettings.fromMap(Map<String, Object?> m) => ReportSettings(
         doneThreshold: (m[doneThresholdKey] as num?)?.toDouble() ?? defaultDoneThreshold,
@@ -97,6 +155,8 @@ class ReportSettings {
         syncAutoApprove: m[syncAutoApproveKey] == true,
         noComprehensionCountsFlt: m[noComprehensionCountsFltKey] == true,
         archiveKeepMonths: (m[archiveKeepMonthsKey] as num?)?.toInt() ?? defaultArchiveKeepMonths,
+        valueSources: Map.unmodifiable(
+            {for (final l in PhilIriValueList.values) l: PhilIriValueList.parse(m[l.key]) ?? l.defaultValue}),
       );
 }
 

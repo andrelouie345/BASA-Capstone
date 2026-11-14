@@ -125,7 +125,11 @@ school's section of the same grade if the SF1's name and birth date match, keeps
 that school's records of the year there and writes a transfer line in the
 learner history; only the server functions change a learner's section; a
 tutor's view of an archived learner is this school year's; app update
-required: **yes**, same rule). Each is idempotent.
+required: **yes**, same rule) and `20261114010000` (report settings: six
+switches for which Phil-IRI values a list shows, carried or actual
+(`values_aral`, `values_bosy_masterlist`, `values_form2b`, `values_srp`,
+`values_learner_pages`, `values_ranking`; console `value-sources`,
+`value-source-set`); app update required: no). Each is idempotent.
 Do **not** run
 `supabase/migrations_archive/`.
 

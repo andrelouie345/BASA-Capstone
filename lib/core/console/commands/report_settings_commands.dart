@@ -3,7 +3,8 @@
 /// Report settings (dashboard D2): the progress "done" threshold per region
 /// (superadmin) and school (its admin/coordinator). report-settings-show reads
 /// this device's copy; set/reset are online. `region` = the region-wide row.
-/// Sync S6 adds sync-auto-approve and offline-days[-set] (same rows).
+/// Sync S6 adds sync-auto-approve and offline-days[-set] (same rows); the
+/// Phil-IRI value switches (2026-11-14) value-sources / value-source-set.
 library;
 
 import '../console_command.dart';
@@ -64,8 +65,8 @@ void registerReportSettingsCommands(ConsoleRegistry registry, ReportSettingsView
   });
 
   add('report-settings-reset',
-      "report-settings-reset <schoolId> — drop the school's done threshold, auto-approve, offline window and FLT "
-          "setting so the region's apply (online)",
+      "report-settings-reset <schoolId> — drop the school's done threshold, auto-approve, offline window, FLT "
+          "setting, archive period and Phil-IRI value switches so the region's apply (online)",
       (args) async {
     if (args.length != 1) throw const _Usage('Usage: report-settings-reset <schoolId>');
     final schoolId = _school(args[0]);
@@ -133,6 +134,37 @@ void registerReportSettingsCommands(ConsoleRegistry registry, ReportSettingsView
     await vm.setOfflineDays(schoolId, n);
     return 'Offline sign-in window for ${_who(schoolId)}: $n days. Tablets get it after their next pull-cloud.'
         '${warn()}';
+  });
+
+  String values(PhilIriValues? v) => v?.name ?? '-';
+  final listWords = PhilIriValueList.values.map((l) => l.cliName).join('|');
+
+  add('value-sources',
+      "value-sources <region|schoolId> — which Phil-IRI values each list shows (carried or actual; this device's "
+          'copy): region, school, the one that applies', (args) async {
+    if (args.length != 1) throw const _Usage('Usage: value-sources <region|schoolId>');
+    final schoolId = _school(args[0]);
+    final layers = await vm.valueSourceLayers(schoolId);
+    return [
+      for (final l in PhilIriValueList.values)
+        '${l.cliName}: region ${values(layers[l]!.region)}'
+            '${schoolId == null ? '' : ' · school ${values(layers[l]!.school)}'} · applies ${layers[l]!.effective.name}',
+    ].join('\n');
+  });
+
+  add('value-source-set',
+      'value-source-set <region|schoolId> <$listWords> <carried|actual> — set which Phil-IRI values a list shows '
+          '(online)', (args) async {
+    final usage = 'Usage: value-source-set <region|schoolId> <$listWords> <carried|actual>';
+    if (args.length != 3) throw _Usage(usage);
+    final schoolId = _school(args[0]);
+    final list = PhilIriValueList.values.where((l) => l.cliName == args[1].toLowerCase()).firstOrNull;
+    if (list == null) throw _Usage('Unknown list "${args[1]}": one of $listWords. $usage');
+    final v = PhilIriValueList.parse(args[2].toLowerCase());
+    if (v == null) throw _Usage('Unknown values "${args[2]}": carried or actual. $usage');
+    await vm.setValueSource(schoolId, list, v);
+    return '${list.cliName} values for ${_who(schoolId)} are now ${v.name}. Devices get it after their next '
+        'pull-cloud.${warn()}';
   });
 
   String months(int? v) => v == null ? 'not set' : '$v month${v == 1 ? '' : 's'}';
