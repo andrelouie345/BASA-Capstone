@@ -8,6 +8,7 @@ import '../../viewmodels/aral_report_viewmodel.dart';
 import '../../viewmodels/aral_roster_import_viewmodel.dart';
 import '../../viewmodels/crla_import_viewmodel.dart';
 import '../../viewmodels/phil_iri_import_viewmodel.dart';
+import '../../viewmodels/phil_iri_ranking_viewmodel.dart';
 import '../../viewmodels/import_viewmodel.dart';
 import '../../viewmodels/learner_history_viewmodel.dart';
 import '../../viewmodels/learner_leavers_viewmodel.dart';
@@ -32,6 +33,7 @@ import '../console/commands/nla_report_commands.dart';
 import '../console/commands/phil_iri_admin_commands.dart';
 import '../console/commands/phil_iri_content_admin_commands.dart';
 import '../console/commands/phil_iri_import_admin_commands.dart';
+import '../console/commands/phil_iri_ranking_commands.dart';
 import '../console/commands/reminder_admin_commands.dart';
 import '../console/commands/report_settings_commands.dart';
 import '../console/commands/school_admin_commands.dart';
@@ -89,6 +91,7 @@ class AdminVms {
   final LearnerHistoryViewModel learnerHistoryVm;
   final PhilIriImportViewModel philIriImportVm;
   final LearnerLeaversViewModel learnerLeaversVm;
+  final PhilIriRankingViewModel philIriRankingVm;
 
   AdminVms({
     required this.bootstrapVm,
@@ -103,6 +106,7 @@ class AdminVms {
     required this.learnerHistoryVm,
     required this.philIriImportVm,
     required this.learnerLeaversVm,
+    required this.philIriRankingVm,
   });
 }
 
@@ -120,6 +124,7 @@ AdminViewModels adminViewModels(AdminVms a) => AdminViewModels(
       learnerHistory: a.learnerHistoryVm,
       philIriImport: a.philIriImportVm,
       learnerLeavers: a.learnerLeaversVm,
+      philIriRanking: a.philIriRankingVm,
     );
 
 Future<AdminVms> wireAdmin(AppContext ctx, SharedVms s, TutorVms t) async {
@@ -255,6 +260,16 @@ Future<AdminVms> wireAdmin(AppContext ctx, SharedVms s, TutorVms t) async {
   );
   vms.register('LearnerLeaversViewModel', learnerLeaversVm);
 
+  // The Phil-IRI ranking list (spec 2026-11-14 D9-D12), from the device copy.
+  final philIriRankingVm = PhilIriRankingViewModel(
+    auth: authVm,
+    reports: t.nlaReportVm,
+    students: StudentRepositorySqlite(db),
+    philIri: t.philIriVm,
+    logger: session,
+  );
+  vms.register('PhilIriRankingViewModel', philIriRankingVm);
+
   return AdminVms(
     userVm: userVm,
     importVm: importVm,
@@ -268,6 +283,7 @@ Future<AdminVms> wireAdmin(AppContext ctx, SharedVms s, TutorVms t) async {
     learnerHistoryVm: learnerHistoryVm,
     philIriImportVm: philIriImportVm,
     learnerLeaversVm: learnerLeaversVm,
+    philIriRankingVm: philIriRankingVm,
   );
 }
 
@@ -302,4 +318,5 @@ void registerAdminCommands(AppContext ctx, SharedVms s, TutorVms t, AdminVms a) 
   registerAralRosterImportCommands(r, a.aralRosterImportVm);
   registerLearnerHistoryCommands(r, a.learnerHistoryVm);
   registerSf1LeaverCommands(r, a.learnerLeaversVm);
+  registerPhilIriRankingCommands(r, a.philIriRankingVm);
 }

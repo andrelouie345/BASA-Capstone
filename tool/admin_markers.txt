@@ -66,6 +66,7 @@ AralRosterImportViewModel
 TutorSectionAssignmentViewModel
 PhilIriImportViewModel
 LearnerLeaversViewModel
+PhilIriRankingViewModel
 
 [debug]
 # both console titles ("BASA Debug Console", "BASA Tutor Debug Console"): each

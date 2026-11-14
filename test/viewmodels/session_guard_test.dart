@@ -15,6 +15,7 @@ import 'package:basa_capstone/core/models/phil_iri_assessment.dart' show PhilIri
 import 'package:basa_capstone/core/models/phil_iri_gst_result.dart';
 import 'package:basa_capstone/core/models/phil_iri_miscue.dart';
 import 'package:basa_capstone/core/models/phil_iri_reading.dart';
+import 'package:basa_capstone/core/models/report_setting.dart' show PhilIriValueList;
 import 'package:basa_capstone/core/services/auth_messages.dart';
 import 'package:basa_capstone/core/wiring/app_context.dart';
 import 'package:basa_capstone/core/wiring/wire_shared.dart';
@@ -255,6 +256,7 @@ void main() {
       'scoreReading': () => vm.scoreReading(1),
       'learnerResults': () => vm.learnerResults(studentId: 1, sectionId: 1, schoolYear: '2026-2027'),
       'reportResults': () => vm.reportResults(studentId: 1, sectionId: 1, schoolYear: '2026-2027'),
+      'valueSource': () => vm.valueSource(1, PhilIriValueList.ranking),
     };
     for (final e in calls.entries) {
       await expectLater(e.value(), _refused, reason: e.key);

@@ -181,6 +181,8 @@ phil-iri-passages-for
 phil-iri-question-add
 phil-iri-question-delete
 phil-iri-question-update
+phil-iri-rank
+phil-iri-rank-export
 phil-iri-read
 phil-iri-reading-delete
 phil-iri-reopen

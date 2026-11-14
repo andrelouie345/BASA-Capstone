@@ -55,6 +55,9 @@ const _adminFiles = [
   'viewmodels/learner_leavers_viewmodel.dart',
   'core/repositories/learner_leaver_repository.dart',
   'core/data/remote/learner_leaver_repository_supabase.dart',
+  // Phil-IRI ranking list (spec 2026-11-14-phil-iri-value-sources-design): admin build only.
+  'viewmodels/phil_iri_ranking_viewmodel.dart',
+  'core/console/commands/phil_iri_ranking_commands.dart',
 ];
 
 bool isAdminFile(String path) =>
