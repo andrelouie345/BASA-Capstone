@@ -1242,7 +1242,14 @@ class _Run {
           wbProfile != null && profile != null && !philIriNameKey(wbProfile).startsWith(philIriNameKey(profile));
       final levelDiffers = wbLevel != null && level != null && wbLevel != level;
       if (profileDiffers || levelDiffers) {
-        notes.add('levels differ: BASA ${profile ?? '-'} (grade ${level ?? '-'}), '
+        // BASA carries word reading and comprehension up; the workbook scores
+        // the round alone. When the two differ, the round alone is shown too.
+        final own = res?.actualProfile?.label;
+        final ownLevel = res?.actualAdjustedLevel;
+        final alone = own != null && (own != profile || ownLevel != level)
+            ? '; this round alone: $own, grade ${ownLevel ?? '-'}'
+            : '';
+        notes.add('levels differ: BASA ${profile ?? '-'} (grade ${level ?? '-'}$alone), '
             'workbook ${wbProfile ?? '-'} (grade ${wbLevel ?? '-'})');
       }
       rows.add(row._with(

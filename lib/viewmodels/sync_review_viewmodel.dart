@@ -63,12 +63,21 @@ class SyncApproveResult {
   final List<SyncProblem> conflicts;
   final String uploader;
 
+  /// The server's note on an applied upload, e.g. "1 record followed a
+  /// section move" (SF1 leavers D11).
+  final String? note;
+
   const SyncApproveResult(
-      {required this.uploadId, required this.status, required this.uploader, this.reason, this.conflicts = const []});
+      {required this.uploadId,
+      required this.status,
+      required this.uploader,
+      this.reason,
+      this.conflicts = const [],
+      this.note});
 
   @override
   String toString() => switch (status) {
-        'applied' => 'Upload $uploadId applied. Download the latest data to see it on this device (pull-cloud).',
+        'applied' => 'Upload $uploadId applied.${note == null ? '' : ' $note.'} Download the latest data to see it on this device (pull-cloud).',
         'conflict' => 'Upload $uploadId stopped on ${conflicts.length} conflict(s), sent back to $uploader:\n'
             '${conflicts.map((c) => '  $c').join('\n')}',
         'release' => 'Upload $uploadId was made by an older BASA release: reject it so $uploader updates BASA '
@@ -157,7 +166,7 @@ class SyncReviewViewModel {
     }
     _log('upload $id: ${r.status}');
     return SyncApproveResult(
-        uploadId: id, status: r.status, uploader: uploader, reason: r.reason, conflicts: r.conflicts);
+        uploadId: id, status: r.status, uploader: uploader, reason: r.reason, conflicts: r.conflicts, note: r.note);
   }
 
   /// Sends upload [id] back with [reason]; returns the uploader's label.

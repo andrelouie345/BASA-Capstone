@@ -8,6 +8,7 @@ import '../date_args.dart';
 import '../file_output.dart';
 import '../../../viewmodels/nla_report_viewmodel.dart' show progressPercent;
 import '../../../viewmodels/srp_viewmodel.dart';
+import '../../models/report_setting.dart' show philIriValuesLabel;
 import 'srp_command_helpers.dart';
 
 void registerSrpAdminCommands(ConsoleRegistry registry, SrpViewModel vm) {
@@ -196,6 +197,7 @@ String _options(int defaultPerSection) => '[per=<n, default $defaultPerSection>]
 String _text(SrpList list, bool recommendedOnly) {
   final out = StringBuffer('SRP candidates (not grade level ready by EOSY) | school ${list.schoolId} '
       '| ${list.schoolYear} | as of ${list.asOf} | ${list.perSection} recommended per section');
+  out.write('\n${philIriValuesLabel(list.values)}');
   for (final s in list.sections) {
     out.write('\nG${s.grade} ${s.section.sectionName} (#${s.section.id}): ${s.candidates.length} of ${s.enrolled} '
         'not grade level ready, ${s.recommendedCount} recommended');

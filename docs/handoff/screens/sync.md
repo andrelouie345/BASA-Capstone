@@ -14,6 +14,7 @@ Build: both    Roles: the device owner
 Purpose: see what is unsent, resolve conflicts, send it as one upload, follow its status, withdraw it.
 Calls:
 - `preview()` → `SyncPreview`; `resolve(table, key, SyncChoice.mine|server)` → `SyncResolution`
+- A problem of kind `learnerArchivedKind` (SF1 leavers): a new record of a learner archived that year, or transferred to another school (`learner` names them). Offer only "Drop it" (`resolve(..., SyncChoice.server)`, `SyncResolution.droppedNew`); `mine` is refused.
 - `upload()` → `SyncUploadResult`, or `sync(confirm: (preview) async => ...)` → `SyncRunResult` (preview, confirm, upload in one call; the screen supplies the confirm dialog)
 - `refreshStatus()` → `List<SyncOutcome>`; `uploads()` → `List<SyncUploadRow>`; `lockedCounts()` → `Map<int, int>`; `withdraw(uploadId)`
 - `SyncViewModel.release` → `String` (this app's release)

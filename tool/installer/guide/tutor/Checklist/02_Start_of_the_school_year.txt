@@ -15,5 +15,5 @@ Download the new year's data and check your sections and learners ([[:Functions:
 ===== Steps =====
 [ ] Sign in while connected and open **Sync → Download the latest data**.
 [ ] Open **Learners → Sections** and check your sections for the new school year.
-[ ] Open **Learners → Learners**, pick each section and check its learners. Tell your coordinator about any learner who is missing or wrong.
+[ ] Open **Learners → Learners**, pick each section and check its learners. Tell your coordinator about any learner who is missing or wrong. A learner new to the section is first enrolled in LIS by the class adviser (see //A new learner joins your section// in [[:Functions:Your sections and learners|Your sections and learners]]).
 [ ] Open **Home → Round calendar** to see when each assessment round opens.

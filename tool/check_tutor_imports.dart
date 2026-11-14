@@ -51,6 +51,13 @@ const _adminFiles = [
   'core/services/phil_iri_scoresheet_template.dart',
   'core/services/phil_iri_import_matching.dart',
   'core/services/phil_iri_import_headers.dart',
+  // SF1 leavers (spec 2026-11-12-sf1-leavers-design): admin build only.
+  'viewmodels/learner_leavers_viewmodel.dart',
+  'core/repositories/learner_leaver_repository.dart',
+  'core/data/remote/learner_leaver_repository_supabase.dart',
+  // Phil-IRI ranking list (spec 2026-11-14-phil-iri-value-sources-design): admin build only.
+  'viewmodels/phil_iri_ranking_viewmodel.dart',
+  'core/console/commands/phil_iri_ranking_commands.dart',
 ];
 
 bool isAdminFile(String path) =>

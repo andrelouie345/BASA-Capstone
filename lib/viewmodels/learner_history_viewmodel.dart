@@ -18,6 +18,7 @@ import '../core/console/logger.dart';
 import '../core/models/aral_enrollment.dart';
 import '../core/models/crla_assessment.dart' show CrlaRound;
 import '../core/models/crla_result.dart';
+import '../core/models/enrollment_move.dart';
 import '../core/models/student.dart';
 import '../core/models/user.dart';
 import '../core/models/user_role.dart';
@@ -51,10 +52,51 @@ class LearnerHistoryEnrollment {
   final String sectionName;
   final String gradeLevel;
   final String? schoolName; // null when the school is not on this device
+  /// enrollments.status: active, transferred_out or dropped_out (SF1 leavers).
   final String status;
 
+  /// Set when archived: the date (ISO) and the optional note.
+  final String? leftOn;
+  final String? leftNote;
+
   const LearnerHistoryEnrollment(
-      {required this.sectionName, required this.gradeLevel, required this.schoolName, required this.status});
+      {required this.sectionName,
+      required this.gradeLevel,
+      required this.schoolName,
+      required this.status,
+      this.leftOn,
+      this.leftNote});
+}
+
+/// A section move in the year (SF1 leavers): the enrollment row shows only
+/// the section the learner is in now.
+class LearnerHistoryMove {
+  final String movedOn; // ISO date
+  final int fromSectionId;
+  final String? fromSectionName; // null when the section is not on this device
+  final int toSectionId;
+  final String? toSectionName;
+  final EnrollmentMoveSource source;
+
+  /// A transfer in from another school (source transferIn, D15): that
+  /// school's name, and its archive of the enrollment (status, ISO date).
+  final String? fromSchoolName;
+  final String? fromStatus;
+  final String? fromLeftOn;
+
+  bool get isTransfer => source == EnrollmentMoveSource.transferIn;
+
+  const LearnerHistoryMove({
+    required this.movedOn,
+    required this.fromSectionId,
+    required this.fromSectionName,
+    required this.toSectionId,
+    required this.toSectionName,
+    required this.source,
+    this.fromSchoolName,
+    this.fromStatus,
+    this.fromLeftOn,
+  });
 }
 
 /// The year's Summer Remediation class.
@@ -115,10 +157,13 @@ class LearnerHistoryYear {
   /// At most one (one ARAL entry per learner per year).
   final List<LearnerHistoryAral> aral;
   final LearnerHistorySrp? srp;
+  /// Section moves of the year, oldest first.
+  final List<LearnerHistoryMove> moves;
 
   const LearnerHistoryYear({
     required this.schoolYear,
     required this.enrollments,
+    this.moves = const [],
     required this.crla,
     required this.philIri,
     required this.aral,
@@ -212,16 +257,23 @@ class LearnerHistoryViewModel {
   }
 
   Future<LearnerHistory> _build(User me, Student s) async {
-    if (me.schoolId != null && s.schoolId != me.schoolId) {
+    final id = s.id!;
+    // A learner transferred away from this school (SF1 leavers D15, review
+    // I1): the school still sees what its device holds of them (its own
+    // records, the transfer line, the name; RLS gave it nothing more).
+    if (me.schoolId != null &&
+        s.schoolId != me.schoolId &&
+        !(await _history.moves(id)).any(
+            (m) => m.move.source == EnrollmentMoveSource.transferIn && m.move.fromSchoolId == me.schoolId)) {
       throw const ViewModelException('Forbidden: that learner is not in your school.');
     }
-    final id = s.id!;
     final sections = await _history.sectionEnrollments(id);
     final crla = await _crlaResults.getByStudent(id);
     final philIriSessions = await _philIriSessions.getByStudent(id);
     final gsts = await _gst.getByStudent(id);
     final aral = await _history.aralEntries(id);
     final srp = await _history.srpClasses(id);
+    final moves = await _history.moves(id);
 
     final years = {
       ...sections.map((r) => r.schoolYear),
@@ -230,6 +282,7 @@ class LearnerHistoryViewModel {
       ...gsts.map((r) => r.schoolYear),
       ...aral.map((r) => r.schoolYear),
       ...srp.map((r) => r.schoolYear),
+      ...moves.map((r) => r.move.schoolYear),
     }.toList()
       ..sort((a, b) => b.compareTo(a));
 
@@ -246,7 +299,28 @@ class LearnerHistoryViewModel {
         enrollments: [
           for (final r in sections.where((r) => r.schoolYear == year))
             LearnerHistoryEnrollment(
-                sectionName: r.sectionName, gradeLevel: r.gradeLevel, schoolName: r.schoolName, status: r.status),
+                sectionName: r.sectionName,
+                gradeLevel: r.gradeLevel,
+                schoolName: r.schoolName,
+                status: r.status,
+                leftOn: r.leftOn,
+                leftNote: r.leftNote),
+        ],
+        moves: [
+          for (final m in moves.where((m) => m.move.schoolYear == year))
+            LearnerHistoryMove(
+              movedOn: m.move.movedOn,
+              fromSectionId: m.move.fromSectionId,
+              // Another school's section is not on this device: the
+              // transfer row's snapshot names it.
+              fromSectionName: m.fromSectionName ?? m.move.fromSectionName,
+              toSectionId: m.move.toSectionId,
+              toSectionName: m.toSectionName,
+              source: m.move.source,
+              fromSchoolName: m.move.fromSchoolName,
+              fromStatus: m.move.fromStatus,
+              fromLeftOn: m.move.fromLeftOn,
+            ),
         ],
         crla: _crlaByRound(crla.where((r) => r.schoolYear == year)),
         philIri: [for (final sectionId in philIriSections) await _philIriIn(id, sectionId, year)],

@@ -91,21 +91,75 @@ class SyncProblem {
   final String table;
   final String key;
 
-  /// 'conflict' (server version moved on) or 'server_deleted' (the server no
-  /// longer gives this record).
+  /// 'conflict' (server version moved on), 'server_deleted' (the server no
+  /// longer gives this record) or [learnerArchivedKind] (a new record of a
+  /// learner archived that school year: the server refuses it).
   final String kind;
   final int? baseVersion;
   final int? serverVersion;
 
-  const SyncProblem({required this.table, required this.key, required this.kind, this.baseVersion, this.serverVersion});
+  /// For [learnerArchivedKind]: the learner, e.g. "Cruz, J. (archived on
+  /// 2026-11-12, dropped out)".
+  final String? learner;
+
+  /// For [learnerArchivedKind]: the learner was transferred to another
+  /// school that year (SF1 leavers D15): nobody here can restore them.
+  final bool transferred;
+
+  const SyncProblem(
+      {required this.table,
+      required this.key,
+      required this.kind,
+      this.baseVersion,
+      this.serverVersion,
+      this.learner,
+      this.transferred = false});
 
   @override
   String toString() => switch (kind) {
         'conflict' => '$table $key: changed on the server (yours from version $baseVersion, server now $serverVersion)',
         'server_deleted' => '$table $key: no longer on the server for you (deleted, or out of your sections)',
+        learnerArchivedKind when transferred => '$table $key: a new record of $learner; the server refuses it. '
+            'Drop it with sync-resolve $table $key server',
+        learnerArchivedKind => '$table $key: a new record of $learner; the server refuses it. '
+            'Ask the coordinator to restore the learner, or drop it with sync-resolve $table $key server',
         _ => '$table $key: $kind',
       };
 }
+
+/// [SyncProblem.kind] of a new record whose learner was archived in that
+/// school year (SF1 leavers D11): only "server" (drop it) resolves it.
+const learnerArchivedKind = 'learner_archived';
+
+/// Tables whose new records follow a moved learner or stop on an archived
+/// one at upload (sync_apply, SF1 leavers D11).
+const syncLearnerTables = {'crla_assessments', 'phil_iri_assessments', 'phil_iri_gst_results'};
+
+/// A learner's archived enrollment in one school year, as the server holds
+/// it (sync_archived_learners).
+/// [schoolId] is the record's school: a learner transferred away from it
+/// that year is listed too, with that school's archive (I2).
+typedef SyncArchivedLearner = ({
+  int studentId,
+  String schoolYear,
+  int schoolId,
+  String status,
+  String? leftOn,
+  String? name,
+
+  /// Set when the learner was transferred away from [schoolId] that year
+  /// (ISO date); [status]/[leftOn] are then that school's archive.
+  String? transferredOn,
+});
+
+/// (learner, school year, the record's school) of a new record.
+typedef SyncLearnerKey = (int studentId, String schoolYear, int schoolId);
+
+/// "Cruz, J. (archived on 2026-11-12, dropped out)", or "Cruz, J.
+/// (transferred to another school on 2026-11-13)".
+String syncArchivedLearnerText(SyncArchivedLearner a) => a.transferredOn != null
+    ? '${a.name ?? 'learner ${a.studentId}'} (transferred to another school on ${a.transferredOn})'
+    : '${a.name ?? 'learner ${a.studentId}'} (archived on ${a.leftOn ?? '?'}, ${a.status.replaceAll('_', ' ')})';
 
 /// One of the signed-in user's uploads, as the server holds it (never the
 /// payload).
@@ -127,6 +181,10 @@ class SyncUploadRow {
   final DateTime? decidedAt;
   final Map<String, Object?> summary;
 
+  /// What the server noted on an applied upload, e.g. "2 records followed a
+  /// section move" (SF1 leavers D11); null when nothing.
+  final String? note;
+
   /// The package; only read for one upload (SyncReviewViewModel.details).
   final Map<String, Object?>? payload;
 
@@ -142,6 +200,7 @@ class SyncUploadRow {
     this.idMap = const {},
     this.decidedAt,
     this.summary = const {},
+    this.note,
   });
 
   int get total => (summary['total'] as num?)?.toInt() ?? 0;
@@ -182,6 +241,7 @@ class SyncUploadRow {
         decidedAt: m['decided_at'] == null ? null : DateTime.parse(m['decided_at'] as String),
         summary: Map<String, Object?>.from((m['summary'] as Map?) ?? const {}),
         payload: (m['payload'] as Map?)?.cast<String, Object?>(),
+        note: m['note'] as String?,
       );
 }
 
@@ -202,7 +262,10 @@ class SyncApplyResult {
   final String status;
   final String? reason;
   final List<SyncProblem> conflicts;
-  const SyncApplyResult({required this.status, this.reason, this.conflicts = const []});
+
+  /// The server's note on an applied upload (see [SyncUploadRow.note]).
+  final String? note;
+  const SyncApplyResult({required this.status, this.reason, this.conflicts = const [], this.note});
 }
 
 /// What happened to an upload since this device last looked.
@@ -215,11 +278,20 @@ class SyncOutcome {
   /// Rows of this device that it covered (records and their items).
   final int records;
 
-  const SyncOutcome({required this.uploadId, required this.status, required this.records, this.reason, this.conflicts = const []});
+  /// The server's note on an applied upload (see [SyncUploadRow.note]).
+  final String? note;
+
+  const SyncOutcome(
+      {required this.uploadId,
+      required this.status,
+      required this.records,
+      this.reason,
+      this.conflicts = const [],
+      this.note});
 
   @override
   String toString() => switch (status) {
-        'applied' => 'Upload $uploadId applied: $records row(s) now on the server.',
+        'applied' => 'Upload $uploadId applied: $records row(s) now on the server.${note == null ? '' : ' $note.'}',
         'rejected' => 'Upload $uploadId rejected: ${reason ?? "no reason given"}. Its $records row(s) can be changed again.',
         'error' => 'Upload $uploadId failed on the server: ${reason ?? "unknown error"}. Its $records row(s) can be changed again.',
         'withdrawn' => 'Upload $uploadId withdrawn; its $records row(s) can be changed again.',
@@ -256,10 +328,18 @@ class SyncResolution {
   /// The server's version now, or null when the server no longer has it.
   final int? serverVersion;
 
-  const SyncResolution({required this.table, required this.key, required this.choice, this.serverVersion});
+  /// A new record of an archived learner, dropped from this device with its
+  /// items (never on the server).
+  final bool droppedNew;
+
+  const SyncResolution(
+      {required this.table, required this.key, required this.choice, this.serverVersion, this.droppedNew = false});
 
   @override
-  String toString() => choice == SyncChoice.mine
+  String toString() => droppedNew
+      ? 'Dropped $table $key and its items from this device: the server refuses new records of an archived learner. '
+          'The rest of your work can be uploaded.'
+      : choice == SyncChoice.mine
       ? serverVersion == null
           ? 'Kept your delete of $table $key (the server no longer has it either).'
           : 'Kept yours for $table $key (will overwrite server version $serverVersion).'

@@ -11,5 +11,11 @@ Creation-Date: 2026-11-08T00:00:00+08:00
 
 You also see the learners of the ARAL classes you teach, whatever their section.
 
+===== A new learner joins your section =====
+You can't add learners in BASA Tutor: learners come from the section's school form (SF1, from LIS), which your coordinator imports.
+[ ] Ask the section's **class adviser** to enrol the new learner in **LIS**.
+[ ] Give your **coordinator** the new learner's details: full name, LRN and section.
+[ ] When your coordinator says the learner is in BASA, open **Sync → Download the latest data**. The learner then appears in the section and can be assessed.
+
 ===== Schools =====
 **Learners → Schools**. Your school's details.

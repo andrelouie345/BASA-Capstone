@@ -227,4 +227,64 @@ void main() {
     expect(problem.message, contains('more than'));
     expect(reading(p, const WbLearner('Abad, Ana B.'), _mosy1).correctCount, isNull);
   });
+
+  group("ma's comprehension codes (0.1 = blank, 0.2 = 0)", () {
+    const ella = 'Esteban, Ella F.';
+    PhilIriImportPlan one(Map<PhilIriRound, WbRound> rounds, {Object? gst = 20}) => read([
+          WbSheet('09', females: [WbLearner(ella, gst: gst, rounds: rounds)], methods: const {_mosy1: 'One-Minute Reading'}),
+        ]);
+    final e = const WbLearner(ella);
+
+    test('0.1 next to a timed reading = a word reading with no comprehension, no problem', () {
+      final p = one({_mosy1: const WbRound(passage: '7D2 Ecosystems', wordsRead: 25, mispronunciation: 21, comprehension: 0.1)});
+      final r = reading(p, e, _mosy1);
+      expect((r.wordsRead, r.correctCount, r.correctTotal), (25, null, null));
+      expect(p.problems, isEmpty);
+    });
+
+    test('0.1 alone = nothing typed in that round', () {
+      final p = one({_mosy1: const WbRound(comprehension: 0.1)});
+      expect(hasReading(p, e, _mosy1), isFalse);
+      expect(p.skipped, isEmpty);
+      expect(p.problems, isEmpty);
+    });
+
+    test('0.2 = 0 correct: a comprehension-only reading, assessed', () {
+      final p = one({_mosy1: const WbRound(passage: '7C Dust', comprehension: 0.2)});
+      final r = reading(p, e, _mosy1);
+      expect((r.correctCount, r.correctTotal, r.seconds, r.wordsRead), (0, 8, null, null));
+      expect(p.problems, isEmpty);
+    });
+
+    test('0.2 on an Untitled reading still needs the maximum', () {
+      final p = read([
+        WbSheet('09', females: [const WbLearner(ella, rounds: {_bosy: WbRound(wordsRead: 145, mm: 2, comprehension: 0.2)})],
+            methods: const {_bosy: 'Whole-Text Reading'}, comprehensionMax: const {_bosy: null}),
+      ]);
+      expect(reading(p, e, _bosy).correctCount, isNull);
+      expect(p.problems.map((x) => x.message), contains('comprehension without a maximum, not imported'));
+    });
+
+    test('the codes typed as text read the same', () {
+      final p = one({
+        _bosy: const WbRound(passage: '7C Dust', wordsRead: 160, mm: 1, comprehension: ' 0.1 '),
+        _mosy1: const WbRound(passage: '7D2 Ecosystems', comprehension: '0.2'),
+      });
+      expect(reading(p, e, _bosy).correctCount, isNull);
+      expect(reading(p, e, _mosy1).correctCount, 0);
+      expect(p.problems, isEmpty);
+    });
+
+    test('another decimal in a comprehension column is unreadable and names the codes', () {
+      final p = one({_mosy1: const WbRound(passage: '7C Dust', wordsRead: 100, comprehension: 0.5)});
+      expect(p.problems.single.message, 'unreadable value "0.5" (a whole number is expected, or 0.1 = blank / 0.2 = 0)');
+      expect(p.problems.single.ref.column, 'BM');
+    });
+
+    test('the codes work only in comprehension columns', () {
+      final p = one({_mosy1: const WbRound(passage: '7C Dust', wordsRead: 100, comprehension: 3)}, gst: 0.2);
+      expect(p.gst, isEmpty);
+      expect(p.problems.single.message, 'unreadable value "0.2" (a whole number is expected)');
+    });
+  });
 }

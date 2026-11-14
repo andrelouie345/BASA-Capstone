@@ -1,0 +1,225 @@
+# A9 Phil-IRI value sources and the ranking list (spec
+# docs/superpowers/specs/2026-11-14-phil-iri-value-sources-design.md, plan
+# Task 5; needs migration 20261114010000): the six carried/actual switches
+# (value-sources, value-source-set), each list under carried and under actual,
+# and phil-iri-rank / phil-iri-rank-export.
+# A new Grade 7 section ZZTEST-A9{stamp} with four learners (from=stamp), all
+# reports filtered to it:
+#   L1  BOSY "Lili" (110) 8/10, MOSY 1 "The Jeepney" (119) 1/10
+#   L2  GST 30/40 only
+#   L3  BOSY "Lili" 8/10 (ties with L1 at BOSY)
+#   L4  nothing
+# Under carried MOSY 1 shows the best so far (L1 80%); under actual L1's own
+# 10%, and L2-L4 are "not assessed this round" (3-LD Frustration on Form 2b).
+# The school's switches are back at their defaults at the end.
+
+device a9-pc admin fresh
+as coord
+run pull-cloud yes
+expect users:
+
+# --- The switches -------------------------------------------------------------
+run value-sources {school}
+expect aral: region
+expect ranking: region
+expect~ ranking: region \S+ · school \S+ · applies actual
+expect~ form2b: region \S+ · school \S+ · applies carried
+run value-source-set {school} ranking carried
+expect ranking values for school {school} are now carried. Devices get it after their next pull-cloud.
+run value-sources {school}
+expect~ ranking: region \S+ · school carried · applies carried
+run value-source-set {school} ranking actual
+expect ranking values for school {school} are now actual.
+run value-source-set {school} rank actual
+refuse Unknown list "rank": one of aral|bosy-masterlist|form2b|srp|learner-pages|ranking.
+run value-source-set {school} srp maybe
+refuse Unknown values "maybe": carried or actual.
+run value-source-set {school} srp
+refuse Usage: value-source-set <region|schoolId>
+run value-source-set {schoolB} srp actual
+refuse Forbidden: you can only set your own school's report settings.
+run value-source-set region srp actual
+refuse Forbidden: only the superadmin sets the region-wide report settings.
+sql select count(*) from report_settings where school_id = {school} => 1
+
+# --- A section with four learners --------------------------------------------------
+make-sf1 sf1_a9 a 7 ZZTEST-A9{stamp} 4 from=stamp
+run import-students "{sf1_a9}"
+expect Inserted: 4, Conflicts: 0, Already enrolled: 0
+capture sec_a9 = resolved section: 7 - ZZTEST-A9{stamp} \({year}\) \(id=(\d+)\)
+run student-list-section {sec_a9}
+capture l1 = (\d+) \| \d+ \|
+capture l2 = (?:\d+ \| \d+ \|[^\n]*\n)(\d+) \| \d+ \|
+capture l3 = (?:\d+ \| \d+ \|[^\n]*\n){2}(\d+) \| \d+ \|
+capture l4 = (?:\d+ \| \d+ \|[^\n]*\n){3}(\d+) \| \d+ \|
+run phil-iri-passage-show {=119}
+capture q119_2 = \[(\d+)\] Q2
+
+# --- Readings (as the coordinator; uploaded at once) ---------------------------------
+run phil-iri-start {l1} {sec_a9} {year} bosy
+capture pi_1b = Started session (-?\d+)
+run phil-iri-read {pi_1b} {=110} minute {=60}
+capture rd_1b = reading (-?\d+)
+run phil-iri-answer {rd_1b} {=903} d
+expect~ .
+run phil-iri-answer {rd_1b} {=905} b
+expect~ .
+run phil-iri-answer {rd_1b} {=906} b
+expect~ .
+run phil-iri-answer {rd_1b} {=907} a
+expect~ .
+run phil-iri-answer {rd_1b} {=908} b
+expect~ .
+run phil-iri-answer {rd_1b} {=910} d
+expect~ .
+run phil-iri-answer {rd_1b} {=911} c
+expect~ .
+run phil-iri-answer {rd_1b} {=912} a
+expect~ .
+run phil-iri-complete {pi_1b}
+expect~ .
+run phil-iri-start {l1} {sec_a9} {year} mosy1
+capture pi_1m = Started session (-?\d+)
+run phil-iri-read {pi_1m} {=119} minute {=60}
+capture rd_1m = reading (-?\d+)
+# One right answer of ten: 10%.
+run phil-iri-answer {rd_1m} {q119_2} c
+expect~ .
+run phil-iri-complete {pi_1m}
+expect~ .
+run phil-iri-gst {l2} {sec_a9} {year} {=30}
+expect 30/40 (75%, passed).
+run phil-iri-start {l3} {sec_a9} {year} bosy
+capture pi_3b = Started session (-?\d+)
+run phil-iri-read {pi_3b} {=110} minute {=60}
+capture rd_3b = reading (-?\d+)
+run phil-iri-answer {rd_3b} {=903} d
+expect~ .
+run phil-iri-answer {rd_3b} {=905} b
+expect~ .
+run phil-iri-answer {rd_3b} {=906} b
+expect~ .
+run phil-iri-answer {rd_3b} {=907} a
+expect~ .
+run phil-iri-answer {rd_3b} {=908} b
+expect~ .
+run phil-iri-answer {rd_3b} {=910} d
+expect~ .
+run phil-iri-answer {rd_3b} {=911} c
+expect~ .
+run phil-iri-answer {rd_3b} {=912} a
+expect~ .
+run phil-iri-complete {pi_3b}
+expect~ .
+run sync-upload yes
+expect~ [Aa]pplied
+
+# --- Every list under carried (the defaults) ------------------------------------------
+run nla-report {school} {year} sections={sec_a9} blocks=form2b rounds=mosy1
+expect Values: carried (best so far)
+# L1 80% (BOSY carried), L2 75% (the GST), L3 80%: all grade level ready; L4 has no comprehension.
+expect~ MOSY #1: assessed M \d+ F \d+ T 3 \| GLR M \d+ F \d+ T 3 \|
+run bosy-masterlist {school} {year} sections={sec_a9}
+expect Values: carried (best so far)
+expect~ ^(?![\s\S]*NOT ASSESSED[\s\S]*NOT ASSESSED)[\s\S]*NOT ASSESSED
+run srp-list {school} {year} sections={sec_a9}
+expect Values: carried (best so far)
+run aral-propose {sec_a9} {year}
+expect Values: carried (best so far)
+expect~ {l2} \| [^\n]*Phil-IRI BOSY \(GST only\)
+run aral-report {school} {year} {sec_a9}
+expect Grades 4-10: Values: carried (best so far)
+run phil-iri-results {l1} {sec_a9} {year}
+expect Values: carried (best so far)
+expect~ MOSY #1 +session \d+ completed · WR [^\n]*comp 80%
+expect~ MOSY #2 +\(carried\) not given · WR [^\n]*comp 80%
+expect~ ^(?![\s\S]*true score)
+
+# --- The ranking list (default actual) -------------------------------------------------
+run phil-iri-rank {school} {year} bosy comprehension n={=1} section={sec_a9}
+expect Values: actual (each round's own reading)
+expect~ #1 [^\n]*G7 ZZTEST-A9{stamp}: 80\.0%[^\n]*\n#1 [^\n]*G7 ZZTEST-A9{stamp}: 80\.0%
+expect 2 shown: 2 tied at rank 1
+expect Not ranked (2):
+expect not assessed this round
+run phil-iri-rank {school} {year} mosy1 comprehension section={sec_a9}
+expect~ #1 [^\n]*: 10\.0%
+expect Not ranked (3):
+run phil-iri-rank {school} {year} mosy1 accuracy section={sec_a9} grade={=7}
+refuse Give a section or a grade, not both.
+run phil-iri-rank {school} {year} mosy1 comprehension n={=0} section={sec_a9}
+refuse Learners to list is at least 1 (got 0).
+run phil-iri-rank {school} {year} mosy1 speed
+refuse The measure is accuracy|wpm|comprehension (got "speed").
+run phil-iri-rank-export {school} {year} bosy accuracy "{rundir}/a9_rank.csv" section={sec_a9}
+expect~ Wrote .*a9_rank\.csv \(2 ranked, 2 not ranked\)\.
+
+# --- Every list under actual ------------------------------------------------------------
+run value-source-set {school} form2b actual
+expect form2b values for school {school} are now actual.
+run value-source-set {school} bosy-masterlist actual
+expect~ .
+run value-source-set {school} srp actual
+expect~ .
+run value-source-set {school} aral actual
+expect~ .
+run value-source-set {school} learner-pages actual
+expect~ .
+run value-source-set {school} ranking carried
+expect~ .
+run value-sources {school}
+expect~ form2b: region \S+ · school actual · applies actual
+expect~ learner-pages: region \S+ · school actual · applies actual
+expect~ ranking: region \S+ · school carried · applies carried
+run nla-report {school} {year} sections={sec_a9} blocks=form2b rounds=mosy1
+expect Values: actual (each round's own reading); not assessed this round counted as 3-LD Frustration
+# L1's own 10%, and L2-L4 not read at MOSY 1: all four in 3-LD Frustration.
+expect~ MOSY #1: assessed M \d+ F \d+ T 4 \| GLR M \d+ F \d+ T 0 \|
+expect~ Frus M \d+ F \d+ T 4 = M \d+ F \d+ T 4
+run bosy-masterlist {school} {year} sections={sec_a9}
+expect Values: actual (each round's own reading)
+# L2 (GST only) is not assessed this round too.
+expect~ NOT ASSESSED[\s\S]*NOT ASSESSED
+run srp-list {school} {year} sections={sec_a9}
+expect Values: actual (each round's own reading)
+expect 4 of 4 not grade level ready
+run aral-propose {sec_a9} {year}
+expect Values: actual (each round's own reading)
+expect~ {l2} \| [^\n]*Not assessed this round \(actual values\): counted as Struggling, 3 levels down \(Grade 4\)
+run aral-report {school} {year} {sec_a9}
+expect Grades 4-10: Values: actual (each round's own reading)
+run phil-iri-results {l1} {sec_a9} {year}
+expect Values: actual (each round's own reading)
+expect~ MOSY #1 +session \d+ completed · WR [^\n]*comp 10%
+expect~ MOSY #2 +not given · Not assessed this round
+run phil-iri-rank {school} {year} mosy1 comprehension section={sec_a9}
+expect Values: carried (best so far)
+# Carried: L2's 75% (the GST, carried) is lowest; L1 and L3 tie at 80%; L4 has nothing.
+expect~ #1 [^\n]*: 75\.0%
+expect~ #2 [^\n]*: 80\.0%[^\n]*\n#2 [^\n]*: 80\.0%
+expect Not ranked (1):
+
+# --- Back to the defaults -----------------------------------------------------------------
+run value-source-set {school} form2b carried
+expect~ .
+run value-source-set {school} bosy-masterlist carried
+expect~ .
+run value-source-set {school} srp carried
+expect~ .
+run value-source-set {school} aral carried
+expect~ .
+run value-source-set {school} learner-pages carried
+expect~ .
+run value-source-set {school} ranking actual
+expect~ .
+run value-sources {school}
+expect~ aral: region \S+ · school carried · applies carried
+expect~ ranking: region \S+ · school actual · applies actual
+
+# --- The superadmin: the region row --------------------------------------------------------
+device a9-super admin fresh
+as super
+run value-sources region
+expect~ ranking: region \S+ · applies actual
+# (The tutor build has none of value-sources, value-source-set, phil-iri-rank,
+# phil-iri-rank-export: test/core/wiring/command_sets_test.dart.)

@@ -31,6 +31,7 @@ import '../core/models/aral_class.dart';
 import '../core/models/aral_enrollment.dart';
 import '../core/models/crla_result.dart';
 import '../core/models/phil_iri_assessment.dart' show PhilIriRound;
+import '../core/models/report_setting.dart' show PhilIriValueList, PhilIriValues;
 import '../core/models/section.dart';
 import '../core/models/student.dart';
 import '../core/models/user.dart';
@@ -45,7 +46,7 @@ import '../core/repositories/user_repository.dart';
 import '../core/services/aral_rules.dart';
 import '../core/services/csv.dart';
 import '../core/services/crla_rules.dart' show crlaAtGradeLevel;
-import '../core/services/phil_iri_results.dart' show PhilIriRoundResult, philIriNotAssessedResult;
+import '../core/services/phil_iri_results.dart' show PhilIriRoundResult, PhilIriRoundView, philIriNotAssessedResult, philIriRoundView;
 import '../core/services/normalizers.dart';
 import '../core/services/sync_upload_rules.dart' show pendingLockMessage;
 import 'aral_class_viewmodel.dart' show aralPlacementRefusal, aralPlacementDbRefusals;
@@ -193,6 +194,10 @@ class AralViewModel {
   /// it first; reads leave it alone.
   String? lastWarning;
 
+  /// The Phil-IRI values the last [propose] used (values_aral; spec
+  /// 2026-11-14), null for a Grade 1-3 section (CRLA).
+  PhilIriValues? lastProposalValues;
+
   AralViewModel({
     required AuthViewModel auth,
     required AralEnrollmentRepository roster,
@@ -236,6 +241,8 @@ class AralViewModel {
     final enrolled = {for (final e in sectionRoster) e.studentId: e};
     final crla = grade <= 3 ? await _crlaResults.getBySection(section.id!, schoolYear: schoolYear) : const <CrlaResult>[];
     final program = await programSettings(section.schoolId);
+    final values = grade <= 3 ? PhilIriValues.carried : await _philIri.valueSource(section.schoolId, PhilIriValueList.aral);
+    lastProposalValues = grade <= 3 ? null : values;
 
     final out = <AralCandidate>[];
     for (final s in learners) {
@@ -252,7 +259,7 @@ class AralViewModel {
       }
       out.add(grade <= 3
           ? _crlaCandidate(s, grade, crla.where((r) => r.studentId == s.id).toList(), program.ks1Extended)
-          : await _philIriCandidate(s, grade, section.id!, schoolYear, program.foundationalProgram));
+          : await _philIriCandidate(s, grade, section.id!, schoolYear, program.foundationalProgram, values));
     }
 
     // Every qualifying learner is proposed; the ranking says who is weakest.
@@ -310,8 +317,8 @@ class AralViewModel {
     );
   }
 
-  Future<AralCandidate> _philIriCandidate(
-      Student s, int grade, int sectionId, String schoolYear, bool foundationalProgram) async {
+  Future<AralCandidate> _philIriCandidate(Student s, int grade, int sectionId, String schoolYear,
+      bool foundationalProgram, PhilIriValues values) async {
     // As reports count it: finished sessions only; the GST carries into BOSY.
     final results = await _philIri.reportResults(studentId: s.id!, sectionId: sectionId, schoolYear: schoolYear);
     if (results.notAssessed) {
@@ -334,7 +341,25 @@ class AralViewModel {
         basisLevel: aralNotAssessedLevel,
       );
     }
-    final bosy = results.round(PhilIriRound.bosy);
+    // The school's values (values_aral): carried = BOSY as computed; actual =
+    // the BOSY reading alone, or the stand-in without one (spec 2026-11-14 D5).
+    final bosy = results.view(PhilIriRound.bosy, values);
+    if (bosy.notAssessedThisRound) {
+      final placement = aralPhilIriPlacement(
+          adjustedLevel: bosy.adjustedLevel!, grade: grade, foundationalProgram: foundationalProgram);
+      return AralCandidate(
+        student: s,
+        grade: grade,
+        status: AralCandidateStatus.proposed,
+        reason: 'Not assessed this round (actual values): counted as Struggling, 3 levels down '
+            '(Grade ${bosy.adjustedLevel})',
+        suggestion: placement,
+        rankKey: const AralRankKey(0, 0, 0),
+        basisSource: AralBasisSource.philIri,
+        basisRound: PhilIriRound.bosy.name,
+        basisLevel: aralNotAssessedLevel,
+      );
+    }
     if (!results.counted.contains(PhilIriRound.bosy) || bosy.profile == null || bosy.adjustedLevel == null) {
       return AralCandidate(
         student: s,
@@ -347,9 +372,9 @@ class AralViewModel {
     final adjusted = bosy.adjustedLevel!;
     final placement =
         aralPhilIriPlacement(adjustedLevel: adjusted, grade: grade, foundationalProgram: foundationalProgram);
-    final key = AralRankKey.philIri(bosy);
+    final key = AralRankKey.philIriView(bosy);
     final level = adjusted == 0 ? 'non-reader' : 'reads at Grade $adjusted';
-    final scores = aralPhilIriScoresText(bosy, gstOnly: gstOnly);
+    final scores = aralPhilIriViewScoresText(bosy, gstOnly: gstOnly);
     return AralCandidate(
       student: s,
       grade: grade,
@@ -848,21 +873,25 @@ class AralViewModel {
   Future<_LatestResult?> _latestPhilIri(AralEnrollment e, int grade) async {
     // Carried result of the latest finished round (reports count the same);
     // a learner with nothing yet stays as placed.
+    // Actual (values_aral): the latest round the learner read, that reading
+    // alone (spec 2026-11-14 D6); the reason says so (D7).
+    final values = await _philIri.valueSource(e.schoolId, PhilIriValueList.aral);
     final res = await _philIri.reportResults(studentId: e.studentId, sectionId: e.sectionId, schoolYear: e.schoolYear);
-    final r = res.latest(PhilIriRound.values);
+    final r = res.latestView(PhilIriRound.values, values);
     if (r == null || r.profile == null || r.adjustedLevel == null) return null;
     // A BOSY that only the GST stands for has no session: the GST's date.
     final session = res.sessions[r.round];
     final date = (session?.assessedAt ?? res.gst!.takenAt).substring(0, 10);
     final adjusted = r.adjustedLevel!;
     final level = adjusted == 0 ? 'non-reader' : 'reads at Grade $adjusted';
+    final mark = values == PhilIriValues.actual ? ' (actual)' : '';
     return _LatestResult(r.round.name, r.profile!.name, session?.id, date,
         AralExitReason.gradeLevelReady,
         aralPhilIriPlacement(
             adjustedLevel: adjusted,
             grade: grade,
             foundationalProgram: (await programSettings(e.schoolId)).foundationalProgram),
-        'Phil-IRI ${r.round.label}${session == null ? ' (GST)' : ''} ($level)');
+        'Phil-IRI ${r.round.label}${session == null ? ' (GST)' : ''}$mark ($level)');
   }
 
   /// The latest CRLA round with a profile in the grade's language
@@ -1113,7 +1142,12 @@ class AralViewModel {
 /// yet (comprehension only, nothing earlier: [PhilIriRoundResult.wordReadingAssumed])
 /// says "not assessed" instead of 0% / "- wpm"; ranking still counts it as
 /// Struggling (AralRankKey.philIri).
-String aralPhilIriScoresText(PhilIriRoundResult bosy, {required bool gstOnly}) {
+String aralPhilIriScoresText(PhilIriRoundResult bosy, {required bool gstOnly}) =>
+    aralPhilIriViewScoresText(philIriRoundView(bosy, PhilIriValues.carried, ownReading: bosy.given, learnerGrade: 0),
+        gstOnly: gstOnly);
+
+/// [aralPhilIriScoresText] for a round as a list shows it (carried or actual).
+String aralPhilIriViewScoresText(PhilIriRoundView bosy, {required bool gstOnly}) {
   String pct(double? fraction) => fraction == null ? '-' : '${(fraction * 100).round()}%';
   final word = gstOnly
       ? 'no reading'
