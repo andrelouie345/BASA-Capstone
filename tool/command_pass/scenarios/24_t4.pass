@@ -177,11 +177,14 @@ run phil-iri-results {s_g7_1} {sec_g7} {year}
 expect GST: 30/40 (75%, attempt 1)
 expect WR 99% Independent, 143 wpm Average, comp 80% Independent -> Independent
 # The year's comprehension starts at the GST and keeps the highest (ma's
-# workbook): GST 50% > the session's 30%. The true score keeps 30%.
+# workbook): GST 50% > the session's 30%. The learner page shows carried
+# values by default (values_learner_pages; spec 2026-11-14 D11), one line per
+# round: no separate true-score line.
 run phil-iri-results {s_g7_2} {sec_g7} {year} current
 expect regenerated with today's thresholds
+expect Values: carried (best so far)
 expect WR 88% Struggling, 60 wpm Struggling, comp 50% Frustration -> Struggling
-expect comprehension 30% (Struggling)
+expect~ ^(?![\s\S]*true score)
 
 # --- Delete a reading, discard a session ------------------------------------------
 run phil-iri-start {s_g7_3} {sec_g7} {year} bosy

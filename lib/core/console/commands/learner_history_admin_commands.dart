@@ -6,6 +6,7 @@ import '../console_command.dart';
 import '../console_registry.dart';
 import '../../models/aral_enrollment.dart' show AralBasisSource;
 import '../../models/enrollment_move.dart' show EnrollmentMoveSource;
+import '../../models/report_setting.dart' show PhilIriValues, philIriValuesLabel;
 import '../../../viewmodels/learner_history_viewmodel.dart';
 
 class _Usage implements Exception {
@@ -77,14 +78,24 @@ String _text(LearnerHistory h) {
         continue;
       }
       final g = r.gst;
+      // One kind of values (values_learner_pages, spec 2026-11-14 D11): the
+      // "(carried)" mark only under carried; under actual a round without a
+      // reading of its own is "not assessed this round".
+      final carried = r.values == PhilIriValues.carried;
       final rounds = [
         for (final round in r.rounds)
-          if (round.profile != null) '${round.round.label} ${round.profile!.label}${round.given ? '' : ' (carried)'}',
+          if (round.profile != null)
+            switch (r.view(round.round)) {
+              final v when v.notAssessedThisRound => '${round.round.label} not assessed this round',
+              final v => '${round.round.label} ${v.profile!.label}${carried && !round.given ? ' (carried)' : ''}',
+            },
       ];
+      final end = r.endView();
       out.write('\n  Phil-IRI ${p.sectionName ?? 'section'} (section ${p.sectionId}): '
           'GST ${g == null ? 'none' : '${g.totalScore}/${g.maxScore}'}; '
           '${rounds.isEmpty ? 'no round results' : rounds.join(', ')}; '
-          'end ${r.end == null ? 'none yet' : '${r.end!.round.label} ${r.end!.profile?.label ?? '-'}'}');
+          'end ${end == null ? 'none yet' : '${end.round.label} ${end.profile?.label ?? '-'}'}; '
+          '${philIriValuesLabel(r.values)}');
     }
     for (final a in y.aral) {
       final e = a.enrollment;

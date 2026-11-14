@@ -14,6 +14,7 @@ import '../../models/phil_iri_miscue.dart';
 import '../../models/phil_iri_passage.dart';
 import '../../models/phil_iri_reading.dart';
 import '../../models/phil_iri_types.dart';
+import '../../models/report_setting.dart' show PhilIriValues, philIriValuesLabel;
 import 'phil_iri_command_helpers.dart';
 
 void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
@@ -387,21 +388,17 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
         '${r.regenerated ? ' · regenerated with today\'s thresholds' : ''}');
     final g = r.gst;
     out.write('\nGST: ${g == null ? 'none' : '${g.totalScore}/${g.maxScore} (${g.wholePercent}%, attempt ${g.attemptNo})'}');
+    out.write('\n${philIriValuesLabel(r.values)}');
     for (final round in r.rounds) {
       final s = r.sessions[round.round];
       final status = s == null ? 'not given' : 'session ${s.id} ${s.status.value}';
-      final carried = !round.given && round.profile != null; // an earlier round's result
-      out.write('\n${round.round.label.padRight(8)} ${carried ? '(carried) ' : ''}$status · ${_roundText(round)}');
-      final a = round.actual;
-      if (a != null) {
-        // The true current score, for the tutor (the line above is what reports use).
-        final level = round.actualAdjustedLevel == null
-            ? ''
-            : ' · adjusted ${round.actualAdjustedLevelLabel} · ${round.actualLevelsDownLabel}';
-        out.write('\n${''.padRight(9)}true score: ${_resultText(a)}$level');
-      }
+      // Carried: an earlier round's result stands for this one.
+      final carried = r.values == PhilIriValues.carried && !round.given && round.profile != null;
+      out.write('\n${round.round.label.padRight(8)} ${carried ? '(carried) ' : ''}$status · '
+          '${_viewText(r.view(round.round))}');
     }
-    out.write('\nEnd result: ${r.end == null ? 'none yet' : '${r.end!.round.label} · ${_roundText(r.end!)}'}');
+    final end = r.endView();
+    out.write('\nEnd result: ${end == null ? 'none yet' : '${end.round.label} · ${_viewText(end)}'}');
     return out.toString();
   });
 }
@@ -459,19 +456,25 @@ String _resultText(PhilIriPassageResult r) {
       '(${r.comprehensionLevel.label}); profile ${r.profile.label}';
 }
 
-String _roundText(PhilIriRoundResult r) {
-  if (r.profile == null) return 'no result yet';
-  final level = r.adjustedLevel == null ? '' : ' · adjusted ${r.adjustedLevelLabel} · ${r.levelsDownLabel}';
-  final status = switch (r.status) {
-    PhilIriRoundStatus.assessed => '',
-    PhilIriRoundStatus.carriedOver => ' · carried over',
-    PhilIriRoundStatus.notAssessed => ' · not assessed',
-  };
-  final wr = r.wordReadingAssumed
-      ? 'WR not assessed (${r.wordReadingLevel!.label})'
-      : 'WR ${_pct(r.wordReadingPercent)} ${r.wordReadingLevel?.label ?? '-'}, '
-          '${r.wordsPerMinute?.round() ?? '-'} wpm ${r.speed?.label ?? '-'}';
-  return '$wr, comp ${_pct(r.comprehensionPercent)} ${r.comprehensionLevel?.label ?? '-'} -> ${r.profile!.label}'
+/// One round as the learner pages show it (spec 2026-11-14 D11). Under
+/// actual a round without an own reading is "Not assessed this round"; the
+/// monitoring status (carried over / not assessed) shows under carried only.
+String _viewText(PhilIriRoundView v) {
+  if (v.notAssessedThisRound) return 'Not assessed this round';
+  if (v.profile == null) return 'no result yet';
+  final level = v.adjustedLevel == null ? '' : ' · adjusted ${v.adjustedLevelLabel} · ${v.levelsDownLabel}';
+  final status = v.values == PhilIriValues.actual
+      ? ''
+      : switch (v.status) {
+          PhilIriRoundStatus.assessed => '',
+          PhilIriRoundStatus.carriedOver => ' · carried over',
+          PhilIriRoundStatus.notAssessed => ' · not assessed',
+        };
+  final wr = v.wordReadingAssumed
+      ? 'WR not assessed (${v.wordReadingLevel!.label})'
+      : 'WR ${_pct(v.wordReadingPercent)}${v.silentOnly ? ' (silent, not measured)' : ''} '
+          '${v.wordReadingLevel?.label ?? '-'}, ${v.wordsPerMinute?.round() ?? '-'} wpm ${v.speed?.label ?? '-'}';
+  return '$wr, comp ${_pct(v.comprehensionPercent)} ${v.comprehensionLevel?.label ?? '-'} -> ${v.profile!.label}'
       '$level$status';
 }
 

@@ -152,4 +152,4 @@ expect GST: 30/40 (75%, attempt 1)
 expect~ BOSY +session {pi_wb} finalized · WR 99% Independent, 143 wpm Average, comp 80% Independent -> Independent
 # The scoresheet's MOSY 1 has no answers: not assessed, BOSY carried over.
 expect~ MOSY #1 +session \d+ completed · .* · carried over
-expect comprehension blank (Struggling)
+expect Values: carried (best so far)

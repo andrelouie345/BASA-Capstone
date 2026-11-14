@@ -56,6 +56,7 @@
 // - Only the latest attempt of a round counts; picking it is the caller's job.
 import '../models/phil_iri_assessment.dart' show PhilIriRound;
 import '../models/phil_iri_reading.dart' show PhilIriReadingMethod;
+import '../models/report_setting.dart' show PhilIriValues;
 import 'phil_iri_rules.dart';
 
 class PhilIriPassageResult {
@@ -239,6 +240,9 @@ class PhilIriRoundResult {
   final bool wordReadingAssumed;
   /// Assessed / carried over / not assessed this round (monitoring).
   final PhilIriRoundStatus status;
+  /// The carried word reading is the silent-only 1.0 (no oral reading so
+  /// far): not a measured accuracy.
+  final bool wordReadingSilentOnly;
 
   bool get comprehensionBlank => comprehensionScore == null;
 
@@ -269,6 +273,7 @@ class PhilIriRoundResult {
     this.comprehensionAssessed = false,
     this.wordReadingAssumed = false,
     this.status = PhilIriRoundStatus.notAssessed,
+    this.wordReadingSilentOnly = false,
     this.wordReadingScore,
     this.wordsPerMinute,
     this.accuracyLevel,
@@ -381,6 +386,7 @@ List<PhilIriRoundResult> philIriRoundResults({
       status: wrAssessed && (compAssessed || comprehensionOptional.contains(round))
           ? PhilIriRoundStatus.assessed
           : (profile != null ? PhilIriRoundStatus.carriedOver : PhilIriRoundStatus.notAssessed),
+      wordReadingSilentOnly: oralScore == null && silentWpm != null,
       wordReadingScore: wrScore,
       wordsPerMinute: wpm,
       accuracyLevel: accuracy,
@@ -402,6 +408,122 @@ List<PhilIriRoundResult> philIriRoundResults({
     ));
   }
   return results;
+}
+
+/// A round as a list shows it under one kind of values (spec 2026-11-14
+/// value sources D3): carried (the round result as computed) or actual (the
+/// round's own reading alone, or the not-assessed stand-in).
+class PhilIriRoundView {
+  final PhilIriRound round;
+  final PhilIriValues values;
+  /// Actual values and no reading of the learner's own this round: the
+  /// not-assessed stand-in (Struggling, 3 levels down; spec D5).
+  final bool notAssessedThisRound;
+  /// Nothing all year (the carried stand-in, [philIriNotAssessedResult]).
+  final bool notAssessed;
+  final double? wordReadingScore;
+  final double? wordsPerMinute;
+  final PhilIriLevel? accuracyLevel;
+  final PhilIriSpeed? speed;
+  final PhilIriLevel? wordReadingLevel;
+  final double? comprehensionScore;
+  final PhilIriLevel? comprehensionLevel;
+  /// The word reading value is a silent 1.0, not a measured accuracy.
+  final bool silentOnly;
+  final bool wordReadingAssumed;
+  final PhilIriLevel? profile;
+  final int? adjustedLevel;
+  final int? levelsDown;
+  /// The round's monitoring status (the round result's, whatever the values).
+  final PhilIriRoundStatus status;
+
+  const PhilIriRoundView({
+    required this.round,
+    required this.values,
+    this.notAssessedThisRound = false,
+    this.notAssessed = false,
+    this.wordReadingScore,
+    this.wordsPerMinute,
+    this.accuracyLevel,
+    this.speed,
+    this.wordReadingLevel,
+    this.comprehensionScore,
+    this.comprehensionLevel,
+    this.silentOnly = false,
+    this.wordReadingAssumed = false,
+    this.profile,
+    this.adjustedLevel,
+    this.levelsDown,
+    this.status = PhilIriRoundStatus.notAssessed,
+  });
+
+  bool get comprehensionBlank => comprehensionScore == null;
+  int? get wordReadingPercent => wordReadingScore == null ? null : philIriWholePercent(wordReadingScore!);
+  int? get comprehensionPercent => comprehensionScore == null ? null : philIriWholePercent(comprehensionScore!);
+  String? get adjustedLevelLabel => adjustedLevel == null ? null : philIriAdjustedLevelLabel(adjustedLevel!);
+  String? get levelsDownLabel => adjustedLevel == null ? null : philIriLevelsDownLabel(levelsDown);
+}
+
+/// The round as a list shows it under [values]. carried: [r] unchanged.
+/// actual: [r]'s own reading only (scores and levels from r.actual; profile,
+/// adjusted level and levels down from actualProfile / actualAdjustedLevel /
+/// actualLevelsDown); without an own reading ([ownReading] false, or nothing
+/// scored) the not-assessed stand-in for [learnerGrade], flagged
+/// notAssessedThisRound (spec 2026-11-14 D5).
+PhilIriRoundView philIriRoundView(PhilIriRoundResult r, PhilIriValues values,
+    {required bool ownReading, required int learnerGrade}) {
+  if (values == PhilIriValues.carried) {
+    return PhilIriRoundView(
+      round: r.round,
+      values: values,
+      notAssessed: r.notAssessed,
+      wordReadingScore: r.wordReadingScore,
+      wordsPerMinute: r.wordsPerMinute,
+      accuracyLevel: r.accuracyLevel,
+      speed: r.speed,
+      wordReadingLevel: r.wordReadingLevel,
+      comprehensionScore: r.comprehensionScore,
+      comprehensionLevel: r.comprehensionLevel,
+      silentOnly: r.wordReadingSilentOnly,
+      wordReadingAssumed: r.wordReadingAssumed,
+      profile: r.profile,
+      adjustedLevel: r.adjustedLevel,
+      levelsDown: r.levelsDown,
+      status: r.status,
+    );
+  }
+  final a = r.actual;
+  if (!ownReading || a == null) {
+    final s = philIriNotAssessedResult(r.round, learnerGrade);
+    return PhilIriRoundView(
+      round: r.round,
+      values: values,
+      notAssessedThisRound: true,
+      wordReadingLevel: PhilIriLevel.struggling,
+      wordReadingAssumed: true,
+      profile: s.profile,
+      adjustedLevel: s.adjustedLevel,
+      levelsDown: s.levelsDown,
+      status: r.status,
+    );
+  }
+  return PhilIriRoundView(
+    round: r.round,
+    values: values,
+    wordReadingScore: a.wordReadingScore,
+    wordsPerMinute: a.wordsPerMinute,
+    accuracyLevel: a.accuracyLevel,
+    speed: a.speed,
+    wordReadingLevel: a.wordReadingAssumed ? PhilIriLevel.struggling : a.wordReadingLevel,
+    comprehensionScore: a.comprehensionScore,
+    comprehensionLevel: a.comprehensionLevel,
+    silentOnly: a.silent && !a.wordReadingAssumed,
+    wordReadingAssumed: a.wordReadingAssumed,
+    profile: r.actualProfile,
+    adjustedLevel: r.actualAdjustedLevel,
+    levelsDown: r.actualLevelsDown,
+    status: r.status,
+  );
 }
 
 /// Not grade level ready for the reports (BOSY masterlist, SRP): Frustration,

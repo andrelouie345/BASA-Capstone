@@ -58,6 +58,9 @@ class PhilIriLearnerResults {
   /// questions while the school's no_comprehension_counts_FLT is on: they
   /// count as assessed without a comprehension entry.
   final Set<PhilIriRound> comprehensionOptional;
+  /// Which values the learner pages show (the section's school's
+  /// values_learner_pages; spec 2026-11-14 D11).
+  final PhilIriValues values;
 
   const PhilIriLearnerResults({
     required this.studentId,
@@ -69,7 +72,24 @@ class PhilIriLearnerResults {
     required this.end,
     required this.regenerated,
     this.comprehensionOptional = const {},
+    this.values = PhilIriValues.carried,
   });
+
+  /// [r] under [values]: under actual, a round without a reading of its own
+  /// is "not assessed this round".
+  PhilIriRoundView view(PhilIriRound r) => philIriRoundView(rounds.firstWhere((x) => x.round == r), values,
+      ownReading: rounds.firstWhere((x) => x.round == r).given, learnerGrade: learnerGrade);
+
+  /// The end result under [values]: carried = [end]; actual = the last round
+  /// with a reading of its own (null when none).
+  PhilIriRoundView? endView() {
+    if (values == PhilIriValues.carried) {
+      final e = end;
+      return e == null ? null : philIriRoundView(e, values, ownReading: e.given, learnerGrade: learnerGrade);
+    }
+    final given = rounds.where((r) => r.given);
+    return given.isEmpty ? null : view(given.last.round);
+  }
 }
 
 /// A learner's year as reports and ARAL count it ([PhilIriViewModel.reportResults]).
@@ -114,6 +134,26 @@ class PhilIriReportResults {
       if (among.contains(r.round) && counted.contains(r.round)) last = r;
     }
     return last;
+  }
+
+  /// [r] as a list shows it under [values] (spec 2026-11-14 D3/D5): under
+  /// actual a round without a counted reading of its own (a GST-only BOSY,
+  /// a reading after asOf) is the not-assessed stand-in.
+  PhilIriRoundView view(PhilIriRound r, PhilIriValues values) =>
+      philIriRoundView(round(r), values, ownReading: sessions.containsKey(r), learnerGrade: learnerGrade);
+
+  /// carried: [latest] among [among] as a view; actual: the last round among
+  /// [among] with a counted reading of its own (spec D6). Null when none.
+  PhilIriRoundView? latestView(Iterable<PhilIriRound> among, PhilIriValues values) {
+    if (values == PhilIriValues.carried) {
+      final l = latest(among);
+      return l == null ? null : view(l.round, values);
+    }
+    PhilIriRound? last;
+    for (final r in PhilIriRound.values) {
+      if (among.contains(r) && sessions.containsKey(r)) last = r;
+    }
+    return last == null ? null : view(last, values);
   }
 }
 
@@ -787,7 +827,23 @@ class PhilIriViewModel {
       end: philIriEndResult(rounds),
       regenerated: useCurrentThresholds,
       comprehensionOptional: optional,
+      values: await _valueSource(section.schoolId, PhilIriValueList.learnerPages),
     );
+  }
+
+  /// Which Phil-IRI values [list] shows for [schoolId] (school -> region ->
+  /// the list's default), from this device's copy of report_settings.
+  Future<PhilIriValues> valueSource(int schoolId, PhilIriValueList list) async {
+    _requireSignIn();
+    return _valueSource(schoolId, list);
+  }
+
+  Future<PhilIriValues> _valueSource(int schoolId, PhilIriValueList list) async {
+    final repo = _reportSettings;
+    if (repo == null) return list.defaultValue;
+    final region = await repo.getRegion();
+    final school = await repo.getForSchool(schoolId);
+    return ReportSettings.fromMap({...?region?.settings, ...?school?.settings}).valueSource(list);
   }
 
   /// The school's no_comprehension_counts_FLT (school -> region -> off),
