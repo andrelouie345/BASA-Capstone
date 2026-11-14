@@ -26,6 +26,7 @@
 import '../core/console/logger.dart';
 import '../core/models/assessment_calendar.dart' show CalendarInstrument;
 import '../core/models/phil_iri_assessment.dart' show PhilIriRound;
+import '../core/models/report_setting.dart' show PhilIriValueList, PhilIriValues, philIriValuesLabel;
 import '../core/models/section.dart';
 import '../core/models/student.dart';
 import '../core/models/user_role.dart';
@@ -92,9 +93,24 @@ class NlaReport {
   final String asOf;
   final List<NlaSectionReport> sections; // by grade, then name
   final NlaSectionReport total;
+  /// Which Phil-IRI values the rounds count (values_form2b; spec 2026-11-14 D8).
+  final PhilIriValues values;
 
-  const NlaReport(this.schoolId, this.schoolYear, this.asOf, this.sections, this.total);
+  const NlaReport(this.schoolId, this.schoolYear, this.asOf, this.sections, this.total,
+      {this.values = PhilIriValues.carried});
 }
+
+/// The header line of Form 2b under [values]: under actual a learner not
+/// read in a conducted round counts in 3-LD Frustration (spec 2026-11-14 D8).
+String nlaValuesLabel(PhilIriValues values) => values == PhilIriValues.actual
+    ? '${philIriValuesLabel(values)}; $_nlaActualNote'
+    : philIriValuesLabel(values);
+
+const _nlaActualNote = 'not assessed this round counted as 3-LD Frustration';
+
+/// The CSVs' last column: "carried" / "actual" (Form 2b under actual adds its note).
+String _valuesCell(PhilIriValues values, {bool form2b = false}) =>
+    form2b && values == PhilIriValues.actual ? '${values.name}; $_nlaActualNote' : values.name;
 
 enum NlaSex { male, female, total }
 
@@ -178,13 +194,16 @@ String nlaReportCsv(NlaReport report, [NlaReportFilter filter = const NlaReportF
       if (round != PhilIriRound.bosy) col('${round.label} ARAL exited', (r) => r.band(round, NlaBand.glr));
     }
   }
-  final rows = <List<Object?>>[header];
+  final values = _valuesCell(report.values, form2b: true);
+  final rows = <List<Object?>>[
+    [...header, 'Values']
+  ];
   if (filter.sectionRows) {
     for (final r in report.sections) {
-      rows.add([r.grade, r.section!.sectionName, ...getters.map((g) => g(r))]);
+      rows.add([r.grade, r.section!.sectionName, ...getters.map((g) => g(r)), values]);
     }
   }
-  if (filter.schoolTotal) rows.add(['', 'SCHOOL TOTAL', ...getters.map((g) => g(report.total))]);
+  if (filter.schoolTotal) rows.add(['', 'SCHOOL TOTAL', ...getters.map((g) => g(report.total)), values]);
   return csvTable(rows);
 }
 
@@ -328,20 +347,24 @@ class BosyMasterlist {
   final String schoolYear;
   final String asOf;
   final List<BosyMasterlistSection> sections; // by grade, then name
+  /// Which Phil-IRI values BOSY shows (values_bosy_masterlist).
+  final PhilIriValues values;
 
-  const BosyMasterlist(this.schoolId, this.schoolYear, this.asOf, this.sections);
+  const BosyMasterlist(this.schoolId, this.schoolYear, this.asOf, this.sections,
+      {this.values = PhilIriValues.carried});
 }
 
 /// The masterlist as CSV: one row per listed learner.
 String bosyMasterlistCsv(BosyMasterlist list) => csvTable([
       ['Grade', 'Section', 'No.', 'LRN', 'Learner', 'Sex', 'Adjusted grade level', 'Group', 'Levels down',
-        'Profile', 'BOSY comprehension %', 'Not assessed'],
+        'Profile', 'BOSY comprehension %', 'Not assessed', 'Values'],
       for (final s in list.sections)
         for (final (i, e) in s.learners.indexed)
           [
             s.grade, s.section.sectionName, i + 1, e.student.lrn, e.name, e.student.sex ?? '',
             e.adjustedLevel, e.group, e.levelsDown ?? '', e.profile.label,
             e.comprehension == null ? '' : progressPercent(e.comprehension), e.notAssessed ? 'yes' : '',
+            _valuesCell(list.values),
           ],
     ]);
 
@@ -382,14 +405,15 @@ class NlaReportViewModel {
     schoolYear = normalizeSchoolYear(schoolYear);
     final sections = await reportSections(schoolId, schoolYear, sectionIds, 'the NLA report');
     final date = _date(asOf ?? DateTime.now());
+    final values = await _philIri.valueSource(schoolId, PhilIriValueList.form2b);
     final total = NlaSectionReport(null, null);
     final rows = <NlaSectionReport>[];
     for (final s in sections) {
-      final row = await _section(s, schoolYear, date);
+      final row = await _section(s, schoolYear, date, values);
       rows.add(row);
       total.addAll(row);
     }
-    return NlaReport(schoolId, schoolYear, date, rows, total);
+    return NlaReport(schoolId, schoolYear, date, rows, total, values: values);
   }
 
   /// Progress monitoring (workbook sheets STARTHERE / IRA Summary): per Grade
@@ -484,6 +508,7 @@ class NlaReportViewModel {
     schoolYear = normalizeSchoolYear(schoolYear);
     final sections = await reportSections(schoolId, schoolYear, sectionIds, 'the BOSY masterlist');
     final date = _date(asOf ?? DateTime.now());
+    final values = await _philIri.valueSource(schoolId, PhilIriValueList.bosyMasterlist);
     final out = <BosyMasterlistSection>[];
     for (final s in sections) {
       final grade = int.parse(s.gradeLevel);
@@ -491,13 +516,16 @@ class NlaReportViewModel {
       final listed = <BosyMasterlistEntry>[];
       for (final st in learners) {
         final res = await _philIri.reportResults(studentId: st.id!, sectionId: s.id!, schoolYear: schoolYear, asOf: date);
-        if (!res.counted.contains(PhilIriRound.bosy)) {
+        // Actual: a BOSY without a reading of the learner's own (GST only)
+        // is the not-assessed stand-in too (spec 2026-11-14 D5).
+        if (!res.counted.contains(PhilIriRound.bosy) ||
+            res.view(PhilIriRound.bosy, values).notAssessedThisRound) {
           final assumed = philIriNotAssessedResult(PhilIriRound.bosy, grade);
           listed.add(BosyMasterlistEntry(
               st, true, assumed.profile!, assumed.adjustedLevel!, assumed.levelsDown, null));
           continue;
         }
-        final bosy = res.round(PhilIriRound.bosy);
+        final bosy = res.view(PhilIriRound.bosy, values);
         final profile = bosy.profile;
         if (!philIriNotGradeReady(profile)) continue;
         listed.add(BosyMasterlistEntry(
@@ -509,7 +537,7 @@ class NlaReportViewModel {
       });
       out.add(BosyMasterlistSection(s, grade, learners.length, listed));
     }
-    return BosyMasterlist(schoolId, schoolYear, date, out);
+    return BosyMasterlist(schoolId, schoolYear, date, out, values: values);
   }
 
   /// The school's Grade 4-10 sections for the year, by grade then name, after
@@ -541,7 +569,7 @@ class NlaReportViewModel {
     return sections;
   }
 
-  Future<NlaSectionReport> _section(Section s, String year, String asOf) async {
+  Future<NlaSectionReport> _section(Section s, String year, String asOf, PhilIriValues values) async {
     final row = NlaSectionReport(s, int.parse(s.gradeLevel));
     final learners = await _students.getBySection(s.id!);
     // Per learner: the carried comprehension of each round, and the GST.
@@ -564,9 +592,12 @@ class NlaReportViewModel {
       for (final round in PhilIriRound.values) {
         if (!row.conducted.contains(round)) continue; // nobody took it: zeros
         // A Non-Reader counts once in 3-LD Frustration, whatever the
-        // comprehension (spec 2026-11-09 D15).
-        final rr = res.round(round);
-        final band = rr.profile == PhilIriLevel.nonReader ? NlaBand.ld3Frustration : nlaBand(rr.comprehensionScore);
+        // comprehension (spec 2026-11-09 D15); under actual so does a learner
+        // not read this round (the stand-in; spec 2026-11-14 D8).
+        final rr = res.view(round, values);
+        final band = rr.profile == PhilIriLevel.nonReader || rr.notAssessedThisRound
+            ? NlaBand.ld3Frustration
+            : nlaBand(rr.comprehensionScore);
         if (band != null) row.band(round, band).add(sex);
       }
     }

@@ -28,6 +28,7 @@ import '../core/console/logger.dart';
 import '../core/models/aral_enrollment.dart';
 import '../core/models/crla_assessment.dart' show CrlaRound;
 import '../core/models/phil_iri_assessment.dart' show PhilIriRound;
+import '../core/models/report_setting.dart' show PhilIriValueList, PhilIriValues, philIriValuesLabel;
 import '../core/models/section.dart';
 import '../core/models/user_role.dart';
 import '../core/repositories/aral_enrollment_repository.dart';
@@ -147,8 +148,12 @@ class AralImplementationReport {
   final String schoolYear;
   final String asOf; // YYYY-MM-DD
   final List<AralSectionReportRow> rows; // by grade, then section name
+  /// Which Phil-IRI values the Grade 4-10 rows count (values_aral; spec
+  /// 2026-11-14 D6): under actual the latest round read, else not assessed.
+  final PhilIriValues values;
 
-  const AralImplementationReport(this.schoolId, this.schoolYear, this.asOf, this.rows);
+  const AralImplementationReport(this.schoolId, this.schoolYear, this.asOf, this.rows,
+      {this.values = PhilIriValues.carried});
 
   /// Every grade's sections added up, by grade (lowest first).
   Map<int, AralReportTotals> get gradeTotals {
@@ -220,11 +225,12 @@ class AralReportViewModel {
       throw ViewModelException('Section $sectionId is not a Grade 1-10 section of school $schoolId for $schoolYear.');
     }
     final thresholds = await _philIri.effectiveThresholds(schoolId);
+    final values = await _philIri.valueSource(schoolId, PhilIriValueList.aral);
     final rows = <AralSectionReportRow>[];
     for (final s in sections) {
-      rows.add(await _row(s, schoolYear, date, thresholds));
+      rows.add(await _row(s, schoolYear, date, thresholds, values));
     }
-    return AralImplementationReport(schoolId, schoolYear, date, rows);
+    return AralImplementationReport(schoolId, schoolYear, date, rows, values: values);
   }
 
   /// The report in the layout of the ARAL Reading Implementation Report
@@ -283,6 +289,10 @@ class AralReportViewModel {
         exitedOther: r.exitedOther,
       ));
     }
+    if (report.values == PhilIriValues.actual) {
+      notes.add('${philIriValuesLabel(report.values)}: each count is the latest round the learner read by '
+          '${report.asOf}; a learner without a reading of their own counts as not assessed.');
+    }
     if (notAssessed > 0) {
       notes.add('$notAssessed BOSY/MOSY count(s) are learners not assessed at all by ${report.asOf}: counted under '
           'Frustration (3 levels down) as the reading coordinator asked; the CSV shows them as "$aralReportNotAssessed".');
@@ -320,19 +330,20 @@ class AralReportViewModel {
         'Grade', 'Section', 'Uses', 'Enrolment',
         ...groups.map((g) => 'BOSY $g'), 'BOSY total',
         ...groups.map((g) => 'MOSY $g'), 'MOSY total',
-        'Exited BOSY-MOSY', 'Exited grade-level ready', 'Exited other', 'As of',
+        'Exited BOSY-MOSY', 'Exited grade-level ready', 'Exited other', 'As of', 'Values',
       ],
       for (final r in report.rows)
         [
           r.grade, r.section.sectionName, r.usesCrla ? 'CRLA' : 'Phil-IRI', r.enrolment,
           ...groups.map((g) => r.bosy[g] ?? 0), r.bosyTotal,
           ...groups.map((g) => r.mosy[g] ?? 0), r.mosyTotal,
-          r.bosyMinusMosy, r.exitedGradeLevelReady, r.exitedOther, report.asOf,
+          r.bosyMinusMosy, r.exitedGradeLevelReady, r.exitedOther, report.asOf, report.values.name,
         ],
     ]);
   }
 
-  Future<AralSectionReportRow> _row(Section s, String year, String asOf, PhilIriThresholds t) async {
+  Future<AralSectionReportRow> _row(
+      Section s, String year, String asOf, PhilIriThresholds t, PhilIriValues values) async {
     final grade = int.parse(s.gradeLevel);
     final usesCrla = grade <= 3;
     final enrolment = (await _students.getBySection(s.id!)).length;
@@ -362,8 +373,9 @@ class AralReportViewModel {
         String group(Iterable<PhilIriRound> rounds) {
           // Not assessed at all by the report date: assumed 3-LD, flagged.
           if (res.notAssessed) return aralReportNotAssessed;
-          final last = res.latest(rounds);
-          if (last == null) return aralReportNoResult;
+          final last = res.latestView(rounds, values);
+          // Actual: no reading of their own in these rounds = not assessed.
+          if (last == null) return values == PhilIriValues.actual ? aralReportNotAssessed : aralReportNoResult;
           // Non-readers go with the furthest group (the open last one).
           return last.profile == PhilIriLevel.nonReader
               ? philIriReportGroup(99, t)

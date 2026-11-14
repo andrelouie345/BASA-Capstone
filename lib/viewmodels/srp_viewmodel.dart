@@ -20,6 +20,7 @@ import 'package:supabase/supabase.dart' show PostgrestException, SupabaseClient;
 
 import '../core/console/logger.dart';
 import '../core/models/phil_iri_assessment.dart' show PhilIriRound;
+import '../core/models/report_setting.dart' show PhilIriValueList, PhilIriValues;
 import '../core/models/section.dart';
 import '../core/models/srp_class.dart';
 import '../core/models/student.dart';
@@ -83,8 +84,11 @@ class SrpList {
   final String asOf;
   final int perSection;
   final List<SrpSection> sections; // by grade, then name
+  /// Which Phil-IRI values EOSY shows (values_srp; spec 2026-11-14).
+  final PhilIriValues values;
 
-  const SrpList(this.schoolId, this.schoolYear, this.asOf, this.perSection, this.sections);
+  const SrpList(this.schoolId, this.schoolYear, this.asOf, this.perSection, this.sections,
+      {this.values = PhilIriValues.carried});
 }
 
 /// The list as CSV: one row per candidate ([recommendedOnly]: only those
@@ -93,7 +97,7 @@ String srpListCsv(SrpList list, {bool recommendedOnly = false}) {
   String pct(double v) => progressPercent(v);
   return csvTable([
     ['Grade', 'Section', 'Rank', 'Recommended', 'LRN', 'Learner', 'Sex', 'Adjusted grade level', 'Levels down',
-      'Profile', 'Comprehension %', 'Word recognition %', 'Speed (wpm)', 'Result from', 'Not assessed'],
+      'Profile', 'Comprehension %', 'Word recognition %', 'Speed (wpm)', 'Result from', 'Not assessed', 'Values'],
     for (final s in list.sections)
       for (final c in s.candidates)
         if (!recommendedOnly || c.recommended)
@@ -102,7 +106,7 @@ String srpListCsv(SrpList list, {bool recommendedOnly = false}) {
             c.student.sex ?? '', c.adjustedLevel, c.levelsDown ?? '', c.profile.label,
             c.notAssessed ? '' : pct(c.key.comprehension), c.notAssessed ? '' : pct(c.key.wordRecognition),
             c.notAssessed ? '' : c.key.speed.toStringAsFixed(0), c.basisRound?.label ?? '',
-            c.notAssessed ? 'yes' : '',
+            c.notAssessed ? 'yes' : '', list.values.name,
           ],
   ]);
 }
@@ -197,6 +201,7 @@ class SrpViewModel {
     schoolYear = normalizeSchoolYear(schoolYear);
     final sections = await _reports.reportSections(schoolId, schoolYear, sectionIds, 'the SRP list');
     final date = _date(asOf ?? DateTime.now());
+    final values = await _philIri.valueSource(schoolId, PhilIriValueList.srp);
     final out = <SrpSection>[];
     for (final s in sections) {
       final grade = int.parse(s.gradeLevel);
@@ -208,6 +213,19 @@ class SrpViewModel {
           final assumed = philIriNotAssessedResult(PhilIriRound.eosy, grade);
           drafts.add(_Draft(st, true, null, assumed.profile!, assumed.adjustedLevel!, assumed.levelsDown,
               const SrpRankKey(0, 0, 0)));
+          continue;
+        }
+        if (values == PhilIriValues.actual) {
+          // EOSY's own reading only; without one, the not-assessed stand-in
+          // (spec 2026-11-14 D5).
+          final v = res.view(PhilIriRound.eosy, values);
+          if (v.notAssessedThisRound) {
+            drafts.add(_Draft(st, true, null, v.profile!, v.adjustedLevel!, v.levelsDown, const SrpRankKey(0, 0, 0)));
+            continue;
+          }
+          if (!philIriNotGradeReady(v.profile)) continue;
+          drafts.add(_Draft(st, false, PhilIriRound.eosy, v.profile!, v.adjustedLevel ?? 0, v.levelsDown,
+              SrpRankKey(v.comprehensionScore ?? 0, v.wordReadingScore ?? 0, v.wordsPerMinute ?? 0)));
           continue;
         }
         final eosy = res.round(PhilIriRound.eosy); // carries the latest round when EOSY was not given
@@ -246,7 +264,7 @@ class SrpViewModel {
         });
       out.add(SrpSection(s, grade, learners.length, list));
     }
-    return SrpList(schoolId, schoolYear, date, perSection, out);
+    return SrpList(schoolId, schoolYear, date, perSection, out, values: values);
   }
 
   // ---- classes (part 2) ----

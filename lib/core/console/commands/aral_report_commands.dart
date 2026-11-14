@@ -7,6 +7,7 @@ import '../console_command.dart';
 import '../console_registry.dart';
 import '../date_args.dart';
 import '../../../viewmodels/aral_report_viewmodel.dart';
+import '../../models/report_setting.dart' show philIriValuesLabel;
 
 class _Usage implements Exception {
   final String message;
@@ -52,6 +53,7 @@ void registerAralReportCommands(ConsoleRegistry registry, AralReportViewModel vm
           'ARAL-Reading implementation report | school ${report.schoolId} | ${report.schoolYear} | as of ${report.asOf}',
           'Phil-IRI columns: levels down (3-LD = Frustration, 2-LD = Instructional in the division template); '
               'Grades 1-3: CRLA profiles.',
+          'Grades 4-10: ${philIriValuesLabel(report.values)}',
         ];
         final grades = report.gradeTotals;
         for (final g in grades.keys) {
