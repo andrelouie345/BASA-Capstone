@@ -160,6 +160,8 @@ class FieldSpec {
   final String label;
   final String initial;
   final String? hint;
+  /// Shown under the field, kept visible while typing (several lines).
+  final String? helper;
   final bool number;
   final bool multiline;
   final bool optional;
@@ -169,6 +171,7 @@ class FieldSpec {
     this.label, {
     this.initial = '',
     this.hint,
+    this.helper,
     this.number = false,
     this.multiline = false,
     this.optional = false,
@@ -176,12 +179,19 @@ class FieldSpec {
 }
 
 /// A dialog with text fields; returns key → trimmed text, or null when
-/// cancelled. Required fields must not be empty.
+/// cancelled. Required fields must not be empty. [onHelp] adds a "?" to the
+/// title (e.g. opening a help page over the dialog; what was typed stays).
 Future<Map<String, String>?> askFields(BuildContext context,
-    {required String title, required List<FieldSpec> fields, String action = 'Save', String? note}) {
+    {required String title,
+    required List<FieldSpec> fields,
+    String action = 'Save',
+    String? note,
+    VoidCallback? onHelp,
+    String helpTooltip = 'Help'}) {
   return showDialog<Map<String, String>>(
     context: context,
-    builder: (context) => _FieldsDialog(title: title, fields: fields, action: action, note: note),
+    builder: (context) => _FieldsDialog(
+        title: title, fields: fields, action: action, note: note, onHelp: onHelp, helpTooltip: helpTooltip),
   );
 }
 
@@ -190,7 +200,15 @@ class _FieldsDialog extends StatefulWidget {
   final List<FieldSpec> fields;
   final String action;
   final String? note;
-  const _FieldsDialog({required this.title, required this.fields, required this.action, this.note});
+  final VoidCallback? onHelp;
+  final String helpTooltip;
+  const _FieldsDialog(
+      {required this.title,
+      required this.fields,
+      required this.action,
+      this.note,
+      this.onHelp,
+      this.helpTooltip = 'Help'});
 
   @override
   State<_FieldsDialog> createState() => _FieldsDialogState();
@@ -218,7 +236,12 @@ class _FieldsDialogState extends State<_FieldsDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.title),
+      title: widget.onHelp == null
+          ? Text(widget.title)
+          : Row(children: [
+              Expanded(child: Text(widget.title)),
+              IconButton(icon: const Icon(Icons.help_outline), tooltip: widget.helpTooltip, onPressed: widget.onHelp),
+            ]),
       content: SizedBox(
         width: 460,
         child: Form(
@@ -234,7 +257,7 @@ class _FieldsDialogState extends State<_FieldsDialog> {
                     padding: const EdgeInsets.only(bottom: 12),
                     child: TextFormField(
                       controller: _c[f.key],
-                      decoration: InputDecoration(labelText: f.label, hintText: f.hint),
+                      decoration: InputDecoration(labelText: f.label, hintText: f.hint, helperText: f.helper, helperMaxLines: 6),
                       keyboardType: f.number
                           ? const TextInputType.numberWithOptions(decimal: true)
                           : f.multiline

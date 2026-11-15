@@ -7,8 +7,14 @@ import 'package:flutter/material.dart';
 
 import '../../core/models/crla_assessment.dart';
 import '../../core/models/crla_result.dart';
+import '../../core/models/crla_story.dart';
+import '../../viewmodels/viewmodel_exception.dart';
 import '../common/screen_kit.dart';
 import 'crla_section_screen.dart';
+import 'crla_story_help_screen.dart';
+
+/// "1 · Bagyo sa Baryo (121 words)".
+String crlaStoryLine(CrlaStory s) => '${s.storyNo} · ${s.title} (${s.wordCount} words)';
 
 class CrlaEntryScreen extends StatefulWidget {
   final int assessmentId;
@@ -59,16 +65,24 @@ class _CrlaEntryScreenState extends State<CrlaEntryScreen> {
     setState(() => _reload++);
   }
 
-  Future<void> _part2(CrlaAssessment a, CrlaResult? r) async {
+  Future<void> _part2(CrlaAssessment a, CrlaResult? r, List<CrlaStory> stories) async {
     String v(num? x) => x == null ? '' : '$x';
+    const ask = 'Not sure which story? Ask your coordinator.';
     final f = await askFields(
       context,
       title: 'Part 2 (reading the story)',
-      note: 'Words read is needed only where the region has no story list.',
+      onHelp: () => CrlaStoryHelpScreen.open(context),
+      helpTooltip: 'Story number and words read',
       fields: [
-        FieldSpec('story', 'Story number', initial: v(r?.storyNo), number: true),
+        FieldSpec('story', 'Story number', initial: v(r?.storyNo), number: true,
+            helper: stories.isEmpty
+                ? 'No story list for this region, language and grade. $ask'
+                : [...stories.map(crlaStoryLine), ask].join('\n')),
         FieldSpec('miscues', 'Miscues', initial: v(r?.miscues), number: true),
-        FieldSpec('words', 'Words read', initial: v(r?.wordsRead), number: true, optional: true),
+        FieldSpec('words', 'Words read', initial: v(r?.wordsRead), number: true, optional: true,
+            helper: stories.isEmpty
+                ? "Needed here: the story's total words minus the miscues."
+                : 'Leave blank: BASA works it out (story words minus miscues).'),
         const FieldSpec('min', 'Time: minutes', number: true),
         const FieldSpec('sec', 'Time: seconds', number: true),
         FieldSpec('comp', 'Comprehension: correct answers', initial: v(r?.comprehensionCorrect), number: true),
@@ -106,13 +120,24 @@ class _CrlaEntryScreenState extends State<CrlaEntryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('CRLA attempt')),
-      body: LoadView<(CrlaAssessment?, CrlaResult?)>(
+      body: LoadView<(CrlaAssessment?, CrlaResult?, List<CrlaStory>)>(
         where: 'CrlaEntry',
         reloadKey: _reload,
-        load: (vms) async =>
-            (await vms.crla.getAssessment(widget.assessmentId), await vms.crla.getResult(widget.assessmentId)),
+        load: (vms) async {
+          final a = await vms.crla.getAssessment(widget.assessmentId);
+          final r = await vms.crla.getResult(widget.assessmentId);
+          var stories = const <CrlaStory>[];
+          if (a != null) {
+            try {
+              stories = await vms.crla.storiesForAttempt(widget.assessmentId);
+            } on ViewModelException catch (e) {
+              debugPrint('CrlaEntry: no story list: ${e.message}');
+            }
+          }
+          return (a, r, stories);
+        },
         builder: (context, data, _) {
-          final (a, r) = data;
+          final (a, r, stories) = data;
           if (a == null) return const EmptyNote('This attempt is not on this device.');
           String v(Object? x) => x == null ? '—' : '$x';
           final theme = Theme.of(context);
@@ -144,8 +169,13 @@ class _CrlaEntryScreenState extends State<CrlaEntryScreen> {
             icon: Icons.menu_book_outlined,
             trailing: Row(mainAxisSize: MainAxisSize.min, children: [
               doneChip(part2Done),
-              const SizedBox(width: 8),
-              enter(() => _part2(a, r), part2Done),
+              IconButton(
+                icon: const Icon(Icons.help_outline),
+                tooltip: 'Story number and words read',
+                onPressed: () => CrlaStoryHelpScreen.open(context),
+              ),
+              const SizedBox(width: 4),
+              enter(() => _part2(a, r, stories), part2Done),
             ]),
             children: [
               StatGrid(tileWidth: 140, tiles: [
@@ -158,7 +188,10 @@ class _CrlaEntryScreenState extends State<CrlaEntryScreen> {
                 StatTile(label: 'Miscues', value: v(r?.miscues)),
               ]),
               const SizedBox(height: 8),
-              InfoRow('Story', v(r?.storyNo)),
+              InfoRow('Story', switch (stories.where((s) => s.storyNo == r?.storyNo).firstOrNull) {
+                final s? => crlaStoryLine(s),
+                null => v(r?.storyNo),
+              }),
               InfoRow('Words read', v(r?.wordsRead)),
             ],
           );
