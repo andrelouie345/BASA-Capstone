@@ -388,17 +388,19 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
         '${r.regenerated ? ' · regenerated with today\'s thresholds' : ''}');
     final g = r.gst;
     out.write('\nGST: ${g == null ? 'none' : '${g.totalScore}/${g.maxScore} (${g.wholePercent}%, attempt ${g.attemptNo})'}');
-    out.write('\n${philIriValuesLabel(r.values)}');
+    // A tutor sees the numbers only, never which values they are (showValues).
+    final show = r.showValues;
+    if (show) out.write('\n${philIriValuesLabel(r.values)}');
     for (final round in r.rounds) {
       final s = r.sessions[round.round];
       final status = s == null ? 'not given' : 'session ${s.id} ${s.status.value}';
       // Carried: an earlier round's result stands for this one.
-      final carried = r.values == PhilIriValues.carried && !round.given && round.profile != null;
+      final carried = show && r.values == PhilIriValues.carried && !round.given && round.profile != null;
       out.write('\n${round.round.label.padRight(8)} ${carried ? '(carried) ' : ''}$status · '
-          '${_viewText(r.view(round.round))}');
+          '${_viewText(r.view(round.round), showValues: show)}');
     }
     final end = r.endView();
-    out.write('\nEnd result: ${end == null ? 'none yet' : '${end.round.label} · ${_viewText(end)}'}');
+    out.write('\nEnd result: ${end == null ? 'none yet' : '${end.round.label} · ${_viewText(end, showValues: show)}'}');
     return out.toString();
   });
 }
@@ -459,11 +461,14 @@ String _resultText(PhilIriPassageResult r) {
 /// One round as the learner pages show it (spec 2026-11-14 D11). Under
 /// actual a round without an own reading is "Not assessed this round"; the
 /// monitoring status (carried over / not assessed) shows under carried only.
-String _viewText(PhilIriRoundView v) {
-  if (v.notAssessedThisRound) return 'Not assessed this round';
+/// [showValues] false (a tutor): neutral wording, the same under both values:
+/// "No reading this round" and no status suffix.
+String _viewText(PhilIriRoundView v, {bool showValues = true}) {
+  if (v.notAssessedThisRound) return showValues ? 'Not assessed this round' : 'No reading this round';
+  if (!showValues && v.notAssessed) return 'No reading this round';
   if (v.profile == null) return 'no result yet';
   final level = v.adjustedLevel == null ? '' : ' · adjusted ${v.adjustedLevelLabel} · ${v.levelsDownLabel}';
-  final status = v.values == PhilIriValues.actual
+  final status = !showValues || v.values == PhilIriValues.actual
       ? ''
       : switch (v.status) {
           PhilIriRoundStatus.assessed => '',

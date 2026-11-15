@@ -128,4 +128,31 @@ void main() {
     expect(carriedRes.view(mosy2).comprehensionScore, 1.0);
     expect(carriedRes.endView()!.round, carriedRes.end!.round);
   });
+
+  // Owner/ma 2026-11-15: a tutor is never told which values a page shows.
+  // Last test: it switches the device to a tutor and back.
+  test('learnerResults.showValues: admins and coordinators yes, tutors no', () async {
+    final vm = t.philIriVm;
+    Future<bool> shows() async =>
+        (await vm.learnerResults(studentId: _learner, sectionId: _section, schoolYear: _year)).showValues;
+    await schoolRow({'values_learner_pages': 'actual'});
+    expect(await shows(), isTrue); // coordinator
+
+    Future<void> signInAs(String role, String id) async {
+      await ctx.authVm.signOut();
+      await seedOfflineOwner(ctx.localDb, userId: id, email: '$role@test', role: role, schoolId: 1);
+      expect(await ctx.authVm.signInOffline(email: '$role@test', password: 'test-pw'), isNull);
+    }
+
+    await signInAs('tutor', '00000000-0000-0000-0000-00000000ab45');
+    final r = await vm.learnerResults(studentId: _learner, sectionId: _section, schoolYear: _year);
+    expect(r.showValues, isFalse);
+    // The values still follow the switch: only the wording changes.
+    expect(r.values, actual);
+    expect(r.view(mosy2).notAssessedThisRound, isTrue);
+
+    await signInAs('admin', '00000000-0000-0000-0000-00000000ab46');
+    expect(await shows(), isTrue);
+    await schoolRow(null);
+  });
 }
