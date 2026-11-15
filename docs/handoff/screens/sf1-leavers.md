@@ -50,7 +50,7 @@ Calls:
 - `anonymize(code, {schoolId})` → `int` (how many); `lastMessage`. Refused with `leaverAnonymizeStaleMessage` when the list changed since the preview (preview again).
 Console: `learner-anonymize-preview`, `learner-anonymize`
 
-### Cross-school transfers (superadmin only) — NOT BUILT YET
+### Cross-school transfers (superadmin only)
 Build: admin    Roles: **superadmin only** (school-bound admins and coordinators don't see this screen)
 Purpose: every pending transfer conflict across schools (an SF1 that lists a learner enrolled this school year at another school), each resolved by transferring the learner in (SF1 leavers D15). Also how a mistaken transfer is undone (a conflict at the first school, resolved here even while the learner is active at the second). Only here can a learner who is **still active** at the other school be transferred: they are archived there as transferred out first. A school's own admin/coordinator resolves only learners the other school already archived, from the SF1 import screen (`admin.md`, *SF1 import*), and gets one neutral refusal for everything else.
 Calls:

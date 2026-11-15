@@ -81,59 +81,6 @@ class _UndecidedBodyState extends State<_UndecidedBody> {
 
   int? get _school => widget.schoolId ?? vmsOf(context).auth.currentUser?.schoolId;
 
-  Future<void> _done(LearnerLeaverOutcome? r) async {
-    if (r == null || !mounted) return;
-    await showTextDialog(context, title: 'Done', text: r.message);
-    if (mounted) setState(() => _reload++);
-  }
-
-  Future<void> _archive(Sf1MissingLearner m, EnrollmentStatus reason) async {
-    final leavers = AdminScope.of(context).learnerLeavers;
-    final what = reason == EnrollmentStatus.transferredOut ? 'transferred out' : 'dropped out';
-    final f = await askFields(
-      context,
-      title: 'Archive ${m.name} as $what',
-      note: 'Nothing is deleted: the learner leaves every active list and can no longer be assessed; their active '
-          'ARAL entry this year is exited. You can restore them later.',
-      action: 'Archive',
-      fields: const [FieldSpec('note', 'Note (optional)', optional: true, multiline: true)],
-    );
-    if (f == null || !mounted) return;
-    final note = f['note']!.isEmpty ? null : f['note'];
-    final r = await runAction(context, () => leavers.archive(m.enrollmentId, reason, note: note), where: 'Sf1Leavers');
-    await _done(r);
-  }
-
-  Future<void> _move(Sf1MissingLearner m) async {
-    final vms = vmsOf(context);
-    final leavers = AdminScope.of(context).learnerLeavers;
-    final all = await runAction(context, () => vms.section.localSections(), where: 'Sf1Leavers');
-    if (all == null || !mounted) return;
-    final from = all.where((s) => s.id == m.sectionId).firstOrNull;
-    if (from == null) return showNote(context, 'Section ${m.sectionId} is not on this device. Download the latest data first.');
-    // Same school, year and grade only (the server refuses anything else).
-    final targets = all
-        .where((s) =>
-            s.id != from.id && s.schoolId == from.schoolId && s.schoolYear == from.schoolYear && s.gradeLevel == from.gradeLevel)
-        .toList()
-      ..sort((a, b) => a.sectionName.compareTo(b.sectionName));
-    if (targets.isEmpty) {
-      return showNote(context, 'No other Grade ${from.gradeLevel} section for ${from.schoolYear} on this device.');
-    }
-    final to = await pickOne<Section>(context, title: 'Move ${m.name} to', options: targets, label: (s) => sectionLabel(s));
-    if (to == null || !mounted) return;
-    if (!await confirm(context,
-            title: 'Move ${m.name} to ${to.sectionName}?',
-            body: "This school year's CRLA, Phil-IRI and GST records go along.",
-            action: 'Move') ||
-        !mounted) {
-      return;
-    }
-    final r = await runAction(context, () => leavers.move(m.enrollmentId, to.id!, schoolId: widget.schoolId),
-        where: 'Sf1Leavers');
-    await _done(r);
-  }
-
   @override
   Widget build(BuildContext context) {
     final leavers = AdminScope.of(context).learnerLeavers;
@@ -170,19 +117,11 @@ class _UndecidedBodyState extends State<_UndecidedBody> {
                       title: m.name,
                       subtitle: 'LRN ${m.lrn} · ${m.sectionName ?? 'section ${m.sectionId}'}',
                       trailing: [
-                        PopupMenuButton<String>(
-                          tooltip: 'Decide',
-                          icon: const Icon(Icons.more_vert),
-                          onSelected: (a) => switch (a) {
-                            'transferred' => _archive(m, EnrollmentStatus.transferredOut),
-                            'dropped' => _archive(m, EnrollmentStatus.droppedOut),
-                            _ => _move(m),
-                          },
-                          itemBuilder: (_) => const [
-                            PopupMenuItem(value: 'transferred', child: Text('Transferred out')),
-                            PopupMenuItem(value: 'dropped', child: Text('Dropped out')),
-                            PopupMenuItem(value: 'move', child: Text('Moved to section…')),
-                          ],
+                        LeaverDecisionMenu(
+                          learner: m,
+                          fromSectionId: m.sectionId!,
+                          schoolId: widget.schoolId,
+                          onDone: () => setState(() => _reload++),
                         ),
                       ],
                     ),
@@ -191,6 +130,99 @@ class _UndecidedBodyState extends State<_UndecidedBody> {
       ),
     ]);
   }
+}
+
+// ---------------------------------------------------------------------------
+// The decision menu for a learner not on their section's SF1 (Undecided
+// learners, and "Not on this SF1" in the SF1 import trial).
+
+/// Transferred out / Dropped out (archive, optional note) / Moved to
+/// section... (same school, year and grade). Shows the ViewModel's message,
+/// then calls [onDone] (reload the list, rerun the trial).
+class LeaverDecisionMenu extends StatelessWidget {
+  final Sf1MissingLearner learner;
+
+  /// The section the learner is in (and missing from).
+  final int fromSectionId;
+
+  /// The superadmin passes the school; null = the user's own.
+  final int? schoolId;
+  final VoidCallback onDone;
+
+  const LeaverDecisionMenu(
+      {super.key, required this.learner, required this.fromSectionId, required this.schoolId, required this.onDone});
+
+  Future<void> _done(BuildContext context, LearnerLeaverOutcome? r) async {
+    if (r == null || !context.mounted) return;
+    await showTextDialog(context, title: 'Done', text: r.message);
+    onDone();
+  }
+
+  Future<void> _archive(BuildContext context, EnrollmentStatus reason) async {
+    final m = learner;
+    final leavers = AdminScope.of(context).learnerLeavers;
+    final what = reason == EnrollmentStatus.transferredOut ? 'transferred out' : 'dropped out';
+    final f = await askFields(
+      context,
+      title: 'Archive ${m.name} as $what',
+      note: 'Nothing is deleted: the learner leaves every active list and can no longer be assessed; their active '
+          'ARAL entry this year is exited. You can restore them later.',
+      action: 'Archive',
+      fields: const [FieldSpec('note', 'Note (optional)', optional: true, multiline: true)],
+    );
+    if (f == null || !context.mounted) return;
+    final note = f['note']!.isEmpty ? null : f['note'];
+    final r = await runAction(context, () => leavers.archive(m.enrollmentId, reason, note: note), where: 'Sf1Leavers');
+    if (context.mounted) await _done(context, r);
+  }
+
+  Future<void> _move(BuildContext context) async {
+    final m = learner;
+    final vms = vmsOf(context);
+    final leavers = AdminScope.of(context).learnerLeavers;
+    final all = await runAction(context, () => vms.section.localSections(), where: 'Sf1Leavers');
+    if (all == null || !context.mounted) return;
+    final from = all.where((s) => s.id == fromSectionId).firstOrNull;
+    if (from == null) {
+      return showNote(context, 'Section $fromSectionId is not on this device. Download the latest data first.');
+    }
+    // Same school, year and grade only (the server refuses anything else).
+    final targets = all
+        .where((s) =>
+            s.id != from.id && s.schoolId == from.schoolId && s.schoolYear == from.schoolYear && s.gradeLevel == from.gradeLevel)
+        .toList()
+      ..sort((a, b) => a.sectionName.compareTo(b.sectionName));
+    if (targets.isEmpty) {
+      return showNote(context, 'No other Grade ${from.gradeLevel} section for ${from.schoolYear} on this device.');
+    }
+    final to = await pickOne<Section>(context, title: 'Move ${m.name} to', options: targets, label: (s) => sectionLabel(s));
+    if (to == null || !context.mounted) return;
+    if (!await confirm(context,
+            title: 'Move ${m.name} to ${to.sectionName}?',
+            body: "This school year's CRLA, Phil-IRI and GST records go along.",
+            action: 'Move') ||
+        !context.mounted) {
+      return;
+    }
+    final r = await runAction(context, () => leavers.move(m.enrollmentId, to.id!, schoolId: schoolId), where: 'Sf1Leavers');
+    if (context.mounted) await _done(context, r);
+  }
+
+  @override
+  Widget build(BuildContext context) => PopupMenuButton<String>(
+        tooltip: 'Decide',
+        icon: const Icon(Icons.more_vert),
+        onSelected: (a) => switch (a) {
+          'transferred' => _archive(context, EnrollmentStatus.transferredOut),
+          'dropped' => _archive(context, EnrollmentStatus.droppedOut),
+          _ => _move(context),
+        },
+        itemBuilder: (_) => const [
+          PopupMenuItem(value: 'transferred', child: Text('Transferred out')),
+          PopupMenuItem(value: 'dropped', child: Text('Dropped out')),
+          PopupMenuItem(value: 'move', child: Text('Moved to section…')),
+        ],
+      );
 }
 
 // ---------------------------------------------------------------------------

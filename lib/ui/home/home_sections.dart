@@ -53,6 +53,10 @@ class HomeEntry {
   /// Builds the screen; null = not built yet.
   final WidgetBuilder? builder;
 
+  /// Shown only to the superadmin (an admin with no school), e.g. the
+  /// cross-school transfers; school-bound users don't see the card.
+  final bool superadminOnly;
+
   const HomeEntry({
     required this.title,
     required this.description,
@@ -60,6 +64,7 @@ class HomeEntry {
     required this.checklistRow,
     required this.doc,
     this.builder,
+    this.superadminOnly = false,
   });
 }
 
@@ -106,6 +111,7 @@ class HomeSection {
                     checklistRow: e.checklistRow,
                     doc: e.doc,
                     builder: builders[e.checklistRow],
+                    superadminOnly: e.superadminOnly,
                   )
                 : e,
         ]),

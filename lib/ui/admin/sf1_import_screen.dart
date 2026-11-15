@@ -9,7 +9,8 @@ import '../../core/models/import_conflict.dart';
 import '../../core/models/sf1.dart';
 import '../common/screen_kit.dart';
 import 'admin_scope.dart';
-import 'sf1_leavers_screens.dart' show UndecidedLearnersScreen;
+import '../../viewmodels/learner_leavers_viewmodel.dart' show LearnerLeaverOutcome;
+import 'sf1_leavers_screens.dart' show LeaverDecisionMenu, UndecidedLearnersScreen;
 
 class Sf1ImportScreen extends StatefulWidget {
   const Sf1ImportScreen({super.key});
@@ -39,8 +40,15 @@ class _Sf1ImportScreenState extends State<Sf1ImportScreen> {
     if (real) {
       final r = await runAction(context, () => sf1.import(path), where: 'Sf1Import');
       if (r != null) {
-        _imported = 'Imported: ${r.inserted} new learner(s), ${r.alreadyEnrolled} already enrolled, '
-            '${r.conflicts} conflict(s), ${r.skippedBlankOrTotal} blank or total row(s) skipped.';
+        _imported = [
+          'Imported: ${r.inserted} new learner(s), ${r.alreadyEnrolled} already enrolled, '
+              '${r.conflicts} conflict(s), ${r.skippedBlankOrTotal} blank or total row(s) skipped.',
+          if (r.waiting > 0)
+            '${r.waiting} moving or returning learner(s) wait for your decision: try the file again to see them.',
+          ?r.lastImportWarning,
+          if (r.rowWarnings.isNotEmpty) 'Imported with something left out:',
+          ...r.rowWarnings,
+        ].join('\n');
         _conflictsReload++;
       }
     } else {
@@ -48,6 +56,44 @@ class _Sf1ImportScreenState extends State<Sf1ImportScreen> {
       if (t != null) _trial = t;
     }
     if (mounted) setState(() => _busy = false);
+  }
+
+  /// After a decision (move, restore, archive): the ViewModel's message,
+  /// then the trial runs again so the rows show the new state.
+  Future<void> _decided(LearnerLeaverOutcome? r) async {
+    if (r == null || !mounted) return;
+    await showTextDialog(context, title: 'Done', text: r.message);
+    if (mounted) await _run(false);
+  }
+
+  Future<void> _moveHere(
+      ({String name, String? fromSectionName, int enrollmentId}) r, int sectionId) async {
+    final leavers = AdminScope.of(context).learnerLeavers;
+    if (!await confirm(context,
+            title: 'Move ${r.name} here?',
+            body: "From ${r.fromSectionName ?? 'their section'}. This school year's CRLA, Phil-IRI and GST records go along.",
+            action: 'Move here') ||
+        !mounted) {
+      return;
+    }
+    await _decided(await runAction(context, () => leavers.move(r.enrollmentId, sectionId), where: 'Sf1Import'));
+  }
+
+  Future<void> _restore(
+      ({String name, int? fromSectionId, int enrollmentId, String? leftOn, String? leftReason}) r, Sf1TrialResult t) async {
+    final leavers = AdminScope.of(context).learnerLeavers;
+    // Archived in this very section: restored in place; else into this section.
+    final here = r.fromSectionId == t.sectionId;
+    if (!await confirm(context,
+            title: 'Restore ${r.name}${here ? '' : ' into ${t.sectionName}'}?',
+            body: 'Archived on ${r.leftOn ?? '—'} (${(r.leftReason ?? '').replaceAll('_', ' ')}). '
+                'Their ARAL entry is not restored.',
+            action: 'Restore') ||
+        !mounted) {
+      return;
+    }
+    await _decided(await runAction(
+        context, () => leavers.restore(r.enrollmentId, toSectionId: here ? null : t.sectionId), where: 'Sf1Import'));
   }
 
   Future<void> _editMap(Sf1ColumnMap map) async {
@@ -142,15 +188,76 @@ class _Sf1ImportScreenState extends State<Sf1ImportScreen> {
                   )
                 else
                   InfoRow('Region', t.rawRegion ?? '—'),
+                InfoRow('Section', t.sectionId == null ? 'new: the import creates it' : 'section ${t.sectionId}'),
+                if (t.rowWarnings.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  NoticeBanner('Imported with something left out:\n${t.rowWarnings.join('\n')}'),
+                ],
                 if (t.rows.any((r) => r.outcome != 'insert')) ...[
                   const SizedBox(height: 8),
                   const Divider(),
                   for (final r in t.rows.where((r) => r.outcome != 'insert'))
                     ListRow(
-                      leading: IconBadge(r.outcome == 'conflict' ? Icons.call_split : Icons.redo, size: 34),
+                      leading: IconBadge(
+                          switch (r.outcome) {
+                            'conflict' => Icons.call_split,
+                            'moving' => Icons.swap_horiz,
+                            'returning' => Icons.restore,
+                            _ => Icons.redo,
+                          },
+                          size: 34),
                       title: 'Row ${r.rowIndex + 1}: ${r.name} ${r.lrn ?? ''} — ${r.outcome}${r.reason == null ? '' : ' (${r.reason})'}',
                       footer: StatusChip(r.outcome.toUpperCase(),
                           tone: r.outcome == 'conflict' ? StatusTone.bad : StatusTone.neutral),
+                      trailing: [
+                        // Moving / returning wait for a decision (the import never applies them).
+                        if ((r.outcome == 'moving' || r.outcome == 'returning') && t.sectionId == null)
+                          const Tooltip(message: 'Import first, then decide', child: Icon(Icons.info_outline)),
+                        if (r.outcome == 'moving' && t.sectionId != null)
+                          FilledButton.tonal(
+                              onPressed: _busy
+                                  ? null
+                                  : () => _moveHere(
+                                      (name: r.name, fromSectionName: r.fromSectionName, enrollmentId: r.enrollmentId!),
+                                      t.sectionId!),
+                              child: const Text('Move here')),
+                        if (r.outcome == 'returning' && t.sectionId != null)
+                          FilledButton.tonal(
+                              onPressed: _busy
+                                  ? null
+                                  : () => _restore((
+                                        name: r.name,
+                                        fromSectionId: r.fromSectionId,
+                                        enrollmentId: r.enrollmentId!,
+                                        leftOn: r.leftOn,
+                                        leftReason: r.leftReason,
+                                      ), t),
+                              child: const Text('Restore')),
+                      ],
+                    ),
+                  if ((t.wouldMove + t.wouldReturn) > 0 && t.sectionId == null)
+                    const NoticeBanner('This section is new: import first, then try the file again to move or restore '
+                        'the learners marked moving or returning.', tone: StatusTone.neutral),
+                ],
+                if (t.missing.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  const Divider(),
+                  Text('Not on this SF1 (${t.missing.length})', style: Theme.of(context).textTheme.titleSmall),
+                  const Text('Active in this section but missing from the file. Decide each one, or leave them: '
+                      'they stay active (Undecided learners lists them).'),
+                  for (final m in t.missing)
+                    ListRow(
+                      leading: LetterBadge(initialOf(m.name)),
+                      title: m.name,
+                      subtitle: 'LRN ${m.lrn}',
+                      trailing: [
+                        LeaverDecisionMenu(
+                          learner: m,
+                          fromSectionId: t.sectionId!,
+                          schoolId: null,
+                          onDone: () => _run(false),
+                        ),
+                      ],
                     ),
                 ],
               ],

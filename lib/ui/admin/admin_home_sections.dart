@@ -30,6 +30,7 @@ import 'phil_iri_content_editing.dart';
 import 'phil_iri_finalize_screen.dart';
 import 'phil_iri_ranking_screen.dart';
 import 'sf1_leavers_screens.dart';
+import 'transfers_screen.dart';
 import 'phil_iri_threshold_editing.dart';
 import 'report_screens.dart';
 import 'reports_hub_screen.dart';
@@ -150,6 +151,15 @@ List<HomeSection> adminHomeSections() => [
           doc: 'sf1-leavers.md#anonymize-archived-learners',
           builder: _row63,
         ),
+        HomeEntry(
+          title: 'Cross-school transfers',
+          description: 'SF1s listing a learner enrolled at another school',
+          icon: Icons.swap_horiz,
+          checklistRow: 64,
+          doc: 'sf1-leavers.md#cross-school-transfers-superadmin-only',
+          builder: _row64,
+          superadminOnly: true,
+        ),
       ]),
       HomeGroup('Settings', [
         HomeEntry(
@@ -259,5 +269,6 @@ Widget _row46(BuildContext _) => const BosyMasterlistScreen();
 Widget _row66(BuildContext _) => const PhilIriRankingScreen();
 Widget _row62(BuildContext _) => const UndecidedLearnersScreen();
 Widget _row63(BuildContext _) => const AnonymizeLearnersScreen();
+Widget _row64(BuildContext _) => const TransfersScreen();
 Widget _row43(BuildContext _) => const AralReportScreen();
 Widget _row20(BuildContext _) => const FirstAdminScreen();

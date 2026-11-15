@@ -151,6 +151,11 @@ class _SectionPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isHome = section.id == HomeSectionIds.home;
+    // Superadmin-only cards (HomeEntry.superadminOnly) for the superadmin only.
+    final me = vmsOf(context).auth.currentUser;
+    final superadmin = me != null && isSuperadmin(me);
+    List<HomeEntry> visible(List<HomeEntry> entries) =>
+        [for (final e in entries) if (!e.superadminOnly || superadmin) e];
     return Column(
       children: [
         const PendingWorkBanner(),
@@ -165,12 +170,13 @@ class _SectionPage extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       if (isHome) ...[const _WelcomeCard(), const SizedBox(height: 24)],
-                      for (final g in section.groups) ...[
-                        _GroupTitle(g.title),
-                        const SizedBox(height: 10),
-                        _EntryGrid(entries: g.entries, onOpen: onOpen),
-                        const SizedBox(height: 24),
-                      ],
+                      for (final g in section.groups)
+                        if (visible(g.entries) case final entries when entries.isNotEmpty) ...[
+                          _GroupTitle(g.title),
+                          const SizedBox(height: 10),
+                          _EntryGrid(entries: entries, onOpen: onOpen),
+                          const SizedBox(height: 24),
+                        ],
                     ],
                   ),
                 ),
