@@ -52,6 +52,7 @@ config-set-cloud-url
 config-set-lan-key
 config-set-lan-url
 config-show
+crla-attempt-stories
 crla-export
 crla-part1
 crla-part2

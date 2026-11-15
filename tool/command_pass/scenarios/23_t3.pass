@@ -31,6 +31,9 @@ expect~ g2_g\s+5
 run crla-start {s_g2_1} {sec_g2} {year} fil bosy Tagalog
 expect~ \(BOSY,\ attempt \d+,\ fil,\ Tagalog\)\ for\ student\ {s_g2_1}\.
 capture crla_1 = Started assessment (-?\d+)
+run crla-attempt-stories {crla_1}
+expect Story 1 | Isang Kakaibang Araw | 96 words
+expect~ Story 2 \| .+ \| \d+ words
 run crla-part1 {crla_1} 8 9
 expect Saved Part 1 for assessment {crla_1}: total 27, level Grade Ready.
 run crla-part2 {crla_1} 1 2 1 0 6
