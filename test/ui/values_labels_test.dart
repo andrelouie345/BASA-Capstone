@@ -85,6 +85,28 @@ void main() {
     expect(find.text('Carried from an earlier round'), findsNothing);
   });
 
+  // Owner/ma 2026-11-15: a tutor (showValues false) is never told carried or actual.
+  testWidgets('tutor: a round without a reading is "No reading this round" under actual', (tester) async {
+    await _show(tester, [roundViewChip(actualMissing, showValues: false), ...roundViewRows(actualMissing, showValues: false)]);
+    expect(find.text('No reading this round'), findsOneWidget);
+    expect(find.text('No reading this round.'), findsOneWidget);
+    expect(find.textContaining('not assessed'), findsNothing);
+    expect(find.textContaining('Struggling'), findsNothing);
+    expect(roundViewText(actualMissing, showValues: false), 'No reading this round');
+  });
+
+  testWidgets('tutor: carried values without the carried-over note', (tester) async {
+    await _show(tester, [roundViewChip(carriedOver, showValues: false), ...roundViewRows(carriedOver, showValues: false)]);
+    expect(find.text('97% (Instructional)'), findsOneWidget);
+    expect(find.textContaining('Carried'), findsNothing);
+  });
+
+  testWidgets('tutor: nothing all year is "No reading this round" too', (tester) async {
+    const nothing = PhilIriRoundView(round: PhilIriRound.bosy, values: PhilIriValues.carried, notAssessed: true);
+    expect(roundViewText(nothing, showValues: false), 'No reading this round');
+    expect(roundViewText(nothing), 'not assessed');
+  });
+
   testWidgets('ValuesNote shows the label', (tester) async {
     await _show(tester, [ValuesNote(philIriValuesLabel(PhilIriValues.actual))]);
     expect(find.text(philIriValuesLabel(PhilIriValues.actual)), findsOneWidget);

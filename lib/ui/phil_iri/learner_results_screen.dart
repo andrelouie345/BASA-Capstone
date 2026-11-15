@@ -26,12 +26,19 @@ class LearnerResultsScreen extends StatelessWidget {
         where: 'LearnerResults',
         load: (vms) => vms.philIri.learnerResults(studentId: student.id!, sectionId: section.id!, schoolYear: section.schoolYear),
         builder: (context, r, _) {
-          // One kind of value, as the school's learner-pages switch says.
+          // One kind of value, as the school's learner-pages switch says; a
+          // tutor is never told which (showValues).
+          final show = r.showValues;
           final rounds = [
             for (final x in r.rounds)
               () {
                 final v = r.view(x.round);
-                return SectionCard(title: x.round.label, icon: Icons.event_note_outlined, trailing: roundViewChip(v), children: roundViewRows(v));
+                return SectionCard(
+                  title: x.round.label,
+                  icon: Icons.event_note_outlined,
+                  trailing: roundViewChip(v, showValues: show),
+                  children: roundViewRows(v, showValues: show),
+                );
               }(),
           ];
           final end = r.endView();
@@ -51,9 +58,8 @@ class LearnerResultsScreen extends StatelessWidget {
                     StatTile(label: 'Rounds assessed', value: '${r.rounds.where((x) => !x.notAssessed).length}/${r.rounds.length}', icon: Icons.event_available_outlined),
                     if (end != null) StatTile(label: 'End result', value: end.profile?.label ?? '—', icon: Icons.flag_outlined),
                   ]),
-                  if (end != null) ...[const SizedBox(height: 12), InfoRow('End result', roundViewText(end))],
-                  const SizedBox(height: 12),
-                  ValuesNote(philIriValuesLabel(r.values)),
+                  if (end != null) ...[const SizedBox(height: 12), InfoRow('End result', roundViewText(end, showValues: show))],
+                  if (show) ...[const SizedBox(height: 12), ValuesNote(philIriValuesLabel(r.values))],
                 ],
               ),
               if (rounds.isEmpty) const EmptyNote('No Phil-IRI rounds for this learner yet.', icon: Icons.menu_book_outlined),
@@ -135,22 +141,33 @@ class _LearnerResultsPickScreenState extends State<LearnerResultsPickScreen> {
   }
 }
 
+// [showValues] false = a tutor (PhilIriLearnerResults.showValues, owner/ma
+// 2026-11-15): never say which values the page shows. A round without a
+// reading is "No reading this round" under both values, and no carried note.
+const _noReading = 'No reading this round';
+
+bool _noReadingFor(PhilIriRoundView v) => v.notAssessedThisRound || v.notAssessed;
+
 /// One line for a round as the learner pages show it (carried or actual,
 /// [PhilIriLearnerResults.values]); also used by the learner history.
-String roundViewText(PhilIriRoundView v) {
+String roundViewText(PhilIriRoundView v, {bool showValues = true}) {
+  if (!showValues && _noReadingFor(v)) return _noReading;
   if (v.notAssessedThisRound) return 'not assessed this round · ${v.adjustedLevelLabel} (${v.levelsDownLabel})';
   if (v.notAssessed) return 'not assessed';
   return [v.profile?.label ?? 'no profile', ?v.adjustedLevelLabel].join(' · ');
 }
 
 /// A round's profile as a chip ("not assessed" when it wasn't).
-StatusChip roundViewChip(PhilIriRoundView v) => v.notAssessedThisRound
-    ? const StatusChip('not assessed this round', icon: Icons.remove_circle_outline, tone: StatusTone.warn)
-    : v.notAssessed
-        ? const StatusChip('not assessed', icon: Icons.remove_circle_outline)
-        : StatusChip(v.profile?.label ?? 'no profile', tone: philIriLevelTone(v.profile));
+StatusChip roundViewChip(PhilIriRoundView v, {bool showValues = true}) => !showValues && _noReadingFor(v)
+    ? const StatusChip(_noReading, icon: Icons.remove_circle_outline)
+    : v.notAssessedThisRound
+        ? const StatusChip('not assessed this round', icon: Icons.remove_circle_outline, tone: StatusTone.warn)
+        : v.notAssessed
+            ? const StatusChip('not assessed', icon: Icons.remove_circle_outline)
+            : StatusChip(v.profile?.label ?? 'no profile', tone: philIriLevelTone(v.profile));
 
-List<Widget> roundViewRows(PhilIriRoundView v) {
+List<Widget> roundViewRows(PhilIriRoundView v, {bool showValues = true}) {
+  if (!showValues && _noReadingFor(v)) return const [EmptyNote('$_noReading.', icon: Icons.event_busy_outlined)];
   if (v.notAssessedThisRound) {
     return [
       const EmptyNote('No reading of their own this round: counted as Struggling.', icon: Icons.event_busy_outlined),
@@ -169,8 +186,8 @@ List<Widget> roundViewRows(PhilIriRoundView v) {
     InfoRow('Speed', v.wordsPerMinute == null ? '—' : '${v.wordsPerMinute!.toStringAsFixed(0)} wpm (${v.speed?.label ?? '—'})'),
     InfoRow('Comprehension', v.comprehensionPercent == null ? 'blank' : '${v.comprehensionPercent}% (${v.comprehensionLevel?.label ?? '—'})'),
     if (v.adjustedLevelLabel != null) InfoRow('Level', '${v.adjustedLevelLabel} (${v.levelsDownLabel ?? ''})'),
-    // Monitoring status shows under carried only (as the console prints it).
-    if (v.values == PhilIriValues.carried && v.status == PhilIriRoundStatus.carriedOver)
+    // Monitoring status shows under carried only (as the console prints it), never to a tutor.
+    if (showValues && v.values == PhilIriValues.carried && v.status == PhilIriRoundStatus.carriedOver)
       const InfoRow('Note', 'Carried from an earlier round'),
   ];
 }
