@@ -1,6 +1,8 @@
 // The binary marker scan behind tool/build_release.ps1, on byte fixtures.
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:basa_capstone/core/release.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../tool/scan_markers.dart';
@@ -111,5 +113,19 @@ void main() {
 
   test('a marker before any section is refused', () {
     expect(() => parseMarkers('create-user\n[admin]\n'), throwsFormatException);
+  });
+
+  // lib/core/release.dart is in both builds and lists every migration; Dart
+  // keeps one copy of equal strings, so a marker equal to a migration id or
+  // name is always "in" the tutor build (sf1_transfer_in, 2026-11-16).
+  test('no marker is a migration id or name', () {
+    final markers = parseMarkers(File('tool/admin_markers.txt').readAsStringSync());
+    final migrationStrings = {...basaMigrations.keys, ...basaMigrations.values};
+    final clashes = [
+      for (final e in markers.entries)
+        for (final m in e.value)
+          if (migrationStrings.contains(m)) '[${e.key}] $m',
+    ];
+    expect(clashes, isEmpty, reason: 'markers that release.dart puts in every build');
   });
 }
