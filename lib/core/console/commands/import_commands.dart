@@ -7,6 +7,7 @@ import '../console_command.dart';
 import '../console_registry.dart';
 import '../../models/region.dart';
 import '../../../viewmodels/import_viewmodel.dart';
+import '../../../viewmodels/viewmodel_exception.dart';
 
 void registerImportCommands(ConsoleRegistry registry, ImportViewModel vm) {
   String describe(ConflictResolution r) {
@@ -72,7 +73,8 @@ void registerImportCommands(ConsoleRegistry registry, ImportViewModel vm) {
         final buf = StringBuffer();
         buf.writeln('Region: "${t.rawRegion ?? "(empty)"}" -> ${t.regionError ?? Region.byId(t.regionId!)}');
         buf.writeln('School: ${t.schoolIdCode} | ${t.schoolName}');
-        buf.writeln('Section: ${t.gradeLevel} - ${t.sectionName} (${t.schoolYear})');
+        buf.writeln('Section: ${t.gradeLevel} - ${t.sectionName} (${t.schoolYear})'
+            '${t.sectionId == null ? ' - new, the import creates it' : ' - section ${t.sectionId}'}');
         buf.writeln('Would insert: ${t.wouldInsert}, would conflict: ${t.wouldConflict}, '
             'already enrolled: ${t.alreadyEnrolled}, would skip: ${t.wouldSkip}, '
             'moving from another section: ${t.wouldMove}, returning: ${t.wouldReturn}');
@@ -80,14 +82,14 @@ void registerImportCommands(ConsoleRegistry registry, ImportViewModel vm) {
         buf.writeln('---');
         for (final row in t.rows) {
           final decide = switch (row.outcome) {
-            'moving' => ' -> enrollment ${row.enrollmentId}: confirm with sf1-move ${row.enrollmentId} <this section id>',
+            'moving' => ' -> enrollment ${row.enrollmentId}: confirm with sf1-move ${row.enrollmentId} ${t.sectionId ?? '<this section id, after the import>'}',
             // Archived in this section: restored in place. Archived in
             // another: the file's section must be named, or the learner
             // goes back to the old one.
             'returning' => row.fromSectionName == null || row.fromSectionName == t.sectionName
                 ? ' -> enrollment ${row.enrollmentId}: confirm with sf1-restore ${row.enrollmentId}'
                 : ' -> enrollment ${row.enrollmentId} (archived in ${row.fromSectionName}): confirm with '
-                    'sf1-restore ${row.enrollmentId} <this section id>',
+                    'sf1-restore ${row.enrollmentId} ${t.sectionId ?? '<this section id, after the import>'}',
             _ => '',
           };
           buf.writeln('[${row.rowIndex}] ${row.outcome.toUpperCase()}: ${row.name}'
@@ -95,6 +97,12 @@ void registerImportCommands(ConsoleRegistry registry, ImportViewModel vm) {
         }
         if (t.wouldMove + t.wouldReturn > 0) {
           buf.writeln('(Moving and returning rows are not applied by the import: they wait for the decision above.)');
+        }
+        if (t.rowWarnings.isNotEmpty) {
+          buf.writeln('Imported with something left out (${t.rowWarnings.length}):');
+          for (final w in t.rowWarnings) {
+            buf.writeln('  $w');
+          }
         }
         buf.writeln('---');
         if (t.missing.isEmpty) {
@@ -126,9 +134,13 @@ void registerImportCommands(ConsoleRegistry registry, ImportViewModel vm) {
             : '\n${result.waiting} moving or returning learner(s) wait for a decision (import-trial shows them: '
                 'sf1-move / sf1-restore).';
         final warning = result.lastImportWarning == null ? '' : '\nWarning: ${result.lastImportWarning}';
+        final rows = result.rowWarnings.isEmpty
+            ? ''
+            : '\nImported with something left out (${result.rowWarnings.length}):\n'
+                '${result.rowWarnings.map((w) => '  $w').join('\n')}';
         return 'Inserted: ${result.inserted}, Conflicts: ${result.conflicts}, '
             'Already enrolled: ${result.alreadyEnrolled}, Skipped: ${result.skippedBlankOrTotal}, '
-            'Waiting: ${result.waiting}$waiting$warning';
+            'Waiting: ${result.waiting}$waiting$warning$rows';
       } catch (e) {
         return 'Import failed: $e';
       }
@@ -143,6 +155,42 @@ void registerImportCommands(ConsoleRegistry registry, ImportViewModel vm) {
         await vm.loadPendingConflicts();
         if (vm.pendingConflicts.isEmpty) return '(no pending conflicts)';
         return vm.pendingConflicts.map((c) => '${c.id}: LRN ${c.lrn} — ${c.reason}').join('\n');
+      } catch (e) {
+        return 'List failed: $e';
+      }
+    },
+  ));
+
+  registry.register(ConsoleCommand(
+    name: 'transfer-conflicts',
+    description: 'transfer-conflicts — every pending transfer conflict across schools: the SF1 row, the learner '
+        'with that LRN, where they are this year, and whether the SF1 row matches them (superadmin only)',
+    handler: (_) async {
+      try {
+        final list = await vm.transferConflicts();
+        if (list.isEmpty) return 'No transfer conflicts waiting.';
+        final out = StringBuffer('Transfer conflicts (${list.length}):');
+        for (final t in list) {
+          final s = t.section;
+          out.write('\n${t.conflict.id}: LRN ${t.conflict.lrn} | SF1 ${t.incomingName} '
+              '(born ${t.incomingBirthDate ?? 'blank'}) -> '
+              '${s == null ? 'section not readable' : 'Grade ${s.gradeLevel} ${s.sectionName} (${s.schoolYear})'}'
+              ' at ${t.schoolName ?? 'school not readable'}');
+          final st = t.stored;
+          if (st == null) {
+            out.write('\n   no learner with this LRN');
+            continue;
+          }
+          final p = t.current;
+          out.write('\n   stored: ${st.lastName}, ${st.firstName} (born ${st.birthDate ?? 'blank'}) | this year: '
+              '${p == null ? 'no enrollment (nothing to transfer)' : '${p.schoolName ?? 'school ${p.schoolId}'}, '
+                  'Grade ${p.gradeLevel} ${p.sectionName}, ${p.status.replaceAll('_', ' ')}'
+                  '${p.leftOn == null ? '' : ' ${p.leftOn}'}'}');
+          out.write('\n   identity: ${t.matches ? 'matches' : 'differs: ${t.differences.join(', ')}'}');
+        }
+        return out.toString();
+      } on ViewModelException {
+        rethrow; // a refusal is shown as the console shows every refusal
       } catch (e) {
         return 'List failed: $e';
       }
