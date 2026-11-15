@@ -22,6 +22,10 @@ import '../core/services/sync_upload_rules.dart' show pendingLockMessage;
 import 'auth_viewmodel.dart';
 import 'viewmodel_exception.dart';
 
+/// [CrlaViewModel.removeAttempt] on an attempt already on the server.
+const crlaRemoveUploadedMessage =
+    'This attempt is already on the server and cannot be removed. Ask your coordinator.';
+
 /// CRLA assessments, offline-first (local database).
 ///
 /// Scoring (v14): an assessment snapshots the school's effective thresholds
@@ -393,6 +397,31 @@ class CrlaViewModel {
       throw ViewModelException('Assessment $assessmentId is not in a Grade 1-3 section.');
     }
     return _storiesFor(a, grade);
+  }
+
+  /// Removes an attempt started by mistake (wrong learner, test, language
+  /// or round) with its Part 1 and Part 2. Only an attempt made on this
+  /// device and not uploaded yet (owner 2026-11-15), and only the learner's
+  /// latest attempt for that test in that section and year, so attempt
+  /// numbers never get a gap. Refused while it waits in an upload or while
+  /// an ARAL roster entry uses it.
+  Future<void> removeAttempt(int assessmentId) async {
+    _requireSignIn();
+    _log('removeAttempt($assessmentId)');
+    final a = await _assessments.findById(assessmentId);
+    if (a == null) throw ViewModelException('No assessment with id $assessmentId.');
+    if (assessmentId > 0) throw const ViewModelException(crlaRemoveUploadedMessage);
+    final latest = await _assessments.getLatestAttempt(
+        studentId: a.studentId, sectionId: a.sectionId, subjectVariant: a.subjectVariant, schoolYear: a.schoolYear);
+    if (latest != null && latest.id != a.id) {
+      throw ViewModelException('Only the latest attempt can be removed: this is attempt ${a.attemptNo}, '
+          'attempt ${latest.attemptNo} of this test is newer.');
+    }
+    if (await _assessments.aralEntriesUsing(assessmentId) > 0) {
+      throw const ViewModelException('An ARAL roster entry uses this attempt. Remove or change that entry first.');
+    }
+    await _write(() => _assessments.deleteNew(assessmentId));
+    await refresh();
   }
 
   // ---- helpers ----

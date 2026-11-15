@@ -31,4 +31,14 @@ abstract class CrlaAssessmentRepository {
   /// admin/coordinator). Returns how many were re-scored. SQLite impl throws
   /// UnsupportedError.
   Future<int> regenerateResults(List<int> assessmentIds);
+
+  /// Local only: how many ARAL roster entries use this attempt as their
+  /// basis or suggestion. Supabase impl throws UnsupportedError.
+  Future<int> aralEntriesUsing(int assessmentId);
+
+  /// Local only: deletes an attempt made on this device and not uploaded
+  /// (negative id) with its Part 1 / Part 2, in one transaction. The sync
+  /// triggers refuse a row waiting in an upload. Supabase impl throws
+  /// UnsupportedError (the server has no delete for attempts).
+  Future<void> deleteNew(int assessmentId);
 }
