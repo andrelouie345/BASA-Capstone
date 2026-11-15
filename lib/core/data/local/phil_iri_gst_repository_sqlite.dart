@@ -66,4 +66,11 @@ class PhilIriGstRepositorySqlite implements PhilIriGstRepository {
     await mirrorSyncedRow(db, 'phil_iri_gst_results', {...toSqliteRow(result.toMap()), 'origin': 'cloud'});
     return (await findById(result.id!))!;
   }
+
+  @override
+  Future<void> deleteNew(int id) async {
+    if (id >= 0) throw ArgumentError('Only a device-only GST result (negative id) can be deleted');
+    final n = await db.delete('phil_iri_gst_results', where: 'id = ?', whereArgs: [id]);
+    if (n == 0) throw StateError('No phil_iri_gst_results row $id');
+  }
 }

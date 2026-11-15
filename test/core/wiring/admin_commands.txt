@@ -104,6 +104,7 @@ crla-import-preview
 crla-part1
 crla-part2
 crla-regenerate
+crla-remove
 crla-results
 crla-start
 crla-stories
@@ -159,6 +160,7 @@ phil-iri-finalize
 phil-iri-finalize-round
 phil-iri-gst
 phil-iri-gst-list
+phil-iri-gst-remove
 phil-iri-import-header-samples
 phil-iri-import-headers
 phil-iri-import-headers-reset

@@ -21,4 +21,9 @@ abstract class PhilIriGstRepository {
   /// Local-mirroring only, keeps Supabase's id and attempt_no. Supabase impl
   /// throws UnimplementedError.
   Future<PhilIriGstResult> upsertWithId(PhilIriGstResult result);
+
+  /// Local only: deletes a GST recorded on this device and not uploaded
+  /// (negative id). The sync triggers refuse a row waiting in an upload.
+  /// Supabase impl throws UnsupportedError (the server has no delete).
+  Future<void> deleteNew(int id);
 }

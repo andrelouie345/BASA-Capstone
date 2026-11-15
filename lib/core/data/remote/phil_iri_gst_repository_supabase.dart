@@ -51,4 +51,8 @@ class PhilIriGstRepositorySupabase implements PhilIriGstRepository {
   Future<PhilIriGstResult> upsertWithId(PhilIriGstResult result) async {
     throw UnimplementedError('upsertWithId is a local-mirroring operation — not meaningful against Supabase');
   }
+
+  @override
+  Future<void> deleteNew(int id) async =>
+      throw UnsupportedError('GST results are never deleted on the server; deleteNew is device-only');
 }

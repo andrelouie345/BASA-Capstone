@@ -56,6 +56,7 @@ crla-attempt-stories
 crla-export
 crla-part1
 crla-part2
+crla-remove
 crla-results
 crla-start
 crla-stories
@@ -81,6 +82,7 @@ phil-iri-criteria
 phil-iri-discard
 phil-iri-gst
 phil-iri-gst-list
+phil-iri-gst-remove
 phil-iri-miscue
 phil-iri-miscue-remove
 phil-iri-miscue-update

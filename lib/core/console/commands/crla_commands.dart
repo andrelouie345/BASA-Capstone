@@ -181,6 +181,25 @@ void registerCrlaCommands(ConsoleRegistry registry, AuthViewModel authVm, CrlaVi
   ));
 
   registry.register(ConsoleCommand(
+    name: 'crla-remove',
+    description: 'crla-remove <assessmentId> — remove an attempt started by mistake, with its parts '
+        "(not uploaded, the learner's latest attempt of that test only)",
+    handler: (args) async {
+      final guardError = authVm.requireActiveSession();
+      if (guardError != null) return guardError;
+      if (args.length != 1) return 'Usage: crla-remove <assessmentId>';
+      final id = int.tryParse(args[0]);
+      if (id == null) return 'Invalid assessmentId: "${args[0]}" (expected a number)';
+      try {
+        await vm.removeAttempt(id);
+        return 'Removed attempt $id.';
+      } catch (e) {
+        return 'Remove failed: $e';
+      }
+    },
+  ));
+
+  registry.register(ConsoleCommand(
     name: 'crla-results',
     description: 'crla-results assessment <id> | section <id> [schoolYear] | student <id> '
         '— show combined CRLA results',
