@@ -70,6 +70,23 @@ class _GstScreenState extends State<GstScreen> {
     setState(() => _reload++);
   }
 
+  /// A GST recorded by mistake: only one on this device alone (negative id)
+  /// and the learner's latest (the ViewModel checks both again).
+  Future<void> _remove(PhilIriGstResult g, String name) async {
+    final ok = await confirm(
+      context,
+      title: 'Remove this GST score?',
+      body: '$name: ${g.totalScore}/${g.maxScore} on ${g.takenAt}.\n\n$removeUnsentWarning',
+      action: 'Remove',
+      destructive: true,
+    );
+    if (!ok || !mounted) return;
+    final vm = vmsOf(context).philIri;
+    if (await runStep(context, () => vm.removeGst(g.id!), done: 'GST score removed.', where: 'GstScreen') && mounted) {
+      setState(() => _reload++);
+    }
+  }
+
   void _pickSection(Section? s) {
     _learners.value = null;
     setState(() => _section = s);
@@ -120,6 +137,12 @@ class _GstScreenState extends State<GstScreen> {
                 final names = {for (final s in learners) s.id: studentLabel(s)};
                 final passCount = results.where((g) => passed[g.id ?? 0] == true).length;
                 final shown = results.where((g) => matchesSearch(_filter, [names[g.studentId]])).toList();
+                // Each learner's latest GST in this section (the only one that may be removed).
+                final latest = <int, PhilIriGstResult>{};
+                for (final g in results) {
+                  final l = latest[g.studentId];
+                  if (l == null || (g.attemptNo ?? 0) > (l.attemptNo ?? 0)) latest[g.studentId] = g;
+                }
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -155,6 +178,12 @@ class _GstScreenState extends State<GstScreen> {
                                     tone: ok ? StatusTone.good : StatusTone.bad,
                                     icon: ok ? Icons.check : Icons.arrow_downward,
                                   ),
+                                  if ((g.id ?? 0) < 0 && identical(latest[g.studentId], g))
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline),
+                                      tooltip: 'Remove (not uploaded yet)',
+                                      onPressed: () => _remove(g, name),
+                                    ),
                                 ],
                               );
                             }),

@@ -116,6 +116,26 @@ class _CrlaEntryScreenState extends State<CrlaEntryScreen> {
     setState(() => _reload++);
   }
 
+  /// An attempt started by mistake (wrong learner, test, language or round):
+  /// only on this device alone (negative id); the ViewModel also checks it is
+  /// the learner's latest.
+  Future<void> _remove(CrlaAssessment a) async {
+    final ok = await confirm(
+      context,
+      title: 'Remove this attempt?',
+      body: 'Attempt ${a.attemptNo} (${a.round.label}, ${crlaVariantLabel(a.subjectVariant)}) and its Part 1 and '
+          'Part 2 are removed from this device.\n\n$removeUnsentWarning',
+      action: 'Remove',
+      destructive: true,
+    );
+    if (!ok || !mounted) return;
+    final crla = vmsOf(context).crla;
+    final navigator = Navigator.of(context);
+    if (await runStep(context, () => crla.removeAttempt(a.id!), done: 'Attempt removed.', where: 'CrlaEntry')) {
+      navigator.pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -212,12 +232,19 @@ class _CrlaEntryScreenState extends State<CrlaEntryScreen> {
                         ),
                         const SizedBox(height: 8),
                         Wrap(spacing: 6, runSpacing: 6, children: [
+                          if ((a.id ?? 0) < 0) const StatusChip('Not uploaded yet', icon: Icons.cloud_off_outlined),
                           StatusChip('Attempt ${v(a.attemptNo)}', icon: Icons.replay),
                           StatusChip(a.assessedAt, icon: Icons.event_outlined),
                           if (a.administeredBy != null) StatusChip(a.administeredBy!, icon: Icons.person_outline),
                         ]),
                       ]),
                     ),
+                    if ((a.id ?? 0) < 0)
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        tooltip: 'Remove this attempt (not uploaded yet)',
+                        onPressed: () => _remove(a),
+                      ),
                   ]),
                 ),
               ),

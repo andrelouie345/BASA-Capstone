@@ -154,6 +154,10 @@ Future<void> showTextDialog(BuildContext context, {required String title, requir
   ),
 );
 
+/// The warning every Remove of unsent work shows (owner 2026-11-15).
+const removeUnsentWarning = "Only the learner's latest one can be removed, and only before it is uploaded. "
+    'Once it is on the server it stays: ask your coordinator.';
+
 /// One field of [askFields].
 class FieldSpec {
   final String key;
