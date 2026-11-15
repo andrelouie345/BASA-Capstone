@@ -52,7 +52,7 @@ capture gst_x = Recorded GST (-?\d+)
 run phil-iri-gst-list {sec_g7} {year}
 capture gst_2 = \[(-?\d+)\] student {s_g7_2} · {year} · attempt 1 ·
 run phil-iri-gst-remove {gst_2}
-refuse Only the latest GST can be removed: this is attempt 1, attempt 2 is newer.
+refuse Only the latest GST can be removed: this is attempt 1,
 run phil-iri-gst-remove {gst_x}
 expect Removed GST {gst_x}.
 

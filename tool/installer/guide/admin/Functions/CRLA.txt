@@ -9,10 +9,21 @@ The Comprehensive Rapid Literacy Assessment, for **Grades 1 to 3** only. Each le
 **Assess → CRLA by section**. Pick a section and school year: each learner's attempts and results.
 
 ===== Start a CRLA attempt =====
-From the section list, start an attempt for a learner: choose the language (Mother Tongue needs the language name, e.g. Cebuano) and the round. A retake is a new attempt; the latest attempt of a round counts.
+From the section list, start an attempt for a learner: choose the learner, the test and the round. For **Mother Tongue**, pick the language from the list (the languages your region has stories for; type to search, e.g. "Cebuano" finds Sinugbuanong Binisaya). A language not on the list: choose **Other (type it)** and type it; it has no story list in Part 2. A retake is a new attempt; the latest attempt of a round counts.
 
 ===== Part 1 and Part 2 entry =====
-Enter Part 1 (the letter and word tasks) and Part 2 (the story: miscues, reading time, comprehension answers). BASA computes words read from the story and the miscues, and shows the reading profile after saving (from Low Emerging to Reading at Grade Level).
+Enter Part 1 (the letter and word tasks) and Part 2 (the story: miscues, reading time, comprehension answers). BASA shows the reading profile after saving (from Low Emerging to Reading at Grade Level).
+
+**Story number**: Part 2 lists the stories for this attempt (your region, the attempt's language, the section's grade) with their titles. Enter the number of the story the learner read: match the title printed on the Part 2 learner sheet. The number matters: BASA scores the reading with that story's word count. Coordinators tell tutors which story to use.
+
+**Words read**: when the stories are listed, leave it blank; BASA works it out (story words minus miscues). When Part 2 says there is no story list, type it yourself: the story's TOTAL words (on the record form's Part 2 page) minus the miscues.
+
+The **?** at the top of Part 2 opens a help page on both.
+
+===== Fixing a mistake =====
+* A wrong score: open the attempt and use **Change** on Part 1 or Part 2 (also a wrong story number).
+* An attempt started by mistake (wrong learner, test, language or round): an attempt not sent yet is marked **Not uploaded yet** and has a remove button (trash icon). Only the learner's latest attempt for that test can be removed, so remove it before starting another one. Its Part 1 and Part 2 are removed with it.
+* An attempt already on the server stays. It can't be removed in BASA.
 
 ===== CRLA thresholds =====
 **Assess → CRLA thresholds**. The score bands BASA uses for the profiles. The defaults follow the DepEd scoresheet; a school can change them. A change applies to attempts started afterwards; old results keep the thresholds they were scored with.

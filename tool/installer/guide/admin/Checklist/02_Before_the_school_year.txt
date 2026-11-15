@@ -23,9 +23,11 @@ BASA needs the year's learners, sections and dates before anyone can assess. Imp
 [ ] Open **Home → Round calendar** for your school. Keep the region's dates, change a round for your school, or mark a round your school skips.
 [ ] Open **Manage → SF1 import**. Pick a section's SF1 file, check the column list, run the trial, then import it. Repeat for every section.
 [ ] If the import lists conflicts (a learner already in BASA with different details), go through them: keep the old details or update them.
+[ ] When you import a section's SF1 again (a new SF1 during the year), look at the trial's **moving**, **returning** and **Not on this SF1** learners and decide them, or later in **Manage → Undecided learners** ([[:Functions:Schools, sections and learners|Learners who left or moved]]).
+[ ] //Superadmin:// open **Manage → Cross-school transfers** for SF1s that list a learner enrolled at another school.
 [ ] Open **Learners → Sections** and check that every section is there with the right grade.
 [ ] Open **Manage → Tutor assignments** and assign each tutor to the sections they assess.
-[ ] Open **Manage → Report settings**. Check the done threshold (default 85%), whether tutors' uploads are approved automatically, and the offline sign-in days (default 14).
+[ ] Open **Manage → Report settings**. Check the done threshold (default 85%), whether tutors' uploads are approved automatically, the offline sign-in days (default 14), and the archive period (default 6 months).
 [ ] Open **ARAL → ARAL settings**. Check the check-in cut-off (default 75%), SHARP and KS1 extended for your school.
 [ ] //Moving from the workbook to BASA// (a school that used the VNHS ARAL workbook, also in the middle of a year): after the SF1 imports, import each section's Phil-IRI results from the workbook, then send your work ([[:Functions:Importing data|Importing data]]).
 [ ] Tell every tutor to sign in while connected and use **Sync → Download the latest data**.
