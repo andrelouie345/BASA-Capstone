@@ -8,6 +8,8 @@ The Philippine Informal Reading Inventory in **English, for Grades 4 to 10**. Ro
 ===== GST (Group Screening Test) =====
 **Assess → Group Screening Test**. Record each learner's GST score (the total, or literal, inferential and critical). BASA shows who passed. For a learner with only a GST at BOSY, BASA gives a starting grade from the GST as a reference; the individual reading confirms it.
 
+A GST score entered by mistake and not sent yet can be removed (trash icon). Only the learner's latest GST in the section, and only before it is uploaded; once on the server it stays.
+
 ===== Section Phil-IRI sessions =====
 **Assess → Phil-IRI by section**. Pick a section and round: each learner's session. Start a session for a learner from here.
 

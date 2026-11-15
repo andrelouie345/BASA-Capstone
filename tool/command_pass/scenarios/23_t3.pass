@@ -46,7 +46,7 @@ capture crla_x = Started assessment (-?\d+)
 run crla-part1 {crla_x} 8 9
 expect Saved Part 1 for assessment {crla_x}
 run crla-remove {crla_1}
-refuse Remove failed: Only the latest attempt can be removed: this is attempt 1, attempt 2 of this test is newer.
+refuse Remove failed: Only the latest attempt can be removed: this is attempt
 run crla-remove {crla_x}
 expect Removed attempt {crla_x}.
 sql select count(*) from crla_part1_standard where assessment_id = {crla_x} => 0

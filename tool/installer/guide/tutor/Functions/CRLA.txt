@@ -7,11 +7,22 @@ The Comprehensive Rapid Literacy Assessment, for **Grades 1 to 3**. Each learner
 
 ===== Assess a learner =====
 1. **Assess → CRLA by section**: pick the section and school year.
-2. Start an attempt for the learner: the language (for Mother Tongue, the language name, e.g. Cebuano) and the round.
+2. Start an attempt for the learner: the test and the round. For **Mother Tongue**, pick the language from the list (type to search, e.g. "Cebuano" finds Sinugbuanong Binisaya). If it isn't listed, choose **Other (type it)** and type it.
 3. Enter Part 1 (the letter and word tasks).
-4. Enter Part 2 (the story: miscues, reading time, comprehension answers). The app works out the words read from the story and the miscues.
+4. Enter Part 2 (the story: story number, miscues, reading time, comprehension answers). See below.
 5. The reading profile shows after saving (from Low Emerging to Reading at Grade Level).
 A retake is a new attempt; the latest attempt of a round counts.
+
+===== Story number and words read =====
+**Not sure which story to use? Ask your coordinator before you assess.**
+* **Story number**: Part 2 lists the stories for the attempt with their titles. Enter the number of the story the learner read: match the title printed on the Part 2 learner sheet. A wrong number gives a wrong words read, words per minute and profile.
+* **Words read**: when the stories are listed, leave it blank; the app works it out. When Part 2 says there is no story list, type it: the story's TOTAL words (on the record form's Part 2 page) minus the miscues.
+The **?** at the top of Part 2 opens a help page.
+
+===== Fixing a mistake =====
+* A wrong score (or story number): open the attempt and use **Change**.
+* An attempt started by mistake (wrong learner, test, language or round): if it is marked **Not uploaded yet**, remove it with the trash icon. Only the learner's latest attempt for that test can be removed, so remove it **before** you start another one.
+* **Once an attempt is uploaded it stays.** Ask your coordinator.
 
 ===== Scoresheet export =====
 **Assess → Scoresheet export**. Fills the blank DepEd CRLA2 scoresheet of the section's grade with a round's results. You need the blank template file.

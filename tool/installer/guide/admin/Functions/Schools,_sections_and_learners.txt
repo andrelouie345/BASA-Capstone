@@ -25,8 +25,39 @@ BASA refuses an SF1 when a cell holds unreadable characters (it names the row an
 ==== SF1s imported from .xls before this version ====
 Before this version, BASA could misread a long //.xls// SF1 (the old Excel format): a learner's name came out garbled and the learners after it were skipped without a message. If you imported an //.xls// SF1 with an older BASA, import the same file again now: learners already in BASA show as //Already enrolled//, and the missing ones are added. Then check the count (step 6).
 
+===== Learners who left or moved =====
+Everything here needs a connection: each decision is saved on the server at once. Nothing is deleted: an archived learner keeps every record and shows in reports of the years they were there.
+
+==== When you import a section's SF1 again ====
+The trial (**Try it**) also shows:
+* **moving**: a learner on this file who is active in another section of your school. **Move here** moves them, with this school year's CRLA, Phil-IRI and GST records.
+* **returning**: a learner on this file who was archived. **Restore** makes them active again in this section. Their ARAL entry is not restored: enroll them in ARAL again if needed.
+* **Not on this SF1**: learners active in this section but missing from the file. Open the menu (⋮) next to each one: **Transferred out**, **Dropped out** (archives them, with an optional note), or **Moved to section…** (another section of the same grade and school year; this year's records go along).
+For a new section the import must run first: then try the file again to move or restore.
+
+You don't have to decide at once. A learner you leave stays active.
+
+==== Undecided learners ====
+**Manage → Undecided learners**. Every learner of your school who is still active but not on their section's last imported SF1, with the same menu (⋮). Pick a section to narrow the list. The superadmin picks the school first.
+
+An archived learner leaves every active list and can no longer be assessed; their active ARAL entry this year is exited. New work about them still on a tutor's device can't be sent: the tutor's **Sync → Send my work** lists it as a problem, and taking the server's copy drops it from the device.
+
+==== Anonymize archived learners ====
+**Manage → Anonymize archived learners**. Rarely needed, and **it cannot be undone**. It clears the name, LRN, birth date and contact details of learners archived longer than the **archive period** (**Manage → Report settings**, default 6 months), counted after their school year ended. Sex and the records are kept, so old reports still count them, but the learner can never be matched again.
+1. **Preview**: the learners who may be anonymized now.
+2. Check the list, then **Anonymize**, and confirm.
+Nothing is ever anonymized automatically.
+
+==== Cross-school transfers (superadmin) ====
+**Manage → Cross-school transfers** (superadmin only). SF1 imports that list a learner enrolled this school year at another school. Each card shows the SF1 row, where it was imported, and the stored learner with their school this year.
+* **Transfer in** moves the learner into the section of the SF1. If they are still active at the other school, they are archived there as transferred out first. This school year's records stay at the school that made them.
+* **Skip** closes the conflict; nobody moves.
+**Transfer in** is off when the SF1 row doesn't match the stored learner (name or birth date differs). Fix the details at the learner's school, or correct the SF1 and import it again, then come back. There is no override.
+
+A learner moving to a school that uses another BASA server can't take their records along yet.
+
 ===== Learners and roster CSV =====
 **Learners → Learners**. Pick a section to see its learners (search by name or LRN). Save the section's roster as a CSV file with the download button. In the admin build, open a learner to see their history.
 
 ===== Learner history =====
-**Manage → Learner history**. One learner's record by school year: section, CRLA profile per round and language, Phil-IRI results, ARAL (class, tutor, attendance, check-ins) and Summer Remediation. Find the learner by section and name, or type their LRN. It shows what is on this device: download the latest data first.
+**Manage → Learner history**. One learner's record by school year: section, CRLA profile per round and language, Phil-IRI results, ARAL (class, tutor, attendance, check-ins) and Summer Remediation. A learner who was archived, moved or transferred has a line saying when and from where. Find the learner by section and name, or type their LRN. It shows what is on this device: download the latest data first.
