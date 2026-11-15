@@ -4,7 +4,7 @@ Creation-Date: 2026-11-08T00:00:00+08:00
 
 ====== Who can do what ======
 ===== Superadmin (regional) =====
-An admin with no school. Sees and manages every school: adds schools and their admins and coordinators, sets the region's round dates and defaults (thresholds, settings, materials, Phil-IRI content), reviews any school's uploads and makes reports for any school and the region. Uses the **BASA** app.
+An admin with no school. Sees and manages every school: adds schools and their admins and coordinators, sets the region's round dates and defaults (thresholds, settings, materials, Phil-IRI content), reviews any school's uploads and makes reports for any school and the region. Only the superadmin settles cross-school transfers (an SF1 listing a learner enrolled at another school). Uses the **BASA** app.
 
 ===== School admin =====
 An admin of one school. The same as a coordinator for that school.

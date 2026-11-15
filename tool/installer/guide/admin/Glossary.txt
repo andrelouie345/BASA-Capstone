@@ -36,5 +36,8 @@ Learner Reference Number: the learner's DepEd number. BASA uses it to tell learn
 ===== SF1 =====
 School Form 1: the DepEd school register of a section's learners. BASA imports it.
 
+===== Archived, undecided, anonymized =====
+An **archived** learner left the school (transferred out or dropped out): no longer on active lists or assessed, but every record is kept and can be restored. An **undecided** learner is still active but missing from their section's last imported SF1, waiting for your decision. An **anonymized** learner is an archived one whose name, LRN, birth date and contact details were cleared for good (only after the archive period; never automatic).
+
 ===== NLA =====
 Numeracy and Literacy Assessment: DepEd's portal where the coordinator enters the school's reading assessment results (from **Reports → NLA portal report**).
