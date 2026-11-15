@@ -16,6 +16,7 @@ Purpose: the existing trial (`ImportViewModel.trial(filePath)` → `Sf1TrialResu
 - rows with `outcome == 'moving'`: the learner is active in another section of the school, same grade (`fromSectionId`, `fromSectionName`, `enrollmentId`) → a **Move here** button (`move(enrollmentId, thisSectionId)`; the ViewModel records where the move was decided);
 - rows with `outcome == 'returning'`: archived this year at this school (`leftOn`, `leftReason` = `transferred_out` / `dropped_out`, `enrollmentId`, `fromSectionId` / `fromSectionName` = the section they were archived in) → a **Restore** button (`restore(enrollmentId, toSectionId: thisSectionId)`; archived in this same section: leave `toSectionId` out);
 - `wouldMove`, `wouldReturn` counts;
+- `sectionId`: "this section" for **Move here** / **Restore**. Null when the file's section doesn't exist yet (a new section): there is nothing to move into until the import has made it, so say "import first, then decide" (the trial run after the import gives the id);
 - `missing` (`List<Sf1MissingLearner>`: `enrollmentId`, `studentId`, `lrn`, `name`): active in this section, not in the file → per learner **Transferred out** / **Dropped out** (archive) or **Moved to section …** (a same-grade section picker → `move(enrollmentId, sectionId)`), or leave undecided (they stay active).
 The import (`import(filePath)` → `Sf1ImportResult`) never applies moving or returning rows: `waiting` counts them. Show `lastImportWarning` when set (the import worked but the section's LRN list could not be saved on the server: import the file again).
 Console: `import-trial`, `import-students`
@@ -53,6 +54,7 @@ Console: `learner-anonymize-preview`, `learner-anonymize`
 Build: admin    Roles: **superadmin only** (school-bound admins and coordinators don't see this screen)
 Purpose: every pending transfer conflict across schools (an SF1 that lists a learner enrolled this school year at another school), each resolved by transferring the learner in (SF1 leavers D15). Also how a mistaken transfer is undone (a conflict at the first school, resolved here even while the learner is active at the second). Only here can a learner who is **still active** at the other school be transferred: they are archived there as transferred out first. A school's own admin/coordinator resolves only learners the other school already archived, from the SF1 import screen (`admin.md`, *SF1 import*), and gets one neutral refusal for everything else.
 Calls:
+- `ImportViewModel.transferConflicts()` → `List<TransferConflict>` (2026-11-15; superadmin only, otherwise `transferConflictsForbiddenMessage`; read from the server, oldest first; plain "LRN already exists" conflicts are not in it). Per row: `conflict` (id, LRN), the receiving `section` + `schoolName`, the SF1 row's `incomingName` / `incomingBirthDate`, the `stored` learner with that LRN (null = none), `current` = where they are this school year (`schoolName`, `sectionName`, `gradeLevel`, `status` active / transferred_out / dropped_out, `leftOn`; null = no enrollment, nothing to transfer), `activeElsewhere`, and the identity hint `matches` / `differences` ("last name", "first name", "birth date", "birth date (blank on the SF1)"), the same comparison `sf1_transfer_in` makes. The hint says in advance why a transfer would be refused; the server still decides.
 - `ImportViewModel.loadPendingConflicts()` → `pendingConflicts` (the superadmin sees every school's); `getConflict(id)` → the conflict and its section.
 - `resolve(id, 'update')` → `ConflictResolution` with `transferredFrom` (`schoolName`, `sectionName`): "Transferred in from <school> (<section>); this year's records stay at <school>." `resolve(id, 'skip')` closes it.
 - Refusals come back as `The database refused it: <message>.`. The superadmin gets the detailed reason, to show as is:
@@ -63,7 +65,7 @@ Calls:
   - same grade only;
   - an upload holds the learner's records (approve or reject it first);
   - already enrolled at this school (use sf1-move / sf1-restore).
-Console: `list-conflicts`, `show-conflict`, `resolve-conflict`, `resolve-conflicts-all` (same commands as the SF1 import; the superadmin's console).
+Console: `transfer-conflicts`, `list-conflicts`, `show-conflict`, `resolve-conflict`, `resolve-conflicts-all` (the last four as in the SF1 import; the superadmin's console).
 
 ### Archive period (report setting)
 Build: admin    Roles: admin / coordinator (school), superadmin (region)

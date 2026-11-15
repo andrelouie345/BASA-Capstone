@@ -215,11 +215,17 @@ expect~ .
 run value-sources {school}
 expect~ aral: region \S+ · school carried · applies carried
 expect~ ranking: region \S+ · school actual · applies actual
+# Cross-school transfers (SF1 leavers row 64, 2026-11-15): the superadmin's list only.
+run transfer-conflicts
+refuse Forbidden: only the superadmin sees the transfers across schools.
 
 # --- The superadmin: the region row --------------------------------------------------------
 device a9-super admin fresh
 as super
 run value-sources region
 expect~ ranking: region \S+ · applies actual
+# Every school's pending transfer conflicts (other runs may have left some).
+run transfer-conflicts
+expect~ ^(No transfer conflicts waiting\.|Transfer conflicts \(\d+\):)
 # (The tutor build has none of value-sources, value-source-set, phil-iri-rank,
 # phil-iri-rank-export: test/core/wiring/command_sets_test.dart.)
