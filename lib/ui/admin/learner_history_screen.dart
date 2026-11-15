@@ -5,6 +5,7 @@
 // shows its note in place. Admin build only.
 import 'package:flutter/material.dart';
 
+import '../../core/models/enrollment_move.dart' show EnrollmentMoveSource;
 import '../../core/models/report_setting.dart' show philIriValuesLabel;
 import '../../core/models/section.dart';
 import '../../core/models/student.dart';
@@ -221,6 +222,16 @@ class _ChipRow extends StatelessWidget {
   }
 }
 
+/// An enrollment status as words ("transferred out").
+String _statusLabel(String status) => status.replaceAll('_', ' ');
+
+String _moveSourceLabel(EnrollmentMoveSource s) => switch (s) {
+  EnrollmentMoveSource.sf1Missing => "decided from the old section's SF1",
+  EnrollmentMoveSource.sf1Incoming => "confirmed from the new section's SF1",
+  EnrollmentMoveSource.returned => 'restored into another section',
+  EnrollmentMoveSource.transferIn => 'transferred in from another school',
+};
+
 class _YearCard extends StatelessWidget {
   final LearnerHistoryYear year;
   const _YearCard({required this.year});
@@ -242,7 +253,26 @@ class _YearCard extends StatelessWidget {
       icon: Icons.calendar_month_outlined,
       children: [
         for (final e in year.enrollments)
-          InfoRow('Section', 'Grade ${e.gradeLevel} ${e.sectionName} · ${e.schoolName ?? 'school not on this device'} · ${e.status}'),
+          InfoRow(
+            'Section',
+            'Grade ${e.gradeLevel} ${e.sectionName} · ${e.schoolName ?? 'school not on this device'} · '
+                '${_statusLabel(e.status)}${e.leftOn == null ? '' : ', left ${e.leftOn}'}'
+                '${e.leftNote == null ? '' : ' (${e.leftNote})'}',
+          ),
+        // SF1 leavers: section moves and transfers in, oldest first.
+        for (final m in year.moves)
+          m.isTransfer
+              ? InfoRow(
+                  'Transferred in',
+                  '${m.movedOn}: from ${m.fromSchoolName ?? 'another school'} '
+                      '(${m.fromSectionName ?? 'section'}, ${_statusLabel(m.fromStatus ?? 'archived')} '
+                      '${m.fromLeftOn ?? ''}) → ${m.toSectionName ?? 'section ${m.toSectionId}'}',
+                )
+              : InfoRow(
+                  'Moved',
+                  '${m.movedOn}: ${m.fromSectionName ?? 'section ${m.fromSectionId}'} → '
+                      '${m.toSectionName ?? 'section ${m.toSectionId}'} (${_moveSourceLabel(m.source)})',
+                ),
         if (year.isEmpty) Text('No assessments recorded', style: text.bodyMedium?.copyWith(color: colors.onSurfaceVariant)),
         if (year.crla.isNotEmpty) ...[
           head('CRLA', Icons.record_voice_over_outlined),

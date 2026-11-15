@@ -29,6 +29,7 @@ import 'login_logs_screen.dart';
 import 'phil_iri_content_editing.dart';
 import 'phil_iri_finalize_screen.dart';
 import 'phil_iri_ranking_screen.dart';
+import 'sf1_leavers_screens.dart';
 import 'phil_iri_threshold_editing.dart';
 import 'report_screens.dart';
 import 'reports_hub_screen.dart';
@@ -132,6 +133,22 @@ List<HomeSection> adminHomeSections() => [
           checklistRow: 17,
           doc: 'admin.md#learner-history',
           builder: _row17,
+        ),
+        HomeEntry(
+          title: 'Undecided learners',
+          description: "Active, but not on their section's last SF1",
+          icon: Icons.person_search_outlined,
+          checklistRow: 62,
+          doc: 'sf1-leavers.md#undecided-learners-school-wide',
+          builder: _row62,
+        ),
+        HomeEntry(
+          title: 'Anonymize archived learners',
+          description: 'Rarely used: clears long-archived learners for good',
+          icon: Icons.person_off_outlined,
+          checklistRow: 63,
+          doc: 'sf1-leavers.md#anonymize-archived-learners',
+          builder: _row63,
         ),
       ]),
       HomeGroup('Settings', [
@@ -240,5 +257,7 @@ Widget _row44(BuildContext _) => const NlaReportScreen();
 Widget _row45(BuildContext _) => const ProgressScreen();
 Widget _row46(BuildContext _) => const BosyMasterlistScreen();
 Widget _row66(BuildContext _) => const PhilIriRankingScreen();
+Widget _row62(BuildContext _) => const UndecidedLearnersScreen();
+Widget _row63(BuildContext _) => const AnonymizeLearnersScreen();
 Widget _row43(BuildContext _) => const AralReportScreen();
 Widget _row20(BuildContext _) => const FirstAdminScreen();

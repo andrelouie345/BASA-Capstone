@@ -78,8 +78,8 @@ The debug console (`lib/ui/debug/`) is a developer tool, not an app screen: leav
 | 59 | Phil-IRI import (workbook and scoresheet file; also in the hub) | screen | admin | [phil-iri-import.md](screens/phil-iri-import.md#import-pick-a-file) | Ethan | in progress |
 | 60 | Download Phil-IRI scoresheet template (per section) | menu item | admin | [phil-iri-import.md](screens/phil-iri-import.md#download-template-per-section) | Ethan | in progress |
 | 61 | SF1 trial: moving, returning, not on this SF1 (decisions per learner) | screen | admin | [sf1-leavers.md](screens/sf1-leavers.md#sf1-import-trial-moving-returning-not-on-this-sf1) |  |  |
-| 62 | Undecided learners (school-wide; archive, move, restore) | screen | admin | [sf1-leavers.md](screens/sf1-leavers.md#undecided-learners-school-wide) |  |  |
-| 63 | Anonymize archived learners (preview, confirm) | screen | admin | [sf1-leavers.md](screens/sf1-leavers.md#anonymize-archived-learners) |  |  |
+| 62 | Undecided learners (school-wide; archive, move, restore) | screen | admin | [sf1-leavers.md](screens/sf1-leavers.md#undecided-learners-school-wide) | Ethan | in progress |
+| 63 | Anonymize archived learners (preview, confirm) | screen | admin | [sf1-leavers.md](screens/sf1-leavers.md#anonymize-archived-learners) | Ethan | in progress |
 | 64 | Cross-school transfers, superadmin only (transfer conflicts across schools, incl. learners still active at the other school; detailed refusals) — not built yet | screen | admin (superadmin) | [sf1-leavers.md](screens/sf1-leavers.md#cross-school-transfers-superadmin-only--not-built-yet) |  |  |
 | 65 | Report settings: archive period + Phil-IRI value switches (carried / actual per list) | screen part | admin | [value-sources.md](screens/value-sources.md#phil-iri-value-switches-in-report-settings), [sf1-leavers.md](screens/sf1-leavers.md#archive-period-report-setting) | Ethan | in progress |
 | 66 | Phil-IRI ranking list (lowest N by accuracy / wpm / comprehension) | screen | admin | [value-sources.md](screens/value-sources.md#ranking-list) | Ethan | in progress |

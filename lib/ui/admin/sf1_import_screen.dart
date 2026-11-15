@@ -9,6 +9,7 @@ import '../../core/models/import_conflict.dart';
 import '../../core/models/sf1.dart';
 import '../common/screen_kit.dart';
 import 'admin_scope.dart';
+import 'sf1_leavers_screens.dart' show UndecidedLearnersScreen;
 
 class Sf1ImportScreen extends StatefulWidget {
   const Sf1ImportScreen({super.key});
@@ -78,6 +79,12 @@ class _Sf1ImportScreenState extends State<Sf1ImportScreen> {
       appBar: AppBar(
         title: const Text('SF1 import'),
         actions: [
+          IconButton(
+            tooltip: 'Undecided learners',
+            onPressed: () =>
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const UndecidedLearnersScreen())),
+            icon: const Icon(Icons.person_search_outlined),
+          ),
           IconButton(tooltip: 'Column map', onPressed: () => _editMap(sf1.columnMap), icon: const Icon(Icons.view_column)),
         ],
       ),
