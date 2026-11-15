@@ -27,6 +27,9 @@ class BasaDropdown<T> extends StatelessWidget {
   final ValueChanged<T?>? onChanged;
   final String? hint;
   final bool allowNone;
+  /// Always a search box, however short the list (else only past
+  /// kSearchableThreshold items).
+  final bool searchable;
 
   const BasaDropdown({
     super.key,
@@ -37,13 +40,14 @@ class BasaDropdown<T> extends StatelessWidget {
     required this.onChanged,
     this.hint,
     this.allowNone = false,
+    this.searchable = false,
   });
 
   @override
   Widget build(BuildContext context) {
     // A value that is no longer in the list would assert; show nothing chosen.
     final current = items.contains(value) ? value : null;
-    if (items.length > kSearchableThreshold) {
+    if (searchable || items.length > kSearchableThreshold) {
       return _SearchDropdown<T>(
         label: label,
         items: items,

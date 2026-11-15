@@ -8,6 +8,7 @@ import 'package:basa_capstone/core/wiring/wire_shared.dart';
 import 'package:basa_capstone/core/wiring/wire_tutor.dart';
 import 'package:basa_capstone/ui/basa_scope.dart';
 import 'package:basa_capstone/ui/crla/crla_entry_screen.dart';
+import 'package:basa_capstone/ui/crla/crla_section_screen.dart';
 import 'package:basa_capstone/ui/theme/basa_theme.dart';
 import 'package:basa_capstone/viewmodels/app_viewmodels.dart';
 import 'package:flutter/material.dart';
@@ -46,6 +47,7 @@ void main() {
         'section_name': 'S1'});
     await db.insert('students', {'id': 9701, 'lrn': '999999997701', 'last_name': 'ZZSH', 'first_name': 'One',
         'school_id': 9701});
+    await db.insert('enrollments', {'student_id': 9701, 'section_id': 9701, 'school_year': _year, 'status': 'active'});
     for (final (id, language) in [(9701, 'Tagalog'), (9702, 'Cebuano')]) {
       await db.insert('crla_assessments', {
         'id': id, 'student_id': 9701, 'school_id': 9701, 'section_id': 9701, 'school_year': _year,
@@ -53,8 +55,12 @@ void main() {
         'attempt_no': 1, 'assessed_at': '2026-08-10', 'origin': 'cloud', 'row_version': 1,
       });
     }
-    for (final (id, no, title, words) in [(9701, 1, 'Ang Una', 96), (9702, 2, 'Ang Ikalawa', 80)]) {
-      await db.insert('crla_stories', {'id': id, 'region_id': 13, 'language': 'Tagalog', 'grade': 2,
+    for (final (id, no, title, words, language) in [
+      (9701, 1, 'Ang Una', 96, 'Tagalog'),
+      (9702, 2, 'Ang Ikalawa', 80, 'Tagalog'),
+      (9703, 1, 'Ang Talaman', 120, 'Sinugbuanong Binisaya'),
+    ]) {
+      await db.insert('crla_stories', {'id': id, 'region_id': 13, 'language': language, 'grade': 2,
           'story_no': no, 'title': title, 'word_count': words});
     }
     await seedOfflineOwner(db, userId: '00000000-0000-0000-0000-00000000sh01', email: 'sh@test', role: 'tutor',
@@ -98,6 +104,31 @@ void main() {
     await openPart2(tester);
     expect(find.textContaining('No story list for this region, language and grade'), findsOneWidget);
     expect(find.textContaining("Needed here: the story's total words"), findsOneWidget);
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('the mother tongue language is picked from the story list, searchable', (tester) async {
+    await tester.runAsync(seed);
+    await tester.binding.setSurfaceSize(const Size(1280, 1400));
+    await tester.pumpWidget(BasaScope(
+      vms: vms,
+      child: MaterialApp(theme: basaThemeData(Brightness.light), home: const CrlaSectionScreen()),
+    ));
+    await _settle(tester);
+    await tester.tap(find.text('Section').last);
+    await _settle(tester);
+    await tester.tap(find.text('Grade 2 · S1 ($_year)').last);
+    await _settle(tester);
+    await tester.tap(find.text('Start an attempt'));
+    await _settle(tester);
+
+    final language = find.descendant(of: find.byType(AlertDialog), matching: find.byType(DropdownMenu<String?>));
+    expect(language, findsOneWidget);
+    await tester.enterText(find.descendant(of: language, matching: find.byType(TextField)), 'bini');
+    await _settle(tester);
+    expect(find.text('Sinugbuanong Binisaya'), findsWidgets);
+    expect(find.text('Tagalog'), findsNothing);
+    expect(find.text('Other language'), findsNothing);
     await tester.binding.setSurfaceSize(null);
   });
 }

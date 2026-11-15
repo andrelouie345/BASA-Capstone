@@ -10,6 +10,7 @@ import '../../core/models/crla_result.dart';
 import '../../core/models/crla_variant.dart';
 import '../../core/models/section.dart';
 import '../../core/models/student.dart';
+import '../../viewmodels/viewmodel_exception.dart';
 import '../common/pickers.dart';
 import '../common/screen_kit.dart';
 import 'crla_entry_screen.dart';
@@ -51,7 +52,10 @@ class _CrlaSectionScreenState extends State<CrlaSectionScreen> {
 
   Future<void> _start(List<Student> learners) async {
     final section = _section!;
-    final r = await showDialog<_Start>(context: context, builder: (_) => _StartDialog(learners: learners));
+    final languages = await _storyLanguages(section);
+    if (!mounted) return;
+    final r = await showDialog<_Start>(
+        context: context, builder: (_) => _StartDialog(learners: learners, mtLanguages: languages));
     if (r == null || !mounted) return;
     final crla = vmsOf(context).crla;
     final me = vmsOf(context).auth.currentUser;
@@ -69,6 +73,23 @@ class _CrlaSectionScreenState extends State<CrlaSectionScreen> {
       where: 'CrlaSection',
     );
     if (a?.id != null && mounted) await _open(a!.id!);
+  }
+
+  /// The languages the section's region has CRLA stories in for its grade,
+  /// spelled as the story list spells them (a typed "Cebuano" never matches
+  /// "Sinugbuanong Binisaya"). Empty when unknown: the language is typed.
+  Future<List<String>> _storyLanguages(Section section) async {
+    final vms = vmsOf(context);
+    try {
+      final school = (await vms.school.localSchools()).where((x) => x.id == section.schoolId).firstOrNull;
+      final grade = int.tryParse(section.gradeLevel);
+      if (school?.regionId == null || grade == null) return const [];
+      await vms.crla.loadStories(school!.regionId!, grade: grade);
+      return {for (final st in vms.crla.stories) st.language}.toList()..sort();
+    } on ViewModelException catch (e) {
+      debugPrint('CrlaSection: no story languages: ${e.message}');
+      return const [];
+    }
   }
 
   @override
@@ -175,7 +196,8 @@ class _Start {
 
 class _StartDialog extends StatefulWidget {
   final List<Student> learners;
-  const _StartDialog({required this.learners});
+  final List<String> mtLanguages;
+  const _StartDialog({required this.learners, this.mtLanguages = const []});
 
   @override
   State<_StartDialog> createState() => _StartDialogState();
@@ -186,6 +208,17 @@ class _StartDialogState extends State<_StartDialog> {
   String _variant = 'mt';
   CrlaRound _round = CrlaRound.values.first;
   final _language = TextEditingController();
+  static const _other = 'Other (type it)';
+  String? _mtChoice;
+
+  /// Mother tongue with a story list: picked from it ("Other" = typed).
+  bool get _picking => _variant == 'mt' && widget.mtLanguages.isNotEmpty;
+
+  String? get _chosenLanguage {
+    if (_picking && _mtChoice != _other) return _mtChoice;
+    final typed = _language.text.trim();
+    return typed.isEmpty ? null : typed;
+  }
 
   @override
   void dispose() {
@@ -220,14 +253,30 @@ class _StartDialogState extends State<_StartDialog> {
                 onChanged: (v) => setState(() => _variant = v ?? _variant),
               ),
               const SizedBox(height: 12),
-              TextField(
-                controller: _language,
-                decoration: InputDecoration(
-                  labelText: 'Language',
-                  hintText: defaultLanguage ?? 'e.g. Cebuano',
-                  helperText: defaultLanguage == null ? 'Needed for the mother tongue test.' : 'Empty = $defaultLanguage',
+              if (_picking) ...[
+                BasaDropdown<String>(
+                  label: 'Language',
+                  items: [...widget.mtLanguages, _other],
+                  value: _mtChoice,
+                  itemLabel: (l) => l,
+                  searchable: true,
+                  onChanged: (l) => setState(() => _mtChoice = l),
                 ),
-              ),
+                const SizedBox(height: 12),
+              ],
+              if (!_picking || _mtChoice == _other)
+                TextField(
+                  controller: _language,
+                  decoration: InputDecoration(
+                    labelText: _picking ? 'Other language' : 'Language',
+                    hintText: defaultLanguage,
+                    helperText: defaultLanguage != null
+                        ? 'Empty = $defaultLanguage'
+                        : 'Needed for the mother tongue test. A language not on the story list has no '
+                            'story list in Part 2 (words read is typed).',
+                    helperMaxLines: 3,
+                  ),
+                ),
               const SizedBox(height: 12),
               CrlaRoundPicker(value: _round, onChanged: (r) => setState(() => _round = r ?? _round)),
             ],
@@ -239,12 +288,7 @@ class _StartDialogState extends State<_StartDialog> {
         FilledButton(
           onPressed: _student == null
               ? null
-              : () => Navigator.of(context).pop(_Start(
-                    _student!,
-                    _variant,
-                    _language.text.trim().isEmpty ? null : _language.text.trim(),
-                    _round,
-                  )),
+              : () => Navigator.of(context).pop(_Start(_student!, _variant, _chosenLanguage, _round)),
           child: const Text('Start'),
         ),
       ],
