@@ -377,22 +377,44 @@ class CrlaViewModel {
     stories = await _stories.getByRegion(regionId, language: language, grade: grade);
   }
 
+  /// The stories one attempt's Part 2 can be read from (story 1 first): the
+  /// school's region, the attempt's language and the section's grade, the
+  /// same match Part 2 is scored with. For the Part 2 form, so the tutor sees
+  /// which title is story 1 and which is story 2. Empty when the region has
+  /// no stories for them (words read is then typed).
+  Future<List<CrlaStory>> storiesForAttempt(int assessmentId) async {
+    _requireSignIn();
+    _log('storiesForAttempt(assessmentId: $assessmentId)');
+    final a = await _assessments.findById(assessmentId);
+    if (a == null) throw ViewModelException('No assessment with id $assessmentId.');
+    final section = await _sections.getById(a.sectionId);
+    final grade = section == null ? null : crlaGradeOf(section.gradeLevel);
+    if (grade == null) {
+      throw ViewModelException('Assessment $assessmentId is not in a Grade 1-3 section.');
+    }
+    return _storiesFor(a, grade);
+  }
+
   // ---- helpers ----
 
   /// The assessment's snapshot; rows from before v14 have none (defaults).
   CrlaThresholds _thresholdsOf(CrlaAssessment a) =>
       CrlaThresholds.fromMap(a.thresholdsSnapshot ?? const {});
 
-  /// The story an assessment's Part 2 was read from (school's region, the
-  /// assessment's language, the section's grade, the story number), or null
-  /// when the region has no such story.
-  Future<CrlaStory?> _storyFor(CrlaAssessment a, int grade, int storyNo) async {
+  /// The stories an assessment's Part 2 is read from (school's region, the
+  /// assessment's language, the section's grade), story 1 first; empty when
+  /// the region has none. The one match rule for scoring and the Part 2 list.
+  Future<List<CrlaStory>> _storiesFor(CrlaAssessment a, int grade) async {
     final regionId = (await _schools.getById(a.schoolId))?.regionId;
-    if (regionId == null) return null;
-    return (await _stories.getByRegion(regionId, language: a.language, grade: grade))
-        .where((s) => s.storyNo == storyNo)
-        .firstOrNull;
+    if (regionId == null) return const [];
+    return [...await _stories.getByRegion(regionId, language: a.language, grade: grade)]
+      ..sort((x, y) => x.storyNo.compareTo(y.storyNo));
   }
+
+  /// The story an assessment's Part 2 was read from, or null when the region
+  /// has no such story.
+  Future<CrlaStory?> _storyFor(CrlaAssessment a, int grade, int storyNo) async =>
+      (await _storiesFor(a, grade)).where((s) => s.storyNo == storyNo).firstOrNull;
 
   /// Re-scores the stored reading profile from Part 1 + Part 2 and the
   /// story's exact word count (same match as crla_results: the school's

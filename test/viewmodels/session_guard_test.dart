@@ -57,6 +57,7 @@ void main() {
       'loadResultsForSection': () => vm.loadResultsForSection(1),
       'loadResultsForStudent': () => vm.loadResultsForStudent(1),
       'loadStories': () => vm.loadStories(13),
+      'storiesForAttempt': () => vm.storiesForAttempt(1),
     };
     for (final e in calls.entries) {
       await expectLater(e.value(), _refused, reason: e.key);

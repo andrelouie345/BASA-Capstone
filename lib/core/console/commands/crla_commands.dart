@@ -245,6 +245,29 @@ void registerCrlaCommands(ConsoleRegistry registry, AuthViewModel authVm, CrlaVi
       }
     },
   ));
+  registry.register(ConsoleCommand(
+    name: 'crla-attempt-stories',
+    description: "crla-attempt-stories <assessmentId> — the stories this attempt's Part 2 can be "
+        'read from (story number, title, words)',
+    handler: (args) async {
+      final guardError = authVm.requireActiveSession();
+      if (guardError != null) return guardError;
+      if (args.length != 1) return 'Usage: crla-attempt-stories <assessmentId>';
+      final id = int.tryParse(args[0]);
+      if (id == null) return 'Invalid assessmentId: "${args[0]}" (expected a number)';
+      try {
+        final stories = await vm.storiesForAttempt(id);
+        if (stories.isEmpty) {
+          return 'No story list for this attempt (region, language, grade): type words read in Part 2.';
+        }
+        return [
+          for (final s in stories) 'Story ${s.storyNo} | ${s.title} | ${s.wordCount} words',
+        ].join('\n');
+      } catch (e) {
+        return 'Stories failed: $e';
+      }
+    },
+  ));
 }
 
 String _formatResult(CrlaResult r) {
