@@ -29,9 +29,10 @@ Calls:
 - `CrlaViewModel.savePart1Standard(...)`, `savePart1English(...)`, `savePart2Fluency(assessmentId:, storyNo:, miscues:, wordsRead:, timeMinutes:, timeSeconds:, comprehensionCorrect:, ...)`
 - `getAssessment(id)`, `getResult(id)` → `CrlaResult?` (profile after saving)
 - `effectiveThresholds(schoolId)` → `CrlaThresholds` (type from `core/models/crla_types.dart`)
+- `storiesForAttempt(assessmentId)` → `List<CrlaStory>` (story 1 first): the stories this attempt's Part 2 can be read from (school's region, attempt's language, section's grade; the same match Part 2 is scored with). Show them by the story number field ("1 · title (N words)"); empty = the region has no story list, so words read is typed. Which story a learner reads is the coordinator's call (they tell tutors); the help page "Story number and words read" explains it.
 Live previews: none. Not available yet: a profile / wpm preview before saving (the profile is shown after saving).
 Errors: locked by a pending upload, words= needed where the region has no story (ViewModelException).
-Console: `crla-part1`, `crla-part2`
+Console: `crla-part1`, `crla-part2`, `crla-attempt-stories`
 
 ### CRLA thresholds
 Build: both (view) / admin (edit)    Roles: view all; set/reset admin / coordinator
