@@ -11,6 +11,7 @@ import '../reports/srp_screen.dart';
 import 'aral_report_screen.dart';
 import 'crla_import_screen.dart';
 import 'phil_iri_import_screen.dart';
+import 'phil_iri_ranking_screen.dart';
 import 'report_screens.dart';
 import 'sf1_import_screen.dart';
 import 'srp_editing.dart';
@@ -56,6 +57,7 @@ class ReportsHubScreen extends StatelessWidget {
         tile(Icons.assessment_outlined, 'NLA portal report', 'CSV', (_) => const NlaReportScreen()),
         tile(Icons.donut_large_outlined, 'Progress monitoring', 'CSV', (_) => const ProgressScreen()),
         tile(Icons.format_list_numbered, 'BOSY masterlist', 'CSV', (_) => const BosyMasterlistScreen()),
+        tile(Icons.leaderboard_outlined, 'Phil-IRI ranking', 'CSV', (_) => const PhilIriRankingScreen()),
         tile(Icons.wb_sunny_outlined, 'SRP candidates and classes', 'CSV', (_) => const SrpScreen(editor: AdminSrpEditor())),
       ]),
     ]);

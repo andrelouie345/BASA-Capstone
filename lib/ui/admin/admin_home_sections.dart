@@ -28,6 +28,7 @@ import 'learner_history_screen.dart';
 import 'login_logs_screen.dart';
 import 'phil_iri_content_editing.dart';
 import 'phil_iri_finalize_screen.dart';
+import 'phil_iri_ranking_screen.dart';
 import 'phil_iri_threshold_editing.dart';
 import 'report_screens.dart';
 import 'reports_hub_screen.dart';
@@ -185,6 +186,14 @@ List<HomeSection> adminHomeSections() => [
           builder: _row46,
         ),
         HomeEntry(
+          title: 'Phil-IRI ranking',
+          description: 'The lowest N learners in a round, by one measure',
+          icon: Icons.leaderboard_outlined,
+          checklistRow: 66,
+          doc: 'value-sources.md#ranking-list',
+          builder: _row66,
+        ),
+        HomeEntry(
           title: 'ARAL implementation report',
           description: 'The report and the roster files',
           icon: Icons.description_outlined,
@@ -230,5 +239,6 @@ Widget _row49(BuildContext _) => const ReportsHubScreen();
 Widget _row44(BuildContext _) => const NlaReportScreen();
 Widget _row45(BuildContext _) => const ProgressScreen();
 Widget _row46(BuildContext _) => const BosyMasterlistScreen();
+Widget _row66(BuildContext _) => const PhilIriRankingScreen();
 Widget _row43(BuildContext _) => const AralReportScreen();
 Widget _row20(BuildContext _) => const FirstAdminScreen();
