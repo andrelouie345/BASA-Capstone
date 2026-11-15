@@ -38,6 +38,35 @@ class Sf1ImportResult {
   /// Set by the ViewModel when the import worked but its LRN set could not
   /// be saved on the server.
   String? lastImportWarning;
+
+  /// Rows imported with a problem left out (owner 2026-11-15: a birth date
+  /// that can't be read is left blank), one line each: "Row 7 GALT, JOHN:
+  /// birth date "15/13/2013" can't be read: left blank".
+  List<String> rowWarnings = const [];
+}
+
+/// A birth date as an SF1 holds it: MM-DD-YYYY (DepEd's), MM/DD/YYYY, or
+/// YYYY-MM-DD (also with a time after it, as an Excel date cell reads), as
+/// an ISO date; it must be a real date. [unreadable] = there was text but no
+/// date could be read (owner 2026-11-15, option i: the learner is imported
+/// with the birth date left blank and a row warning).
+({String? iso, bool unreadable}) sf1ParseDate(String? raw) {
+  final text = raw?.trim() ?? '';
+  if (text.isEmpty) return (iso: null, unreadable: false);
+  int? y, m, d;
+  final mdy = RegExp(r'^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$').firstMatch(text);
+  final ymd = RegExp(r'^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[ T].*)?$').firstMatch(text);
+  if (mdy != null) {
+    (m, d, y) = (int.parse(mdy[1]!), int.parse(mdy[2]!), int.parse(mdy[3]!));
+  } else if (ymd != null) {
+    (y, m, d) = (int.parse(ymd[1]!), int.parse(ymd[2]!), int.parse(ymd[3]!));
+  }
+  if (y == null || m == null || d == null || y < 1900 || y > 2100) return (iso: null, unreadable: true);
+  final date = DateTime.utc(y, m, d);
+  // DateTime rolls 02-30 over to March: a real date comes back unchanged.
+  if (date.year != y || date.month != m || date.day != d) return (iso: null, unreadable: true);
+  String two(int v) => v.toString().padLeft(2, '0');
+  return (iso: '$y-${two(m)}-${two(d)}', unreadable: false);
 }
 
 /// One parsed data row's outcome, before any write happens.
@@ -66,6 +95,10 @@ class Sf1TrialRow {
   final String? leftOn;
   final String? leftReason;
 
+  /// Something in the row that is imported without it: today only a birth
+  /// date that can't be read ("birth date "x" can't be read: left blank").
+  final String? warning;
+
   Sf1TrialRow({
     required this.rowIndex,
     required this.lrn,
@@ -78,7 +111,27 @@ class Sf1TrialRow {
     this.enrollmentId,
     this.leftOn,
     this.leftReason,
+    this.warning,
   });
+
+  /// "Row 7 GALT, JOHN: " + [warning] (1-based row), or null.
+  String? get warningLine => warning == null ? null : 'Row ${rowIndex + 1} $name: $warning';
+
+  /// This row with [w] as its warning.
+  Sf1TrialRow withWarning(String w) => Sf1TrialRow(
+        rowIndex: rowIndex,
+        lrn: lrn,
+        name: name,
+        outcome: outcome,
+        reason: reason,
+        existingStudentId: existingStudentId,
+        fromSectionId: fromSectionId,
+        fromSectionName: fromSectionName,
+        enrollmentId: enrollmentId,
+        leftOn: leftOn,
+        leftReason: leftReason,
+        warning: w,
+      );
 }
 
 /// Everything import() needs, computed read-only — shared by both
@@ -99,6 +152,10 @@ class Sf1TrialResult {
   /// year whose LRN isn't in the file. Empty when the section doesn't exist yet.
   final List<Sf1MissingLearner> missing;
 
+  /// The file's section when it already exists (null = the import creates
+  /// it): what a "Move here" / "Restore here" decision takes as the target.
+  final int? sectionId;
+
   Sf1TrialResult({
     required this.rawRegion,
     required this.regionId,
@@ -111,7 +168,11 @@ class Sf1TrialResult {
     required this.rows,
     required this.parsedStudents,
     this.missing = const [],
+    this.sectionId,
   });
+
+  /// Rows imported with something left out, one line each ([Sf1TrialRow.warningLine]).
+  List<String> get rowWarnings => [for (final r in rows) ?r.warningLine];
 
   int get wouldInsert => rows.where((r) => r.outcome == 'insert').length;
   int get wouldConflict => rows.where((r) => r.outcome == 'conflict').length;
@@ -133,6 +194,40 @@ const legacyTransferConflictReason =
 /// Is [reason] a transfer conflict's (new or old text)?
 bool isTransferConflictReason(String reason) =>
     reason == transferConflictReason || reason == legacyTransferConflictReason;
+
+const _accented = 'ÁÀÂÄÃÅĀÉÈÊËĒÍÌÎÏĪÓÒÔÖÕŌÚÙÛÜŪÑÇáàâäãåāéèêëēíìîïīóòôöõōúùûüūñç';
+const _plain = 'AAAAAAAEEEEEIIIIIOOOOOOUUUUUNCaaaaaaaeeeeeiiiiioooooouuuuunc';
+
+/// The server's `basa_private.norm_name` (migration 20261113020000): accents
+/// folded, outer spaces trimmed, inner runs of spaces made one, lower case;
+/// empty = null. Change both together.
+String? sf1NormName(String? s) {
+  final buf = StringBuffer();
+  for (final ch in (s ?? '').split('')) {
+    final i = _accented.indexOf(ch);
+    buf.write(i < 0 ? ch : _plain[i]);
+  }
+  final out = buf.toString().trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+  return out.isEmpty ? null : out;
+}
+
+/// What `sf1_transfer_in` would find different between a conflict's SF1 row
+/// ([incoming], the conflict's incoming data) and the stored learner, in the
+/// server's own terms: the last name, the first name, and the birth date when
+/// the stored learner has one (a blank SF1 birth date then differs too).
+/// Empty = it matches. A hint for the superadmin only: the server decides.
+List<String> sf1TransferIdentityDifferences(Map<String, Object?> incoming, Student stored) {
+  final birth = (incoming['birth_date'] as String?) ?? '';
+  final storedBirth = stored.birthDate;
+  return [
+    if (sf1NormName(incoming['last_name'] as String?) != sf1NormName(stored.lastName)) 'last name',
+    if (sf1NormName(incoming['first_name'] as String?) != sf1NormName(stored.firstName)) 'first name',
+    if (storedBirth != null &&
+        (birth.length >= 10 ? birth.substring(0, 10) : birth) !=
+            (storedBirth.length >= 10 ? storedBirth.substring(0, 10) : storedBirth))
+      birth.isEmpty ? 'birth date (blank on the SF1)' : 'birth date',
+  ];
+}
 
 class Sf1Importer {
   final SchoolRepository schoolRepo;       // Supabase — source of truth
@@ -190,16 +285,6 @@ class Sf1Importer {
     final excelFile = await _decodeWithRepair(filePath);
     final sheet = excelFile.tables[excelFile.tables.keys.first]!;
     return List.generate(sheet.maxColumns, (c) => _cell(sheet, rowIndex, c));
-  }
-
-  String? _normalizeDate(String? raw) {
-    if (raw == null) return null;
-    final parts = raw.split('-');
-    if (parts.length != 3) return null;
-    final mm = parts[0].padLeft(2, '0');
-    final dd = parts[1].padLeft(2, '0');
-    final yyyy = parts[2];
-    return '$yyyy-$mm-$dd';
   }
 
   bool _isTotalRow(String? nameCell) =>
@@ -301,13 +386,18 @@ class Sf1Importer {
         fName = _cell(sheet, row, columnMap.firstName) ?? '';
         mName = _cell(sheet, row, columnMap.middleName);
       }
+      // A birth date that can't be read is left blank, with a row warning
+      // (owner 2026-11-15, option i), instead of reaching the server garbled.
+      final rawBirth = _cell(sheet, row, columnMap.birthDate);
+      final birth = sf1ParseDate(rawBirth);
+      final warning = birth.unreadable ? 'birth date "$rawBirth" can\'t be read: left blank' : null;
       parsed = Student(
           lrn: lrn,
           lastName: lName,
           firstName: fName,
           middleName: mName,
           sex: sex,
-          birthDate: _normalizeDate(_cell(sheet, row, columnMap.birthDate)),
+          birthDate: birth.iso,
           motherTongue: _cell(sheet, row, columnMap.motherTongue),
           ipGroup: _cell(sheet, row, columnMap.ipGroup),
           religion: _cell(sheet, row, columnMap.religion),
@@ -328,15 +418,16 @@ class Sf1Importer {
           '${parsed.lastName}, ${parsed.firstName}${parsed.middleName != null ? " ${parsed.middleName}" : ""}';
       final existing = await studentRepo.findByLrn(lrn);
 
+      final Sf1TrialRow outcome;
       if (enrolledLrns.contains(lrn)) {
-        rows.add(Sf1TrialRow(
-            rowIndex: row, lrn: lrn, name: displayName, outcome: 'enrolled', reason: 'already enrolled in this section'));
+        outcome = Sf1TrialRow(
+            rowIndex: row, lrn: lrn, name: displayName, outcome: 'enrolled', reason: 'already enrolled in this section');
       } else if (existing == null) {
         // May still be a transfer: a learner in another school is invisible
         // here (RLS) and only shows up as a duplicate LRN at insert time.
-        rows.add(Sf1TrialRow(rowIndex: row, lrn: lrn, name: displayName, outcome: 'insert'));
+        outcome = Sf1TrialRow(rowIndex: row, lrn: lrn, name: displayName, outcome: 'insert');
       } else {
-        rows.add(await _existingLearnerRow(
+        outcome = await _existingLearnerRow(
           rowIndex: row,
           lrn: lrn,
           name: displayName,
@@ -344,8 +435,9 @@ class Sf1Importer {
           schoolId: existingSchool?.id,
           schoolYear: schoolYear,
           gradeLevel: gradeLevel,
-        ));
+        );
       }
+      rows.add(warning == null ? outcome : outcome.withWarning(warning));
       parsedStudents[row] = parsed;
     }
 
@@ -381,6 +473,7 @@ class Sf1Importer {
       rows: rows,
       parsedStudents: parsedStudents,
       missing: missing,
+      sectionId: existingSection?.id,
     );
   }
 
@@ -462,6 +555,7 @@ class Sf1Importer {
     final excelFile = await _decodeWithRepair(filePath);
     final parsed = await _parseSheet(excelFile);
     if (check != null) await check(parsed);
+    result.rowWarnings = parsed.rowWarnings;
 
     if (parsed.regionId == null) {
       throw Exception('${parsed.regionError}. Fix the source file or the Region matcher, then retry.');

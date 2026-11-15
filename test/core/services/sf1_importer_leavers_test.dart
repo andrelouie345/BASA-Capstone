@@ -84,7 +84,7 @@ void main() {
   tearDownAll(LocalDatabase.close);
 
   /// An SF1 of G4-A (default column map) with the given LRNs, one row each.
-  String sf1(List<String> lrns, {String section = 'G4-A', String grade = '4'}) {
+  String sf1(List<String> lrns, {String section = 'G4-A', String grade = '4', Map<int, String> birthDates = const {}}) {
     final excel = Excel.createExcel();
     final sheet = excel[excel.tables.keys.first];
     void put(int r, int c, String v) =>
@@ -100,6 +100,8 @@ void main() {
       put(6 + i, 2, 'Filerow$i');
       put(6 + i, 3, 'Zed');
       put(6 + i, 6, 'M');
+      final b = birthDates[i];
+      if (b != null) put(6 + i, importer.columnMap.birthDate, b);
     }
     final path = '$dir/sf1_${DateTime.now().microsecondsSinceEpoch}.xlsx';
     File(path).writeAsBytesSync(excel.save()!);
@@ -185,6 +187,34 @@ void main() {
         [(4506, 4506, _lrn(4506), 'Fixture4506, Zed')]);
     // A section the school doesn't hold yet has nobody missing.
     expect((await importer.trial(sf1([_lrn(4505)], section: 'G4-New'))).missing, isEmpty);
+  });
+
+  // The file's section id: what "Move here" / "Restore here" take (row 61).
+  test('trial gives the file section id, null for a new section', () async {
+    expect((await importer.trial(sf1([_lrn(4505)]))).sectionId, 41);
+    expect((await importer.trial(sf1([_lrn(4505)], section: 'G4-New'))).sectionId, isNull);
+  });
+
+  // Owner 2026-11-15, option i: a birth date that can't be read is left
+  // blank with a row warning; the learner is still imported (the old code
+  // turned "2013-03-15" into "15-2013-03" and the server refused the import
+  // after the section was made).
+  test('birth dates: SF1 and ISO forms read; an unreadable one is left blank with a warning', () async {
+    final lrns = [_lrn(4601), _lrn(4602), _lrn(4603)];
+    final path = sf1(lrns, birthDates: {0: '03-15-2013', 1: '2013-03-16 00:00:00', 2: '15/13/2013'});
+    final t = await importer.trial(path);
+    expect(t.parsedStudents.values.map((s) => s.birthDate).toList(), ['2013-03-15', '2013-03-16', null]);
+    expect(rowFor(t, _lrn(4603)).warning, 'birth date "15/13/2013" can\'t be read: left blank');
+    expect(t.rowWarnings, ['Row 9 Filerow2, Zed: birth date "15/13/2013" can\'t be read: left blank']);
+    expect(rowFor(t, _lrn(4601)).warning, isNull);
+
+    final result = await importer.import(path);
+    expect(result.inserted, 3);
+    expect(result.rowWarnings, t.rowWarnings);
+    final stored = {
+      for (final r in await db.query('students', where: "lrn IN ('${lrns.join("','")}')")) r['lrn']: r['birth_date'],
+    };
+    expect(stored, {_lrn(4601): '2013-03-15', _lrn(4602): '2013-03-16', _lrn(4603): null});
   });
 
   test('import skips moving and returning rows and logs no conflict', () async {

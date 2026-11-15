@@ -60,6 +60,8 @@ Purpose: pick an SF1 workbook, check the column map, try it, import it, then res
 Calls:
 - `ImportViewModel.columnMap` (`Sf1ColumnMap`, from `core/models/sf1.dart`) `.toMap()`, `.set(field, value)` → `String?`
 - `previewRow(filePath, rowIndex)`, `trial(filePath)` → `Sf1TrialResult`, `import(filePath)` → `Sf1ImportResult` (types from `core/models/sf1.dart`). Takes a file path: SF1 import is a desktop admin task. Not available yet: a bytes version for phones.
+- Row warnings (2026-11-15): a birth date that can't be read (SF1 dates are MM-DD-YYYY; MM/DD/YYYY and YYYY-MM-DD are read too) is left blank and the learner is still imported. Show `Sf1TrialResult.rowWarnings` with the trial and `Sf1ImportResult.rowWarnings` after the import ("Row 9 GALT, JOHN: birth date "15/13/2013" can't be read: left blank"; per row: `Sf1TrialRow.warning`).
+- `Sf1TrialResult.sectionId`: the file's section when it already exists (null = the import creates it).
 - `loadPendingConflicts()` → `pendingConflicts`; `getConflict(id)`; `resolve(id, 'skip'|'update')`; `resolveAll(action)`
 - `resolve(id, 'update')` → `ConflictResolution`. Three outcomes besides the plain update:
   - **refused** (ViewModelException) when the learner is already enrolled this year at this school: the message names `sf1-move` / `sf1-restore` (show it as is);

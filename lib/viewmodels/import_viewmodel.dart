@@ -55,6 +55,59 @@ class ConflictResolution {
       {this.studentId, this.enrolledIn, this.transferredFrom, this.deviceWarning});
 }
 
+/// Refusal of [ImportViewModel.transferConflicts] for anyone but the superadmin.
+const transferConflictsForbiddenMessage = 'Forbidden: only the superadmin sees the transfers across schools.';
+
+/// Where a learner is this school year (their one enrollment), as the
+/// transfers list shows it.
+typedef TransferPlace = ({String? schoolName, int schoolId, String sectionName, String gradeLevel, String status, String? leftOn});
+
+/// One pending transfer conflict (SF1 leavers D15) for the superadmin's
+/// cross-school transfers screen: the SF1 row, where it was imported, the
+/// stored learner with that LRN and where they are this year, and whether
+/// the SF1 row matches them as `sf1_transfer_in` checks it (a hint; the
+/// server decides when the conflict is resolved).
+class TransferConflict {
+  final ImportConflict conflict;
+
+  /// The section (and its school) the SF1 was imported into: where the
+  /// learner would go. Null when it can't be read.
+  final Section? section;
+  final String? schoolName;
+
+  /// The SF1 row's name ("LAST, First") and birth date (ISO, or null when blank).
+  final String incomingName;
+  final String? incomingBirthDate;
+
+  /// The learner the LRN belongs to; null = no learner with that LRN.
+  final Student? stored;
+
+  /// Their enrollment this school year; null = none (nothing to transfer).
+  final TransferPlace? current;
+
+  /// What differs between the SF1 row and [stored] ("last name", "first
+  /// name", "birth date", "birth date (blank on the SF1)"); empty = matches.
+  final List<String> differences;
+
+  const TransferConflict({
+    required this.conflict,
+    required this.section,
+    required this.schoolName,
+    required this.incomingName,
+    required this.incomingBirthDate,
+    required this.stored,
+    required this.current,
+    required this.differences,
+  });
+
+  /// The SF1 row matches the stored learner (names, birth date).
+  bool get matches => stored != null && differences.isEmpty;
+
+  /// Still active at the other school: only the superadmin can transfer them
+  /// (they are archived there as transferred out first).
+  bool get activeElsewhere => current != null && current!.status == 'active';
+}
+
 /// SF1 roster import and import-conflict review. Admin/coordinator only;
 /// the cloud is the source of truth and every write is mirrored to SQLite.
 class ImportViewModel {
@@ -157,6 +210,53 @@ class ImportViewModel {
   Future<void> loadPendingConflicts() async {
     _log('loadPendingConflicts()');
     pendingConflicts = await _cloud().conflicts.getPending();
+  }
+
+  /// Every pending transfer conflict across schools, read from the server
+  /// (the superadmin sees every school's), oldest first, for the
+  /// cross-school transfers screen. Superadmin only.
+  Future<List<TransferConflict>> transferConflicts() async {
+    _log('transferConflicts()');
+    final cloud = _cloud();
+    final me = _auth.currentUser!;
+    if (me.role != UserRole.admin || me.schoolId != null) {
+      throw const ViewModelException(transferConflictsForbiddenMessage);
+    }
+    final schoolNames = <int, String?>{};
+    Future<String?> schoolName(int id) async =>
+        schoolNames[id] ??= (await cloud.schools.getById(id))?.schoolName;
+
+    final out = <TransferConflict>[];
+    for (final c in await cloud.conflicts.getPending()) {
+      if (!isTransferConflictReason(c.reason)) continue;
+      final section = c.sectionId == null ? null : await cloud.sections.getById(c.sectionId!);
+      final incoming = Map<String, Object?>.from(jsonDecode(c.incomingDataJson) as Map);
+      final stored = await cloud.students.findByLrn(c.lrn);
+      final e = stored == null || section == null
+          ? null
+          : await cloud.students.enrollmentInYear(stored.id!, section.schoolYear);
+      final birth = incoming['birth_date'] as String?;
+      out.add(TransferConflict(
+        conflict: c,
+        section: section,
+        schoolName: section == null ? null : await schoolName(section.schoolId),
+        incomingName: '${incoming['last_name'] ?? ''}, ${incoming['first_name'] ?? ''}',
+        incomingBirthDate: birth == null || birth.isEmpty ? null : (birth.length > 10 ? birth.substring(0, 10) : birth),
+        stored: stored,
+        current: e == null
+            ? null
+            : (
+                schoolName: await schoolName(e.schoolId),
+                schoolId: e.schoolId,
+                sectionName: e.sectionName,
+                gradeLevel: e.gradeLevel,
+                status: e.status,
+                leftOn: e.leftOn,
+              ),
+        differences: stored == null ? const [] : sf1TransferIdentityDifferences(incoming, stored),
+      ));
+    }
+    return out;
   }
 
   /// The conflict plus the section it was raised for (null if none/hidden).

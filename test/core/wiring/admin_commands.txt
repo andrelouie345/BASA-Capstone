@@ -252,6 +252,7 @@ theme-mode
 theme-reset
 theme-set
 theme-show
+transfer-conflicts
 trend-aral-activity
 trend-aral-exits
 trend-bands
