@@ -6,6 +6,8 @@ Each Phil-IRI list shows ONE kind of value, chosen per school (ma, 2026-11-14), 
 - **carried**: the best so far (a learner keeps their best result into later rounds), today's numbers;
 - **actual**: each round's own reading only; a learner without a reading of their own in that round is "Not assessed this round" (the stand-in: Struggling, 3 levels down). In BOSY a reading without comprehension (e.g. the FLT) shows the GST's comprehension, as both values count it.
 
+**Tutors are never told which values they see** (owner/ma 2026-11-15). On the learner pages, when `PhilIriLearnerResults.showValues` is false (a tutor), show no "Values:" label, no "Carried from an earlier round" note, and "No reading this round" for any round without a reading (`notAssessedThisRound` or `notAssessed`), whatever the switch. Every other list here is admin-only.
+
 Every list carries its `values` (`PhilIriValues`); show `philIriValuesLabel(values)` ("Values: carried (best so far)" / "Values: actual (each round's own reading)") above the table. Form 2b under actual: `nlaValuesLabel(values)` (adds "; not assessed this round counted as 3-LD Frustration"). The CSVs already end with a `Values` column.
 
 ### Phil-IRI value switches (in Report settings)

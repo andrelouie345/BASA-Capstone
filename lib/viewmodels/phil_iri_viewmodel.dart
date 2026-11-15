@@ -61,6 +61,11 @@ class PhilIriLearnerResults {
   /// Which values the learner pages show (the section's school's
   /// values_learner_pages; spec 2026-11-14 D11).
   final PhilIriValues values;
+  /// Whether the page may say which values it shows (owner/ma 2026-11-15):
+  /// false for a tutor, who sees the numbers only, with neutral wording (no
+  /// "Values:" line, no carried-over marks, "No reading this round" for a
+  /// round without a reading). True for admins and coordinators.
+  final bool showValues;
 
   const PhilIriLearnerResults({
     required this.studentId,
@@ -73,6 +78,7 @@ class PhilIriLearnerResults {
     required this.regenerated,
     this.comprehensionOptional = const {},
     this.values = PhilIriValues.carried,
+    this.showValues = true,
   });
 
   /// [r] under [values]: under actual, a round without a reading of its own
@@ -830,6 +836,7 @@ class PhilIriViewModel {
       regenerated: useCurrentThresholds,
       comprehensionOptional: optional,
       values: await _valueSource(section.schoolId, PhilIriValueList.learnerPages),
+      showValues: _auth.currentUser?.role != UserRole.tutor,
     );
   }
 

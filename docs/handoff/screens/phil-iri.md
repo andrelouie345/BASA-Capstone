@@ -37,7 +37,7 @@ Console: `phil-iri-start`, `phil-iri-passages-for`, `phil-iri-read`, `phil-iri-t
 ### Learner results
 Build: both    Roles: tutor / coordinator / admin
 Calls:
-- `PhilIriViewModel.learnerResults(...)` → `PhilIriLearnerResults` (rounds: `PhilIriRoundResult`; types from `core/models/phil_iri_types.dart`)
+- `PhilIriViewModel.learnerResults(...)` → `PhilIriLearnerResults` (rounds: `PhilIriRoundResult`; types from `core/models/phil_iri_types.dart`). Show rounds through `view(round)` / `endView()` (the school's carried/actual switch); `showValues` false (a tutor) = never say which values: see `value-sources.md`
 - `wordReadingPercent`, `comprehensionPercent`, `adjustedLevelLabel`, `levelsDownLabel`, `actualAdjustedLevelLabel`, `actualLevelsDownLabel` (getters on `PhilIriPassageResult` / `PhilIriRoundResult`)
 Console: `phil-iri-results`
 - Since 2026-11-14 the learner page shows ONE kind of values, the school's choice (`PhilIriLearnerResults.values`, report setting `values_learner_pages`, default carried): print `philIriValuesLabel(values)` ("Values: carried (best so far)" / "Values: actual (each round's own reading)") above the rounds, one line per round from `results.view(round)` (`PhilIriRoundView`), the end result from `results.endView()`. Under actual a round without a reading of its own has `notAssessedThisRound` true: show **"Not assessed this round"**. `silentOnly` = the word reading 100% comes from a silent reading (not a measured accuracy). Don't show a second "true score" line any more (spec `docs/superpowers/specs/2026-11-14-phil-iri-value-sources-design.md` D11).
