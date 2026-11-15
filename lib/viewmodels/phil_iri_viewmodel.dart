@@ -173,6 +173,10 @@ class PhilIriRoundClosure {
   const PhilIriRoundClosure(this.finalized, this.stillInProgress, this.alreadyFinalized);
 }
 
+/// [PhilIriViewModel.removeGst] on a GST result already on the server.
+const philIriGstRemoveUploadedMessage =
+    'This GST result is already on the server and cannot be removed. Ask your coordinator.';
+
 class PhilIriViewModel {
   // RAISE(ABORT, ...) texts of the local triggers (phil_iri_local_schema.dart)
   // and the repository's StateErrors. A refused write is rethrown as a
@@ -325,6 +329,26 @@ class PhilIriViewModel {
     _requireSignIn();
     _log('gstForSection(sectionId: $sectionId, schoolYear: $schoolYear)');
     return _gst.getBySection(sectionId, schoolYear: schoolYear == null ? null : normalizeSchoolYear(schoolYear));
+  }
+
+  /// Removes a GST recorded by mistake (wrong learner or score). Only one
+  /// recorded on this device and not uploaded yet (owner 2026-11-15), and
+  /// only the learner's latest GST in that section and year. Refused while
+  /// it waits in an upload.
+  Future<void> removeGst(int gstId) async {
+    _requireSignIn();
+    _log('removeGst($gstId)');
+    final g = await _gst.findById(gstId);
+    if (g == null) throw ViewModelException('No GST result with id $gstId.');
+    if (gstId > 0) throw const ViewModelException(philIriGstRemoveUploadedMessage);
+    final mine = (await _gst.getBySection(g.sectionId, schoolYear: g.schoolYear))
+        .where((x) => x.studentId == g.studentId);
+    final newest = mine.reduce((x, y) => (y.attemptNo ?? 0) > (x.attemptNo ?? 0) ? y : x);
+    if (newest.id != g.id) {
+      throw ViewModelException('Only the latest GST can be removed: this is attempt ${g.attemptNo}, '
+          'attempt ${newest.attemptNo} is newer.');
+    }
+    await _write(() => _gst.deleteNew(gstId));
   }
 
   // ---- Sessions ----

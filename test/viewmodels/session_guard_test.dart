@@ -58,6 +58,7 @@ void main() {
       'loadResultsForStudent': () => vm.loadResultsForStudent(1),
       'loadStories': () => vm.loadStories(13),
       'storiesForAttempt': () => vm.storiesForAttempt(1),
+      'removeAttempt': () => vm.removeAttempt(-1),
     };
     for (final e in calls.entries) {
       await expectLater(e.value(), _refused, reason: e.key);
@@ -225,6 +226,7 @@ void main() {
       'effectiveThresholds': () => vm.effectiveThresholds(1),
       'recordGst': () => vm.recordGst(studentId: 1, sectionId: 1, schoolYear: '2026-2027', totalScore: 20),
       'gstForSection': () => vm.gstForSection(1),
+      'removeGst': () => vm.removeGst(-1),
       'gstPassed': () => vm.gstPassed(PhilIriGstResult(
           studentId: 1, schoolId: 1, sectionId: 1, schoolYear: '2026-2027', maxScore: 20, totalScore: 14, takenAt: '2026-06-20')),
       'startSession': () => vm.startSession(studentId: 1, sectionId: 1, schoolYear: '2026-2027', round: PhilIriRound.bosy),

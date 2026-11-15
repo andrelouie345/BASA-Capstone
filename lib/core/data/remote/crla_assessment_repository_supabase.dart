@@ -79,4 +79,12 @@ class CrlaAssessmentRepositorySupabase implements CrlaAssessmentRepository {
     final n = await client.rpc('crla_regenerate_results', params: {'p_assessment_ids': assessmentIds});
     return (n as num).toInt();
   }
+
+  @override
+  Future<int> aralEntriesUsing(int assessmentId) async =>
+      throw UnsupportedError('aralEntriesUsing reads the device copy only');
+
+  @override
+  Future<void> deleteNew(int assessmentId) async =>
+      throw UnsupportedError('CRLA attempts are never deleted on the server; deleteNew is device-only');
 }

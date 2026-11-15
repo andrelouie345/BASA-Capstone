@@ -32,7 +32,8 @@ Calls:
 - `storiesForAttempt(assessmentId)` → `List<CrlaStory>` (story 1 first): the stories this attempt's Part 2 can be read from (school's region, attempt's language, section's grade; the same match Part 2 is scored with). Show them by the story number field ("1 · title (N words)"); empty = the region has no story list, so words read is typed. Which story a learner reads is the coordinator's call (they tell tutors); the help page "Story number and words read" explains it.
 Live previews: none. Not available yet: a profile / wpm preview before saving (the profile is shown after saving).
 Errors: locked by a pending upload, words= needed where the region has no story (ViewModelException).
-Console: `crla-part1`, `crla-part2`, `crla-attempt-stories`
+- `removeAttempt(assessmentId)`: removes an attempt started by mistake (wrong learner, test, language or round) with its Part 1 and Part 2. Only an attempt made on this device and not uploaded (negative id), the learner's latest for that test in that section and year, not waiting in an upload, not used by an ARAL roster entry. Offer the button only for a negative id; the ViewModel refuses the rest with a message to show as is (`crlaRemoveUploadedMessage` for an uploaded one). **Warning to show** (confirm dialog, and on the help page): only the learner's latest one, and only before it is uploaded; once on the server it stays (ask the coordinator).
+Console: `crla-part1`, `crla-part2`, `crla-attempt-stories`, `crla-remove`
 
 ### CRLA thresholds
 Build: both (view) / admin (edit)    Roles: view all; set/reset admin / coordinator

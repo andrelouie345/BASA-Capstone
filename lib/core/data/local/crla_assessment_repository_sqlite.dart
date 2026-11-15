@@ -95,4 +95,28 @@ class CrlaAssessmentRepositorySqlite implements CrlaAssessmentRepository {
   Future<int> regenerateResults(List<int> assessmentIds) async {
     throw UnsupportedError('Regenerating CRLA results runs in the cloud; use the Supabase repository');
   }
+
+  // Device-only ids are unique across every synced table (one countdown), so
+  // a negative id in either column can only be this attempt.
+  @override
+  Future<int> aralEntriesUsing(int assessmentId) async {
+    final rows = await db.rawQuery(
+      'SELECT COUNT(*) AS n FROM aral_enrollments WHERE '
+      "(basis_source = 'crla' AND basis_assessment_id = ?) OR suggestion_assessment_id = ?",
+      [assessmentId, assessmentId],
+    );
+    return rows.first['n'] as int;
+  }
+
+  @override
+  Future<void> deleteNew(int assessmentId) async {
+    if (assessmentId >= 0) throw ArgumentError('Only a device-only attempt (negative id) can be deleted');
+    await db.transaction((txn) async {
+      for (final part in ['crla_part1_standard', 'crla_part1_english', 'crla_part2_fluency']) {
+        await txn.delete(part, where: 'assessment_id = ?', whereArgs: [assessmentId]);
+      }
+      final n = await txn.delete('crla_assessments', where: 'id = ?', whereArgs: [assessmentId]);
+      if (n == 0) throw StateError('No crla_assessments row $assessmentId');
+    });
+  }
 }

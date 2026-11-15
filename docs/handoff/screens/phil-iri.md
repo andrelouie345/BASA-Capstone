@@ -6,9 +6,10 @@ Purpose: record a learner's GST score (total, or literal/inferential/critical) a
 Calls:
 - `PhilIriViewModel.recordGst(...)` → `PhilIriGstResult`; `gstForSection(sectionId, schoolYear:)` → `List<PhilIriGstResult>`
 - `PhilIriViewModel.gstPassed(g)` → `bool`; `PhilIriGstResult.wholePercent` → `int`
+- `PhilIriViewModel.removeGst(gstId)`: removes a GST recorded by mistake (wrong learner or score; a wrong score can also just be retaken, the newest counts). Only one recorded on this device and not uploaded (negative id), the learner's latest in that section and year, not waiting in an upload. Offer the button only for a negative id; refusals are shown as is (`philIriGstRemoveUploadedMessage` for an uploaded one). **Warning to show** (confirm dialog, and on the help page): only the learner's latest one, and only before it is uploaded; once on the server it stays (ask the coordinator).
 Live previews: none.
 Errors: grade outside 4–10, score out of range, another school (ViewModelException).
-Console: `phil-iri-gst`, `phil-iri-gst-list`
+Console: `phil-iri-gst`, `phil-iri-gst-list`, `phil-iri-gst-remove`
 
 ### Section Phil-IRI sessions
 Build: both    Roles: tutor / coordinator / admin

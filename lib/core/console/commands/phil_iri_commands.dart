@@ -68,6 +68,15 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
     }).join('\n');
   });
 
+  add('phil-iri-gst-remove',
+      "phil-iri-gst-remove <gstId> — remove a GST recorded by mistake (not uploaded, the learner's latest only)",
+      (args) async {
+    if (args.length != 1) throw const PhilIriUsage('Usage: phil-iri-gst-remove <gstId>');
+    final id = philIriInt(args[0], 'gstId');
+    await vm.removeGst(id);
+    return 'Removed GST $id.';
+  });
+
   // ---- Sessions ----
 
   add(
