@@ -129,6 +129,12 @@ void main() {
     expect(find.text('Sinugbuanong Binisaya'), findsWidgets);
     expect(find.text('Tagalog'), findsNothing);
     expect(find.text('Other language'), findsNothing);
+
+    // Its other names find it too.
+    await tester.enterText(find.descendant(of: language, matching: find.byType(TextField)), 'cebuano');
+    await _settle(tester);
+    expect(find.text('Sinugbuanong Binisaya'), findsWidgets);
+    expect(find.text('No matches'), findsNothing);
     await tester.binding.setSurfaceSize(null);
   });
 }

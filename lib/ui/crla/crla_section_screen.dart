@@ -194,6 +194,10 @@ class _Start {
   const _Start(this.student, this.variant, this.language, this.round);
 }
 
+/// Other names the language search also finds a story language by (the
+/// story list uses DepEd's names).
+const _languageAliases = {'Sinugbuanong Binisaya': 'Cebuano Bisaya Binisaya Visayan'};
+
 class _StartDialog extends StatefulWidget {
   final List<Student> learners;
   final List<String> mtLanguages;
@@ -260,6 +264,7 @@ class _StartDialogState extends State<_StartDialog> {
                   value: _mtChoice,
                   itemLabel: (l) => l,
                   searchable: true,
+                  searchAlso: (l) => _languageAliases[l] ?? '',
                   onChanged: (l) => setState(() => _mtChoice = l),
                 ),
                 const SizedBox(height: 12),

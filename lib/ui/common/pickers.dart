@@ -30,6 +30,9 @@ class BasaDropdown<T> extends StatelessWidget {
   /// Always a search box, however short the list (else only past
   /// kSearchableThreshold items).
   final bool searchable;
+  /// Other words the search also finds an item by (e.g. a language's other
+  /// names); not shown.
+  final String Function(T)? searchAlso;
 
   const BasaDropdown({
     super.key,
@@ -41,6 +44,7 @@ class BasaDropdown<T> extends StatelessWidget {
     this.hint,
     this.allowNone = false,
     this.searchable = false,
+    this.searchAlso,
   });
 
   @override
@@ -56,6 +60,7 @@ class BasaDropdown<T> extends StatelessWidget {
         onChanged: onChanged,
         hint: hint,
         allowNone: allowNone,
+        searchAlso: searchAlso,
       );
     }
     return DropdownButtonFormField<T>(
@@ -88,6 +93,7 @@ class _SearchDropdown<T> extends StatefulWidget {
   final ValueChanged<T?>? onChanged;
   final String? hint;
   final bool allowNone;
+  final String Function(T)? searchAlso;
 
   const _SearchDropdown({
     super.key,
@@ -98,6 +104,7 @@ class _SearchDropdown<T> extends StatefulWidget {
     required this.onChanged,
     required this.hint,
     required this.allowNone,
+    this.searchAlso,
   });
 
   @override
@@ -156,7 +163,8 @@ class _SearchDropdownState<T> extends State<_SearchDropdown<T>> {
       requestFocusOnTap: true,
       enableFilter: true,
       filterCallback: (entries, query) {
-        final shown = [for (final e in entries) if (matchesSearch(query, [e.label])) e];
+        String? also(T? v) => v == null ? null : widget.searchAlso?.call(v);
+        final shown = [for (final e in entries) if (matchesSearch(query, [e.label, also(e.value)])) e];
         return shown.isNotEmpty ? shown : [DropdownMenuEntry<T?>(value: null, label: 'No matches', enabled: false)];
       },
       // Enter picks the first match (the default only finds labels that start with the text).
