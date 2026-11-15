@@ -8,7 +8,10 @@
 #                  and NOT in the tutor scan build. When you add an admin-only
 #                  method or file, add one string from it: a refusal message or a
 #                  server function name, never text in a comment (comments are
-#                  not compiled).
+#                  not compiled). Never a migration name: lib/core/release.dart
+#                  lists every migration and is in BOTH builds, and Dart keeps
+#                  one copy of equal strings (sf1_transfer_in leaked that way,
+#                  2026-11-16; test/tool/scan_markers_test.dart checks it).
 # [admin-release]  Names of the admin-only ViewModels. Checked on the shipped
 #                  builds: in the admin build, not in the tutor build. (Shipped
 #                  builds call no ViewModel method until the screens exist, so
@@ -26,7 +29,8 @@ create-user
 bootstrap-admin
 sync_reject
 crla_regenerate_results
-sf1_transfer_in
+sf1_archive_learner
+learner_anonymize_eligible
 # Refusals in admin-only methods
 Forbidden: only an admin or coordinator reviews uploads.
 Forbidden: you can only create users for your own school.
