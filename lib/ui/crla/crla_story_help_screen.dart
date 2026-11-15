@@ -53,6 +53,20 @@ class CrlaStoryHelpScreen extends StatelessWidget {
                   'miscues, and type the result.'),
             ],
           ),
+          SectionCard(
+            title: 'Fixing a mistake',
+            icon: Icons.build_outlined,
+            children: const [
+              _Para('A wrong score in Part 1 or Part 2: open the attempt and use Change.'),
+              _Para('An attempt started by mistake (wrong learner, test, language or round) can be removed, '
+                  'but only while it is still only on this device (not uploaded), and only if it is the '
+                  "learner's latest attempt for that test. Remove it before you start another one."),
+              NoticeBanner(
+                'Once an attempt is uploaded it stays and cannot be removed here. Ask your coordinator.',
+                icon: Icons.warning_amber_outlined,
+              ),
+            ],
+          ),
         ],
       ),
     );
