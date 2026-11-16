@@ -15,6 +15,8 @@ import 'package:basa_capstone/core/data/local/local_database.dart';
 import 'package:basa_capstone/core/data/local/school_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/section_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/student_repository_sqlite.dart';
+import 'package:basa_capstone/core/models/student.dart';
+import 'package:basa_capstone/core/repositories/student_repository.dart';
 import 'package:basa_capstone/core/services/sf1_column_map.dart';
 import 'package:basa_capstone/core/services/sf1_importer.dart';
 import 'package:excel_plus/excel_plus.dart';
@@ -38,7 +40,7 @@ void main() {
     await db.insert('schools', {'id': 1, 'school_id': 'ZZ45', 'school_name': 'ZZ Leavers School', 'region_id': 13});
     await db.insert('schools', {'id': 2, 'school_id': 'ZZ46', 'school_name': 'ZZ Other School', 'region_id': 13});
     for (final (id, school, grade, name) in [
-      (41, 1, '4', 'G4-A'), (42, 1, '4', 'G4-B'), (51, 1, '5', 'G5-A'), (61, 2, '4', 'G4-Other'),
+      (41, 1, '4', 'G4-A'), (42, 1, '4', 'G4-B'), (43, 1, '4', 'G4-Fill'), (51, 1, '5', 'G5-A'), (61, 2, '4', 'G4-Other'),
     ]) {
       await db.insert('sections', {'id': id, 'school_id': school, 'school_year': _year, 'grade_level': grade, 'section_name': name});
     }
@@ -65,6 +67,12 @@ void main() {
     await learner(4507, 41, status: 'dropped_out'); // archived here: not missing; on the file -> returning
     await learner(4508, 51, status: 'dropped_out'); // archived, other grade -> conflict (can't restore)
     await learner(4509, 61, school: 2); // active at another school, same grade -> generic conflict
+    // Birth date fill (owner 2026-11-16, option A): enrolled in G4-Fill.
+    await learner(4701, 43); // blank -> filled from the file
+    await learner(4702, 43); // stored date -> never changed
+    await db.update('students', {'birth_date': '2012-01-01'}, where: 'id = 4702');
+    await learner(4703, 43); // blank, unreadable on the file -> stays blank
+    await learner(4704, 43); // blank, the server refuses the fill -> warning
 
     final schools = SchoolRepositorySqlite(db);
     final sections = SectionRepositorySqlite(db);
@@ -217,6 +225,56 @@ void main() {
     expect(stored, {_lrn(4601): '2013-03-15', _lrn(4602): '2013-03-16', _lrn(4603): null});
   });
 
+  // Owner 2026-11-16, option A: a re-import fills a blank birth date of a
+  // learner already enrolled in the section; a stored one is never changed.
+  test('birth date fill: trial reports it and writes nothing', () async {
+    final path = sf1([_lrn(4701), _lrn(4702), _lrn(4703)],
+        birthDates: {0: '03-15-2013', 1: '03-16-2013', 2: '15/13/2013'}, section: 'G4-Fill');
+    final t = await importer.trial(path);
+    final fill = rowFor(t, _lrn(4701));
+    expect((fill.outcome, fill.fillsBirthDate, fill.reason, fill.existingStudentId),
+        ('enrolled', true, sf1FillsBirthDateReason, 4701));
+    expect(rowFor(t, _lrn(4702)).fillsBirthDate, isFalse); // stored date
+    expect(rowFor(t, _lrn(4702)).reason, 'already enrolled in this section');
+    expect(rowFor(t, _lrn(4703)).fillsBirthDate, isFalse); // unreadable
+    expect(t.wouldFillBirthDate, 1);
+    final stored = await db.query('students', columns: ['birth_date'], where: 'id = 4701');
+    expect(stored.single['birth_date'], isNull);
+  });
+
+  test('birth date fill: import fills only the blank, readable one', () async {
+    final path = sf1([_lrn(4701), _lrn(4702), _lrn(4703)],
+        birthDates: {0: '03-15-2013', 1: '03-16-2013', 2: '15/13/2013'}, section: 'G4-Fill');
+    final result = await importer.import(path);
+    expect((result.alreadyEnrolled, result.birthDatesFilled, result.inserted), (3, 1, 0));
+    final stored = {
+      for (final r in await db.query('students', where: 'id IN (4701, 4702, 4703)')) r['id']: r['birth_date'],
+    };
+    expect(stored, {4701: '2013-03-15', 4702: '2012-01-01', 4703: null});
+    // Once filled, a second import has nothing to fill.
+    expect((await importer.trial(path)).wouldFillBirthDate, 0);
+  });
+
+  test('birth date fill refused: a warning, the import goes on', () async {
+    final students = StudentRepositorySqlite(db);
+    final refusing = Sf1Importer(
+      schoolRepo: importer.schoolRepo,
+      localSchoolRepo: importer.localSchoolRepo,
+      sectionRepo: importer.sectionRepo,
+      localSectionRepo: importer.localSectionRepo,
+      studentRepo: _RefusesFill(students),
+      localStudentRepo: students,
+      conflictRepo: importer.conflictRepo,
+      columnMap: importer.columnMap,
+    );
+    final result = await refusing.import(sf1([_lrn(4704), _lrn(4801)], birthDates: {0: '03-17-2013'}, section: 'G4-Fill'));
+    expect((result.alreadyEnrolled, result.birthDatesFilled, result.inserted), (1, 0, 1));
+    expect(result.rowWarnings,
+        ["Row 7 Filerow0, Zed: birth date not filled (already set, or this learner can't be changed)"]);
+    final stored = await db.query('students', columns: ['birth_date'], where: 'id = 4704');
+    expect(stored.single['birth_date'], isNull);
+  });
+
   test('import skips moving and returning rows and logs no conflict', () async {
     final path = sf1([_lrn(4501), _lrn(4502), _lrn(4503), _lrn(4504), _lrn(4505)]);
     final result = await importer.import(path);
@@ -232,4 +290,32 @@ void main() {
     expect((e[4501]!['section_id'], e[4501]!['status']), (42, 'active'));
     expect((e[4503]!['section_id'], e[4503]!['status']), (42, 'dropped_out'));
   });
+}
+
+/// The device's repository, except that the "server" refuses every birth
+/// date fill (RLS, or filled meanwhile: both come back as no row).
+class _RefusesFill implements StudentRepository {
+  final StudentRepository inner;
+  _RefusesFill(this.inner);
+
+  @override
+  Future<Student?> fillBlankBirthDate(int studentId, String birthDate) async => null;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => Function.apply(
+        switch (invocation.memberName) {
+          #findByLrn => inner.findByLrn,
+          #insert => inner.insert,
+          #update => inner.update,
+          #getAll => inner.getAll,
+          #getBySection => inner.getBySection,
+          #activeSectionId => inner.activeSectionId,
+          #enrollmentInYear => inner.enrollmentInYear,
+          #enroll => inner.enroll,
+          #upsertWithId => inner.upsertWithId,
+          _ => throw UnimplementedError('${invocation.memberName}'),
+        },
+        invocation.positionalArguments,
+        invocation.namedArguments,
+      );
 }

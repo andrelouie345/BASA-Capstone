@@ -37,6 +37,19 @@ class StudentRepositorySupabase implements StudentRepository {
   }
 
   @override
+  Future<Student?> fillBlankBirthDate(int studentId, String birthDate) async {
+    // The null filter makes "blank only" hold even if someone filled it
+    // meanwhile; an RLS refusal also comes back as no row.
+    final rows = await client
+        .from('students')
+        .update({'birth_date': birthDate})
+        .eq('id', studentId)
+        .isFilter('birth_date', null)
+        .select();
+    return (rows as List).isEmpty ? null : Student.fromMap(rows.first as Map<String, Object?>);
+  }
+
+  @override
   Future<List<Student>> getBySection(int sectionId) async {
     final rows = await client
         .from('enrollments')
