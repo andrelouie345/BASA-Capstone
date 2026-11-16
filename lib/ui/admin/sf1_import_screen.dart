@@ -43,6 +43,7 @@ class _Sf1ImportScreenState extends State<Sf1ImportScreen> {
         _imported = [
           'Imported: ${r.inserted} new learner(s), ${r.alreadyEnrolled} already enrolled, '
               '${r.conflicts} conflict(s), ${r.skippedBlankOrTotal} blank or total row(s) skipped.',
+          if (r.birthDatesFilled > 0) '${r.birthDatesFilled} blank birth date(s) filled from this file.',
           if (r.waiting > 0)
             '${r.waiting} moving or returning learner(s) wait for your decision: try the file again to see them.',
           ?r.lastImportWarning,
