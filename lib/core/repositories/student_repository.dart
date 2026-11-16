@@ -30,6 +30,12 @@ abstract class StudentRepository {
   /// Throws [DuplicateLrnException] when the LRN is already taken.
   Future<Student> insert(Student student);
   Future<void> update(Student student);
+
+  /// Sets the learner's birth date only while it is blank (an SF1 re-import
+  /// fills it, owner 2026-11-16; a stored date is never overwritten). Returns
+  /// the stored row when it was filled, null when nothing changed (already
+  /// set, or the caller may not update this learner).
+  Future<Student?> fillBlankBirthDate(int studentId, String birthDate);
   Future<List<Student>> getAll(String sort);
   Future<List<Student>> getBySection(int sectionId);
   /// The section the learner is actively enrolled in for [schoolYear], if any.

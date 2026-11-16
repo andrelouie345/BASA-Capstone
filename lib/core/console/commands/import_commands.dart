@@ -78,6 +78,9 @@ void registerImportCommands(ConsoleRegistry registry, ImportViewModel vm) {
         buf.writeln('Would insert: ${t.wouldInsert}, would conflict: ${t.wouldConflict}, '
             'already enrolled: ${t.alreadyEnrolled}, would skip: ${t.wouldSkip}, '
             'moving from another section: ${t.wouldMove}, returning: ${t.wouldReturn}');
+        if (t.wouldFillBirthDate > 0) {
+          buf.writeln('Blank birth dates the import fills from this file: ${t.wouldFillBirthDate}');
+        }
         buf.writeln('(A learner registered at another school shows as INSERT here and becomes a transfer conflict on import.)');
         buf.writeln('---');
         for (final row in t.rows) {
@@ -133,6 +136,9 @@ void registerImportCommands(ConsoleRegistry registry, ImportViewModel vm) {
             ? ''
             : '\n${result.waiting} moving or returning learner(s) wait for a decision (import-trial shows them: '
                 'sf1-move / sf1-restore).';
+        final filled = result.birthDatesFilled == 0
+            ? ''
+            : '\n${result.birthDatesFilled} blank birth date(s) filled from this file.';
         final warning = result.lastImportWarning == null ? '' : '\nWarning: ${result.lastImportWarning}';
         final rows = result.rowWarnings.isEmpty
             ? ''
@@ -140,7 +146,7 @@ void registerImportCommands(ConsoleRegistry registry, ImportViewModel vm) {
                 '${result.rowWarnings.map((w) => '  $w').join('\n')}';
         return 'Inserted: ${result.inserted}, Conflicts: ${result.conflicts}, '
             'Already enrolled: ${result.alreadyEnrolled}, Skipped: ${result.skippedBlankOrTotal}, '
-            'Waiting: ${result.waiting}$waiting$warning$rows';
+            'Waiting: ${result.waiting}$filled$waiting$warning$rows';
       } catch (e) {
         return 'Import failed: $e';
       }

@@ -23,6 +23,10 @@ class Sf1ImportResult {
   int alreadyEnrolled = 0;
   int skippedBlankOrTotal = 0;
 
+  /// Already-enrolled learners whose blank birth date was filled from the
+  /// file (counted in [alreadyEnrolled] too).
+  int birthDatesFilled = 0;
+
   /// Moving and returning rows: not applied by the import, they wait for the
   /// coordinator's decision (sf1-move / sf1-restore).
   int waiting = 0;
@@ -99,6 +103,11 @@ class Sf1TrialRow {
   /// date that can't be read ("birth date "x" can't be read: left blank").
   final String? warning;
 
+  /// 'enrolled' only: the learner's birth date is blank in BASA and the file
+  /// has a readable one, so the import fills it (owner 2026-11-16, option A;
+  /// a stored date is never changed).
+  final bool fillsBirthDate;
+
   Sf1TrialRow({
     required this.rowIndex,
     required this.lrn,
@@ -112,6 +121,7 @@ class Sf1TrialRow {
     this.leftOn,
     this.leftReason,
     this.warning,
+    this.fillsBirthDate = false,
   });
 
   /// "Row 7 GALT, JOHN: " + [warning] (1-based row), or null.
@@ -131,8 +141,12 @@ class Sf1TrialRow {
         leftOn: leftOn,
         leftReason: leftReason,
         warning: w,
+        fillsBirthDate: fillsBirthDate,
       );
 }
+
+/// The trial reason of an 'enrolled' row whose blank birth date the import fills.
+const sf1FillsBirthDateReason = 'already enrolled in this section; blank birth date filled from this file';
 
 /// Everything import() needs, computed read-only — shared by both
 /// import() (which then performs writes) and trial() (which doesn't).
@@ -178,6 +192,7 @@ class Sf1TrialResult {
   int get wouldConflict => rows.where((r) => r.outcome == 'conflict').length;
   int get wouldSkip => rows.where((r) => r.outcome == 'skip').length;
   int get alreadyEnrolled => rows.where((r) => r.outcome == 'enrolled').length;
+  int get wouldFillBirthDate => rows.where((r) => r.fillsBirthDate).length;
   int get wouldMove => rows.where((r) => r.outcome == 'moving').length;
   int get wouldReturn => rows.where((r) => r.outcome == 'returning').length;
 }
@@ -350,7 +365,7 @@ class Sf1Importer {
           ));
     final sectionLearners =
         existingSection == null ? <Student>[] : await studentRepo.getBySection(existingSection.id!);
-    final enrolledLrns = sectionLearners.map((s) => s.lrn).toSet();
+    final enrolledByLrn = {for (final s in sectionLearners) s.lrn: s};
 
     final rows = <Sf1TrialRow>[];
     final parsedStudents = <int, Student>{};
@@ -419,9 +434,18 @@ class Sf1Importer {
       final existing = await studentRepo.findByLrn(lrn);
 
       final Sf1TrialRow outcome;
-      if (enrolledLrns.contains(lrn)) {
+      final here = enrolledByLrn[lrn];
+      if (here != null) {
+        // Blank in BASA, readable on the file: the import fills it.
+        final fills = here.birthDate == null && here.anonymizedAt == null && birth.iso != null;
         outcome = Sf1TrialRow(
-            rowIndex: row, lrn: lrn, name: displayName, outcome: 'enrolled', reason: 'already enrolled in this section');
+            rowIndex: row,
+            lrn: lrn,
+            name: displayName,
+            outcome: 'enrolled',
+            reason: fills ? sf1FillsBirthDateReason : 'already enrolled in this section',
+            existingStudentId: fills ? here.id : null,
+            fillsBirthDate: fills);
       } else if (existing == null) {
         // May still be a transfer: a learner in another school is invisible
         // here (RLS) and only shows up as a duplicate LRN at insert time.
@@ -555,7 +579,7 @@ class Sf1Importer {
     final excelFile = await _decodeWithRepair(filePath);
     final parsed = await _parseSheet(excelFile);
     if (check != null) await check(parsed);
-    result.rowWarnings = parsed.rowWarnings;
+    result.rowWarnings = [...parsed.rowWarnings];
 
     if (parsed.regionId == null) {
       throw Exception('${parsed.regionError}. Fix the source file or the Region matcher, then retry.');
@@ -611,6 +635,19 @@ class Sf1Importer {
       }
       if (row.outcome == 'enrolled') {
         result.alreadyEnrolled++;
+        if (row.fillsBirthDate) {
+          final iso = parsed.parsedStudents[row.rowIndex]!.birthDate!;
+          final filled = await studentRepo.fillBlankBirthDate(row.existingStudentId!, iso);
+          if (filled == null) {
+            // Filled meanwhile, or the server refused this learner: the
+            // import goes on.
+            result.rowWarnings.add('Row ${row.rowIndex + 1} ${row.name}: birth date not filled '
+                '(already set, or this learner can\'t be changed)');
+          } else {
+            await localStudentRepo.upsertWithId(filled);
+            result.birthDatesFilled++;
+          }
+        }
         continue;
       }
       if (row.outcome == 'moving' || row.outcome == 'returning') {
