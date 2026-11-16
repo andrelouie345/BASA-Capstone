@@ -36,6 +36,29 @@ function Invoke-Step([string]$what, [scriptblock]$cmd) {
     if ($LASTEXITCODE -ne 0) { Write-Host "$what failed (exit $LASTEXITCODE)" -ForegroundColor Red; exit 1 }
 }
 
+# Resolve packages from pubspec.yaml/pubspec.lock now: a stale
+# .dart_tool/package_config.json is used as is by flutter build. On
+# 2026-11-16 one pointed excel2003 at the unfixed pub.dev copy, so two release
+# builds carried the old .xls reader (learners lost from long .xls SF1s).
+Invoke-Step 'Packages (flutter pub get)' { flutter pub get }
+# Every BASA copy under third_party/ must be the one the build uses.
+Invoke-Step 'Packages: third_party copies are used' {
+    $config = Get-Content '.dart_tool\package_config.json' -Raw | ConvertFrom-Json
+    $bad = @()
+    foreach ($dir in Get-ChildItem 'third_party' -Directory) {
+        $spec = Join-Path $dir.FullName 'pubspec.yaml'
+        if (-not (Test-Path $spec)) { continue }
+        $name = ((Select-String -Path $spec -Pattern '^name:\s*(\S+)' | Select-Object -First 1).Matches[0].Groups[1].Value)
+        $pkg = $config.packages | Where-Object { $_.name -eq $name } | Select-Object -First 1
+        $want = "../third_party/$($dir.Name)"
+        if (-not $pkg -or $pkg.rootUri.TrimEnd('/') -ne $want) {
+            $bad += "${name}: resolved to '$($pkg.rootUri)', expected '$want'"
+        }
+    }
+    if ($bad.Count -gt 0) { $bad | ForEach-Object { Write-Host $_ -ForegroundColor Red }; $global:LASTEXITCODE = 1 }
+    else { Write-Host 'OK: every third_party package is the copy in use'; $global:LASTEXITCODE = 0 }
+}
+
 Invoke-Step 'Import walk (tutor entries reach no admin file)' { dart run tool/check_tutor_imports.dart }
 Invoke-Step 'ViewModel boundary (commands and ui import only ViewModels and models)' { dart run tool/check_vm_boundary.dart }
 

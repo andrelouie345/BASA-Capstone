@@ -36,6 +36,19 @@ class StudentRepositorySqlite implements StudentRepository {
   }
 
   @override
+  Future<Student?> fillBlankBirthDate(int studentId, String birthDate) async {
+    final n = await db.update(
+      'students',
+      {'birth_date': birthDate, 'updated_at': DateTime.now().toUtc().toIso8601String()},
+      where: 'id = ? AND birth_date IS NULL',
+      whereArgs: [studentId],
+    );
+    if (n == 0) return null;
+    final rows = await db.query('students', where: 'id = ?', whereArgs: [studentId]);
+    return rows.isEmpty ? null : Student.fromMap(rows.first);
+  }
+
+  @override
   Future<List<Student>> getBySection(int sectionId) async {
     final rows = await db.rawQuery('''
       SELECT s.* FROM students s
