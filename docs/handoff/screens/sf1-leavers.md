@@ -2,11 +2,11 @@
 
 Admin build only (admins and coordinators; the superadmin too). Every action is online: it calls one server function and then copies the result onto the device. Design: `docs/superpowers/specs/2026-11-12-sf1-leavers-design.md`.
 
-Get the ViewModel with `AdminScope.of(context).learnerLeavers` (`LearnerLeaversViewModel`). Every call refuses a tutor with `LearnerLeaversViewModel.forbiddenMessage` and needs an online sign-in (the usual `requireOnlineSession` message). The superadmin has no school of their own: pass `schoolId` to `missing`, `anonymizePreview` and `anonymize` (otherwise `Give the school: the superadmin has no school of their own.`); a school-bound user may leave it out (another school: `Forbidden: you can only manage your own school's learners.`).
+Get the ViewModel with `AdminScope.of(context).learnerLeavers` (`LearnerLeaversViewModel`). Every call refuses a tutor with `LearnerLeaversViewModel.forbiddenMessage` and needs an online sign-in (the usual `requireOnlineSession` message). The superadmin has no school of their own: pass `schoolId` to `missing`, `anonymizePreview` and `anonymize` (otherwise `Give the school: the superadmin has no school of their own.`); a school-bound user may leave it out (another school: `Not allowed: you can only manage your own school's learners.`).
 
 Archive, move, and restore into another section are refused with `leaverUploadFirstMessage(n)` ("This device has n record(s) of this learner that are not on the server yet: upload this device's work first (sync-upload), then try again.") while this device holds that learner's records not on the server yet (new, edited or waiting in an upload): offer the upload screen (`sync.md`). Other learners' unsent work doesn't block.
 
-Server refusals come back as `The database refused it: <reason>.` (e.g. `moves are same grade only: …`, `enrollment N is not an active enrollment …`, a pending upload holding the learner's records); a lost connection as `leaverUnreachableMessage`. Show them as they are.
+Server refusals come back as `The server did not accept this: <reason>.` (e.g. `moves are same grade only: …`, `enrollment N is not an active enrollment …`, a pending upload holding the learner's records); a lost connection as `leaverUnreachableMessage`. Show them as they are.
 
 Where it lives: inside the **SF1 import** flow (`admin.md`, *SF1 import*): after the trial, the new row kinds and the *Not on this SF1* block; plus a school-wide **Undecided learners** list (e.g. under learner management) and **Anonymize archived learners** (an admin tool, rarely used).
 
@@ -57,7 +57,7 @@ Calls:
 - `ImportViewModel.transferConflicts()` → `List<TransferConflict>` (2026-11-15; superadmin only, otherwise `transferConflictsForbiddenMessage`; read from the server, oldest first; plain "LRN already exists" conflicts are not in it). Per row: `conflict` (id, LRN), the receiving `section` + `schoolName`, the SF1 row's `incomingName` / `incomingBirthDate`, the `stored` learner with that LRN (null = none), `current` = where they are this school year (`schoolName`, `sectionName`, `gradeLevel`, `status` active / transferred_out / dropped_out, `leftOn`; null = no enrollment, nothing to transfer), `activeElsewhere`, and the identity hint `matches` / `differences` ("last name", "first name", "birth date", "birth date (blank on the SF1)"), the same comparison `sf1_transfer_in` makes. The hint says in advance why a transfer would be refused; the server still decides.
 - `ImportViewModel.loadPendingConflicts()` → `pendingConflicts` (the superadmin sees every school's); `getConflict(id)` → the conflict and its section.
 - `resolve(id, 'update')` → `ConflictResolution` with `transferredFrom` (`schoolName`, `sectionName`): "Transferred in from <school> (<section>); this year's records stay at <school>." `resolve(id, 'skip')` closes it.
-- Refusals come back as `The database refused it: <message>.`. The superadmin gets the detailed reason, to show as is:
+- Refusals come back as `The server did not accept this: <message>.`. The superadmin gets the detailed reason, to show as is:
   - the SF1 row doesn't match the learner with this LRN (last name, first name or birth date differ). **No override, even for the superadmin**: fix the name or birth date at the learner's school first, then resolve again;
   - no learner with that LRN;
   - the conflict names another learner;

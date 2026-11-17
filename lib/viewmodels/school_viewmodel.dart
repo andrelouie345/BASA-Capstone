@@ -68,7 +68,7 @@ class SchoolViewModel {
   }) async {
     _log('create(schoolCode: "$schoolCode", regionId: $regionId)');
     final repo = _repo();
-    if (!_isSuperadmin) throw const ViewModelException('Forbidden: superadmin only.');
+    if (!_isSuperadmin) throw const ViewModelException('Not allowed: superadmin only.');
     _checkRegion(regionId);
     if (schoolCode.trim().isEmpty || schoolName.trim().isEmpty) {
       throw const ViewModelException('School ID and school name are required.');
@@ -94,16 +94,16 @@ class SchoolViewModel {
     final repo = _repo();
     if (school.id == null) throw const ViewModelException('Cannot update a school with no id.');
     if (!_isSuperadmin) {
-      if (!_isAdminOrCoordinator) throw const ViewModelException('Forbidden: admin or coordinator only.');
+      if (!_isAdminOrCoordinator) throw const ViewModelException('Not allowed: admin or coordinator only.');
       if (_auth.currentUser?.schoolId != school.id) {
-        throw const ViewModelException('Forbidden: can only update your own school.');
+        throw const ViewModelException('Not allowed: can only update your own school.');
       }
       // Name and division only; the DB trigger schools_guard_identity enforces it.
       final current = (await repo.getAll()).where((s) => s.id == school.id).firstOrNull;
       if (current != null &&
           (current.schoolId != school.schoolId || current.regionId != school.regionId)) {
         throw const ViewModelException(
-            "Forbidden: only the superadmin can change a school's DepEd school ID or region.");
+            "Not allowed: only the superadmin can change a school's DepEd school ID or region.");
       }
     }
     _checkRegion(school.regionId);
@@ -117,7 +117,7 @@ class SchoolViewModel {
   Future<void> delete(int id) async {
     _log('delete($id)');
     final repo = _repo();
-    if (!_isSuperadmin) throw const ViewModelException('Forbidden: superadmin only.');
+    if (!_isSuperadmin) throw const ViewModelException('Not allowed: superadmin only.');
     try {
       await repo.delete(id);
     } on PostgrestException catch (e) {

@@ -18,6 +18,7 @@ Calls:
 - `upload()` → `SyncUploadResult`, or `sync(confirm: (preview) async => ...)` → `SyncRunResult` (preview, confirm, upload in one call; the screen supplies the confirm dialog)
 - `refreshStatus()` → `List<SyncOutcome>`; `uploads()` → `List<SyncUploadRow>`; `lockedCounts()` → `Map<int, int>`; `withdraw(uploadId)`
 - `SyncViewModel.release` → `String` (this app's release)
+- **Texts on screen (2026-11-17):** show `.message`, never `toString()` (that is the console's: table names, keys, versions, `sync-resolve`). `SyncProblem.message`, `SyncOutcome.message` (the `settled` banners), `SyncUploadResult.message` (after sending), `SyncResolution.message` (after Keep mine / Take the server's) and `LocalWorkLine.message` (unsent-work lines here and on the pull screen) name each record by its kind and owner ("the CRLA attempt of DELA CRUZ, JUAN", `SyncProblem.owner`) and count in words ("3 records").
 Errors: not the device owner, conflicts unresolved, nothing to send (ViewModelException).
 Console: `sync-preview`, `sync-resolve`, `sync-upload`, `sync-status`, `sync-withdraw`
 

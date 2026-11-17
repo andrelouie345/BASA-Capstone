@@ -42,7 +42,7 @@ expect 30/40 (75%, passed).
 run phil-iri-gst {s_g7_2} {sec_g7} {year} 20
 expect 20/40 (50%
 run phil-iri-gst {s_g7_3} {sec_g7} {year} 41
-refuse totalScore must be between 0 and 40 (got 41).
+refuse The GST total must be from 0 to 40. You entered 41.
 run phil-iri-gst-list {sec_g7} {year}
 expect 30/40 (L 10, I 12, C 8)
 expect 20/40
@@ -118,7 +118,7 @@ expect~ .
 run phil-iri-answer {rd_a} 912 z
 refuse Choose one of a, b, c, d (got "z").
 run phil-iri-rubric {pi_a} 1 3
-refuse No rubric criterion with id 1.
+refuse This rubric item is not on this device.
 run phil-iri-score {rd_a}
 expect word reading 99% (Independent), 143 wpm (Average) -> Independent; comprehension 80% (Independent); profile Independent
 run phil-iri-complete {pi_a}
@@ -214,9 +214,9 @@ refuse Only an in-progress session can be discarded (this one is completed).
 
 # --- Grade rules ---------------------------------------------------------------
 run phil-iri-start {s_g2_1} {sec_g2} {year} bosy
-refuse Phil-IRI is for Grade 4-10 sections only (section {sec_g2} is Grade 2).
+refuse Phil-IRI is for Grades 4 to 10 only. This section is Grade 2.
 run phil-iri-gst {s_g2_1} {sec_g2} {year} 10
-refuse Phil-IRI is for Grade 4-10 sections only (section {sec_g2} is Grade 2).
+refuse Phil-IRI is for Grades 4 to 10 only. This section is Grade 2.
 run phil-iri-start {s_g7_4} {sec_g7} {year} mosy9
 refuse Round is bosy, mosy1, mosy2, mosy3 or eosy (got "mosy9")
 

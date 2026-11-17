@@ -247,13 +247,13 @@ class ReportSettingsViewModel {
     final superadmin = me.role == UserRole.admin && me.schoolId == null;
     if (!superadmin) {
       if (me.role != UserRole.admin && me.role != UserRole.coordinator) {
-        throw const ViewModelException('Forbidden: only an admin or coordinator sets the report settings.');
+        throw const ViewModelException('Not allowed: only an admin or coordinator sets the report settings.');
       }
       if (schoolId == null) {
-        throw const ViewModelException('Forbidden: only the superadmin sets the region-wide report settings.');
+        throw const ViewModelException('Not allowed: only the superadmin sets the region-wide report settings.');
       }
       if (me.schoolId != schoolId) {
-        throw const ViewModelException("Forbidden: you can only set your own school's report settings.");
+        throw const ViewModelException("Not allowed: you can only set your own school's report settings.");
       }
     }
     lastMirrorWarning = null;
@@ -264,11 +264,11 @@ class ReportSettingsViewModel {
     try {
       return await write();
     } on PostgrestException catch (e) {
-      if (e.code == '42501') throw const ViewModelException('Forbidden: the database refused this change.');
+      if (e.code == '42501') throw const ViewModelException('Not allowed: the server did not accept this change.');
       if (e.code == '23505') {
         throw const ViewModelException('The settings were just saved by someone else; show them and try again.');
       }
-      if (e.code == 'P0001' || e.code == '23514') throw ViewModelException('The database refused it: ${e.message}.');
+      if (e.code == 'P0001' || e.code == '23514') throw ViewModelException('The server did not accept this: ${e.message}.');
       rethrow;
     }
   }
@@ -279,7 +279,7 @@ class ReportSettingsViewModel {
     } catch (e) {
       // The detail goes to the log only: raw database text is no message for a screen (F20).
       lastMirrorWarning = 'The report settings were changed online, but the copy on this device was not updated. '
-          'Download the latest data (pull-cloud).';
+          'Download the latest data.';
       _log('WARNING: $lastMirrorWarning ($e)');
     }
   }

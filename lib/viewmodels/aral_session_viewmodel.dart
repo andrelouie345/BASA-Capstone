@@ -194,18 +194,18 @@ class AralSessionViewModel {
     final String tid;
     if (me.role == UserRole.tutor) {
       if (cls.tutorId != me.id || (tutorId != null && tutorId != me.id)) {
-        throw const ViewModelException('Forbidden: you can only log sessions for your own classes.');
+        throw const ViewModelException('Not allowed: you can only log sessions for your own classes.');
       }
       tid = me.id;
     } else {
       _requireManager(me);
       if (me.schoolId != null && me.schoolId != cls.schoolId) {
-        throw const ViewModelException('Forbidden: that class is in another school.');
+        throw const ViewModelException('Not allowed: that class is in another school.');
       }
       tid = tutorId ??
           cls.tutorId ??
           (throw ViewModelException(
-              'Class "${cls.className}" has no tutor yet; set one or name the tutor who held the session.'));
+              'Class "${cls.className}" has no tutor yet. Set the class tutor, or pick the tutor who held the session.'));
     }
     final tutor = await _tutor(tid);
     if (tutor.schoolId != cls.schoolId) {
@@ -308,7 +308,7 @@ class AralSessionViewModel {
     final me = _me();
     _requireManager(me);
     if (me.schoolId != null && me.schoolId != schoolId) {
-      throw const ViewModelException('Forbidden: that school is not yours.');
+      throw const ViewModelException('Not allowed: that school is not yours.');
     }
     return _sessions.getBySchool(schoolId, schoolYear: schoolYear == null ? null : normalizeSchoolYear(schoolYear));
   }
@@ -340,7 +340,7 @@ class AralSessionViewModel {
     _log('mark(session: $sessionId, enrollment: $enrollmentId, ${mark.name})');
     final s = await _requireWritable(sessionId);
     final e = await _roster.findById(enrollmentId);
-    if (e == null) throw ViewModelException('No ARAL enrollment with id $enrollmentId.');
+    if (e == null) throw ViewModelException(notOnDeviceMessage('ARAL learner'));
     if (e.schoolId != s.schoolId || e.schoolYear != s.schoolYear || !_inAralOn(e, s.heldOn)) {
       throw ViewModelException('That learner was not in ARAL in this school on ${s.heldOn}.');
     }
@@ -385,13 +385,13 @@ class AralSessionViewModel {
     _log('learnerAttendance($enrollmentId)');
     final me = _me();
     final e = await _roster.findById(enrollmentId);
-    if (e == null) throw ViewModelException('No ARAL enrollment with id $enrollmentId.');
+    if (e == null) throw ViewModelException(notOnDeviceMessage('ARAL learner'));
     if (me.role == UserRole.tutor) {
       if (await _roster.classTutorId(e.id!) != me.id) {
-        throw const ViewModelException('Forbidden: not your ARAL learner.');
+        throw const ViewModelException('Not allowed: not your ARAL learner.');
       }
     } else if (me.schoolId != null && me.schoolId != e.schoolId) {
-      throw const ViewModelException('Forbidden: that learner is in another school.');
+      throw const ViewModelException('Not allowed: that learner is in another school.');
     }
     final marks = await _sessions.getAttendanceForEnrollment(enrollmentId);
     final rows = <(AralSession, AralAttendance)>[];
@@ -494,7 +494,7 @@ class AralSessionViewModel {
   static bool _isManager(User u) => u.role == UserRole.admin || u.role == UserRole.coordinator;
 
   static void _requireManager(User u) {
-    if (!_isManager(u)) throw const ViewModelException('Forbidden: only an admin or coordinator can do that.');
+    if (!_isManager(u)) throw const ViewModelException('Not allowed: only an admin or coordinator can do that.');
   }
 
   /// A tutor of the school (active, when logging for them).
@@ -503,25 +503,25 @@ class AralSessionViewModel {
     if (u == null || u.role != UserRole.tutor || u.schoolId == null || (mustBeActive && !u.isActive)) {
       throw ViewModelException(mustBeActive
           ? 'The session tutor must be an active tutor of the school.'
-          : 'No tutor with id $id.');
+          : notOnDeviceMessage('tutor'));
     }
     return u;
   }
 
   static void _canReadTutor(User me, User tutor) {
     if (me.role == UserRole.tutor) {
-      if (me.id != tutor.id) throw const ViewModelException("Forbidden: another tutor's sessions.");
+      if (me.id != tutor.id) throw const ViewModelException("Not allowed: another tutor's sessions.");
       return;
     }
     _requireManager(me);
     if (me.schoolId != null && me.schoolId != tutor.schoolId) {
-      throw const ViewModelException('Forbidden: that tutor is in another school.');
+      throw const ViewModelException('Not allowed: that tutor is in another school.');
     }
   }
 
   /// The class, if it exists.
   Future<AralClass> _class(int classId) async =>
-      await _classes.findById(classId) ?? (throw ViewModelException('No ARAL class with id $classId.'));
+      await _classes.findById(classId) ?? (throw ViewModelException(notOnDeviceMessage('ARAL class')));
 
   /// The class, if the caller may read it: a tutor the classes they teach; an
   /// admin/coordinator their school's.
@@ -529,11 +529,11 @@ class AralSessionViewModel {
     final c = await _class(classId);
     final me = _me();
     if (me.role == UserRole.tutor) {
-      if (c.tutorId != me.id) throw ViewModelException('No ARAL class with id $classId among your classes.');
+      if (c.tutorId != me.id) throw const ViewModelException('This ARAL class is not one of your classes.');
     } else {
       _requireManager(me);
       if (me.schoolId != null && me.schoolId != c.schoolId) {
-        throw const ViewModelException('Forbidden: that class is in another school.');
+        throw const ViewModelException('Not allowed: that class is in another school.');
       }
     }
     return c;
@@ -541,16 +541,16 @@ class AralSessionViewModel {
 
   Future<AralSession> _requireReadable(int sessionId) async {
     final s = await _sessions.findSession(sessionId);
-    if (s == null) throw ViewModelException('No ARAL session with id $sessionId.');
+    if (s == null) throw ViewModelException(notOnDeviceMessage('ARAL session'));
     final me = _me();
     if (me.role == UserRole.tutor) {
       // Held by me, or a session of a class I teach.
       final mine = s.tutorId == me.id || (s.classId != null && (await _classes.findById(s.classId!))?.tutorId == me.id);
-      if (!mine) throw const ViewModelException("Forbidden: another tutor's session.");
+      if (!mine) throw const ViewModelException("Not allowed: another tutor's session.");
     } else {
       _requireManager(me);
       if (me.schoolId != null && me.schoolId != s.schoolId) {
-        throw const ViewModelException('Forbidden: that session is in another school.');
+        throw const ViewModelException('Not allowed: that session is in another school.');
       }
     }
     return s;

@@ -40,6 +40,7 @@ import '../core/services/normalizers.dart';
 import '../core/services/sync_upload_rules.dart' show pendingLockMessage;
 import 'auth_viewmodel.dart';
 import 'viewmodel_exception.dart';
+import '../core/services/auth_messages.dart';
 
 /// Why [e] (Grade [grade], named [learner]) can't go into [c], and the
 /// reason as a readable sentence; null = they can. [otherGradeOk] = the
@@ -239,7 +240,7 @@ class AralClassViewModel {
     _requireSignIn();
     _log('editClass(${changed.id})');
     _requireManager();
-    if (changed.id == null) throw const ViewModelException('editClass needs a class id.');
+    if (changed.id == null) throw const ViewModelException('Save the class first.');
     final current = await _require(changed.id!);
     if (changed.schoolId != current.schoolId || changed.schoolYear != current.schoolYear) {
       throw const ViewModelException('A class keeps its school and school year.');
@@ -282,30 +283,30 @@ class AralClassViewModel {
   void _requireManager() {
     final role = _auth.currentUser?.role;
     if (role != UserRole.admin && role != UserRole.coordinator) {
-      throw const ViewModelException('Forbidden: admin or coordinator only.');
+      throw const ViewModelException('Not allowed: admin or coordinator only.');
     }
   }
 
   void _requireOwnSchool(int schoolId) {
     final mine = _auth.currentUser?.schoolId;
-    if (mine != null && mine != schoolId) throw const ViewModelException('Forbidden: that school is not yours.');
+    if (mine != null && mine != schoolId) throw const ViewModelException('Not allowed: that school is not yours.');
   }
 
   /// The class, if the caller may change it (their school, or any for the
   /// superadmin).
   Future<AralClass> _require(int classId) async {
     final c = await _classes.findById(classId);
-    if (c == null) throw ViewModelException('No ARAL class with id $classId.');
+    if (c == null) throw ViewModelException(notOnDeviceMessage('ARAL class'));
     final mine = _auth.currentUser?.schoolId;
-    if (mine != null && mine != c.schoolId) throw const ViewModelException('Forbidden: that class is in another school.');
+    if (mine != null && mine != c.schoolId) throw const ViewModelException('Not allowed: that class is in another school.');
     return c;
   }
 
   Future<AralEnrollment> _requireLearner(int enrollmentId) async {
     final e = await _roster.findById(enrollmentId);
-    if (e == null) throw ViewModelException('No ARAL enrollment with id $enrollmentId.');
+    if (e == null) throw ViewModelException(notOnDeviceMessage('ARAL learner'));
     final mine = _auth.currentUser?.schoolId;
-    if (mine != null && mine != e.schoolId) throw const ViewModelException('Forbidden: that learner is in another school.');
+    if (mine != null && mine != e.schoolId) throw const ViewModelException('Not allowed: that learner is in another school.');
     return e;
   }
 
@@ -324,7 +325,7 @@ class AralClassViewModel {
     if (c == null || c.tutorId != me.id) {
       // A tutor's device holds only their own classes; don't tell apart
       // "missing" and "someone else's".
-      throw ViewModelException('No ARAL class with id $classId among your classes.');
+      throw const ViewModelException('This ARAL class is not one of your classes.');
     }
     return c;
   }

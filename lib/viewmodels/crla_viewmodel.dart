@@ -21,6 +21,7 @@ import '../core/services/normalizers.dart';
 import '../core/services/sync_upload_rules.dart' show pendingLockMessage;
 import 'auth_viewmodel.dart';
 import 'viewmodel_exception.dart';
+import '../core/services/auth_messages.dart';
 
 /// [CrlaViewModel.removeAttempt] on an attempt already on the server.
 const crlaRemoveUploadedMessage =
@@ -149,16 +150,16 @@ class CrlaViewModel {
     schoolYear = normalizeSchoolYear(schoolYear);
 
     if (!crlaSubjectVariants.contains(subjectVariant)) {
-      throw ViewModelException("Variant must be one of mt, fil, eng (got '$subjectVariant').");
+      throw const ViewModelException('Pick the test: Mother Tongue, Filipino or English.');
     }
     // fil and eng imply their language; mt needs one named.
     final lang = language ?? crlaDefaultLanguage(subjectVariant);
-    if (lang == null) throw const ViewModelException('The mt variant needs a language (e.g. Cebuano).');
+    if (lang == null) throw const ViewModelException('Pick the Mother Tongue language.');
     final section = await _sections.getById(sectionId);
-    if (section == null) throw ViewModelException('No section with id $sectionId.');
+    if (section == null) throw ViewModelException(notOnDeviceMessage('section'));
     if (crlaGradeOf(section.gradeLevel) == null) {
       throw ViewModelException(
-          'CRLA is for Grade 1-3 sections only (section $sectionId is Grade ${section.gradeLevel}).');
+          'CRLA is for Grades 1 to 3 only. This section is Grade ${section.gradeLevel}.');
     }
 
     final snapshot = (await effectiveThresholds(section.schoolId)).toMap();
@@ -194,20 +195,20 @@ class CrlaViewModel {
         'low: $task2LowScore, high: $task2HighScore)');
 
     final assessment = await _requireVariant(assessmentId, {'mt', 'fil'}, 'Standard Part 1');
-    _checkScore('task1Score', task1Score, 10);
-    if (task2LowScore != null) _checkScore('task2LowScore', task2LowScore, 10);
-    if (task2HighScore != null) _checkScore('task2HighScore', task2HighScore, 10);
+    _checkScore('Task 1', task1Score, 10);
+    if (task2LowScore != null) _checkScore('Task 2 low', task2LowScore, 10);
+    if (task2HighScore != null) _checkScore('Task 2 high', task2HighScore, 10);
 
     // Branch rule (same as the DB CHECKs): task 1 below 7 uses the low
     // task 2, 7 or above uses the high one, and never both.
     if (task2LowScore != null && task2HighScore != null) {
-      throw const ViewModelException('Provide task2LowScore or task2HighScore, not both.');
+      throw const ViewModelException('Enter Task 2 low or Task 2 high, not both.');
     }
     if (task2LowScore != null && task1Score >= 7) {
-      throw const ViewModelException('task2LowScore only applies when task1Score is below 7.');
+      throw const ViewModelException('Task 2 low (rhymes and words) is only for a Task 1 score of 0 to 6.');
     }
     if (task2HighScore != null && task1Score < 7) {
-      throw const ViewModelException('task2HighScore only applies when task1Score is 7 or above.');
+      throw const ViewModelException('Task 2 high (sentences) is only for a Task 1 score of 7 or more.');
     }
 
     final total = task1Score < 7 ? task1Score + (task2LowScore ?? 0) : task1Score + 10 + (task2HighScore ?? 0);
@@ -239,11 +240,11 @@ class CrlaViewModel {
     _log('savePart1English(assessmentId: $assessmentId, task1: $task1Score, task2: $task2Score)');
 
     final assessment = await _requireVariant(assessmentId, {'eng'}, 'English Part 1');
-    _checkScore('task1Score', task1Score, 10);
+    _checkScore('Task 1', task1Score, 10);
     if (task2Score != null) {
-      _checkScore('task2Score', task2Score, 10);
+      _checkScore('Task 2', task2Score, 10);
       if (task1Score < 1) {
-        throw const ViewModelException('task2Score only applies when task1Score is 1 or above.');
+        throw const ViewModelException('Task 2 is only for a Task 1 score of 1 or more.');
       }
     }
 
@@ -293,14 +294,14 @@ class CrlaViewModel {
     final variant = assessment.subjectVariant;
     final timeCap = crlaTimeCapSeconds(grade, variant);
 
-    _checkRange('storyNo', storyNo, 1, 2);
-    _checkRange('miscues', miscues, 0, 1 << 30);
-    _checkRange('timeMinutes', timeMinutes, 0, 1 << 30);
-    _checkRange('timeSeconds', timeSeconds, 0, 59);
-    _checkRange('comprehensionCorrect', comprehensionCorrect, 0, crlaComprehensionMax(grade, variant));
+    _checkRange('The story number', storyNo, 1, 2);
+    _checkRange('Miscues', miscues, 0, 1 << 30);
+    _checkRange('Minutes', timeMinutes, 0, 1 << 30);
+    _checkRange('Seconds', timeSeconds, 0, 59);
+    _checkRange('Comprehension', comprehensionCorrect, 0, crlaComprehensionMax(grade, variant));
     if (timeMinutes * 60 + timeSeconds > timeCap) {
       throw ViewModelException('Reading time ${_mmss(timeMinutes * 60 + timeSeconds)} is over the '
-          'Grade $grade $variant limit of ${_mmss(timeCap)}.');
+          'time limit for Grade $grade ${_testName(variant)} (${_mmss(timeCap)}).');
     }
     if (learnerExperienceRating != null) {
       _checkRange('learnerExperienceRating', learnerExperienceRating, 1, 5);
@@ -390,7 +391,7 @@ class CrlaViewModel {
     _requireSignIn();
     _log('storiesForAttempt(assessmentId: $assessmentId)');
     final a = await _assessments.findById(assessmentId);
-    if (a == null) throw ViewModelException('No assessment with id $assessmentId.');
+    if (a == null) throw ViewModelException(notOnDeviceMessage('CRLA attempt'));
     final section = await _sections.getById(a.sectionId);
     final grade = section == null ? null : crlaGradeOf(section.gradeLevel);
     if (grade == null) {
@@ -409,7 +410,7 @@ class CrlaViewModel {
     _requireSignIn();
     _log('removeAttempt($assessmentId)');
     final a = await _assessments.findById(assessmentId);
-    if (a == null) throw ViewModelException('No assessment with id $assessmentId.');
+    if (a == null) throw ViewModelException(notOnDeviceMessage('CRLA attempt'));
     if (assessmentId > 0) throw const ViewModelException(crlaRemoveUploadedMessage);
     final latest = await _assessments.getLatestAttempt(
         studentId: a.studentId, sectionId: a.sectionId, subjectVariant: a.subjectVariant, schoolYear: a.schoolYear);
@@ -481,12 +482,11 @@ class CrlaViewModel {
   ) async {
     final a = await _assessments.findById(assessmentId);
     if (a == null) {
-      throw ViewModelException('No assessment with id $assessmentId.');
+      throw ViewModelException(notOnDeviceMessage('CRLA attempt'));
     }
     if (!allowed.contains(a.subjectVariant)) {
       throw ViewModelException(
-        '$what needs a ${allowed.join('/')} assessment, but assessment '
-        '$assessmentId is "${a.subjectVariant}".',
+        '$what is not for this attempt: it is a ${_testName(a.subjectVariant)} attempt.',
       );
     }
     return a;
@@ -496,7 +496,7 @@ class CrlaViewModel {
 
   void _checkRange(String name, int value, int min, int max) {
     if (value < min || value > max) {
-      throw ViewModelException('$name must be between $min and $max (got $value).');
+      throw ViewModelException('$name must be from $min to $max. You entered $value.');
     }
   }
 
@@ -516,6 +516,10 @@ class CrlaViewModel {
       rethrow;
     }
   }
+
+  /// The test's name for a refusal ("Mother Tongue"), never the code.
+  static String _testName(String variant) =>
+      const {'mt': 'Mother Tongue', 'fil': 'Filipino', 'eng': 'English'}[variant] ?? variant;
 
   static String _mmss(int seconds) =>
       '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';

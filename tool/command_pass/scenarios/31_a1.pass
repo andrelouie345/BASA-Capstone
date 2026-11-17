@@ -65,9 +65,9 @@ refuse Delete failed: Section is still in use (enrollments, tutor assignments or
 run section-update {sec_b7} {year} {=7} ZZTEST-NOPE
 refuse Update failed: No section found with id {sec_b7}.
 run school-update {schoolB} {code_b} X - ZZ hijack
-refuse Update failed: Forbidden: can only update your own school.
+refuse Update failed: Not allowed: can only update your own school.
 run school-delete {school}
-refuse Delete failed: Forbidden: superadmin only.
+refuse Delete failed: Not allowed: superadmin only.
 
 # --- SF1 import tools -------------------------------------------------------------
 run column-map-show

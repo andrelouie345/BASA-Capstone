@@ -51,7 +51,7 @@ run crla-remove {crla_x}
 expect Removed attempt {crla_x}.
 sql select count(*) from crla_part1_standard where assessment_id = {crla_x} => 0
 run crla-remove {crla_x}
-refuse Remove failed: No assessment with id {crla_x}.
+refuse Remove failed: This CRLA attempt is not on this device.
 
 run crla-start {s_g2_2} {sec_g2} {year} fil bosy Tagalog
 capture crla_2 = Started assessment (-?\d+)
@@ -92,9 +92,9 @@ expect~ \#{crla_2}\ \|\ student\ {s_g2_2}\ \|\ fil\ Tagalog\ BOSY\ attempt \d+
 
 # Grade limits (G2: comprehension max 6, reading time max 120 s).
 run crla-part2 {crla_2b} 1 0 1 0 7
-refuse Part 2 failed: comprehensionCorrect must be between 0 and 6 (got 7).
+refuse Part 2 failed: Comprehension must be from 0 to 6. You entered 7.
 run crla-part2 {crla_2b} 1 0 2 1 3
-refuse Part 2 failed: Reading time 2:01 is over the Grade 2 fil limit of 2:00.
+refuse Part 2 failed: Reading time 2:01 is over the time limit for Grade 2 Filipino (2:00).
 # Words read come from the story; a typed value that disagrees is refused,
 # and so are more miscues than the story has words.
 run crla-part2 {crla_2b} 1 2 1 0 3 words=90
@@ -118,9 +118,9 @@ run crla-part1 {crla_2b} 3
 expect Saved Part 1 for assessment {crla_2b}: total 3, level Full Refresher.
 # CRLA is for Grades 1-3 only.
 run crla-start {s_g7_1} {sec_g7} {year} fil bosy Tagalog
-refuse Start failed: CRLA is for Grade 1-3 sections only (section {sec_g7} is Grade 7).
+refuse Start failed: CRLA is for Grades 1 to 3 only. This section is Grade 7.
 run crla-start {s_g2_1} {sec_g2} {year} xx bosy Tagalog
-refuse Start failed: Variant must be one of mt, fil, eng (got 'xx').
+refuse Start failed: Pick the test: Mother Tongue, Filipino or English.
 run crla-results assessment 999999
 refuse No assessment with id 999999.
 
@@ -145,4 +145,4 @@ as tutor2
 run pull-cloud yes
 expect users:
 run crla-start {s_g2_1} {sec_g2} {year} fil bosy Tagalog
-refuse Start failed: No section with id {sec_g2}.
+refuse Start failed: This section is not on this device.

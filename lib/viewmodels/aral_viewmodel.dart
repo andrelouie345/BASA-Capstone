@@ -539,7 +539,7 @@ class AralViewModel {
       if (refusal != null) waiting.add('${c.name} (${c.student.id}): $refusal');
     }
     if (waiting.isNotEmpty) {
-      _warn('${waiting.length} learner(s) are on the roster without a class; place them in a class (aral-class-place):\n'
+      _warn('${waiting.length} learner(s) are on the roster without a class; place them in a class (ARAL → Classes → Place a learner):\n'
           '${waiting.map((w) => '  $w').join('\n')}');
     }
     return created;
@@ -630,16 +630,15 @@ class AralViewModel {
     final now = await _students.activeSectionId(e.studentId, e.schoolYear);
     final section = now == null ? null : await _sections.getById(now);
     if (section == null || section.schoolId != e.schoolId) {
-      throw ViewModelException('$name has left the school: exit them as transferred out '
-          '(aral-exit ${e.id} transferred_out).');
+      throw ViewModelException('$name has left the school. Exit them from ARAL as transferred out.');
     }
-    if (section.id == e.sectionId) throw ViewModelException('$name is already in section ${e.sectionId}.');
+    if (section.id == e.sectionId) throw ViewModelException('$name is already in that section.');
     final (_, grade) = await _aralSection(section.id!, e.schoolYear);
     final moved = await _write(() => _roster.update(e.copyWith(sectionId: section.id)));
     final cls = e.classId == null ? null : await _classes.findById(e.classId!);
     if (cls != null && cls.gradeLevel != grade) {
       _warn('Grade $grade is now in class "${cls.className}" (Grade ${cls.gradeLevel}); '
-          'move them if needed (aral-class-place).');
+          'move them if needed (ARAL → Classes → Place a learner).');
     }
     return moved;
   }
@@ -694,8 +693,8 @@ class AralViewModel {
         back = back.copyWith(classId: () => null);
         _warn(refusal.$1 == AralPlacementProblem.full
             ? 'Class "${cls.className}" is full, so this learner is back without a class. '
-                'Place them in a class (aral-class-place).'
-            : '${refusal.$2} This learner is back without a class. Place them in a class (aral-class-place).');
+                'Place them in a class (ARAL → Classes → Place a learner).'
+            : '${refusal.$2} This learner is back without a class. Place them in a class (ARAL → Classes → Place a learner).');
       }
     }
     return _write(() => _roster.update(back));
@@ -763,7 +762,7 @@ class AralViewModel {
     _log('applySchoolResults(school: $schoolId, year: $schoolYear)');
     _requireManager();
     final school = _auth.currentUser?.schoolId;
-    if (school != null && school != schoolId) throw const ViewModelException('Forbidden: that school is not yours.');
+    if (school != null && school != schoolId) throw const ViewModelException('Not allowed: that school is not yours.');
     schoolYear = normalizeSchoolYear(schoolYear);
     final sections = (await _roster.getBySchool(schoolId, schoolYear: schoolYear))
         .where((e) => e.isActive)
@@ -956,7 +955,7 @@ class AralViewModel {
     _log('rosterCsv(school: $schoolId, year: $schoolYear, section: $sectionId)');
     _requireManager();
     final mine = _auth.currentUser?.schoolId;
-    if (mine != null && mine != schoolId) throw const ViewModelException('Forbidden: that school is not yours.');
+    if (mine != null && mine != schoolId) throw const ViewModelException('Not allowed: that school is not yours.');
     schoolYear = normalizeSchoolYear(schoolYear);
     final roster = (await _roster.getBySchool(schoolId, schoolYear: schoolYear))
         .where((e) => sectionId == null || e.sectionId == sectionId)
@@ -1046,16 +1045,16 @@ class AralViewModel {
   void _requireManager() {
     final role = _auth.currentUser?.role;
     if (role != UserRole.admin && role != UserRole.coordinator) {
-      throw const ViewModelException('Forbidden: only an admin or coordinator can change the ARAL roster.');
+      throw const ViewModelException('Not allowed: only an admin or coordinator can change the ARAL roster.');
     }
   }
 
   Future<AralEnrollment> _require(int id) async {
     final e = await _roster.findById(id);
-    if (e == null) throw ViewModelException('No ARAL enrollment with id $id.');
+    if (e == null) throw ViewModelException(notOnDeviceMessage('ARAL learner'));
     final school = _auth.currentUser?.schoolId;
     if (school != null && school != e.schoolId) {
-      throw const ViewModelException('Forbidden: that learner is in another school.');
+      throw const ViewModelException('Not allowed: that learner is in another school.');
     }
     return e;
   }
@@ -1064,17 +1063,17 @@ class AralViewModel {
   /// another school (for school-bound users).
   Future<(Section, int)> _aralSection(int sectionId, String schoolYear) async {
     final section = await _sections.getById(sectionId);
-    if (section == null) throw ViewModelException('No section with id $sectionId.');
+    if (section == null) throw ViewModelException(notOnDeviceMessage('section'));
     final grade = int.tryParse(section.gradeLevel);
     if (grade == null || grade < 1 || grade > 10) {
-      throw ViewModelException('ARAL-Reading is for Grade 1-10 sections only (section $sectionId is Grade ${section.gradeLevel}).');
+      throw ViewModelException('ARAL-Reading is for Grades 1 to 10 only. This section is Grade ${section.gradeLevel}.');
     }
     if (section.schoolYear != schoolYear) {
-      throw ViewModelException('Section $sectionId is for ${section.schoolYear}, not $schoolYear.');
+      throw ViewModelException('This section is for ${section.schoolYear}, not $schoolYear.');
     }
     final school = _auth.currentUser?.schoolId;
     if (school != null && school != section.schoolId) {
-      throw const ViewModelException('Forbidden: that section is in another school.');
+      throw const ViewModelException('Not allowed: that section is in another school.');
     }
     return (section, grade);
   }
@@ -1091,9 +1090,9 @@ class AralViewModel {
   /// The class, if it is in the caller's school.
   Future<AralClass> _classOf(int classId) async {
     final c = await _classes.findById(classId);
-    if (c == null) throw ViewModelException('No ARAL class with id $classId.');
+    if (c == null) throw ViewModelException(notOnDeviceMessage('ARAL class'));
     final school = _auth.currentUser?.schoolId;
-    if (school != null && school != c.schoolId) throw const ViewModelException('Forbidden: that class is in another school.');
+    if (school != null && school != c.schoolId) throw const ViewModelException('Not allowed: that class is in another school.');
     return c;
   }
 

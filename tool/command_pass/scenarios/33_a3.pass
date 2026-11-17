@@ -34,9 +34,9 @@ capture col = Created collection (\d+):
 run phil-iri-collection-add {school} "ZZ A3 {stamp}"
 refuse A collection named "ZZ A3 {stamp}" already exists there.
 run phil-iri-collection-add region "ZZ A3 region {stamp}"
-refuse Forbidden: only the superadmin manages region-wide collections.
+refuse Not allowed: only the superadmin manages region-wide collections.
 run phil-iri-collection-add {schoolB} "ZZ A3 B {stamp}"
-refuse Forbidden: you can only manage collections of your own school.
+refuse Not allowed: you can only manage collections of your own school.
 run phil-iri-collection-add {school} "ZZ A3 p {stamp}" prescribed
 refuse Only region-wide collections can be prescribed.
 run phil-iri-collection-add {school} "ZZ A3 x {stamp}" loud
@@ -56,7 +56,7 @@ expect Updated: [{col}] ZZ A3 {stamp} · school {school} · graded · comprehens
 run phil-iri-collection-activate {col} on
 expect~ Updated: \[{col}\] ZZ A3 {stamp} · school {school} · graded · comprehension(\r?\n|$)
 run phil-iri-collection-promote {col}
-refuse Forbidden: superadmin only.
+refuse Not allowed: superadmin only.
 run phil-iri-collections
 expect [32] Phil-IRI Graded Passages (Level 2-10) · region-wide · prescribed · graded · comprehension
 expect [{col}] ZZ A3 {stamp} · school {school} · graded · comprehension
@@ -150,9 +150,9 @@ refuse No passage with id {pb}.
 
 # --- Thresholds (school layer; the region layer is refusal only) -----------------
 run phil-iri-threshold-set region speed_slow_max {=100}
-refuse Forbidden: only the superadmin manages region-wide thresholds.
+refuse Not allowed: only the superadmin manages region-wide thresholds.
 run phil-iri-threshold-set {schoolB} speed_slow_max {=100}
-refuse Forbidden: you can only manage thresholds of your own school.
+refuse Not allowed: you can only manage thresholds of your own school.
 run phil-iri-threshold-set {school} speed_slow_max {=200}
 refuse Speed boundaries must increase
 run phil-iri-threshold-set {school} speed_slowest {=100}
@@ -215,7 +215,7 @@ expect School {school} now uses the region thresholds.
 run phil-iri-threshold-reset {school}
 refuse School {school} has no threshold override.
 run phil-iri-threshold-reset {schoolB}
-refuse Forbidden: you can only manage thresholds of your own school.
+refuse Not allowed: you can only manage thresholds of your own school.
 run phil-iri-finalize-round {sec_g7} {year} mosy1
 expect Finalized: {pi_f} (student {s_g7_4})
 expect Still in progress: {pi_h} (student {s_g7_2})

@@ -20,9 +20,9 @@ expect users:
 run aral-ks1-extended {school}
 expect Applies: off (KS1 takes Low/High Emerging learners)
 run aral-ks1-extended-set region on
-refuse Forbidden: only the superadmin sets the region-wide ARAL settings.
+refuse Not allowed: only the superadmin sets the region-wide ARAL settings.
 run aral-ks1-extended-set {schoolB} on
-refuse Forbidden: you can only change your own school's ARAL settings.
+refuse Not allowed: you can only change your own school's ARAL settings.
 run aral-ks1-extended-set {school} maybe
 refuse Usage: aral-ks1-extended-set <region|schoolId> <on|off>
 
@@ -179,7 +179,7 @@ refuse Unknown program "ks2"
 run aral-class-add {school} {year} {=7} mixed zz a4 basic {stamp}
 refuse A class named "zz a4 basic {stamp}" already exists for {year}.
 run aral-class-add {schoolB} {year} {=7} mixed ZZ Other School
-refuse Forbidden: that school is not yours.
+refuse Not allowed: that school is not yours.
 run aral-class-add {school} {year} {=7} mixed ZZ Tutor From B tutor={coord_id}
 refuse The class tutor must be an active tutor of the school.
 run aral-class-edit {cb} notes ZZ A4 notes
@@ -331,7 +331,7 @@ run aral-class-place {e_c16} {cb_srv}
 expect placed in #{cb_srv} | ZZ A4 Basic {stamp} | Grade 7, KS3 Basic | tutor {tutor2_id} | room Room 4 | MWF 9-10 | 15/15 active
 run aral-reactivate {e_c1}
 expect | KS3 Basic | active | unplaced |
-expect Warning: Class "ZZ A4 Basic {stamp}" is full, so this learner is back without a class. Place them in a class (aral-class-place).
+expect Warning: Class "ZZ A4 Basic {stamp}" is full, so this learner is back without a class. Place them in a class (ARAL → Classes → Place a learner).
 run aral-class-place {e_c1} {class_1}
 expect placed in #{class_1} | ZZ 7-Rose | Grade 7, mixed programs | tutor {tutor1_id} | 5/15 active
 
@@ -378,9 +378,9 @@ capture en_c16 = MOVING: [^|]*Learner116 \(moving from ZZTEST-G7C\) -> enrollmen
 run sf1-move {en_c16} {sec_mv}
 expect moved to section {sec_mv}
 run aral-move {e_c15}
-refuse ZZTESTK, Learner115 is already in section {sec_g7c}.
+refuse ZZTESTK, Learner115 is already in that section.
 run aral-move {e_c16}
-refuse ZZTESTL, Learner116 is already in section {sec_mv}.
+refuse ZZTESTL, Learner116 is already in that section.
 run aral-roster {sec_mv} {year}
 expect #{e_c16} | ZZTESTL, Learner116 ({s_c16}) | KS3 Basic | active | class "ZZ A4 Basic {stamp}"
 

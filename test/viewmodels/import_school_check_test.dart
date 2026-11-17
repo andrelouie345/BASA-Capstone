@@ -16,7 +16,7 @@ void main() {
   test('another school file is refused with its code and name', () {
     expect(
       sf1OtherSchoolRefusal(fileSchoolCode: '999002', fileSchoolName: 'ZZTEST B', ownSchool: own),
-      'Forbidden: this roster is for school 999002 (ZZTEST B); '
+      'Not allowed: this roster is for school 999002 (ZZTEST B); '
       "you can only import your own school's rosters.",
     );
   });
@@ -24,7 +24,7 @@ void main() {
   test('a caller whose school cannot be read is refused', () {
     expect(
       sf1OtherSchoolRefusal(fileSchoolCode: '999001', fileSchoolName: 'ZZTEST Own', ownSchool: null),
-      'Forbidden: your school could not be read, so the roster cannot be checked.',
+      'Not allowed: your school could not be read, so the roster cannot be checked.',
     );
   });
 }

@@ -84,7 +84,7 @@ run sf1-missing {sec_x} school=abc
 refuse Invalid school: "abc"
 # A school-bound coordinator can't name another school.
 run sf1-missing school={schoolB}
-refuse Forbidden: you can only manage your own school's learners.
+refuse Not allowed: you can only manage your own school's learners.
 
 # --- x3 drops out: archived, then returns on X's next SF1 ----------------------
 run sf1-archive {e_x3} left
@@ -99,7 +99,7 @@ expect Not on the latest SF1 - undecided (1):
 expect enrollment {e_x4}
 # Archiving twice is refused by the server.
 run sf1-archive {e_x3} dropped
-refuse The database refused it:
+refuse The server did not accept this:
 run learner-history {s_x3}
 expect~ dropped_out, left \d{4}-\d{2}-\d{2} \(ZZ stopped coming in October\)
 make-sf1 sf1_a8x3 a 7 ZZTEST-A8X{stamp} 3 from=last-4
@@ -116,14 +116,14 @@ run sf1-restore {e_x3}
 expect Enrollment {e_x3} restored: saved on the server; pull to refresh this device. ARAL is not restored
 sql select status || '|' || coalesce(left_on, '-') from enrollments where id = {e_x3} => active|-
 run sf1-restore {e_x3}
-refuse The database refused it:
+refuse The server did not accept this:
 run sf1-restore {e_x3} x
 refuse Invalid sectionId: "x"
 
 # --- x4 moves to Y from X's missing list --------------------------------------
 # Another grade is refused (moves are same grade only).
 run sf1-move {e_x4} {sec_g2}
-refuse The database refused it:
+refuse The server did not accept this:
 run sf1-move {e_x4}
 refuse Usage: sf1-move <enrollmentId> <sectionId> [school=<id>]
 run sf1-move {e_x4} {sec_y}
@@ -179,13 +179,13 @@ run sync-preview
 expect~ phil_iri_gst_results -\d+: a new record of [^\n]+ \(archived on \d{4}-\d{2}-\d{2}, dropped out\); the server refuses it\.
 capture gst_x2 = phil_iri_gst_results (-\d+): a new record of
 run sync-upload yes
-refuse Resolve these first (sync-resolve <table> <key> mine|server):
+refuse Not sent: settle these records first
 run sync-resolve phil_iri_gst_results {gst_x2} mine
-refuse Refused: phil_iri_gst_results {gst_x2} is a new record of
+refuse Can't keep it: the GST score of
 run sync-resolve phil_iri_gst_results {gst_x2} server
 expect Dropped phil_iri_gst_results {gst_x2} and its items from this device
 run sync-resolve phil_iri_gst_results {gst_x2} server
-refuse Nothing to resolve for phil_iri_gst_results {gst_x2}.
+refuse Nothing to settle: a GST score has no problem now.
 run sync-preview
 expect Ready: run "sync-upload yes".
 run sync-upload yes
@@ -215,7 +215,7 @@ expect Already enrolled: 3
 run phil-iri-gst {s_y2} {sec_y} {year} {=30}
 expect 30/40
 run sf1-archive {e_y2} transferred "ZZ moved to another division"
-refuse This device has 1 record of this learner that is not on the server yet: upload this device's work first (sync-upload), then try again.
+refuse This device has 1 record of this learner that is not on the server yet: upload this device's work first (Send my work), then try again.
 run sync-upload yes
 expect~ [Aa]pplied
 run sf1-archive {e_y2} transferred "ZZ moved to another division"
@@ -235,7 +235,7 @@ run learner-anonymize-preview
 expect No learner can be anonymized now.
 capture code_a8 = confirm code: ([0-9a-f]{12})
 run learner-anonymize abcdefabcdef
-refuse The list changed since the preview: preview again (learner-anonymize-preview).
+refuse The list changed since the preview. Press Preview again.
 run learner-anonymize {code_a8}
 expect No learner can be anonymized now.
 run learner-anonymize
@@ -271,9 +271,9 @@ expect No learner can be anonymized now.
 device a8-tutor-pc admin fresh
 as tutor1
 run sf1-missing
-refuse Forbidden: only an admin or coordinator archives, moves or restores learners.
+refuse Not allowed: only an admin or coordinator archives, moves or restores learners.
 run sf1-archive {e_x4} dropped
-refuse Forbidden: only an admin or coordinator archives, moves or restores learners.
+refuse Not allowed: only an admin or coordinator archives, moves or restores learners.
 
 # --- Same-server transfer A -> B (spec D15; needs migration 20261113020000) ----------
 # School B's SF1 (made by the superadmin, who imports any school) lists school A's
@@ -304,7 +304,7 @@ capture cf_y1 = (\d+): LRN \d+ — LRN already exists \(existing student id {s_y
 run show-conflict {cf_y1}
 expect ZZTEST-A8B8{stamp}
 run resolve-conflict {cf_y1} update
-refuse Resolve failed: The database refused it: transfers are same grade only: ZZTEST-A8B8{stamp} is Grade 8, the learner is in Grade 7 at the other school.
+refuse Resolve failed: The server did not accept this: transfers are same grade only: ZZTEST-A8B8{stamp} is Grade 8, the learner is in Grade 7 at the other school.
 run resolve-conflict {cf_y1} skip
 expect Conflict {cf_y1}: resolved (skipped).
 # x1 still active at A, with tutor1's GST waiting for approval: refused until it is decided.
@@ -321,7 +321,7 @@ expect Inserted: 0, Conflicts: 1
 run list-conflicts
 capture cf_x1 = (\d+): LRN \d+ — LRN already exists \(existing student id {s_x1}\)
 run resolve-conflict {cf_x1} update
-refuse Resolve failed: The database refused it: upload {up_a8c} holds records for this learner: approve or reject it first.
+refuse Resolve failed: The server did not accept this: upload {up_a8c} holds records for this learner: approve or reject it first.
 device a8-pc admin
 run sync-approve {up_a8c}
 expect Upload {up_a8c} applied.

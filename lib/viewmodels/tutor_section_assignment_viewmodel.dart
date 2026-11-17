@@ -43,7 +43,7 @@ class TutorSectionAssignmentViewModel {
     if (sessionError != null) throw ViewModelException(sessionError);
     final role = _auth.currentUser?.role;
     if (role != UserRole.admin && role != UserRole.coordinator) {
-      throw const ViewModelException('Forbidden: admin or coordinator only.');
+      throw const ViewModelException('Not allowed: admin or coordinator only.');
     }
     return _repoFor(_auth.client!);
   }
@@ -106,7 +106,7 @@ class TutorSectionAssignmentViewModel {
     try {
       await write();
     } catch (e) {
-      lastMirrorWarning = 'Saved online, but the copy on this device was not updated. Download the latest data (pull-cloud).';
+      lastMirrorWarning = 'Saved online, but the copy on this device was not updated. Download the latest data.';
       _log('mirror failed: $e');
     }
   }

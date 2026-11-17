@@ -206,7 +206,7 @@ void main() {
     await seedOfflineOwner(ctx.localDb,
         userId: '00000000-0000-0000-0000-00000000ab47', email: 'tut@test', role: 'tutor', schoolId: 1);
     expect(await ctx.authVm.signInOffline(email: 'tut@test', password: 'test-pw'), isNull);
-    await expectLater(rank(_comp), _refused('Forbidden: only an admin or coordinator can generate the Phil-IRI ranking.'));
+    await expectLater(rank(_comp), _refused('Not allowed: only an admin or coordinator can generate the Phil-IRI ranking.'));
     await ctx.authVm.signOut();
     await expectLater(rank(_comp), _refused(notSignedInMessage));
   });

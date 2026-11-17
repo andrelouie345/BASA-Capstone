@@ -107,7 +107,7 @@ void main() {
       'assessed_at': '2026-08-10', 'origin': 'cloud', 'row_version': 1,
     });
     await expectLater(crla.removeAttempt(9601), _refused(crlaRemoveUploadedMessage));
-    await expectLater(crla.removeAttempt(-999999), _refused('No assessment with id -999999.'));
+    await expectLater(crla.removeAttempt(-999999), _refused('This CRLA attempt is not on this device. Download the latest data, then try again.'));
   });
 
   test('GST: only the latest; an uploaded one stays', () async {
@@ -127,6 +127,6 @@ void main() {
       'row_version': 1,
     });
     await expectLater(philIri.removeGst(9601), _refused(philIriGstRemoveUploadedMessage));
-    await expectLater(philIri.removeGst(-999999), _refused('No GST result with id -999999.'));
+    await expectLater(philIri.removeGst(-999999), _refused('This GST score is not on this device. Download the latest data, then try again.'));
   });
 }

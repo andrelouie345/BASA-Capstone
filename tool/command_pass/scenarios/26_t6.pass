@@ -95,7 +95,7 @@ expect | 55 min |
 run sync-preview
 expect aral_sessions {t6_ses_srv}: changed on the server (yours from version
 run sync-upload yes
-refuse Resolve these first (sync-resolve <table> <key> mine|server):
+refuse Not sent: settle these records first
 run sync-resolve aral_sessions {t6_ses_srv} server
 expect Took the server's copy of aral_sessions {t6_ses_srv}
 run aral-sessions

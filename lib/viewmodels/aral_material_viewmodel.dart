@@ -104,7 +104,7 @@ class AralMaterialViewModel {
   Future<AralMaterial> material(int id) async {
     _requireSignIn();
     final m = await _local.findById(id);
-    if (m == null) throw ViewModelException('No ARAL material with id $id on this device. Download the latest data (pull-cloud).');
+    if (m == null) throw ViewModelException(notOnDeviceMessage('material'));
     return m;
   }
 
@@ -239,12 +239,12 @@ class AralMaterialViewModel {
     _log('sectionRecommendations(section: $sectionId, year: $schoolYear)');
     final me = _me();
     if (me.role != UserRole.admin && me.role != UserRole.coordinator) {
-      throw const ViewModelException('Forbidden: admin or coordinator only.');
+      throw const ViewModelException('Not allowed: admin or coordinator only.');
     }
     final section = await _sections.getById(sectionId);
-    if (section == null) throw ViewModelException('No section with id $sectionId.');
+    if (section == null) throw ViewModelException(notOnDeviceMessage('section'));
     if (me.schoolId != null && me.schoolId != section.schoolId) {
-      throw const ViewModelException('Forbidden: that section is in another school.');
+      throw const ViewModelException('Not allowed: that section is in another school.');
     }
     final catalog = await _localCatalog();
     final out = <AralRecommendation>[];
@@ -263,7 +263,7 @@ class AralMaterialViewModel {
     if (e.keyStage == AralKeyStage.foundational && !program.foundationalProgram) {
       return AralRecommendation(e, grade, const [],
           'The foundational literacy program (SHARP) is switched off for this school: move the learner to KS1 '
-          '(aral-update).');
+          '(ARAL roster → Enroll and update).');
     }
     final schoolLinks = {for (final l in await _local.linksForSchool(e.schoolId)) l.materialId: l.link};
     final list = [
@@ -279,7 +279,7 @@ class AralMaterialViewModel {
       note = grade < aralMaterialDefaultMinGrade
           ? 'No ARAL materials for Grade $grade learners yet (the ARAL materials are for Grades 7-10).'
           : 'No active ${e.programLabel} materials for Grade $grade in the catalog on this device'
-              '. Add some, or download the latest data (pull-cloud).';
+              '. Add some, or download the latest data.';
     }
     return AralRecommendation(e, grade, list, note);
   }
@@ -302,18 +302,18 @@ class AralMaterialViewModel {
   /// learner's school (any school for the superadmin).
   Future<AralEnrollment> _requireLearner(int enrollmentId) async {
     final e = await _roster.findById(enrollmentId);
-    if (e == null) throw ViewModelException('No ARAL enrollment with id $enrollmentId.');
+    if (e == null) throw ViewModelException(notOnDeviceMessage('ARAL learner'));
     final me = _me();
     if (me.role == UserRole.tutor) {
       if (await _roster.classTutorId(e.id!) != me.id) {
-        throw const ViewModelException('Forbidden: not your ARAL learner.');
+        throw const ViewModelException('Not allowed: not your ARAL learner.');
       }
     } else if (me.role == UserRole.admin || me.role == UserRole.coordinator) {
       if (me.schoolId != null && me.schoolId != e.schoolId) {
-        throw const ViewModelException('Forbidden: that learner is in another school.');
+        throw const ViewModelException('Not allowed: that learner is in another school.');
       }
     } else {
-      throw const ViewModelException('Forbidden.');
+      throw const ViewModelException('Not allowed.');
     }
     return e;
   }
@@ -324,15 +324,15 @@ class AralMaterialViewModel {
     if (sessionError != null) throw ViewModelException(sessionError);
     final me = _me();
     if (me.role != UserRole.admin && me.role != UserRole.coordinator) {
-      throw const ViewModelException('Forbidden: admin or coordinator only.');
+      throw const ViewModelException('Not allowed: admin or coordinator only.');
     }
     final superadmin = me.role == UserRole.admin && me.schoolId == null;
     if (!superadmin) {
       if (schoolId == null) {
-        throw const ViewModelException('Forbidden: only the superadmin manages region-wide materials.');
+        throw const ViewModelException('Not allowed: only the superadmin manages region-wide materials.');
       }
       if (me.schoolId != schoolId) {
-        throw ViewModelException("Forbidden: you can only manage your own school's $what.");
+        throw ViewModelException("Not allowed: you can only manage your own school's $what.");
       }
     }
     lastMirrorWarning = null;
@@ -369,11 +369,11 @@ class AralMaterialViewModel {
     try {
       return await write();
     } on PostgrestException catch (e) {
-      if (e.code == '42501') throw const ViewModelException('Forbidden: the database refused this change.');
+      if (e.code == '42501') throw const ViewModelException('Not allowed: the server did not accept this change.');
       if (e.code == '23505') throw const ViewModelException('A material with that title already exists here.');
       if (e.code == '23514') {
         _log('write refused: ${e.message}');
-        throw const ViewModelException('The database refused the values.');
+        throw const ViewModelException('The server did not accept the values.');
       }
       rethrow;
     }
@@ -383,7 +383,7 @@ class AralMaterialViewModel {
     try {
       await write();
     } catch (e) {
-      lastMirrorWarning = 'The catalog was changed online, but the copy on this device was not updated. Download the latest data (pull-cloud).';
+      lastMirrorWarning = 'The catalog was changed online, but the copy on this device was not updated. Download the latest data.';
       _log('catalog mirror failed: $e');
     }
   }

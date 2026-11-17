@@ -37,9 +37,9 @@ refuse Unknown values "maybe": carried or actual.
 run value-source-set {school} srp
 refuse Usage: value-source-set <region|schoolId>
 run value-source-set {schoolB} srp actual
-refuse Forbidden: you can only set your own school's report settings.
+refuse Not allowed: you can only set your own school's report settings.
 run value-source-set region srp actual
-refuse Forbidden: only the superadmin sets the region-wide report settings.
+refuse Not allowed: only the superadmin sets the region-wide report settings.
 sql select count(*) from report_settings where school_id = {school} => 1
 
 # --- A section with four learners --------------------------------------------------
@@ -217,7 +217,7 @@ expect~ aral: region \S+ · school carried · applies carried
 expect~ ranking: region \S+ · school actual · applies actual
 # Cross-school transfers (SF1 leavers row 64, 2026-11-15): the superadmin's list only.
 run transfer-conflicts
-refuse Forbidden: only the superadmin sees the transfers across schools.
+refuse Not allowed: only the superadmin sees the transfers across schools.
 
 # --- The superadmin: the region row --------------------------------------------------------
 device a9-super admin fresh

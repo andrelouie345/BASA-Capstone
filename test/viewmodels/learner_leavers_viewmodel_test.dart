@@ -195,7 +195,7 @@ void main() {
   group('who may act', () {
     test('a tutor is refused everything', () async {
       final vm = vmFor(FakeOnlineAuth(UserRole.tutor, schoolId: 1));
-      const forbidden = 'Forbidden: only an admin or coordinator archives, moves or restores learners.';
+      const forbidden = 'Not allowed: only an admin or coordinator archives, moves or restores learners.';
       final calls = <String, Future<Object?> Function()>{
         'missing': () => vm.missing(),
         'archive': () => vm.archive(1, EnrollmentStatus.droppedOut),
@@ -238,7 +238,7 @@ void main() {
       await superadmin.missing(schoolId: 2);
       expect(repo.calls.last, 'missing(2, null)');
       await expectLater(vmFor(auth).anonymizePreview(schoolId: 2),
-          _refused("Forbidden: you can only manage your own school's learners."));
+          _refused("Not allowed: you can only manage your own school's learners."));
     });
   });
 
@@ -257,7 +257,7 @@ void main() {
     test('server and network errors come back as short messages', () async {
       final vm = vmFor(auth);
       repo.archiveError = const PostgrestException(message: 'boom', code: 'XX000');
-      await expectLater(vm.archive(11, EnrollmentStatus.droppedOut), _refused('The database refused it: boom.'));
+      await expectLater(vm.archive(11, EnrollmentStatus.droppedOut), _refused('The server did not accept this: boom.'));
       repo.archiveError = const SocketException('no route');
       await expectLater(vm.archive(11, EnrollmentStatus.droppedOut), _refused(leaverUnreachableMessage));
       repo.archiveError = ClientException('Connection closed');
@@ -310,7 +310,7 @@ void main() {
       final vm = vmFor(auth, unsent: (id) async => id == 11 ? 2 : 0);
       final upload = leaverUploadFirstMessage(2);
       expect(upload, "This device has 2 records of this learner that are not on the server yet: upload this "
-          "device's work first (sync-upload), then try again.");
+          "device's work first (Send my work), then try again.");
       await expectLater(vm.archive(11, EnrollmentStatus.droppedOut), _refused(upload));
       await expectLater(vm.move(11, 42, source: 'sf1_incoming'), _refused(upload));
       await expectLater(vm.restore(11, toSectionId: 42), _refused(upload));
@@ -370,7 +370,7 @@ void main() {
 
       repo.eligible = [...repo.eligible, {'student_id': 23, 'left_on': '2025-03-10', 'school_year': '2024-2025'}];
       await expectLater(vm.anonymize(preview.code),
-          _refused('The list changed since the preview: preview again (learner-anonymize-preview).'));
+          _refused('The list changed since the preview. Press Preview again.'));
       expect(repo.calls.where((c) => c.startsWith('anonymize(')), isEmpty);
 
       final again = await vm.anonymizePreview();

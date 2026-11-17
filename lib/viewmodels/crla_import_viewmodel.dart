@@ -199,10 +199,10 @@ class CrlaImportViewModel {
     if ((me.role == UserRole.admin || me.role == UserRole.coordinator) &&
         me.schoolId != null &&
         me.schoolId != section.schoolId) {
-      throw const ViewModelException('Forbidden: that section is in another school.');
+      throw const ViewModelException('Not allowed: that section is in another school.');
     }
     if (crlaGradeOf(section.gradeLevel) == null) {
-      throw ViewModelException('CRLA is for Grade 1-3 sections only (section $sectionId is Grade ${section.gradeLevel}).');
+      throw ViewModelException('CRLA is for Grades 1 to 3 only. This section is Grade ${section.gradeLevel}.');
     }
     return section;
   }
