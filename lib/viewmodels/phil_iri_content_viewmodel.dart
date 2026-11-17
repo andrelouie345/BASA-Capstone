@@ -97,7 +97,7 @@ class PhilIriContentViewModel {
     final cloud = _cloud();
     final role = _auth.currentUser?.role;
     if (role != UserRole.admin && role != UserRole.coordinator) {
-      throw const ViewModelException('Forbidden: admin or coordinator only.');
+      throw const ViewModelException('Not allowed: admin or coordinator only.');
     }
     lastMirrorWarning = null;
     return cloud;
@@ -107,10 +107,10 @@ class PhilIriContentViewModel {
   void _checkCanManageSchool(int? schoolId, String what) {
     if (_isSuperadmin) return;
     if (schoolId == null) {
-      throw ViewModelException('Forbidden: only the superadmin manages region-wide $what.');
+      throw ViewModelException('Not allowed: only the superadmin manages region-wide $what.');
     }
     if (_auth.currentUser?.schoolId != schoolId) {
-      throw ViewModelException('Forbidden: you can only manage $what of your own school.');
+      throw ViewModelException('Not allowed: you can only manage $what of your own school.');
     }
   }
 
@@ -172,7 +172,7 @@ class PhilIriContentViewModel {
     if (existing == null) throw ViewModelException('No collection with id ${collection.id}.');
     _checkCanManageSchool(existing.schoolId, 'collections');
     if (collection.schoolId != existing.schoolId && !_isSuperadmin) {
-      throw const ViewModelException('Forbidden: only the superadmin moves a collection to another school or region-wide.');
+      throw const ViewModelException('Not allowed: only the superadmin moves a collection to another school or region-wide.');
     }
     final wanted = _checkedCollection(collection);
 
@@ -196,7 +196,7 @@ class PhilIriContentViewModel {
     _log('promoteCollection($id)');
     if (!_isSuperadmin) {
       _cloud(); // a missing session is the clearer message
-      throw const ViewModelException('Forbidden: superadmin only.');
+      throw const ViewModelException('Not allowed: superadmin only.');
     }
     final c = await getCollection(id);
     if (c.schoolId == null) throw const ViewModelException('This collection is already region-wide.');
@@ -239,7 +239,7 @@ class PhilIriContentViewModel {
       throw const ViewModelException('Only region-wide collections can be prescribed.');
     }
     if (c.isPrescribed && !_isSuperadmin) {
-      throw const ViewModelException('Forbidden: only the superadmin marks a collection as prescribed.');
+      throw const ViewModelException('Not allowed: only the superadmin marks a collection as prescribed.');
     }
     final order = c.readingOrder;
     if (order != null && (order.isEmpty || order.any((n) => n < 1))) {
@@ -657,7 +657,7 @@ class PhilIriContentViewModel {
     } on PostgrestException catch (e) {
       if (e.code == '23505' && duplicate != null) throw ViewModelException(duplicate);
       if (e.code == '23503' && inUse != null) throw ViewModelException(inUse);
-      if (e.code == '42501') throw const ViewModelException('Forbidden: the database refused this change.');
+      if (e.code == '42501') throw const ViewModelException('Not allowed: the server did not accept this change.');
       if (e.code == 'P0001' && e.message.isNotEmpty) {
         // A trigger's own message ("this passage has already been read; ...").
         throw ViewModelException(e.message[0].toUpperCase() + e.message.substring(1));
@@ -683,7 +683,7 @@ class PhilIriContentViewModel {
     try {
       await write();
     } catch (e) {
-      lastMirrorWarning = '$what saved online, but the copy on this device was not updated. Download the latest data (pull-cloud).';
+      lastMirrorWarning = '$what saved online, but the copy on this device was not updated. Download the latest data.';
       _log('WARNING: $what mirror failed: $e');
     }
   }

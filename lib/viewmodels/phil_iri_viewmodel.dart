@@ -41,6 +41,7 @@ import '../core/services/phil_iri_rules.dart';
 import '../core/services/sync_upload_rules.dart' show pendingLockMessage;
 import 'auth_viewmodel.dart';
 import 'viewmodel_exception.dart';
+import '../core/services/auth_messages.dart';
 
 /// One learner's year: every round's result plus the end result.
 class PhilIriLearnerResults {
@@ -299,13 +300,13 @@ class PhilIriViewModel {
     schoolYear = normalizeSchoolYear(schoolYear);
     final (section, grade) = await _philIriSection(sectionId);
     final max = philIriGstMaxScore(grade);
-    _checkRange('totalScore', totalScore, 0, max);
+    _checkRange('The GST total', totalScore, 0, max);
     final parts = [literalCorrect, inferentialCorrect, criticalCorrect];
     for (final (i, p) in parts.indexed) {
-      if (p != null) _checkRange(['literalCorrect', 'inferentialCorrect', 'criticalCorrect'][i], p, 0, max);
+      if (p != null) _checkRange(['Literal', 'Inferential', 'Critical'][i], p, 0, max);
     }
     if (parts.every((p) => p != null) && parts.fold<int>(0, (a, p) => a + p!) != totalScore) {
-      throw ViewModelException('Literal + inferential + critical must add up to the total ($totalScore).');
+      throw ViewModelException('Literal, inferential and critical must add up to the total ($totalScore).');
     }
     final stored = await _write(() => _gst.insert(PhilIriGstResult(
           studentId: studentId,
@@ -339,7 +340,7 @@ class PhilIriViewModel {
     _requireSignIn();
     _log('removeGst($gstId)');
     final g = await _gst.findById(gstId);
-    if (g == null) throw ViewModelException('No GST result with id $gstId.');
+    if (g == null) throw ViewModelException(notOnDeviceMessage('GST score'));
     if (gstId > 0) throw const ViewModelException(philIriGstRemoveUploadedMessage);
     final mine = (await _gst.getBySection(g.sectionId, schoolYear: g.schoolYear))
         .where((x) => x.studentId == g.studentId);
@@ -539,7 +540,7 @@ class PhilIriViewModel {
   Future<PhilIriMiscue> updateMiscue(PhilIriMiscue miscue) async {
     _requireSignIn();
     _log('updateMiscue(${miscue.id})');
-    if (miscue.id == null) throw const ViewModelException('Miscue has no id.');
+    if (miscue.id == null) throw const ViewModelException('This miscue is not saved yet.');
     final r = await _requireOpenReading(miscue.readingId);
     _requireOral(r.reading);
     // v40: a miscue without a position comes only from an import (the import
@@ -577,7 +578,7 @@ class PhilIriViewModel {
     final questions = await _passages.getQuestions(r.passage.id!);
     final q = questions.where((x) => x.id == questionId).firstOrNull;
     if (q == null) {
-      throw ViewModelException('Question $questionId is not a question of "${r.passage.title}".');
+      throw ViewModelException('This question is not from "${r.passage.title}".');
     }
     final letter = chosen?.trim().toLowerCase();
     if (letter != null) {
@@ -651,7 +652,7 @@ class PhilIriViewModel {
     for (final c in await _collections.getAll()) {
       criterion ??= (await _collections.getCriteria(c.id!)).where((k) => k.id == criterionId).firstOrNull;
     }
-    if (criterion == null) throw ViewModelException('No rubric criterion with id $criterionId.');
+    if (criterion == null) throw ViewModelException(notOnDeviceMessage('rubric item'));
     _checkRange(criterion.name, score, criterion.scaleMin, criterion.scaleMax);
     return _write(() => _sessions.saveRubricScore(
         PhilIriRubricScore(assessmentId: assessmentId, criterionId: criterionId, score: score)));
@@ -1023,24 +1024,24 @@ class PhilIriViewModel {
   void _requireFinalizer() {
     final role = _auth.currentUser?.role;
     if (role != UserRole.admin && role != UserRole.coordinator) {
-      throw const ViewModelException('Forbidden: only an admin or coordinator can finalize Phil-IRI sessions.');
+      throw const ViewModelException('Not allowed: only an admin or coordinator can finalize Phil-IRI sessions.');
     }
   }
 
   /// The section and its grade; refuses anything outside Grades 4-10.
   Future<(Section, int)> _philIriSection(int sectionId) async {
     final section = await _sections.getById(sectionId);
-    if (section == null) throw ViewModelException('No section with id $sectionId.');
+    if (section == null) throw ViewModelException(notOnDeviceMessage('section'));
     final grade = philIriGradeOf(section.gradeLevel);
     if (grade == null) {
-      throw ViewModelException('Phil-IRI is for Grade 4-10 sections only (section $sectionId is Grade ${section.gradeLevel}).');
+      throw ViewModelException('Phil-IRI is for Grades 4 to 10 only. This section is Grade ${section.gradeLevel}.');
     }
     return (section, grade);
   }
 
   Future<PhilIriAssessment> _requireSession(int id) async {
     final s = await _sessions.findAssessment(id);
-    if (s == null) throw ViewModelException('No Phil-IRI session with id $id.');
+    if (s == null) throw ViewModelException(notOnDeviceMessage('Phil-IRI session'));
     return s;
   }
 
@@ -1099,13 +1100,13 @@ class PhilIriViewModel {
 
   Future<PhilIriPassage> _requirePassage(int id) async {
     final p = await _passages.findById(id);
-    if (p == null) throw ViewModelException('No passage with id $id on this device. Download the latest data (pull-cloud).');
+    if (p == null) throw ViewModelException(notOnDeviceMessage('passage'));
     return p;
   }
 
   Future<PhilIriReading> _findReading(int readingId) async {
     final hit = await _sessions.findReading(readingId);
-    if (hit == null) throw ViewModelException('No reading with id $readingId.');
+    if (hit == null) throw ViewModelException(notOnDeviceMessage('reading'));
     return hit;
   }
 
@@ -1140,17 +1141,17 @@ class PhilIriViewModel {
     if (method != PhilIriReadingMethod.oneMinute) {
       if (wordsRead != null) throw const ViewModelException('Words read only applies to one-minute reading.');
       if (seconds == null && required) throw const ViewModelException('Give the reading time in seconds.');
-      if (seconds != null) _checkRange('readingSeconds', seconds, 1, 1 << 30);
+      if (seconds != null) _checkRange('The reading time in seconds', seconds, 1, 1 << 30);
     } else {
       if (seconds != null) throw const ViewModelException('One-minute reading has no reading time; give the words read.');
       if (wordsRead == null && required) throw const ViewModelException('Give the words read in the minute.');
-      if (wordsRead != null) _checkRange('wordsRead', wordsRead, 1, 1 << 30);
+      if (wordsRead != null) _checkRange('Words read', wordsRead, 1, 1 << 30);
     }
   }
 
   void _checkRange(String name, int value, int min, int max) {
     if (value < min || value > max) {
-      throw ViewModelException('$name must be between $min and $max (got $value).');
+      throw ViewModelException('$name must be from $min to $max. You entered $value.');
     }
   }
 

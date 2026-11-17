@@ -546,10 +546,10 @@ class NlaReportViewModel {
     final me = _auth.currentUser;
     if (me == null) throw const ViewModelException(notSignedInMessage);
     if (me.role != UserRole.admin && me.role != UserRole.coordinator) {
-      throw ViewModelException('Forbidden: only an admin or coordinator can generate $what.');
+      throw ViewModelException('Not allowed: only an admin or coordinator can generate $what.');
     }
     if (me.schoolId != null && me.schoolId != schoolId) {
-      throw const ViewModelException('Forbidden: that school is not yours.');
+      throw const ViewModelException('Not allowed: that school is not yours.');
     }
     final sections = (await _sections.getAll())
         .where((s) =>

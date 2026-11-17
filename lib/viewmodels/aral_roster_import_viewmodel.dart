@@ -133,9 +133,9 @@ class AralRosterImportViewModel {
     final me = _auth.currentUser;
     if (me == null) throw const ViewModelException(notSignedInMessage);
     if (me.role != UserRole.admin && me.role != UserRole.coordinator) {
-      throw const ViewModelException('Forbidden: only an admin or coordinator can import an ARAL roster.');
+      throw const ViewModelException('Not allowed: only an admin or coordinator can import an ARAL roster.');
     }
-    if (me.schoolId != null && me.schoolId != schoolId) throw const ViewModelException('Forbidden: that school is not yours.');
+    if (me.schoolId != null && me.schoolId != schoolId) throw const ViewModelException('Not allowed: that school is not yours.');
     schoolYear = normalizeSchoolYear(schoolYear);
 
     final List<String> headers;

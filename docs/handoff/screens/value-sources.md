@@ -24,7 +24,7 @@ The six lists (`PhilIriValueList`, in this order; the label is yours):
 - `learnerPages`: a learner's Phil-IRI results and learner history (default carried)
 - `ranking`: the ranking list below (default actual)
 Show per list: the school value (or "region: …" when the school has none) and what applies. A change reaches other devices after their next download.
-Errors: `Forbidden: only an admin or coordinator sets the report settings.`, `Forbidden: you can only set your own school's report settings.`, `Forbidden: only the superadmin sets the region-wide report settings.`, the online-sign-in message.
+Errors: `Not allowed: only an admin or coordinator sets the report settings.`, `Not allowed: you can only set your own school's report settings.`, `Not allowed: only the superadmin sets the region-wide report settings.`, the online-sign-in message.
 Console: `value-sources`, `value-source-set`
 
 ### Ranking list
@@ -38,7 +38,7 @@ Shows (from `PhilIriRanking`):
 - header: round, measure, scope, n, `philIriValuesLabel(values)`, as of;
 - block 1 `ranked` (`PhilIriRankRow`): rank, name, LRN, grade, section, value (`philIriRankValueText(measure, value)`, add "%" or "wpm"), profile. Equal values share a rank, so the list can be longer than n: when `tiedPastN`, say "N shown: k tied at rank r";
 - block 2 `unranked` (`PhilIriUnranked`), by name, with `reason.label`: "not assessed this round", "silent reading: no accuracy", "comprehension only, no word reading", "no comprehension entry". These never take a place in block 1.
-Errors: `Learners to list is at least 1 (got 0).`, `Give a section or a grade, not both.`, `School <id> has no Grade <g> section for <year>.`, `Forbidden: only an admin or coordinator can generate the Phil-IRI ranking.`, a section of another school (as the other reports).
+Errors: `Learners to list is at least 1 (got 0).`, `Give a section or a grade, not both.`, `School <id> has no Grade <g> section for <year>.`, `Not allowed: only an admin or coordinator can generate the Phil-IRI ranking.`, a section of another school (as the other reports).
 Console: `phil-iri-rank`, `phil-iri-rank-export`
 
 ### Lists that now show the label

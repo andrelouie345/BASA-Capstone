@@ -215,10 +215,10 @@ class AralReportViewModel {
     final me = _auth.currentUser;
     if (me == null) throw const ViewModelException(notSignedInMessage);
     if (me.role != UserRole.admin && me.role != UserRole.coordinator) {
-      throw const ViewModelException('Forbidden: only an admin or coordinator can generate ARAL reports.');
+      throw const ViewModelException('Not allowed: only an admin or coordinator can generate ARAL reports.');
     }
     if (me.schoolId != null && me.schoolId != schoolId) {
-      throw const ViewModelException('Forbidden: that school is not yours.');
+      throw const ViewModelException('Not allowed: that school is not yours.');
     }
     schoolYear = normalizeSchoolYear(schoolYear);
     final date = _date(asOf ?? DateTime.now());
@@ -261,7 +261,7 @@ class AralReportViewModel {
     final crla = report.rows.where((r) => r.usesCrla).toList();
     if (crla.isNotEmpty) {
       notes.add('${crla.length} Grade 1-3 section(s) use CRLA profiles, which the template has no columns for; '
-          'they are in the CSV export (aral-export-report-csv).');
+          'they are in the CSV export.');
     }
     var unplaced = 0, notAssessed = 0;
     (int, int) split(Map<String, int> counts) {

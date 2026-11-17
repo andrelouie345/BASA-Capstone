@@ -32,7 +32,7 @@ void main() {
       LoginLogViewModel(repo: _Logs(local ?? []), auth: auth, cloudFor: (_) => _Logs(cloud ?? []));
 
   test('loadRecent refuses a tutor', () async {
-    await expectLater(vmFor(FakeOnlineAuth(UserRole.tutor)).loadRecent(), _refused('Forbidden: admin or coordinator only.'));
+    await expectLater(vmFor(FakeOnlineAuth(UserRole.tutor)).loadRecent(), _refused('Not allowed: admin or coordinator only.'));
   });
 
   test('record refuses signed out', () async {

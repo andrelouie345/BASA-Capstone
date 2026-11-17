@@ -32,27 +32,27 @@ crla_regenerate_results
 sf1_archive_learner
 learner_anonymize_eligible
 # Refusals in admin-only methods
-Forbidden: only an admin or coordinator reviews uploads.
-Forbidden: you can only create users for your own school.
-Forbidden: only an admin or coordinator can import an ARAL roster.
-Forbidden: only an admin or coordinator can generate ARAL reports.
-Forbidden: only an admin or coordinator can finalize Phil-IRI sessions.
-Forbidden: only an admin or coordinator can change the ARAL roster.
-Forbidden: only an admin or coordinator sets the assessment calendar.
-Forbidden: only an admin or coordinator sets the report settings.
-Forbidden: you can only manage the CRLA thresholds of your own school.
-Forbidden: only the superadmin marks a collection as prescribed.
-Forbidden: only the superadmin manages region-wide materials.
-Forbidden: you can only change your own school's ARAL settings.
-Forbidden: only an admin or coordinator of the school manages its SRP classes.
-Forbidden: can only manage sections for your own school.
-Forbidden: can only update your own school.
-Forbidden: only the superadmin can change a school's DepEd school ID or region.
-Forbidden: only an admin or coordinator imports Phil-IRI results.
+Not allowed: only an admin or coordinator reviews uploads.
+Not allowed: you can only create users for your own school.
+Not allowed: only an admin or coordinator can import an ARAL roster.
+Not allowed: only an admin or coordinator can generate ARAL reports.
+Not allowed: only an admin or coordinator can finalize Phil-IRI sessions.
+Not allowed: only an admin or coordinator can change the ARAL roster.
+Not allowed: only an admin or coordinator sets the assessment calendar.
+Not allowed: only an admin or coordinator sets the report settings.
+Not allowed: you can only manage the CRLA thresholds of your own school.
+Not allowed: only the superadmin marks a collection as prescribed.
+Not allowed: only the superadmin manages region-wide materials.
+Not allowed: you can only change your own school's ARAL settings.
+Not allowed: only an admin or coordinator of the school manages its SRP classes.
+Not allowed: can only manage sections for your own school.
+Not allowed: can only update your own school.
+Not allowed: only the superadmin can change a school's DepEd school ID or region.
+Not allowed: only an admin or coordinator imports Phil-IRI results.
 A referral needs who referred the learner and why.
 This learner left ARAL; reactivate them before placing them in a class.
 A class needs a name.
-Forbidden: only an admin or coordinator archives, moves or restores learners.
+Not allowed: only an admin or coordinator archives, moves or restores learners.
 # One string from each admin-only file without a refusal of its own
 " (expected skip or update).
 or this school's admin/coordinator when the other school archived the learner

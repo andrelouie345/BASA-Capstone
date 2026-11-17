@@ -121,7 +121,7 @@ void main() {
     expect(p.problems, isEmpty);
     expect(remote.asked.single.toSet(), {(7101, _year, 1), (7102, _year, 1)});
     await expectLater(vm.resolve('phil_iri_gst_results', '-1', SyncChoice.server),
-        throwsA(isA<ViewModelException>().having((e) => e.message, 'message', 'Nothing to resolve for phil_iri_gst_results -1.')));
+        throwsA(isA<ViewModelException>().having((e) => e.message, 'message', 'Nothing to settle: the GST score of ZZArch1, Lee has no problem now.')));
     expect(await gstIds(), [-2, -1]);
   });
 
@@ -136,19 +136,23 @@ void main() {
           'Ask the coordinator to restore the learner, or drop it with sync-resolve phil_iri_gst_results -1 server',
     ]);
     expect(p.problems.single.kind, learnerArchivedKind);
+    // Screens get plain words: the record by its kind and learner, no table, key or command.
+    expect(p.problems.single.message,
+        'The GST score of ZZArch1, Lee is new, but the learner was archived: ZZArch1, L. (archived on 2026-11-10, '
+        "dropped out). The server does not accept it. Ask your coordinator to restore the learner, or take the "
+        "server's to remove it from this device.");
 
     // The upload refuses before sending anything.
     await expectLater(vm.upload(), throwsA(isA<ViewModelException>().having((e) => e.message, 'message',
-        startsWith('Resolve these first (sync-resolve <table> <key> mine|server):'))));
+        startsWith("Not sent: settle these records first (keep mine, or take the server's):"))));
     expect(remote.sentPayload, isNull);
 
     await expectLater(
         vm.resolve('phil_iri_gst_results', '-1', SyncChoice.mine),
         throwsA(isA<ViewModelException>().having((e) => e.message, 'message',
-            'Refused: phil_iri_gst_results -1 is a new record of ZZArch1, L. (archived on 2026-11-10, dropped out), '
-                'and the server refuses new records of an archived learner, so yours cannot be kept. '
-                'Ask the coordinator to restore the learner, then upload; '
-                'or drop it with sync-resolve phil_iri_gst_results -1 server.')));
+            "Can't keep it: the GST score of ZZArch1, Lee is new, but the learner was archived: ZZArch1, L. "
+                '(archived on 2026-11-10, dropped out). The server does not accept it. Ask your coordinator to '
+                "restore the learner and then send your work, or take the server's to remove it from this device.")));
     expect(await gstIds(), [-2, -1]);
 
     // The other learner's record is not archived: nothing to resolve.
@@ -158,6 +162,7 @@ void main() {
     expect(r.droppedNew, isTrue);
     expect('$r', 'Dropped phil_iri_gst_results -1 and its items from this device: the server refuses new records '
         'of an archived learner. The rest of your work can be uploaded.');
+    expect(r.message, 'The GST score of ZZArch1, Lee was removed from this device. The rest of your work can be sent.');
     expect(await gstIds(), [-2]);
     expect(await db.query('sync_changes', where: "table_name = 'phil_iri_gst_results' AND row_key = '-1'"), isEmpty);
 
@@ -182,9 +187,9 @@ void main() {
     await expectLater(
         vm.resolve('phil_iri_gst_results', '-9', SyncChoice.mine),
         throwsA(isA<ViewModelException>().having((e) => e.message, 'message',
-            'Refused: phil_iri_gst_results -9 is a new record of ZZArch2, L. (transferred to another school on '
-                '2026-11-12), and the server refuses new records of a learner who left this school, so yours cannot '
-                'be kept: drop it with sync-resolve phil_iri_gst_results -9 server.')));
+            "Can't keep it: the GST score of ZZArch2, Lee is new, but the learner moved to another school: "
+                'ZZArch2, L. (transferred to another school on 2026-11-12). The server does not accept it. '
+                "Take the server's to remove it from this device.")));
     expect((await vm.resolve('phil_iri_gst_results', '-9', SyncChoice.server)).droppedNew, isTrue);
     expect(await db.query('phil_iri_gst_results', where: 'id = -9'), isEmpty);
   });

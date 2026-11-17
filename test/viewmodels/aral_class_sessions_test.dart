@@ -91,7 +91,7 @@ void main() {
     expect(s.sessionNo, 1);
     await expectLater(
         sessions.logSession(classId: c.id!, heldOn: DateTime(2026, 8, 3), minutes: 45, setup: AralSetup.pullOut),
-        _refused('Forbidden: you can only log sessions for your own classes.'));
+        _refused('Not allowed: you can only log sessions for your own classes.'));
     await expectLater(
         sessions.logSession(classId: a.id!, heldOn: DateTime(2026, 8, 3), minutes: 45, setup: AralSetup.pullOut),
         _refused('Class "7-A" already has session 1 (#${s.id}) on 2026-08-03.'));

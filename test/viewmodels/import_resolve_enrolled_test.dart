@@ -225,7 +225,7 @@ void main() {
     final id = await conflictFor(8104, 81);
     await expectLater(
         vm.resolve(id, 'update'),
-        refused('The database refused it: transfers are same grade only: G4-A is Grade 4, the learner is in Grade 5 '
+        refused('The server did not accept this: transfers are same grade only: G4-A is Grade 4, the learner is in Grade 5 '
             'at the other school.'));
     leavers.refuse = null;
   });

@@ -268,13 +268,13 @@ class ReminderViewModel {
     final me = _auth.currentUser;
     if (me == null) throw const ViewModelException(notSignedInMessage);
     if (me.role != UserRole.admin && me.role != UserRole.coordinator) {
-      throw const ViewModelException('Forbidden: only an admin or coordinator sees coordinator reminders.');
+      throw const ViewModelException('Not allowed: only an admin or coordinator sees coordinator reminders.');
     }
     if (me.schoolId != null && schoolId == null) {
-      throw const ViewModelException('Forbidden: only the superadmin sees the reminders of every school.');
+      throw const ViewModelException('Not allowed: only the superadmin sees the reminders of every school.');
     }
     if (me.schoolId != null && schoolId != me.schoolId) {
-      throw const ViewModelException('Forbidden: that school is not yours.');
+      throw const ViewModelException('Not allowed: that school is not yours.');
     }
     if (doneThreshold != null && !(doneThreshold > 0 && doneThreshold <= 1)) {
       throw ViewModelException('The done threshold is a share above 0 and up to 1 (got $doneThreshold).');
@@ -433,12 +433,12 @@ class ReminderViewModel {
         ? {tutor!.schoolId!}
         : {...sections.map((s) => s.schoolId), ...roster.map((e) => e.schoolId)};
     if (me.role == UserRole.tutor) {
-      if (tutorId != me.id) throw const ViewModelException('Forbidden: a tutor sees only their own reminders.');
+      if (tutorId != me.id) throw const ViewModelException('Not allowed: a tutor sees only their own reminders.');
     } else {
       if (tutor == null && schools.isEmpty) throw ViewModelException('No tutor $tutorId on this device.');
       if (tutor != null && tutor.role != UserRole.tutor) throw ViewModelException('${tutor.fullName} is not a tutor.');
       if (me.schoolId != null && !schools.contains(me.schoolId)) {
-        throw const ViewModelException('Forbidden: that tutor is not of your school.');
+        throw const ViewModelException('Not allowed: that tutor is not of your school.');
       }
     }
 
@@ -654,10 +654,10 @@ class ReminderViewModel {
     final me = _auth.currentUser;
     if (me == null) throw const ViewModelException(notSignedInMessage);
     if (me.role != UserRole.admin && me.role != UserRole.coordinator) {
-      throw const ViewModelException('Forbidden: only an admin or coordinator sees CRLA completion.');
+      throw const ViewModelException('Not allowed: only an admin or coordinator sees CRLA completion.');
     }
     if (me.schoolId != null && schoolId != me.schoolId) {
-      throw const ViewModelException('Forbidden: that school is not yours.');
+      throw const ViewModelException('Not allowed: that school is not yours.');
     }
     if (doneThreshold != null && !(doneThreshold > 0 && doneThreshold <= 1)) {
       throw ViewModelException('The done threshold is a share above 0 and up to 1 (got $doneThreshold).');

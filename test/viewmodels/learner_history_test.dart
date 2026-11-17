@@ -285,7 +285,7 @@ void main() {
     expect(p.sectionId, 9999);
     expect(p.sectionName, isNull);
     expect(p.results, isNull);
-    expect(p.unavailable, '${learnerHistoryUnavailable}No section with id 9999.');
+    expect(p.unavailable, '${learnerHistoryUnavailable}This section is not on this device. Download the latest data, then try again.');
     final aral = y.aral.single;
     expect(aral.unavailable, startsWith(learnerHistoryUnavailable));
     expect(aral.checkin16, LearnerHistoryCheckin.unavailable);
@@ -373,13 +373,13 @@ void main() {
 
   test('a tutor is refused', () async {
     await signInAs(_tutor, 'tutor@lh', 'tutor', _school);
-    await expectLater(vm.history(9901), _refused('Forbidden: only an admin or coordinator can view learner history.'));
+    await expectLater(vm.history(9901), _refused('Not allowed: only an admin or coordinator can view learner history.'));
   });
 
   test("another school's learner is refused", () async {
     await signInAs(_coord, 'coord@lh', 'coordinator', _school);
-    await expectLater(vm.history(9902), _refused('Forbidden: that learner is not in your school.'));
-    await expectLater(vm.history(9904), _refused('Forbidden: that learner is not in your school.')); // Review Focus 1
+    await expectLater(vm.history(9902), _refused('Not allowed: that learner is not in your school.'));
+    await expectLater(vm.history(9904), _refused('Not allowed: that learner is not in your school.')); // Review Focus 1
   });
 
   test('a learner transferred away from this school: its records and the transfer line (D15, review I1)', () async {
@@ -395,15 +395,15 @@ void main() {
     expect(t.fromLeftOn, '2026-10-20');
     // Another school's coordinator (no transfer from their school) is still refused.
     await signInAs('00000000-0000-0000-0000-0000000099c2', 'coord2@lh', 'coordinator', 9999);
-    await expectLater(vm.history(9908), _refused('Forbidden: that learner is not in your school.'));
+    await expectLater(vm.history(9908), _refused('Not allowed: that learner is not in your school.'));
   });
 
-  test('unknown id and LRN give the pull-cloud messages', () async {
+  test('unknown id and LRN say to download the latest data', () async {
     await signInAs(_coord, 'coord@lh', 'coordinator', _school);
     await expectLater(
-        vm.history(1), _refused('Learner not found on this device. Download the latest data first (pull-cloud).'));
+        vm.history(1), _refused('Learner not found on this device. Download the latest data first.'));
     await expectLater(vm.historyByLrn('000000000000'),
-        _refused('No learner with LRN 000000000000 on this device. Download the latest data first (pull-cloud).'));
+        _refused('No learner with LRN 000000000000 on this device. Download the latest data first.'));
   });
 
   test('a year with only a waiting ARAL entry is listed', () async {

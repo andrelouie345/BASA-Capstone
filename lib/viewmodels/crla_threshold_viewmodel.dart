@@ -96,7 +96,7 @@ class CrlaThresholdViewModel {
     final cloud = _cloud();
     final role = _auth.currentUser?.role;
     if (role != UserRole.admin && role != UserRole.coordinator) {
-      throw const ViewModelException('Forbidden: admin or coordinator only.');
+      throw const ViewModelException('Not allowed: admin or coordinator only.');
     }
     lastMirrorWarning = null;
     return cloud;
@@ -106,10 +106,10 @@ class CrlaThresholdViewModel {
   void _checkCanManageSchool(int? schoolId) {
     if (_isSuperadmin) return;
     if (schoolId == null) {
-      throw const ViewModelException('Forbidden: only the superadmin manages the region-wide CRLA thresholds.');
+      throw const ViewModelException('Not allowed: only the superadmin manages the region-wide CRLA thresholds.');
     }
     if (_auth.currentUser?.schoolId != schoolId) {
-      throw const ViewModelException('Forbidden: you can only manage the CRLA thresholds of your own school.');
+      throw const ViewModelException('Not allowed: you can only manage the CRLA thresholds of your own school.');
     }
   }
 
@@ -223,8 +223,8 @@ class CrlaThresholdViewModel {
     } on PostgrestException catch (e) {
       if (e.code == '42501') {
         throw ViewModelException(e.message.startsWith('only an admin')
-            ? 'Forbidden: ${e.message}.'
-            : 'Forbidden: the database refused this change.');
+            ? 'Not allowed: ${e.message}.'
+            : 'Not allowed: the server did not accept this change.');
       }
       if (e.code == 'P0001' && e.message.isNotEmpty) {
         throw ViewModelException(e.message[0].toUpperCase() + e.message.substring(1));
@@ -237,7 +237,7 @@ class CrlaThresholdViewModel {
     try {
       await write();
     } catch (e) {
-      lastMirrorWarning = '$what saved online, but the copy on this device was not updated. Download the latest data (pull-cloud).';
+      lastMirrorWarning = '$what saved online, but the copy on this device was not updated. Download the latest data.';
       _log('WARNING: $what mirror failed: $e');
     }
   }

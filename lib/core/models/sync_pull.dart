@@ -25,6 +25,22 @@ class LocalWorkLine {
   String toString() => sectionId == null
       ? '$count $kind'
       : '$count $kind in section $sectionId (grade ${gradeLevel ?? "?"} ${sectionName ?? "unknown"}, ${schoolYear ?? ""})';
+
+  /// The line in plain words for screens: "3 Phil-IRI sessions · Grade 7
+  /// RIZAL, 2025-2026", no "(s)" and no section ids ([toString] is the
+  /// console's).
+  String get message {
+    final one = count == 1;
+    final what = kind
+        .replaceAll('entr(ies)', one ? 'entry' : 'entries')
+        .replaceAll('class(es)', one ? 'class' : 'classes')
+        .replaceAll('(s)', one ? '' : 's');
+    final where = sectionId == null
+        ? ''
+        : ' · ${sectionName == null ? 'a section not on this device' : 'Grade ${gradeLevel ?? '?'} $sectionName'}'
+            '${schoolYear == null ? '' : ', $schoolYear'}';
+    return '$count $what$where';
+  }
 }
 
 /// What an online sign-in did to this device's copy (shared device): nothing

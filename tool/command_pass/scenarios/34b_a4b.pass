@@ -17,9 +17,9 @@ run aral-checkin-cutoff {school}
 expect School {school}: (not set)
 expect Applies: 75%
 run aral-checkin-cutoff-set region {=70}
-refuse Forbidden: only the superadmin sets the region-wide ARAL settings.
+refuse Not allowed: only the superadmin sets the region-wide ARAL settings.
 run aral-checkin-cutoff-set {schoolB} {=70}
-refuse Forbidden: you can only change your own school's ARAL settings.
+refuse Not allowed: you can only change your own school's ARAL settings.
 run aral-checkin-cutoff-set {school} {=0}
 refuse The cut-off is a percentage 1-100, not 0.
 run aral-checkin-cutoff-set {school} {=101}
@@ -35,9 +35,9 @@ expect School {school}: 70%
 expect Applies: 70%
 
 run aral-idle-days-set region {=10}
-refuse Forbidden: only the superadmin sets the region-wide ARAL settings.
+refuse Not allowed: only the superadmin sets the region-wide ARAL settings.
 run aral-idle-days-set {schoolB} {=10}
-refuse Forbidden: you can only change your own school's ARAL settings.
+refuse Not allowed: you can only change your own school's ARAL settings.
 run aral-idle-days-set {school} {=0}
 refuse The idle session days are a whole number 1-60, not 0.
 run aral-idle-days-set {school} {=61}
@@ -96,7 +96,7 @@ expect Totals (2 with check-in tools): after 16 took 1, met 1 | after 32 took 0,
 run aral-checkin-report {school} {year} {sec_g7}
 expect Totals (2 with check-in tools): after 16 took 1, met 1 | after 32 took 0, met 0
 run aral-checkin-report {schoolB} {year}
-refuse Forbidden: that school is not yours.
+refuse Not allowed: that school is not yours.
 run aral-checkin-report {school}
 refuse Usage: aral-checkin-report <schoolId> <schoolYear> [sectionId]
 run aral-export-checkins {school} {year} "{rundir}/a4b_checkins.csv"
@@ -104,7 +104,7 @@ expect Wrote
 run aral-export-checkins {school} {year} "{rundir}/a4b_checkins_g7.csv" {sec_g7}
 expect Wrote
 run aral-export-checkins {schoolB} {year} "{rundir}/a4b_checkins_b.csv"
-refuse Forbidden: that school is not yours.
+refuse Not allowed: that school is not yours.
 run aral-export-checkins {school} {year} "{rundir}/no-such-folder/x.csv"
 refuse Couldn't write
 run aral-export-checkins {school} {year} "{rundir}/x.csv" asof={today}
@@ -112,7 +112,7 @@ refuse Usage: aral-export-checkins <schoolId> <schoolYear> <out.csv> [sectionId]
 
 # --- Settings reset: back to the region values, then B0/T5's switches --------------------
 run aral-checkin-cutoff-reset {schoolB}
-refuse Forbidden: you can only change your own school's ARAL settings.
+refuse Not allowed: you can only change your own school's ARAL settings.
 run aral-checkin-cutoff-reset
 refuse Usage: aral-checkin-cutoff-reset <schoolId>
 run aral-checkin-cutoff-reset {school}
@@ -156,15 +156,15 @@ expect~ Updated: #{enr_1} \| ZZTESTA, Learner001 \({s_g7_1}\) \| KS3 Basic \| ac
 run aral-notes {enr_1}
 refuse Usage: aral-notes <enrollmentId> <text...|->
 run aral-notes {=999999} x
-refuse No ARAL enrollment with id 999999.
+refuse This ARAL learner is not on this device.
 run sync-upload yes
 expect~ [Aa]pplied
 
 # --- Material catalog -------------------------------------------------------------------
 run aral-material-add region ks3 basic learner English "ZZ Region {stamp}"
-refuse Forbidden: only the superadmin manages region-wide materials.
+refuse Not allowed: only the superadmin manages region-wide materials.
 run aral-material-add {schoolB} ks3 basic learner English "ZZ B {stamp}"
-refuse Forbidden: you can only manage your own school's materials.
+refuse Not allowed: you can only manage your own school's materials.
 run aral-material-add {school} ks9 basic learner English "ZZ Bad {stamp}"
 refuse Program is foundational, ks1, ks2 or ks3 (got "ks9")
 run aral-material-add {school} ks3 basic learner English "ZZ Bad {stamp}" grades=5-8
@@ -193,7 +193,7 @@ expect No active KS1 materials for Grade 7
 run aral-recommend-section {sec_g2} {year}
 expect No active ARAL learners in section {sec_g2} for {year}.
 run aral-recommend-section {sec_b7} {year}
-refuse No section with id {sec_b7}.
+refuse This section is not on this device.
 run aral-recommend-section {sec_g7}
 refuse Usage: aral-recommend-section <sectionId> <schoolYear>
 
@@ -255,14 +255,14 @@ expect Deleted material #{mat}.
 run aral-materials
 expect No ARAL materials on this device
 run aral-material-delete {mat}
-refuse No ARAL material with id {mat} on this device
+refuse This material is not on this device.
 run aral-material-set {=999999} title x
-refuse No ARAL material with id 999999 on this device
+refuse This material is not on this device.
 
 # --- Implementation report and roster CSV ----------------------------------------------
 run aral-export-report {school} {year} "sample-files/ARAL/ARAL Reading Reports/ARAL Reading Implementation Report.xlsx" "{rundir}/a4b_report.xlsx"
 expect~ Wrote .*a4b_report\.xlsx\.
-expect Note: 1 Grade 1-3 section(s) use CRLA profiles, which the template has no columns for; they are in the CSV export (aral-export-report-csv).
+expect Note: 1 Grade 1-3 section(s) use CRLA profiles, which the template has no columns for; they are in the CSV export.
 expect Note: 4 BOSY/MOSY count(s) are learners not assessed at all by {today}
 expect Note: 2 BOSY/MOSY count(s) had no Phil-IRI result yet
 run aral-export-report {school} {year} "sample-files/ARAL/ARAL Reading Reports/ARAL Reading Implementation Report.xlsx" "{rundir}/a4b_report_g7.xlsx" {sec_g7} asof={today}
@@ -273,7 +273,7 @@ refuse No template "sample-files/ARAL/no-such-template.xlsx".
 run aral-export-report {school} {year} "sample-files/ARAL/ARAL Reading Reports/ARAL Reading Implementation Report.xlsx" "sample-files/ARAL/ARAL Reading Reports/ARAL Reading Implementation Report.xlsx"
 refuse Write to a new file, not over the template.
 run aral-export-report {schoolB} {year} "sample-files/ARAL/ARAL Reading Reports/ARAL Reading Implementation Report.xlsx" "{rundir}/x.xlsx"
-refuse Forbidden: that school is not yours.
+refuse Not allowed: that school is not yours.
 run aral-export-report-csv {school} {year} "{rundir}/a4b_report.csv"
 expect~ Wrote .*a4b_report\.csv\.
 run aral-export-report-csv {school} {year} "{rundir}/a4b_report_g7.csv" {sec_g7} asof={today}
@@ -283,11 +283,11 @@ refuse asof must be a real YYYY-MM-DD date (got "2026-02-30")
 run aral-export-report-csv {school} {year} "{rundir}/x.csv" bogus
 refuse Unknown option "bogus".
 run aral-export-report-csv {schoolB} {year} "{rundir}/x.csv"
-refuse Forbidden: that school is not yours.
+refuse Not allowed: that school is not yours.
 run aral-export-roster {school} {year} "{rundir}/a4b_roster.csv"
 expect Wrote
 run aral-export-roster {schoolB} {year} "{rundir}/x.csv"
-refuse Forbidden: that school is not yours.
+refuse Not allowed: that school is not yours.
 run aral-export-roster {school} {year} "{rundir}/x.csv" asof={today}
 refuse Usage: aral-export-roster <schoolId> <schoolYear> <out.csv> [sectionId]
 
@@ -319,7 +319,7 @@ run aral-import-roster {school} {year} "{rundir}/a4b_g7c.csv"
 expect Added 0 learner(s) to the ARAL roster.
 expect Skipped 1 already on the roster.
 run aral-import-roster-preview {schoolB} {year} "{rundir}/a4b_g7c.csv"
-refuse Forbidden: that school is not yours.
+refuse Not allowed: that school is not yours.
 run aral-import-roster-preview {school} {year} "{rundir}/no-such.csv"
 refuse No file "{rundir}/no-such.csv".
 write-file a4b_nolrn Name,Program

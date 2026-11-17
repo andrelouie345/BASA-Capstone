@@ -35,7 +35,7 @@ class LoginLogViewModel {
   void _requireAdminOrCoordinator() {
     final role = _auth.currentUser?.role;
     if (role != UserRole.admin && role != UserRole.coordinator) {
-      throw const ViewModelException('Forbidden: admin or coordinator only.');
+      throw const ViewModelException('Not allowed: admin or coordinator only.');
     }
   }
 

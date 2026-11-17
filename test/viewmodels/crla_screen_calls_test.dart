@@ -31,7 +31,7 @@ void main() {
         t.crlaVm.startAssessment(
             studentId: 1, sectionId: 1, schoolYear: '2026-2027', subjectVariant: 'mt', round: CrlaRound.bosy),
         throwsA(isA<ViewModelException>()
-            .having((e) => e.message, 'message', 'The mt variant needs a language (e.g. Cebuano).')));
+            .having((e) => e.message, 'message', 'Pick the Mother Tongue language.')));
   });
 
   test('threshold layers carry the defaults', () {

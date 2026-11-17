@@ -240,7 +240,7 @@ void main() {
     final moved = await aral.moveToSection(e.id!);
     expect(moved.sectionId, 9503);
     expect(moved.classId, rose.id);
-    expect(aral.lastWarning, 'Grade 5 is now in class "7-Rose" (Grade 7); move them if needed (aral-class-place).');
+    expect(aral.lastWarning, 'Grade 5 is now in class "7-Rose" (Grade 7); move them if needed (ARAL → Classes → Place a learner).');
   });
 
   test('aral-update lists learners in a class of another grade', () async {

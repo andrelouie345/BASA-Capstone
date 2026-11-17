@@ -51,7 +51,7 @@ Calls:
 - Each `LearnerHistoryYear`: `schoolYear`, `enrollments` (at most one: section name, grade, school (null = school not on this device), status), `crla` (round → test → profile; tests are "MT (<language>)", "Filipino", "English" in that order; null profile = "no profile"), `philIri` (one `LearnerHistoryPhilIri` per section, two after a section move: `sectionName`, `results` = `PhilIriLearnerResults`, or `results` null and `unavailable` = the note to show), `aral` (0 or 1 `LearnerHistoryAral`: `enrollment` (program, entered/exited + reason, `basisSource`, `referredBy`/`referralReason`), `className` (null = waiting for a class), `tutorName`, `attendance.label`, `checkin16`/`checkin32` = passed / failed / notTaken / unavailable, `unavailable` = the note to show when the check-ins can't be read), `srp` (class, tutor, room) and `isEmpty` (show "No assessments recorded")
 - SF1 leavers (since 2026-11-13): each enrollment also has `leftOn` / `leftNote` (set when archived: status `transferred_out` / `dropped_out`), and each year has `moves` (`LearnerHistoryMove`: `movedOn`, from/to section id and name, `source` = decided from the old section's SF1 / confirmed from the new section's SF1 / restored into another section / transferred in from another school). Show them with the section line. A transfer (`isTransfer`, since 2026-11-13) also has `fromSchoolName`, `fromStatus` and `fromLeftOn` (the other school's archive): show "Transferred in <date> from <school> (<section>, transferred out <date>)".
 - A part that can't be read on this device comes with a note starting "Not available on this device: "; show the note there and the rest of the history as usual.
-Errors: not signed in; `Forbidden: only an admin or coordinator can view learner history.`; `Forbidden: that learner is not in your school.`; `Learner not found on this device. Download the latest data first (pull-cloud).`; `No learner with LRN <lrn> on this device. Download the latest data first (pull-cloud).`; `Enter an LRN.` (ViewModelException).
+Errors: not signed in; `Not allowed: only an admin or coordinator can view learner history.`; `Not allowed: that learner is not in your school.`; `Learner not found on this device. Download the latest data first (pull-cloud).`; `No learner with LRN <lrn> on this device. Download the latest data first (pull-cloud).`; `Enter an LRN.` (ViewModelException).
 Console: `learner-history`, `learner-history-lrn`
 
 ### SF1 import
@@ -82,7 +82,7 @@ Build: admin    Roles: admin / coordinator
 Purpose: recent sign-in attempts (device + server, tagged), or one user's.
 Calls:
 - `LoginLogViewModel.loadRecent({limit = 50})`, `loadForUser(userId)` → then `items: List<SourcedLoginLog>`, `cloudError: String?` (set when the server's log could not be read; `items` then holds this device's log only)
-Errors: not signed in online; `Forbidden: admin or coordinator only.` (ViewModelException).
+Errors: not signed in online; `Not allowed: admin or coordinator only.` (ViewModelException).
 Console: `login-recent`, `login-history`, `login-log` (dev tool: records a fake attempt)
 
 ### First admin (bootstrap)

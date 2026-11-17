@@ -237,7 +237,7 @@ class AralCheckinViewModel {
 
   Future<AralCheckinResult> _result(AralCheckin c, int passPct) async {
     final tool = await _checkins.findTool(c.toolId);
-    if (tool == null) throw ViewModelException('Check-in tool ${c.toolId} is not on this device. Download the latest data (pull-cloud).');
+    if (tool == null) throw ViewModelException('This check-in form is not on this device. Download the latest data, then try again.');
     final items = await _checkins.items(tool.id);
     final answers = await _checkins.answers(c.id!);
     return AralCheckinResult(
@@ -261,10 +261,10 @@ class AralCheckinViewModel {
     _log('checkinReport(school: $schoolId, year: $schoolYear, section: $sectionId)');
     final me = _me();
     if (me.role != UserRole.admin && me.role != UserRole.coordinator) {
-      throw const ViewModelException('Forbidden: only an admin or coordinator can generate ARAL reports.');
+      throw const ViewModelException('Not allowed: only an admin or coordinator can generate ARAL reports.');
     }
     if (me.schoolId != null && me.schoolId != schoolId) {
-      throw const ViewModelException('Forbidden: that school is not yours.');
+      throw const ViewModelException('Not allowed: that school is not yours.');
     }
     schoolYear = normalizeSchoolYear(schoolYear);
     final passPct = (await localSettings(schoolId)).passPct;
@@ -351,7 +351,7 @@ class AralCheckinViewModel {
     if (!e.isActive) throw const ViewModelException('The learner is not active in ARAL.');
     final tool = await _checkins.toolFor(e.keyStage, e.track!, checkpoint);
     if (tool == null) {
-      throw ViewModelException('No ${e.programLabel} check-in tool for session $checkpoint on this device. Download the latest data (pull-cloud).');
+      throw ViewModelException('The ${e.programLabel} check-in form for session $checkpoint is not on this device. Download the latest data, then try again.');
     }
     final date = _checkDate(on, e);
     return _write(() => _checkins.insertCheckin(AralCheckin(
@@ -609,25 +609,25 @@ class AralCheckinViewModel {
   /// learner's school (any school for superadmin). Reading and writing alike.
   Future<AralEnrollment> _require(int enrollmentId) async {
     final e = await _roster.findById(enrollmentId);
-    if (e == null) throw ViewModelException('No ARAL enrollment with id $enrollmentId.');
+    if (e == null) throw ViewModelException(notOnDeviceMessage('ARAL learner'));
     final me = _me();
     if (me.role == UserRole.tutor) {
       if (await _roster.classTutorId(e.id!) != me.id) {
-        throw const ViewModelException('Forbidden: not your ARAL learner.');
+        throw const ViewModelException('Not allowed: not your ARAL learner.');
       }
     } else if (me.role == UserRole.admin || me.role == UserRole.coordinator) {
       if (me.schoolId != null && me.schoolId != e.schoolId) {
-        throw const ViewModelException('Forbidden: that learner is in another school.');
+        throw const ViewModelException('Not allowed: that learner is in another school.');
       }
     } else {
-      throw const ViewModelException('Forbidden.');
+      throw const ViewModelException('Not allowed.');
     }
     return e;
   }
 
   Future<(AralCheckin, AralEnrollment)> _requireCheckin(int checkinId) async {
     final c = await _checkins.findCheckin(checkinId);
-    if (c == null) throw ViewModelException('No check-in with id $checkinId.');
+    if (c == null) throw ViewModelException(notOnDeviceMessage('check-in'));
     return (c, await _require(c.enrollmentId));
   }
 
@@ -658,15 +658,15 @@ class AralCheckinViewModel {
     final cloud = _cloud();
     final me = _me();
     if (me.role != UserRole.admin && me.role != UserRole.coordinator) {
-      throw const ViewModelException('Forbidden: admin or coordinator only.');
+      throw const ViewModelException('Not allowed: admin or coordinator only.');
     }
     final superadmin = me.role == UserRole.admin && me.schoolId == null;
     if (!superadmin) {
       if (schoolId == null) {
-        throw const ViewModelException('Forbidden: only the superadmin sets the region-wide ARAL settings.');
+        throw const ViewModelException('Not allowed: only the superadmin sets the region-wide ARAL settings.');
       }
       if (me.schoolId != schoolId) {
-        throw const ViewModelException("Forbidden: you can only change your own school's ARAL settings.");
+        throw const ViewModelException("Not allowed: you can only change your own school's ARAL settings.");
       }
     }
     lastMirrorWarning = null;
@@ -692,8 +692,8 @@ class AralCheckinViewModel {
     try {
       return await write();
     } on PostgrestException catch (e) {
-      if (e.code == '42501') throw const ViewModelException('Forbidden: the database refused this change.');
-      if (e.code == '23514') throw const ViewModelException('The database refused the value (cut-off must be 1-100).');
+      if (e.code == '42501') throw const ViewModelException('Not allowed: the server did not accept this change.');
+      if (e.code == '23514') throw const ViewModelException('The server did not accept the value (cut-off must be 1-100).');
       rethrow;
     }
   }
@@ -703,7 +703,7 @@ class AralCheckinViewModel {
       await write();
     } catch (e) {
       // The detail goes to the log only: raw database text is no message for a screen (F20).
-      lastMirrorWarning = 'ARAL settings saved online, but the copy on this device was not updated. Download the latest data (pull-cloud).';
+      lastMirrorWarning = 'ARAL settings saved online, but the copy on this device was not updated. Download the latest data.';
       _log('WARNING: $lastMirrorWarning ($e)');
     }
   }

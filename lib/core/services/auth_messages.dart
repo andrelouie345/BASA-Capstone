@@ -10,6 +10,12 @@ const needsOnlineSignInMessage = 'This needs an online sign-in. Sign in again wh
 const mustChangePasswordMessage = 'You must change your password first.';
 const cantReachServerMessage = "can't reach the server. Check the connection, or sign in offline on your own device.";
 
+/// A record a screen asked for is not on this device (a stale screen, or not
+/// downloaded yet): "This CRLA attempt is not on this device. ..." (owner
+/// 2026-11-17: refusals never show ids or code names).
+String notOnDeviceMessage(String what) =>
+    'This $what is not on this device. Download the latest data, then try again.';
+
 /// The server's own text for a refused Edge Function call (create-user,
 /// bootstrap-admin): its `error` field, else the details or the HTTP reason.
 String edgeFunctionErrorMessage(Object error) {
