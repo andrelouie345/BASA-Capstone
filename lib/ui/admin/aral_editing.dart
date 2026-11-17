@@ -185,7 +185,9 @@ class AdminAralClassEditor extends AralClassEditor {
   @override
   bool canEdit(BuildContext context) => _isAdmin(context);
 
-  Future<Map<String, String>?> _form(BuildContext context, {AralClass? c}) => askFields(context, title: c == null ? 'New class' : 'Edit class', fields: [
+  // The year is shown because only learners of that year can be placed.
+  Future<Map<String, String>?> _form(BuildContext context, {AralClass? c, String? schoolYear}) => askFields(context,
+          title: c == null ? 'New class for ${schoolYear ?? ''}'.trim() : 'Edit class (${c.schoolYear})', fields: [
     FieldSpec('name', 'Class name', initial: c?.className ?? ''),
     FieldSpec('grade', 'Home grade (1 to 10)', initial: c == null ? '' : '${c.gradeLevel}', number: true),
     FieldSpec('room', 'Room', initial: c?.room ?? '', optional: true),
@@ -215,7 +217,7 @@ class AdminAralClassEditor extends AralClassEditor {
 
   @override
   Future<bool> addClass(BuildContext context, int schoolId, String schoolYear) async {
-    final f = await _form(context);
+    final f = await _form(context, schoolYear: schoolYear);
     if (f == null || !context.mounted) return false;
     final grade = int.tryParse(f['grade']!);
     if (grade == null) {
@@ -302,7 +304,8 @@ class AdminAralClassEditor extends AralClassEditor {
     if (waiting == null || !context.mounted) return false;
     final (list, names) = waiting;
     if (list.isEmpty) {
-      showNote(context, 'No learner is waiting for a class.');
+      showNote(context,
+          "No learner is waiting for a class in ${c.schoolYear}. Learners waiting in other school years can't join this class.");
       return false;
     }
     final e = await pickOne<AralEnrollment>(context,

@@ -219,8 +219,9 @@ class _AralClassScreenState extends State<AralClassScreen> {
                 StatTile(label: 'Grade', value: '${c.gradeLevel}', icon: Icons.school_outlined),
                 StatTile(label: 'Program', value: c.program?.label ?? 'Mixed', icon: Icons.auto_stories_outlined),
               ]),
-              if (c.room != null || c.schedule != null || c.notes != null)
-                SectionCard(title: 'Details', icon: Icons.info_outline, children: [
+              // The school year first: only learners of that year can be placed.
+              SectionCard(title: 'Details', icon: Icons.info_outline, children: [
+                  InfoRow('School year', c.schoolYear),
                   if (c.room != null) InfoRow('Room', c.room!),
                   if (c.schedule != null) InfoRow('Schedule', c.schedule!),
                   if (c.notes != null) InfoRow('Notes', c.notes!),
