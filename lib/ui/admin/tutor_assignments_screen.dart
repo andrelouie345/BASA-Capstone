@@ -136,7 +136,7 @@ class _TutorAssignmentsScreenState extends State<TutorAssignmentsScreen> {
                             ? const IconBadge(Icons.class_outlined)
                             : LetterBadge(initialOf(a.tutorFullName ?? a.tutorEmail ?? a.tutorId)),
                         title: _byTutor
-                            ? (a.section?.toString() ?? 'Section #${a.sectionId}')
+                            ? (a.section?.toString() ?? 'A section not on this device')
                             : (a.tutorFullName ?? a.tutorEmail ?? a.tutorId),
                         subtitle: _byTutor ? null : a.tutorEmail,
                         trailing: [

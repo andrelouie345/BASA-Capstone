@@ -245,7 +245,7 @@ class _AralClassScreenState extends State<AralClassScreen> {
                       for (final e in shown)
                         ListRow(
                           leading: LetterBadge(initialOf(names[e.studentId] ?? '')),
-                          title: names[e.studentId] ?? 'Learner #${e.studentId}',
+                          title: names[e.studentId] ?? 'A learner not on this device',
                           subtitle: aralProgramLabel(e),
                           trailing: [
                             aralStatusChip(e),

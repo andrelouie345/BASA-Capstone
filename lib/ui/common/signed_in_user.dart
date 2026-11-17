@@ -102,7 +102,7 @@ class _SignedInUserTileState extends State<SignedInUserTile> {
     if (user == null) return const SizedBox.shrink();
     final text = Theme.of(context).textTheme;
     final colors = Theme.of(context).colorScheme;
-    final place = user.schoolId == null ? 'All schools (regional)' : (_schoolName ?? 'School #${user.schoolId}');
+    final place = user.schoolId == null ? 'All schools (regional)' : (_schoolName ?? 'Your school');
     return ListTile(
       onTap: widget.onTap,
       leading: UserAvatar(user: user),

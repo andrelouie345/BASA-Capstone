@@ -129,8 +129,8 @@ class _PhilIriSessionScreenState extends State<PhilIriSessionScreen> {
     builder: (context, s, _) {
       if (s == null || s.status != PhilIriStatus.inProgress) return const SizedBox.shrink();
       return fab
-          ? mainActionFab(onPressed: _addReading, icon: Icons.add, label: 'Add')
-          : mainActionButton(onPressed: _addReading, icon: Icons.add, label: 'Add');
+          ? mainActionFab(onPressed: _addReading, icon: Icons.add, label: 'Add a reading')
+          : mainActionButton(onPressed: _addReading, icon: Icons.add, label: 'Add a reading');
     },
   );
 
@@ -201,6 +201,12 @@ class _PhilIriSessionScreenState extends State<PhilIriSessionScreen> {
               ]),
               const SizedBox(height: 12),
               InfoRow('Status', philIriStatusLabel(s.status)),
+              if (open || s.status == PhilIriStatus.completed)
+                Text(
+                  'Complete the session when every reading is done. You can reopen it until your coordinator '
+                  'finalizes the round.',
+                  style: theme.textTheme.bodySmall,
+                ),
               if (open || s.status == PhilIriStatus.completed) ...[
                 const SizedBox(height: 8),
                 Wrap(spacing: 8, runSpacing: 8, children: [
@@ -234,10 +240,10 @@ class _PhilIriSessionScreenState extends State<PhilIriSessionScreen> {
                         leading: LetterBadge('${r.sequenceNo}', size: 36),
                         title: r.isUntitled
                             ? 'Untitled${r.importedWordCount == null ? '' : ' (${r.importedWordCount} words)'}'
-                            : p?.title ?? 'Passage #${r.passageId}',
+                            : p?.title ?? 'A passage not on this device',
                         subtitle: readingMethodLabel(r.method),
                         footer: !r.isTimed
-                            ? const StatusChip('not timed yet', tone: StatusTone.warn, icon: Icons.timer_off_outlined)
+                            ? const StatusChip('time not entered yet', tone: StatusTone.warn, icon: Icons.timer_off_outlined)
                             : score != null
                             ? StatusChip(score.profile.label, tone: philIriLevelTone(score.profile))
                             : null,

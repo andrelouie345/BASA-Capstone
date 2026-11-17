@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/models/section.dart';
 import '../common/screen_kit.dart';
+import '../common/pickers.dart';
 
 /// The admin build's section changes. Each returns true when something changed.
 abstract class SectionsEditor {
@@ -44,11 +45,12 @@ class _SectionsScreenState extends State<SectionsScreen> {
         actions: [if (canEdit && wide) mainActionButton(onPressed: add, icon: Icons.add, label: 'Add section')],
       ),
       floatingActionButton: canEdit && !wide ? mainActionFab(onPressed: add, icon: Icons.add, label: 'Add section') : null,
-      body: LoadView<List<Section>>(
+      body: LoadView<(List<Section>, Map<int, String>)>(
         where: 'SectionsScreen',
         reloadKey: _reload,
-        load: (vms) => vms.section.localSections(),
-        builder: (context, items, _) {
+        load: (vms) async => (await vms.section.localSections(), await schoolNameMap(vms)),
+        builder: (context, data, _) {
+          final (items, schools) = data;
           if (items.isEmpty) {
             return const EmptyNote(
               'No sections on this device yet. Download the latest data first.',
@@ -87,7 +89,7 @@ class _SectionsScreenState extends State<SectionsScreen> {
                       ListRow(
                         leading: LetterBadge(s.gradeLevel),
                         title: s.sectionName,
-                        subtitle: 'Grade ${s.gradeLevel} · school #${s.schoolId}',
+                        subtitle: 'Grade ${s.gradeLevel} · ${schoolNameOf(schools, s.schoolId)}',
                         trailing: [
                           if (canEdit)
                             PopupMenuButton<String>(

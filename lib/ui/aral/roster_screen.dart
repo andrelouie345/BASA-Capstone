@@ -18,8 +18,11 @@ abstract class AralRosterEditor {
   const AralRosterEditor();
   bool canEdit(BuildContext context);
 
-  /// Propose, enroll or refer learners of [section]; apply new results.
+  /// Propose, enroll or refer learners of [section].
   Future<bool> sectionActions(BuildContext context, Section section);
+
+  /// Apply the newest CRLA / Phil-IRI results to [section]'s roster.
+  Future<bool> updateFromResults(BuildContext context, Section section);
 
   /// Placement, move, exit, reactivate, notes, remove.
   Future<bool> enrollmentActions(BuildContext context, AralEnrollment e);
@@ -61,15 +64,16 @@ class _AralRosterScreenState extends State<AralRosterScreen> {
     final canEnroll = canEdit && _view == _View.section && _section != null;
     final wide = isWideScreen(context);
     void enroll() => _after(editor!.sectionActions(context, _section!));
+    void update() => _after(editor!.updateFromResults(context, _section!));
     return Scaffold(
       appBar: AppBar(
         title: const Text('ARAL roster'),
         actions: [
-          if (canEnroll && wide) mainActionButton(onPressed: enroll, icon: Icons.group_add_outlined, label: 'Enroll and update'),
+          if (canEnroll && wide) mainActionButton(onPressed: enroll, icon: Icons.group_add_outlined, label: 'Enroll learners'),
         ],
       ),
       floatingActionButton:
-          canEnroll && !wide ? mainActionFab(onPressed: enroll, icon: Icons.group_add_outlined, label: 'Enroll and update') : null,
+          canEnroll && !wide ? mainActionFab(onPressed: enroll, icon: Icons.group_add_outlined, label: 'Enroll learners') : null,
       body: PageBody(
         children: [
           FilterBar(children: [
@@ -87,6 +91,9 @@ class _AralRosterScreenState extends State<AralRosterScreen> {
             else
               SchoolYearPicker(value: _year, onChanged: (y) => setState(() => _year = y)),
             if (ready) SearchField(label: 'Search learner or class name', onChanged: (v) => setState(() => _filter = v)),
+            // Next to the filters on every screen: the app bar holds only the main action.
+            if (canEnroll)
+              OutlinedButton.icon(onPressed: update, icon: const Icon(Icons.update), label: const Text('Update from results')),
           ]),
           if (!ready && _view == _View.section)
             const EmptyNote('Pick a section to see its ARAL learners.', icon: Icons.groups_outlined),
@@ -109,7 +116,7 @@ class _AralRosterScreenState extends State<AralRosterScreen> {
                 final (list, names, classes) = data;
                 if (list.isEmpty) {
                   return EmptyNote(
-                    'No ARAL learners here yet.${canEnroll ? ' Add some with Enroll and update.' : ''}',
+                    'No ARAL learners here yet.${canEnroll ? ' Add some with Enroll learners.' : ''}',
                     icon: Icons.groups_outlined,
                   );
                 }
@@ -136,15 +143,15 @@ class _AralRosterScreenState extends State<AralRosterScreen> {
                           for (final e in shown)
                             ListRow(
                               leading: LetterBadge(initialOf(names[e.studentId] ?? '')),
-                              title: names[e.studentId] ?? 'Learner #${e.studentId}',
+                              title: names[e.studentId] ?? 'A learner not on this device',
                               subtitle: [
                                 aralProgramLabel(e),
-                                e.classId == null ? 'waiting for a class' : (classes[e.classId] ?? 'class #${e.classId}'),
+                                e.classId == null ? 'waiting for a class' : (classes[e.classId] ?? 'a class not on this device'),
                               ].join(' · '),
                               footer: Wrap(spacing: 8, runSpacing: 6, children: [
                                 aralStatusChip(e),
-                                if (waiting(e)) const StatusChip('waiting', tone: StatusTone.warn, icon: Icons.hourglass_empty),
-                                if (referred(e)) const StatusChip('referred', icon: Icons.forward_to_inbox_outlined),
+                                if (waiting(e)) const StatusChip('waiting for a class', tone: StatusTone.warn, icon: Icons.hourglass_empty),
+                                if (referred(e)) const StatusChip('referred by a teacher', icon: Icons.forward_to_inbox_outlined),
                               ]),
                               trailing: [
                                 canEdit

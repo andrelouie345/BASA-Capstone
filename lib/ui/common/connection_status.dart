@@ -80,7 +80,8 @@ class _ConnectionStatusChipState extends State<ConnectionStatusChip> {
                   const SizedBox(width: 8),
                   Icon(Icons.lock_clock, size: 16, color: fg),
                   const SizedBox(width: 4),
-                  Text('$pending', style: TextStyle(color: fg, fontSize: 13)),
+                  // Words, not the number alone: phones show no tooltip.
+                  Text('$pending waiting for approval', style: TextStyle(color: fg, fontSize: 13)),
                 ],
               ],
             ),

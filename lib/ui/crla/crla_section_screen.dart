@@ -160,7 +160,7 @@ class _CrlaSectionScreenState extends State<CrlaSectionScreen> {
                         children: [
                           ListRow(
                             leading: LetterBadge(initialOf(names[e.key] ?? '?')),
-                            title: names[e.key] ?? 'Learner #${e.key}',
+                            title: names[e.key] ?? 'A learner not on this device',
                             trailing: [StatusChip('${e.value.length} attempt(s)')],
                           ),
                           for (final a in e.value)

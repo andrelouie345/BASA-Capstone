@@ -132,7 +132,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
                     for (final l in const ['A', 'B', 'C', 'D', 'E'])
                       ChoiceChip(label: Text(l), selected: a?.response?.toUpperCase() == l, onSelected: (_) => _choice(i, l))
                   else ...[
-                    ChoiceChip(label: const Text('Right'), selected: a != null && a.isCorrect, onSelected: (_) => _open(i, true)),
+                    ChoiceChip(label: const Text('Correct'), selected: a != null && a.isCorrect, onSelected: (_) => _open(i, true)),
                     ChoiceChip(label: const Text('Wrong'), selected: a != null && !a.isCorrect, onSelected: (_) => _open(i, false)),
                   ],
                   if (a != null) ...[

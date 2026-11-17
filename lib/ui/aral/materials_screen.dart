@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/models/aral_material.dart';
 import '../common/screen_kit.dart';
+import '../common/pickers.dart';
 
 /// The admin build's catalog changes. Each returns true when something changed.
 abstract class AralMaterialsEditor {
@@ -44,11 +45,12 @@ class _AralMaterialsScreenState extends State<AralMaterialsScreen> {
         actions: [if (canEdit && wide) mainActionButton(onPressed: add, icon: Icons.add, label: 'Add material')],
       ),
       floatingActionButton: canEdit && !wide ? mainActionFab(onPressed: add, icon: Icons.add, label: 'Add material') : null,
-      body: LoadView<List<AralMaterial>>(
+      body: LoadView<(List<AralMaterial>, Map<int, String>)>(
         where: 'AralMaterials',
         reloadKey: _reload,
-        load: (vms) => vms.aralMaterial.catalog(),
-        builder: (context, items, _) {
+        load: (vms) async => (await vms.aralMaterial.catalog(), await schoolNameMap(vms)),
+        builder: (context, data, _) {
+          final (items, schools) = data;
           final shown = items.where((m) => _filter.isEmpty || m.title.toLowerCase().contains(_filter)).toList();
           final colors = Theme.of(context).colorScheme;
           return PageBody(children: [
@@ -83,7 +85,7 @@ class _AralMaterialsScreenState extends State<AralMaterialsScreen> {
                         m.kind.label,
                         m.language,
                         'Grades ${m.minGrade}–${m.maxGrade}',
-                        m.schoolId == null ? 'region-wide' : 'school #${m.schoolId}',
+                        m.schoolId == null ? 'region-wide' : schoolNameOf(schools, m.schoolId!),
                         ?m.fileName,
                         if (!m.isActive) 'inactive',
                       ].join(' · '),

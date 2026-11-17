@@ -19,6 +19,13 @@ Widget aralStatusChip(AralEnrollment e) =>
     StatusChip(aralStatusLabel(e), tone: e.status == AralStatus.active ? StatusTone.good : StatusTone.neutral);
 
 /// How an attendance mark reads: present = good, absent = bad, excused = warn.
+/// An attendance mark in words ("Present"), never the code name.
+String aralMarkLabel(AralMark m) => switch (m) {
+  AralMark.present => 'Present',
+  AralMark.absent => 'Absent',
+  AralMark.excused => 'Excused',
+};
+
 StatusTone aralMarkTone(AralMark m) => switch (m) {
   AralMark.present => StatusTone.good,
   AralMark.absent => StatusTone.bad,

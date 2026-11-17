@@ -27,37 +27,43 @@ class CrlaEntryScreen extends StatefulWidget {
 class _CrlaEntryScreenState extends State<CrlaEntryScreen> {
   int _reload = 0;
 
+  /// Asks Task 1 first, then only the Task 2 that its score calls for (the
+  /// scoresheet's rule), so the wrong Task 2 can't be filled in.
   Future<void> _part1(CrlaAssessment a) async {
     final english = a.subjectVariant == 'eng';
-    final f = await askFields(
-      context,
-      title: english ? 'Part 1 (English)' : 'Part 1',
-      note: english
-          ? 'Task 2 only when task 1 is 1 to 10.'
-          : 'Task 2 low (rhymes/words) when task 1 is below 7; task 2 high (sentences) when it is 7 or more.',
-      fields: [
-        const FieldSpec('t1', 'Task 1 score', number: true),
-        if (english)
-          const FieldSpec('t2', 'Task 2 score', number: true, optional: true)
-        else ...[
-          const FieldSpec('low', 'Task 2 low score', number: true, optional: true),
-          const FieldSpec('high', 'Task 2 high score', number: true, optional: true),
-        ],
-      ],
-    );
-    if (f == null || !mounted) return;
-    final t1 = int.tryParse(f['t1']!);
+    final title = english ? 'Part 1 (English)' : 'Part 1';
+    final first = await askFields(context,
+        title: title, fields: const [FieldSpec('t1', 'Task 1 score (0 to 10)', number: true)]);
+    if (first == null || !mounted) return;
+    final t1 = int.tryParse(first['t1']!);
     if (t1 == null) return showNote(context, 'Task 1 must be a whole number.');
+    // English: Task 2 for a Task 1 of 1 or more. Standard: Task 2 low (rhymes
+    // and words) for 0 to 6, Task 2 high (sentences) for 7 or more.
+    final (String? key, String? label) = english
+        ? (t1 >= 1 ? ('t2', 'Task 2 score (0 to 10)') : (null, null))
+        : (t1 < 7 ? ('low', 'Task 2 low: rhymes and words (0 to 10)') : ('high', 'Task 2 high: sentences (0 to 10)'));
+    int? t2;
+    if (key != null) {
+      if (!mounted) return;
+      final second = await askFields(context,
+          title: title,
+          note: 'Task 1 is $t1, so enter ${english ? 'Task 2' : t1 < 7 ? 'Task 2 low' : 'Task 2 high'}.',
+          fields: [FieldSpec(key, label!, number: true)]);
+      if (second == null || !mounted) return;
+      t2 = int.tryParse(second[key]!);
+      if (t2 == null) return showNote(context, 'Task 2 must be a whole number.');
+    }
+    if (!mounted) return;
     final crla = vmsOf(context).crla;
     await runAction(
       context,
       () => english
-          ? crla.savePart1English(assessmentId: a.id!, task1Score: t1, task2Score: int.tryParse(f['t2'] ?? ''))
+          ? crla.savePart1English(assessmentId: a.id!, task1Score: t1, task2Score: t2)
           : crla.savePart1Standard(
               assessmentId: a.id!,
               task1Score: t1,
-              task2LowScore: int.tryParse(f['low'] ?? ''),
-              task2HighScore: int.tryParse(f['high'] ?? ''),
+              task2LowScore: key == 'low' ? t2 : null,
+              task2HighScore: key == 'high' ? t2 : null,
             ),
       done: 'Part 1 saved.',
       where: 'CrlaEntry',
@@ -189,9 +195,9 @@ class _CrlaEntryScreenState extends State<CrlaEntryScreen> {
             icon: Icons.menu_book_outlined,
             trailing: Row(mainAxisSize: MainAxisSize.min, children: [
               doneChip(part2Done),
-              IconButton(
+              TextButton.icon(
                 icon: const Icon(Icons.help_outline),
-                tooltip: 'Story number and words read',
+                label: const Text('Help'),
                 onPressed: () => CrlaStoryHelpScreen.open(context),
               ),
               const SizedBox(width: 4),
@@ -235,14 +241,15 @@ class _CrlaEntryScreenState extends State<CrlaEntryScreen> {
                           if ((a.id ?? 0) < 0) const StatusChip('Not uploaded yet', icon: Icons.cloud_off_outlined),
                           StatusChip('Attempt ${v(a.attemptNo)}', icon: Icons.replay),
                           StatusChip(a.assessedAt, icon: Icons.event_outlined),
-                          if (a.administeredBy != null) StatusChip(a.administeredBy!, icon: Icons.person_outline),
+                          if (a.administeredBy != null && a.administeredBy == vmsOf(context).auth.currentUser?.id)
+                            const StatusChip('By you', icon: Icons.person_outline),
                         ]),
                       ]),
                     ),
                     if ((a.id ?? 0) < 0)
-                      IconButton(
+                      TextButton.icon(
                         icon: const Icon(Icons.delete_outline),
-                        tooltip: 'Remove this attempt (not uploaded yet)',
+                        label: const Text('Remove'),
                         onPressed: () => _remove(a),
                       ),
                   ]),

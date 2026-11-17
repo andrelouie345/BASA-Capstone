@@ -9,6 +9,7 @@ import '../../core/models/phil_iri_collection.dart';
 import '../../core/models/phil_iri_passage.dart';
 import '../../core/models/phil_iri_question.dart';
 import '../common/screen_kit.dart';
+import '../common/pickers.dart';
 
 /// The admin build's content changes. Each returns true when something changed.
 abstract class PhilIriContentEditor {
@@ -55,14 +56,15 @@ class _PhilIriContentScreenState extends State<PhilIriContentScreen> {
       floatingActionButton: canEdit && !wide
           ? mainActionFab(onPressed: () => _after(editor.addCollection(context)), icon: Icons.add, label: 'Add collection')
           : null,
-      body: LoadView<List<PhilIriCollection>>(
+      body: LoadView<(List<PhilIriCollection>, Map<int, String>)>(
         where: 'PhilIriContent',
         reloadKey: _reload,
         load: (vms) async {
           await vms.philIriContent.loadCollections();
-          return List.of(vms.philIriContent.collections);
+          return (List.of(vms.philIriContent.collections), await schoolNameMap(vms));
         },
-        builder: (context, items, _) {
+        builder: (context, data, _) {
+          final (items, schools) = data;
           final colors = Theme.of(context).colorScheme;
           return PageBody(
             children: [
@@ -86,7 +88,7 @@ class _PhilIriContentScreenState extends State<PhilIriContentScreen> {
                             : IconBadge(Icons.visibility_off_outlined, background: colors.surfaceContainerHighest, foreground: colors.onSurfaceVariant),
                         title: c.name,
                         subtitle: [
-                          c.schoolId == null ? 'Region-wide' : 'School #${c.schoolId}',
+                          c.schoolId == null ? 'Region-wide' : schoolNameOf(schools, c.schoolId!),
                           ?c.description,
                         ].join(' · '),
                         footer: c.isPrescribed || !c.isActive

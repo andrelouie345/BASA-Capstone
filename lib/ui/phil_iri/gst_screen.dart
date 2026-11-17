@@ -150,7 +150,7 @@ class _GstScreenState extends State<GstScreen> {
                       StatTile(label: 'Learners', value: '${learners.length}', icon: Icons.people_alt_outlined),
                       StatTile(label: 'Scores recorded', value: '${results.length}', icon: Icons.fact_check_outlined),
                       StatTile(label: 'Passed', value: '$passCount', icon: Icons.verified_outlined),
-                      StatTile(label: 'Below', value: '${results.length - passCount}', icon: Icons.trending_down),
+                      StatTile(label: 'Below the pass mark', value: '${results.length - passCount}', icon: Icons.trending_down),
                     ]),
                     const SizedBox(height: 16),
                     if (results.isEmpty)
@@ -163,25 +163,25 @@ class _GstScreenState extends State<GstScreen> {
                         children: [
                           for (final g in shown)
                             Builder(builder: (context) {
-                              final name = names[g.studentId] ?? 'Learner #${g.studentId}';
+                              final name = names[g.studentId] ?? 'A learner not on this device';
                               final ok = passed[g.id ?? 0] == true;
                               return ListRow(
                                 leading: LetterBadge(initialOf(name)),
                                 title: name,
                                 subtitle: [
                                   '${g.totalScore}/${g.maxScore} (${g.wholePercent}%) on ${g.takenAt}',
-                                  if (g.literalCorrect != null) 'L ${g.literalCorrect} · I ${g.inferentialCorrect ?? '-'} · C ${g.criticalCorrect ?? '-'}',
+                                  if (g.literalCorrect != null) 'Literal ${g.literalCorrect} · Inferential ${g.inferentialCorrect ?? '-'} · Critical ${g.criticalCorrect ?? '-'}',
                                 ].join('\n'),
                                 trailing: [
                                   StatusChip(
-                                    ok ? 'Passed' : 'Below',
+                                    ok ? 'Passed' : 'Below the pass mark',
                                     tone: ok ? StatusTone.good : StatusTone.bad,
                                     icon: ok ? Icons.check : Icons.arrow_downward,
                                   ),
                                   if ((g.id ?? 0) < 0 && identical(latest[g.studentId], g))
-                                    IconButton(
+                                    TextButton.icon(
                                       icon: const Icon(Icons.delete_outline),
-                                      tooltip: 'Remove (not uploaded yet)',
+                                      label: const Text('Remove'),
                                       onPressed: () => _remove(g, name),
                                     ),
                                 ],

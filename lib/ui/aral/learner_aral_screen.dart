@@ -94,7 +94,7 @@ class _Attendance extends StatelessWidget {
                       leading: LetterBadge('${s.sessionNo ?? '-'}'),
                       title: 'Session ${s.sessionNo ?? '-'} · ${s.heldOn}',
                       subtitle: s.lesson,
-                      trailing: [StatusChip(a.mark.name, tone: aralMarkTone(a.mark), icon: aralMarkIcon(a.mark))],
+                      trailing: [StatusChip(aralMarkLabel(a.mark), tone: aralMarkTone(a.mark), icon: aralMarkIcon(a.mark))],
                     ),
                 ],
               );

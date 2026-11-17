@@ -329,6 +329,19 @@ Future<Map<int, String>?> schoolNamesIfSeveral(AppViewModels vms, [List<Section>
   }
 }
 
+/// Every school name this device holds, by id (empty when the list can't
+/// be read): screens show a school by name, never by id.
+Future<Map<int, String>> schoolNameMap(AppViewModels vms) async {
+  try {
+    return {for (final s in await vms.school.localSchools()) if (s.id != null) s.id!: s.schoolName};
+  } catch (_) {
+    return const {};
+  }
+}
+
+/// [schoolId]'s name, or a plain fallback when this device doesn't hold it.
+String schoolNameOf(Map<int, String> names, int schoolId) => names[schoolId] ?? 'a school not on this device';
+
 String sectionLabel(Section s, [Map<int, String>? schoolNames]) {
   final school = schoolNames?[s.schoolId];
   return 'Grade ${s.gradeLevel} · ${s.sectionName} (${s.schoolYear})${school == null ? '' : ' · $school'}';

@@ -37,6 +37,37 @@ const _placements = <(AralKeyStage, AralTrack?)>[
   (AralKeyStage.ks3, AralTrack.plus),
 ];
 
+/// What a proposal says about a learner, in words.
+String _candidateLabel(AralCandidateStatus s) => switch (s) {
+      AralCandidateStatus.proposed => 'proposed',
+      AralCandidateStatus.notQualified => 'not needed (reads at grade level)',
+      AralCandidateStatus.noResult => 'no result yet',
+      AralCandidateStatus.enrolled => 'already on the roster',
+    };
+
+/// What "Update from results" did to a learner, in words.
+String _updateLabel(AralUpdateKind k) => switch (k) {
+      AralUpdateKind.programChanged => 'Program changed',
+      AralUpdateKind.exited => 'Exited: reads at grade level',
+      AralUpdateKind.refreshed => 'Same program, newer result',
+      AralUpdateKind.unchanged => 'No change',
+      AralUpdateKind.noResult => 'No result yet',
+      AralUpdateKind.programMismatch => 'Not the program of their class',
+      AralUpdateKind.otherGrade => 'Not the grade of their class',
+      AralUpdateKind.unplaced => 'Waiting for a class',
+      AralUpdateKind.otherSection => 'Now in another section',
+      AralUpdateKind.leftSchool => 'Left the school',
+    };
+
+/// Why a learner leaves ARAL, in words.
+String _exitLabel(AralExitReason r) => switch (r) {
+      AralExitReason.gradeLevelReady => 'Reads at grade level',
+      AralExitReason.transferredOut => 'Transferred out',
+      AralExitReason.droppedOut => 'Dropped out',
+      AralExitReason.classroomSupport => 'Classroom support is enough (KS1)',
+      AralExitReason.other => 'Other reason',
+    };
+
 String _placementLabel((AralKeyStage, AralTrack?) p) => p.$2 == null ? p.$1.label : '${p.$1.label} ${p.$2!.label}';
 
 Future<(AralKeyStage, AralTrack?)?> _pickPlacement(BuildContext context) =>
@@ -55,13 +86,12 @@ class AdminAralRosterEditor extends AralRosterEditor {
     final aral = vmsOf(context).aral;
     final a = await pickOne<String>(
       context,
-      title: '$section',
-      options: const ['propose', 'enroll', 'refer', 'apply'],
+      title: 'Enroll learners of $section',
+      options: const ['propose', 'enroll', 'refer'],
       label: (a) => switch (a) {
         'propose' => 'See who BASA proposes (and enroll them all)',
         'enroll' => 'Enroll one learner',
-        'refer' => 'Enroll a teacher referral',
-        _ => 'Apply new assessment results to the roster',
+        _ => 'Enroll a teacher referral',
       },
     );
     if (a == null || !context.mounted) return false;
@@ -72,7 +102,7 @@ class AdminAralRosterEditor extends AralRosterEditor {
         final proposed = list.where((c) => c.status == AralCandidateStatus.proposed).length;
         final text = [
           for (final c in list)
-            '${studentLabel(c.student)}: ${c.status.name}${c.suggestion == null ? '' : ' → ${c.suggestion!.label}'} (${c.reason})',
+            '${studentLabel(c.student)}: ${_candidateLabel(c.status)}${c.suggestion == null ? '' : ' → ${c.suggestion!.label}'} (${c.reason})',
         ].join('\n');
         // Grades 4-10: which Phil-IRI values the proposals used (null for Grades 1-3).
         final values = aral.lastProposalValues;
@@ -121,13 +151,27 @@ class AdminAralRosterEditor extends AralRosterEditor {
               where: 'AralRoster',
             ) !=
             null;
-      default:
-        final r = await runAction(context, () => aral.applyResults(sectionId: section.id!, schoolYear: section.schoolYear), where: 'AralRoster');
-        if (r == null || !context.mounted) return false;
-        await showTextDialog(context,
-            title: '${r.length} update(s)', text: r.isEmpty ? 'Nothing to update.' : r.map((u) => '${u.kind.name}: ${u.reason}').join('\n'));
-        return r.isNotEmpty;
     }
+    return false;
+  }
+
+  @override
+  Future<bool> updateFromResults(BuildContext context, Section section) async {
+    final aral = vmsOf(context).aral;
+    if (!await confirm(context,
+            title: 'Update the roster of $section?',
+            body: "BASA reads the learners' newest CRLA and Phil-IRI results: a learner's program can change, and a "
+                'learner who now reads at grade level exits ARAL.',
+            action: 'Update') ||
+        !context.mounted) {
+      return false;
+    }
+    final r = await runAction(context, () => aral.applyResults(sectionId: section.id!, schoolYear: section.schoolYear), where: 'AralRoster');
+    if (r == null || !context.mounted) return false;
+    await showTextDialog(context,
+        title: r.length == 1 ? '1 learner checked' : '${r.length} learners checked',
+        text: r.isEmpty ? 'Nothing to update.' : r.map((u) => '${_updateLabel(u.kind)}: ${u.reason}').join('\n'));
+    return r.isNotEmpty;
   }
 
   @override
@@ -158,7 +202,7 @@ class AdminAralRosterEditor extends AralRosterEditor {
         return step(() => aral.moveToSection(e.id!), 'Moved.');
       case 'exit':
         final r = await pickOne<AralExitReason>(context,
-            title: 'Why does the learner exit?', options: AralExitReason.values, label: (r) => r.value.replaceAll('_', ' '));
+            title: 'Why does the learner exit?', options: AralExitReason.values, label: _exitLabel);
         if (r == null || !context.mounted) return false;
         return step(() => aral.exit(e.id!, r), 'Exited.');
       case 'reactivate':

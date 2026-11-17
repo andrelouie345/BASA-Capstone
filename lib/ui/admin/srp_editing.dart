@@ -109,7 +109,7 @@ class AdminSrpEditor extends SrpEditor {
         final l = await pickOne(context,
             title: 'Learner',
             options: c.learners,
-            label: (SrpClassLearner l) => l.student == null ? '#${l.member.studentId}' : studentLabel(l.student!));
+            label: (SrpClassLearner l) => l.student == null ? 'A learner not on this device' : studentLabel(l.student!));
         if (l == null || !context.mounted) return false;
         if (a == 'remove') {
           return await runAction(context, () => srp.removeLearner(k.id!, l.member.studentId), done: 'Removed.', where: 'Srp') != null;

@@ -121,7 +121,7 @@ class _SrpScreenState extends State<SrpScreen> {
                                 ListRow(
                                   leading: const IconBadge(Icons.person_outline, size: 34),
                                   title: c.learners[i].student == null
-                                      ? 'Learner #${c.learners[i].member.studentId}'
+                                      ? 'A learner not on this device'
                                       : studentLabel(c.learners[i].student!),
                                   subtitle: c.learners[i].section == null ? null : '${c.learners[i].section}',
                                 ),

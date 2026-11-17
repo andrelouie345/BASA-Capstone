@@ -50,7 +50,7 @@ class _PhilIriReadingScreenState extends State<PhilIriReadingScreen> {
         fields: [
           oneMinute
               ? FieldSpec('v', 'Words read', initial: r.wordsRead?.toString() ?? '', number: true)
-              : FieldSpec('v', 'Seconds', initial: r.readingSeconds?.toString() ?? '', number: true),
+              : FieldSpec('v', 'Reading time in seconds', initial: r.readingSeconds?.toString() ?? '', number: true),
         ]);
     final v = int.tryParse(f?['v'] ?? '');
     if (v == null || !mounted) return;
@@ -176,7 +176,7 @@ class _PhilIriReadingScreenState extends State<PhilIriReadingScreen> {
             icon: Icons.menu_book_outlined,
             trailing: passage == null
                 ? null
-                : FilledButton.tonalIcon(onPressed: () => _timing(r), icon: const Icon(Icons.timer_outlined), label: const Text('Set timing')),
+                : FilledButton.tonalIcon(onPressed: () => _timing(r), icon: const Icon(Icons.timer_outlined), label: const Text('Enter the time')),
             children: [
               if (passage == null)
                 Padding(

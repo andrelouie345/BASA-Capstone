@@ -93,9 +93,14 @@ class _IripViewState extends State<IripView> {
         String strand(AralIripStrand s) => s.label.isEmpty ? 'Targets' : s.label;
         return PageBody(
           children: [
+            // What the week symbols mean (from the IRIP form).
+            SectionCard(title: 'Ratings', children: [
+              for (final st in AralIripStatus.values) Text('${st.symbol}  ${st.meaning}'),
+            ]),
             SectionCard(
               title: '${plan.program!.label} · ${plan.currentCycle == 0 ? 'not started' : 'cycle ${plan.currentCycle}'}',
-              trailing: TextButton(onPressed: _start, child: Text(plan.currentCycle == 0 ? 'Start' : 'New cycle')),
+              trailing: TextButton(
+                  onPressed: _start, child: Text(plan.currentCycle == 0 ? 'Start the first cycle' : 'Start a new cycle')),
               children: [
                 for (final s in plan.strands)
                   ListTile(
@@ -104,9 +109,9 @@ class _IripViewState extends State<IripView> {
                     subtitle: Text([
                       if (s.latestTarget != null) 'Latest: ${s.latestTarget!.label}${s.latest?.status == null ? '' : ' ${s.latest!.status!.symbol}'}',
                       if (s.suggestion != null) 'Next: ${s.suggestion!.label}',
-                      if (s.listDone) 'List done: pick a target to review',
+                      if (s.listDone) 'Every target on the list is done: pick one to review',
                     ].join('\n')),
-                    trailing: plan.currentCycle == 0 ? null : TextButton(onPressed: () => _next(plan, s), child: const Text('Next week')),
+                    trailing: plan.currentCycle == 0 ? null : TextButton(onPressed: () => _next(plan, s), child: const Text('Add next week')),
                   ),
               ],
             ),
@@ -120,7 +125,7 @@ class _IripViewState extends State<IripView> {
                     contentPadding: EdgeInsets.zero,
                     leading: Text(w.status?.symbol ?? '·', style: Theme.of(context).textTheme.titleLarge),
                     title: Text('Cycle ${w.cycleNo}, week ${w.weekNo} · ${strand(w.strand)}'),
-                    subtitle: Text([plan.targetById[w.targetId]?.label ?? 'target #${w.targetId}', ?w.notes].join('\n')),
+                    subtitle: Text([plan.targetById[w.targetId]?.label ?? 'a target not on this device', ?w.notes].join('\n')),
                     onTap: () => _week(plan, w),
                   ),
               ],

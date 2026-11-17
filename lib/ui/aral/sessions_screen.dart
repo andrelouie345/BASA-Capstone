@@ -93,7 +93,7 @@ class _AralSessionsScreenState extends State<AralSessionsScreen> {
                           StatGrid(tiles: [
                             StatTile(label: 'Sessions', value: '${sessions.length}', icon: Icons.event_note_outlined),
                             StatTile(label: 'Total minutes', value: '$minutes', icon: Icons.timer_outlined),
-                            StatTile(label: 'Last session', value: last == 0 ? '—' : '#$last', icon: Icons.history),
+                            StatTile(label: 'Last session', value: last == 0 ? '—' : 'Session $last', icon: Icons.history),
                           ]),
                           const SizedBox(height: 16),
                           ListCard(children: [
@@ -179,7 +179,7 @@ class _SessionDialogState extends State<_SessionDialog> {
             TextField(controller: _minutes, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Minutes')),
             const SizedBox(height: 12),
             BasaDropdown<AralSetup>(
-              label: 'Setup',
+              label: 'When or where it was held',
               items: AralSetup.values,
               value: _setup,
               itemLabel: (s) => s.label,
@@ -233,7 +233,7 @@ class _AttendanceSheetScreenState extends State<AttendanceSheetScreen> {
 
   Future<void> _rest(AralMark m) async {
     final vm = vmsOf(context).aralSession;
-    await runAction(context, () => vm.markRest(widget.session.id!, m), done: 'Everyone else marked ${m.name}.', where: 'AttendanceSheet');
+    await runAction(context, () => vm.markRest(widget.session.id!, m), done: 'Everyone not marked yet is now ${aralMarkLabel(m).toLowerCase()}.', where: 'AttendanceSheet');
     setState(() => _reload++);
   }
 
@@ -245,10 +245,10 @@ class _AttendanceSheetScreenState extends State<AttendanceSheetScreen> {
         title: Text('Session ${s.sessionNo ?? ''} · ${s.heldOn}'),
         actions: [
           PopupMenuButton<AralMark>(
-            tooltip: 'Mark the rest',
+            tooltip: 'Mark everyone not marked yet',
             icon: const Icon(Icons.done_all),
             onSelected: _rest,
-            itemBuilder: (_) => [for (final m in AralMark.values) PopupMenuItem(value: m, child: Text('Mark the rest ${m.name}'))],
+            itemBuilder: (_) => [for (final m in AralMark.values) PopupMenuItem(value: m, child: Text('Mark everyone not marked yet: ${aralMarkLabel(m)}'))],
           ),
         ],
       ),
@@ -267,7 +267,7 @@ class _AttendanceSheetScreenState extends State<AttendanceSheetScreen> {
           int count(AralMark m) => sheet.where((l) => l.attendance?.mark == m).length;
           return PageBody(children: [
             StatGrid(tileWidth: 180, tiles: [
-              for (final m in AralMark.values) StatTile(label: m.name, value: '${count(m)}', icon: aralMarkIcon(m)),
+              for (final m in AralMark.values) StatTile(label: aralMarkLabel(m), value: '${count(m)}', icon: aralMarkIcon(m)),
               StatTile(
                 label: 'not marked',
                 value: '${sheet.where((l) => l.attendance == null).length}',
@@ -319,7 +319,7 @@ class _SheetRow extends StatelessWidget {
     final chips = Wrap(spacing: 8, runSpacing: 6, children: [
       for (final m in AralMark.values)
         ChoiceChip(
-          label: Text(m.name),
+          label: Text(aralMarkLabel(m)),
           avatar: Icon(aralMarkIcon(m), size: 18, color: current == m ? toneColor(m) : colors.onSurfaceVariant),
           showCheckmark: false,
           selected: current == m,

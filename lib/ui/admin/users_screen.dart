@@ -63,14 +63,15 @@ class _UsersScreenState extends State<UsersScreen> {
       ),
       floatingActionButton:
           wide ? null : mainActionFab(onPressed: _create, icon: Icons.person_add_alt_1, label: 'New account'),
-      body: LoadView<List<User>>(
+      body: LoadView<(List<User>, Map<int, String>)>(
         where: 'UsersScreen',
         reloadKey: _reload,
-        load: (_) async {
+        load: (vms) async {
           await users.loadAll();
-          return users.items;
+          return (users.items, await schoolNameMap(vms));
         },
-        builder: (context, items, reload) {
+        builder: (context, data, reload) {
+          final (items, schools) = data;
           final q = _filter.toLowerCase();
           final shown = items
               .where((u) => _role == null || u.role == _role)
@@ -112,7 +113,7 @@ class _UsersScreenState extends State<UsersScreen> {
                       ListRow(
                         leading: UserAvatar(user: u),
                         title: u.fullName.isEmpty ? u.email : u.fullName,
-                        subtitle: '${roleLabel(u)} · ${u.email}${u.schoolId == null ? '' : ' · school #${u.schoolId}'}',
+                        subtitle: '${roleLabel(u)} · ${u.email}${u.schoolId == null ? '' : ' · ${schoolNameOf(schools, u.schoolId!)}'}',
                         trailing: [
                           StatusChip(u.isActive ? 'Active' : 'Off', tone: u.isActive ? StatusTone.good : StatusTone.neutral),
                           Switch(

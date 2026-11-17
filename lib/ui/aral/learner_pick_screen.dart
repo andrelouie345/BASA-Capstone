@@ -62,7 +62,7 @@ class _AralLearnerPickScreenState extends State<AralLearnerPickScreen> {
                     for (final e in shown)
                       ListRow(
                         leading: LetterBadge(initialOf(names[e.studentId] ?? '')),
-                        title: names[e.studentId] ?? 'Learner #${e.studentId}',
+                        title: names[e.studentId] ?? 'A learner not on this device',
                         subtitle: aralProgramLabel(e),
                         trailing: [
                           if (e.classId == null) const StatusChip('waiting', tone: StatusTone.warn),
