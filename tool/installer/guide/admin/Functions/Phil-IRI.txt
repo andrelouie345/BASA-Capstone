@@ -25,7 +25,7 @@ BASA shows the reading's result after each save.
 ===== Learner results =====
 **Assess → Learner results**. A learner's results per round: word recognition, comprehension, the word reading profile, the reading profile and the adjusted reading level. The levels are Independent, Instructional, Frustration, Struggling and Non-Reader.
 
-Comprehension **carries up** from round to round (GST, BOSY, MOSY #1-3, EOSY): a better result counts, a lower one never takes it down. A round not given keeps the last result. Word reading can go down.
+Comprehension **carries up** from round to round (GST, BOSY, MOSY #1-3, EOSY): a better result counts, a lower one never takes it down. A round not given keeps the last result. Word reading (accuracy and speed) carries up the same way. Only oral readings count for it; a silent reading is used only until there is an oral one. A list set to show **actual** values in Report settings shows each round's own reading instead, and that can go down.
 
 ===== Finalize =====
 **Assess → Finalize** (admin build). Close a section's round when its sessions are done.

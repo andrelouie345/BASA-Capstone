@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>BASA: Phil-IRI</title><link rel="stylesheet" href="style.css"></head>
+<body>
+
+<div class="cover">
+<h1>Phil-IRI in BASA</h1>
+<div class="sub">How the assessment works, what BASA changes, and why</div>
+<p>For the BASA team. This explains the <b>Philippine Informal Reading Inventory (Phil-IRI)</b> as schools run it without BASA, then how BASA records and scores it. The last part answers the questions a panel is likely to ask, each with how it is done without BASA.</p>
+<p>The rules come from three sources:</p>
+<ul>
+  <li>the Phil-IRI Manual 2018 (Grades 4–6);</li>
+  <li>the Phil-IRI for JHS Manual 2024 (Grades 7–10), Tables 6–8;</li>
+  <li>the <b>reading coordinator's workbook</b>, the Excel file a reading coordinator uses today to score Phil-IRI and plan ARAL. BASA was checked against it, and where the coordinator's practice differs from the manual, BASA follows the coordinator.</li>
+</ul>
+<p class="meta">Built from the code on 17 November 2026. Rules: <code>lib/core/services/phil_iri_rules.dart</code>, <code>phil_iri_results.dart</code>; logic: <code>lib/viewmodels/phil_iri_viewmodel.dart</code>; reports: <code>nla_report_viewmodel.dart</code>, <code>nla_form2b.dart</code>. Design documents: <code>docs/superpowers/specs/2026-10-29-…</code>, <code>2026-11-09-…</code>, <code>2026-11-10-…</code>, <code>2026-11-14-…</code>.</p>
+<ol class="toc">
+  <li>What Phil-IRI is</li><li>Phil-IRI without BASA</li><li>Phil-IRI in BASA, step by step</li><li>Scoring one reading</li><li>From readings to a school year</li><li>Reports</li><li>What BASA improves</li><li>Defending the design: likely questions</li><li>Limits and known gaps</li>
+</ol>
+</div>
+
+<h2>1. What Phil-IRI is</h2>
+<ul>
+  <li>DepEd's classroom reading inventory. In BASA: <b>English, Grades 4 to 10</b>. CRLA covers Grades 1–3.</li>
+  <li><b>Group Screening Test (GST):</b> a written comprehension test given to the whole class first. It has 20 items in Grades 4–6 (pass mark 14) and 40 items in Grades 7–10 (pass mark 28), split into literal, inferential and critical questions.</li>
+  <li><b>Individual reading assessment:</b> each learner reads a <b>graded passage</b> aloud while the teacher marks the <b>miscues</b> and times the reading. The learner then answers questions about the passage.</li>
+  <li><b>Rounds:</b> BOSY (pretest), MOSY #1–#3, EOSY (posttest).</li>
+  <li>For each reading, three measurements:
+    <ul>
+      <li><b>Word recognition</b>: the % of words read correctly;</li>
+      <li><b>Reading speed</b>: words per minute;</li>
+      <li><b>Comprehension</b>: the % of answers correct.</li>
+    </ul>
+  </li>
+  <li>They combine into a <b>reading profile</b> (Independent, Instructional, Frustration, Struggling, Non-Reader) and an <b>adjusted reading level</b>: the grade the learner actually reads at, e.g. a Grade 8 learner reading at Grade 5 is "3 levels down".</li>
+  <li>Phil-IRI results feed DepEd's <b>NLA portal</b> (Form 2b), the BOSY masterlist, the Summer Remediation Program, and ARAL-Reading placement in Grades 4–10.</li>
+</ul>
+
+<h2>2. Phil-IRI without BASA</h2>
+<ol>
+  <li><b>GST:</b> the class answers on paper; the teacher checks and totals by hand.</li>
+  <li><b>Individual reading:</b>
+    <ul>
+      <li>the teacher picks a passage from the booklet;</li>
+      <li>the learner reads aloud while the teacher marks miscues on a photocopy and times with a stopwatch;</li>
+      <li>the learner answers the questions;</li>
+      <li>the teacher counts words and miscues and computes the % and wpm by hand or calculator, then looks the levels up in the manual's tables.</li>
+    </ul>
+  </li>
+  <li><b>Encoding:</b> the coordinator types every score into a large workbook (one sheet per section, about 50 sheets per grade). Formulas give levels, carried results, adjusted levels and summary sheets.</li>
+  <li><b>Tracking passages:</b> the teacher must remember which passage each learner already read, so it is not repeated in a later round.</li>
+  <li><b>Reporting:</b> the coordinator reads totals off the workbook and <b>types them into the NLA portal</b>, then builds the BOSY masterlist, the SRP list and the ARAL lists from the same sheets.</li>
+</ol>
+<div class="box warn"><b>Where it goes wrong without BASA</b>
+<ul>
+  <li><b>Counting errors</b> in miscues, words, seconds and percentages, and wrong table look-ups.</li>
+  <li><b>Repeated passages.</b> A learner given a passage they already read scores higher because they remember it.</li>
+  <li><b>Formula mistakes go unnoticed.</b> Reviewing the workbook found a missing carry from BOSY to MOSY #1, a bug that made some learners look worse than they were.</li>
+  <li><b>Missing learners vanish.</b> A learner never assessed simply isn't counted, which makes the school's numbers look better than they are.</li>
+  <li><b>Lost history.</b> Results that change when a cut-off cell is edited; no record of which cut-offs a past report used.</li>
+  <li><b>Retyping.</b> The same numbers are typed again into the NLA portal and several lists.</li>
+</ul></div>
+
+<h2 class="break top">3. Phil-IRI in BASA, step by step</h2>
+<ol>
+  <li><b>GST.</b> The tutor enters each learner's score: either the total, or the literal, inferential and critical parts. BASA shows who passed. A learner with only a GST at BOSY gets a <b>starting grade</b> from it, as a reference until the individual reading confirms it.</li>
+  <li><b>Start a session</b> for one learner and one round. BASA checks that the section is Grade 4–10 and the learner is actively enrolled.</li>
+  <li><b>Pick a passage.</b> BASA lists only passages <b>of the learner's grade</b> that the learner has <b>never read before</b>, in any round or year and in any collection. The same text in two collections counts as one passage. Passages labelled for the current round come first, but any grade-level passage may be used in any round.</li>
+  <li><b>Choose how it is read:</b>
+    <ul>
+      <li><b>whole text</b>: timed;</li>
+      <li><b>one minute</b>: the words read in a minute are the wpm;</li>
+      <li><b>silent</b>: timed, no miscues, so word recognition counts as 100% and only speed and comprehension matter.</li>
+    </ul>
+  </li>
+  <li><b>Mark miscues</b> by tapping words in the passage. There are seven types (mispronunciation, omission, substitution, insertion, repetition, transposition, reversal); all of them count. A <b>self-correction</b> is recorded but not counted.</li>
+  <li><b>Answer the questions</b> and score the rubric. Choice answers are checked against the key automatically. BASA shows the reading's result after each save.</li>
+  <li><b>Complete</b> the session. The tutor can reopen it to fix something. A session started by mistake can be discarded.</li>
+  <li><b>Finalize the round</b> (admin or coordinator). Completed sessions of that section and round can no longer change, and the cut-offs in force are stored with them.</li>
+  <li><b>Import</b> (admin app). The coordinator's existing workbook, or a filled BASA scoresheet, can be read into BASA. BASA shows a preview, and the import needs a confirmation code. Readings without a passage in BASA are stored as "Untitled", with their typed word count.</li>
+</ol>
+
+<h2>4. Scoring one reading</h2>
+<p>All percentages are rounded to a <b>whole percent</b> before the band is chosen, because the bands are whole numbers (96.5% → 97% → Independent). Every band below is a default that a region or school can change. The two combination tables (Table 8) are fixed.</p>
+<table>
+  <tr><th style="width:22%">Measure</th><th>Formula</th><th>Bands (defaults)</th></tr>
+  <tr><td>Word recognition</td><td>(words − counted miscues) ÷ words</td><td>Non-Reader ≤ 35% · Struggling 36–55% · Frustration 56–89% · Instructional 90–96% · Independent ≥ 97%</td></tr>
+  <tr><td>Reading speed</td><td>words × 60 ÷ seconds</td><td>Struggling ≤ 75 · Slow 76–120 · Average 121–150 · Fast ≥ 151 wpm</td></tr>
+  <tr><td>Comprehension</td><td>correct ÷ questions</td><td>Struggling ≤ 40% · Frustration 41–58% · Instructional 59–79% · Independent ≥ 80%</td></tr>
+</table>
+<h3>Step 1: word reading profile (Table 8: word recognition × speed)</h3>
+<table>
+  <tr><th>Word recognition ↓ / speed →</th><th class="c">Fast</th><th class="c">Average</th><th class="c">Slow</th><th class="c">Struggling</th></tr>
+  <tr><td>Independent</td><td class="c">Independent</td><td class="c">Independent</td><td class="c">Instructional</td><td class="c">Frustration</td></tr>
+  <tr><td>Instructional</td><td class="c">Instructional</td><td class="c">Instructional</td><td class="c">Instructional</td><td class="c">Frustration</td></tr>
+  <tr><td>Frustration</td><td class="c">Frustration</td><td class="c">Frustration</td><td class="c">Frustration</td><td class="c">Struggling</td></tr>
+  <tr><td>Struggling</td><td class="c" colspan="4">Struggling</td></tr>
+  <tr><td>Non-Reader</td><td class="c" colspan="4">Non-Reader</td></tr>
+</table>
+<h3>Step 2: reading profile (Table 8: word reading profile × comprehension)</h3>
+<table>
+  <tr><th>Word reading ↓ / comprehension →</th><th class="c">Independent</th><th class="c">Instructional</th><th class="c">Frustration</th><th class="c">Struggling</th></tr>
+  <tr><td>Independent</td><td class="c">Independent</td><td class="c">Instructional</td><td class="c">Frustration</td><td class="c">Struggling</td></tr>
+  <tr><td>Instructional</td><td class="c">Independent</td><td class="c">Instructional</td><td class="c">Frustration</td><td class="c">Struggling</td></tr>
+  <tr><td>Frustration</td><td class="c">Instructional</td><td class="c">Frustration</td><td class="c">Frustration</td><td class="c">Struggling</td></tr>
+  <tr><td>Struggling</td><td class="c" colspan="4">Struggling</td></tr>
+  <tr><td>Non-Reader</td><td class="c" colspan="4">Non-Reader (word recognition decides alone)</td></tr>
+</table>
+<h3>Step 3: adjusted reading level (counted from the learner's grade)</h3>
+<table>
+  <tr><th style="width:30%">Profile</th><th>Adjusted level</th></tr>
+  <tr><td>Independent</td><td>grade + 1</td></tr>
+  <tr><td>Instructional</td><td>grade (grade-level ready)</td></tr>
+  <tr><td>Frustration or Struggling</td><td>by the round's own comprehension: ≥ 79% stays at grade; ≤ 25% → 4 down; ≤ 28% → 3 down; ≤ 40% → 2 down; otherwise 1 down. Never below Grade 1.</td></tr>
+  <tr><td>Non-Reader</td><td>0 (reserved for Non-Readers)</td></tr>
+</table>
+<p>Reports group the levels down as <b>2-LD</b> (1–2 levels down) and <b>3-LD</b> (3 or more), as the DepEd forms do. The grouping is adjustable.</p>
+<p><b>GST starting grade</b> (BOSY with a GST only): the learner's grade is moved by the GST %. For example, ≤ 9% is 9 grades down, 62–68% is 1 down, and ≥ 79% is 1 up. The result is never below Grade 1, and a Frustration reader never lands at or above grade level.</p>
+
+<h2 class="break top">5. From readings to a school year</h2>
+<p>A learner has up to six results a year: the GST, BOSY, the three MOSYs and EOSY. BASA follows the reading coordinator's rules for combining them:</p>
+<ul>
+  <li><b>Comprehension carries up.</b> A round's comprehension is the higher of its own score and the best so far, starting from the GST. A bad day never demotes a learner.</li>
+  <li><b>Word reading carries up too.</b> Accuracy and speed are each the best so far, so a reader never falls back to Non-Reader. Only oral readings count for accuracy; a silent reading's 100% is used only while there is no oral reading.</li>
+  <li><b>A round not given</b> keeps the previous round's result.</li>
+  <li><b>Two values per round:</b>
+    <ul>
+      <li><i>carried</i>: the best so far, used by default in reports and ARAL;</li>
+      <li><i>actual</i>: only that round's own reading, for planning.</li>
+    </ul>
+    Each school chooses, per list, which one it uses: ARAL, BOSY masterlist, Form 2b, SRP, learner pages, ranking. Tutors never see this choice; their pages show plain results.</li>
+  <li><b>Status of each round:</b>
+    <ul>
+      <li><i>assessed</i>: the round's own reading has words, time and a comprehension entry;</li>
+      <li><i>carried over</i>: a result exists only from an earlier round or the GST;</li>
+      <li><i>not assessed</i>: no result at all.</li>
+    </ul>
+    Progress monitoring, reminders and the dashboard count only <b>assessed</b> rounds.</li>
+  <li><b>No reading all year</b> (no GST, no reading): reports and ARAL count the learner as <b>Struggling, 3 levels down</b>. This is a stand-in that any real result replaces.</li>
+  <li><b>Blank comprehension</b> takes the carried % if there is one; otherwise it counts as 0, but stays marked as blank (different from a real 0).</li>
+  <li><b>Foundational Literacy Test</b> (a reading without questions): a school setting decides whether such a round counts as assessed.</li>
+  <li><b>End of year:</b> the EOSY result if EOSY was given; otherwise the best round given (a later round wins a tie).</li>
+  <li><b>Retakes:</b> only the latest attempt of a round counts.</li>
+</ul>
+
+<h2>6. Reports built from Phil-IRI</h2>
+<table>
+  <tr><th style="width:28%">Report</th><th>What BASA does</th></tr>
+  <tr><td>NLA portal (Form 2b)</td><td>Per section, sex and round: grade-level ready, 2-LD and 3-LD, each split into Independent, Instructional and Frustration. It uses the <b>NLA portal's own conversion bands</b> (e.g. GLR ≥ 69% comprehension), so the coordinator copies the numbers in as they are. GST-only blocks are included.</td></tr>
+  <tr><td>Progress monitoring</td><td>% of learners assessed per section and round against a "done" threshold (85%), with carried-over and not-assessed counts.</td></tr>
+  <tr><td>BOSY masterlist</td><td>Learners not grade-level ready at the start of the year: Frustration, Struggling or Non-Reader.</td></tr>
+  <tr><td>Summer Remediation (SRP)</td><td>Ranked candidates after EOSY, and SRP classes with tutor, room and schedule.</td></tr>
+  <tr><td>Phil-IRI ranking</td><td>The lowest N learners of a round by accuracy, speed or comprehension, ties kept, plus a list of learners who couldn't be ranked and why.</td></tr>
+  <tr><td>Trends and reminders</td><td>Charts of level bands and completion; reminders for tutors (learners without a GST or reading) and coordinators (sections behind).</td></tr>
+</table>
+
+<h2>7. What BASA improves</h2>
+<table>
+  <tr><th style="width:28%">Without BASA</th><th style="width:44%">In BASA</th><th>Where</th></tr>
+  <tr><td>Counting words, miscues, %, wpm by hand</td><td>Tap the miscued words; BASA counts and computes everything</td><td><code>philIriScorePassage</code></td></tr>
+  <tr><td>Looking up levels in the manual's tables</td><td>Bands and Table 8 applied automatically, the same way every time</td><td><code>phil_iri_rules.dart</code></td></tr>
+  <tr><td>Remembering which passage a learner read</td><td>Never offered again, ever; same text in another collection is recognised</td><td>no-repeat check (ViewModel, device trigger, server trigger)</td></tr>
+  <tr><td>Workbook formula bugs (e.g. missing BOSY → MOSY carry)</td><td>Carry rules written once, tested, applied to every round</td><td><code>philIriRoundResults</code></td></tr>
+  <tr><td>Unassessed learners silently left out</td><td>Counted as not assessed (Struggling, 3 down) and shown in progress monitoring and reminders</td><td><code>philIriNotAssessedResult</code></td></tr>
+  <tr><td>Results shift when a cut-off cell changes</td><td>Cut-offs are settings; a finalized round keeps the cut-offs it was finalized with</td><td>thresholds snapshot at finalize</td></tr>
+  <tr><td>Retyping totals into the NLA portal and several lists</td><td>Form 2b, masterlist, SRP and ARAL all built from the same results</td><td>report ViewModels</td></tr>
+  <tr><td>Existing workbooks would be wasted</td><td>Imported with preview and confirmation code</td><td><code>PhilIriImportViewModel</code></td></tr>
+  <tr><td>Anyone with the workbook sees every learner</td><td>Tutors see only their sections and ARAL learners; the server enforces it</td><td>RLS</td></tr>
+</table>
+
+<h2 class="break top">8. Defending the design: likely questions</h2>
+
+<div class="qa"><div class="q">Why does BASA use one passage of the learner's own grade instead of the manual's up-and-down passage ladder?</div>
+<span class="w">Without BASA:</span> the manual has the teacher move to easier or harder passages until the learner's level is found. This takes several readings per learner and is rarely done fully in practice.<br>
+<span class="b">In BASA:</span> the reading coordinator's practice is one grade-level passage per round. The adjusted level is then worked out from comprehension (section 4, step 3). It is faster, the same for every learner, and matches how the school actually assesses.</div>
+
+<div class="qa"><div class="q">Why do results "carry up" instead of showing the latest score?</div>
+<span class="w">Without BASA:</span> the coordinator's workbook already carries comprehension upward; BASA found and fixed a round where it didn't.<br>
+<span class="b">In BASA:</span> one bad day (tired, sick, a hard passage) should not move a learner back into ARAL or into a lower report group. The carried value is for decisions and reports. The <i>actual</i> value (that round alone) is still kept, and each school can switch a list to it.</div>
+
+<div class="qa"><div class="q">Why is a learner with no assessment counted as Struggling instead of being left out?</div>
+<span class="w">Without BASA:</span> an unassessed learner is simply absent from the counts, so a section that tests fewer learners can look better.<br>
+<span class="b">In BASA:</span> every learner must have a GST and a reading. Until they do, they count as Struggling (3 levels down), which keeps the counts honest and puts them on the ARAL and reminder lists. Monitoring screens label them <i>not assessed</i>, and any real result replaces the stand-in at once.</div>
+
+<div class="qa"><div class="q">Why can a learner never read the same passage twice, even in another year?</div>
+<span class="b">Answer:</span> a learner who has read a passage remembers it, so the second reading measures memory, not reading. BASA compares the passage <b>text</b>, not its id, because the same story appears in the 2018 set, the 2024 set and the graded-passage booklet. When a learner runs out of passages, the coordinator adds more.</div>
+
+<div class="qa"><div class="q">Why are the bands adjustable but Table 8 fixed?</div>
+<span class="b">Answer:</span> the acceptable ranges change. The coordinator's older workbook put Non-Readers at 50% and below; the DepEd bands BASA now uses put them at 35% and below. So the numbers are settings. Table 8 is the method of combining the measures, not a number. Changing it would be a different instrument.</div>
+
+<div class="qa"><div class="q">Why round to whole percents?</div>
+<span class="b">Answer:</span> the published bands are whole numbers (e.g. 90–96%). Without rounding, 96.5% would fall between bands. BASA rounds half up, as the workbook does.</div>
+
+<div class="qa"><div class="q">Why does the NLA report use different bands from the rest of BASA?</div>
+<span class="b">Answer:</span> the NLA portal asks for its own categories (GLR, 2-LD and 3-LD, each with Independent, Instructional and Frustration) and its own conversion table. The coordinator must be able to copy BASA's numbers straight into the portal, so that report follows the portal. Everything else follows the Phil-IRI tables.</div>
+
+<div class="qa"><div class="q">Why finalize a round, and why store the cut-offs then?</div>
+<span class="w">Without BASA:</span> a submitted report and the workbook can drift apart once someone edits the workbook.<br>
+<span class="b">In BASA:</span> finalizing freezes the official results of a section's round. Storing the cut-offs means a later threshold change can't alter what was reported. Results can still be recomputed with today's cut-offs for comparison, without overwriting the stored ones.</div>
+
+<div class="qa"><div class="q">Why does word reading use only oral readings?</div>
+<span class="b">Answer:</span> a silent reading has no miscues, so its "100%" isn't a measured accuracy. It supplies speed, and counts for word reading only while the learner has no oral reading at all. The ranking lists such learners separately.</div>
+
+<div class="qa"><div class="q">Why may any grade-level passage be used in any round?</div>
+<span class="b">Answer:</span> the reading coordinator's rule: the pretest, MOSY and posttest labels in the booklets are a suggestion, and the real constraint is "never the same passage twice". BASA lists the round's labelled passages first.</div>
+
+<h2>9. Limits and known gaps</h2>
+<ul>
+  <li>Results are recomputed from the raw readings with the <b>current</b> rules; only the threshold numbers are stored. If the rules (not just the numbers) change after release, old results would shift. This must be handled before any such change.</li>
+  <li>English only; Filipino Phil-IRI is out of scope.</li>
+  <li>Some printed answer keys looked wrong and were kept as printed, with a flag in the seed files.</li>
+</ul>
+</body></html>

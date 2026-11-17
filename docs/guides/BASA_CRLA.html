@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>BASA: CRLA</title><link rel="stylesheet" href="style.css"></head>
+<body>
+
+<div class="cover">
+<h1>CRLA in BASA</h1>
+<div class="sub">How the assessment works, what BASA changes, and why</div>
+<p>For the BASA team. This explains the <b>Comprehensive Rapid Literacy Assessment (CRLA)</b> as schools run it without BASA, then how BASA records and scores it. The last part answers the questions a panel is likely to ask ("why does BASA do it this way?"), each with how it is done without BASA.</p>
+<p class="meta">Built from the code on 17 November 2026. Rules: <code>lib/core/services/crla_rules.dart</code>; logic: <code>lib/viewmodels/crla_viewmodel.dart</code>; database: <code>crla_*</code> tables, triggers and views. Companion documents: Phil-IRI in BASA, ARAL-Reading in BASA.</p>
+<ol class="toc">
+  <li>What CRLA is</li><li>CRLA without BASA</li><li>CRLA in BASA, step by step</li><li>The scoring rules</li><li>What BASA improves</li><li>Defending the design: likely questions</li><li>Limits and known gaps</li>
+</ol>
+</div>
+
+<h2>1. What CRLA is</h2>
+<ul>
+  <li>A short, one-on-one DepEd reading assessment for <b>Grades 1 to 3</b>. In BASA it is the instrument for these grades; Phil-IRI covers Grades 4 to 10.</li>
+  <li>It is given in the learner's languages: <b>Mother Tongue</b>, <b>Filipino</b> and <b>English</b>. In BASA each test is a <i>variant</i>: <code>mt</code>, <code>fil</code> or <code>eng</code>.</li>
+  <li>It can be given in three <b>rounds</b>: BOSY (beginning of the school year), MOSY (middle) and EOSY (end).</li>
+  <li>It has two parts:
+    <ul>
+      <li><b>Part 1</b>: letter and word tasks. Task 1 decides which Task 2 follows. For Mother Tongue and Filipino, a Task 1 score of 0–6 leads to <i>Task 2 low</i> (rhymes and words) and 7 or more leads to <i>Task 2 high</i> (sentences). English has one Task 2, given when Task 1 is at least 1.</li>
+      <li><b>Part 2</b>: the learner reads a short story aloud. The tutor counts the miscues and times the reading, then asks comprehension questions.</li>
+    </ul>
+  </li>
+  <li>The results:
+    <ul>
+      <li>a <b>Part 1 level</b>: Full Refresher, Moderate Refresher, Light Refresher or Grade Ready;</li>
+      <li>a <b>reading profile</b>: Low Emerging, High Emerging, Developing, Transitioning or Reading at Grade Level.</li>
+    </ul>
+  </li>
+  <li>The profile matters beyond CRLA. It decides who joins ARAL-Reading in Grades 1–3 (see <i>ARAL-Reading in BASA</i>).</li>
+</ul>
+
+<h2>2. CRLA without BASA</h2>
+<p>Schools use DepEd's paper record forms and the <b>CRLA2 Excel scoresheet</b>, one workbook per grade (G1, G2, G3) with built-in formulas.</p>
+<ol>
+  <li><b>Test on paper.</b> The tutor reads the record form with the learner. They mark Part 1 answers, mark miscues on the story, time the reading with a stopwatch, and write the comprehension answers.</li>
+  <li><b>Encode by hand.</b> Someone types every learner's scores into the scoresheet: task scores, story, miscues, time and comprehension. The formulas compute the words read, the percentage read correctly, the Part 1 level and the reading profile (row 11 formula).</li>
+  <li><b>Summarise by hand.</b> Section and school totals are counted from the sheet and passed on. A coordinator merges the sheets of every section.</li>
+  <li><b>Re-use by hand.</b> To build the ARAL list, the coordinator reads each profile off the sheet and copies the Low and High Emerging learners into another list.</li>
+</ol>
+<div class="box warn"><b>Where it goes wrong without BASA</b>
+<ul>
+  <li><b>Typing errors.</b> A wrong story word count, miscues larger than the story, or a time over the limit all give a wrong profile, and nothing stops them.</li>
+  <li><b>No memory of retakes.</b> Overwriting a cell erases the earlier attempt. Keeping both means extra columns or extra copies of the file.</li>
+  <li><b>Changed formulas.</b> If someone edits a cut-off in their copy of the sheet, results stop being comparable, and nobody can tell which cut-offs a result used.</li>
+  <li><b>Scattered files.</b> One file per grade and section, on different laptops. School totals depend on collecting and merging them.</li>
+  <li><b>Slow ARAL lists.</b> The ARAL list is copied by hand from the profiles, so it is late and error-prone.</li>
+</ul></div>
+
+<h2 class="break top">3. CRLA in BASA, step by step</h2>
+<ol>
+  <li><b>Start an attempt.</b> The tutor picks the learner, the test (Mother Tongue, Filipino or English), the language for Mother Tongue, and the round. BASA checks first:
+    <ul>
+      <li>the section is Grade 1–3;</li>
+      <li>the section belongs to the school;</li>
+      <li>the learner has an <b>active enrollment</b> in that section this school year.</li>
+    </ul>
+    The attempt records the school, section, round and the <b>cut-offs in force that day</b> (a "thresholds snapshot").</li>
+  <li><b>Part 1.</b> The tutor enters the Task 1 score, then BASA asks only for the Task 2 that applies. Task 2 low is refused when Task 1 is 7 or more, and the other way round. BASA computes the total and the Part 1 level.</li>
+  <li><b>Part 2.</b> The tutor enters the story number, miscues, reading time and comprehension score.
+    <ul>
+      <li>BASA finds the story by the school's region, the language, the section's grade and the story number.</li>
+      <li>It computes <b>words read = story words − miscues</b>, exactly as the scoresheet does.</li>
+      <li>It refuses a comprehension score above the grade's maximum and a time above the grade's limit.</li>
+      <li>It computes words per minute and the <b>reading profile</b>, and stores both.</li>
+    </ul>
+  </li>
+  <li><b>Retakes.</b> A retake is a <b>new attempt</b>; nothing is overwritten. The latest attempt of a round counts in every report.</li>
+  <li><b>Mistakes.</b>
+    <ul>
+      <li>Part 1 and Part 2 can be changed.</li>
+      <li>An attempt started by mistake can be removed while it is still only on the device, and only if it is the learner's latest. Once it is on the server, it stays.</li>
+    </ul>
+  </li>
+  <li><b>Offline.</b> All of this works without internet on the device's copy. The work is later sent to the server in one upload, which the coordinator approves (see the code walkthrough, section 6).</li>
+  <li><b>Results and reports.</b>
+    <ul>
+      <li>A section list shows every learner's attempts and profiles.</li>
+      <li>Database views give the section and school summaries per round.</li>
+      <li>The <b>scoresheet export</b> fills the blank DepEd CRLA2 template, so the official file can still be submitted.</li>
+      <li>A <b>scoresheet import</b> (admin app) reads an already-filled CRLA2 file into BASA.</li>
+    </ul>
+  </li>
+  <li><b>Feeds other modules.</b> The CRLA profile goes into the ARAL roster proposal (Grade 1 on MOSY, Grades 2–3 on BOSY), the dashboard's CRLA trend and the ARAL implementation report.</li>
+</ol>
+
+<h2>4. The scoring rules</h2>
+<p>There are two kinds of numbers. <b>Instrument facts</b> come from the printed CRLA2 scoresheets and are fixed. <b>Cut-offs</b> are adjustable per region or school. The defaults reproduce the DepEd scoresheet formulas exactly.</p>
+<h3>Instrument facts (fixed)</h3>
+<table>
+  <tr><th>Grade / test</th><th class="c">Comprehension questions (max)</th><th class="c">Reading time limit</th></tr>
+  <tr><td>Grade 1 (any)</td><td class="c">5</td><td class="c">60 s</td></tr>
+  <tr><td>Grade 2 (any)</td><td class="c">6</td><td class="c">120 s</td></tr>
+  <tr><td>Grade 3 Mother Tongue / Filipino</td><td class="c">7</td><td class="c">180 s</td></tr>
+  <tr><td>Grade 3 English</td><td class="c">6</td><td class="c">120 s</td></tr>
+</table>
+<p>Part 1 structure:</p>
+<ul>
+  <li><b>Mother Tongue / Filipino:</b> Task 1 below 7 gives total = Task 1 + Task 2 low (0–16). Task 1 of 7 or more gives total = Task 1 + 10 + Task 2 high (17–30).</li>
+  <li><b>English:</b> total = Task 1 + Task 2 (0–20). Task 2 is empty when Task 1 is 0.</li>
+</ul>
+<h3>Part 1 level (default cut-offs, adjustable)</h3>
+<table>
+  <tr><th>Test</th><th>Full Refresher</th><th>Moderate Refresher</th><th>Light Refresher</th><th>Grade Ready</th></tr>
+  <tr><td>MT / Filipino, Task 1 &lt; 7</td><td>total ≤ 10</td><td>total &gt; 10</td><td>–</td><td>–</td></tr>
+  <tr><td>MT / Filipino, Task 1 ≥ 7</td><td>–</td><td>–</td><td>total ≤ 26</td><td>total ≥ 27</td></tr>
+  <tr><td>English</td><td>0</td><td>1–10</td><td>11–16</td><td>17–20</td></tr>
+</table>
+<h3>Reading profile (the scoresheet's row 11 formula)</h3>
+<p><b>Low Emerging</b> comes straight from Part 1: a Full Refresher, or, in Grade 1 only, also a Moderate Refresher. Otherwise the profile combines two values. <i>pct</i> is words read ÷ story words; <i>comp</i> is the comprehension score. Each sheet has three comprehension cut-offs, h, d2 and g:</p>
+<table>
+  <tr><th>Sheet</th><th class="c">h</th><th class="c">d2</th><th class="c">g</th></tr>
+  <tr><td>Grade 1</td><td class="c">0</td><td class="c">1</td><td class="c">4</td></tr>
+  <tr><td>Grade 2</td><td class="c">0</td><td class="c">2</td><td class="c">5</td></tr>
+  <tr><td>Grade 3 MT / Filipino</td><td class="c">1</td><td class="c">3</td><td class="c">6</td></tr>
+  <tr><td>Grade 3 English</td><td class="c">0</td><td class="c">2</td><td class="c">5</td></tr>
+</table>
+<table>
+  <tr><th style="width:24%">Profile</th><th>Condition (default fluency bands 25 / 50 / 51 / 75 / 76 %)</th></tr>
+  <tr><td>High Emerging</td><td>pct ≤ 25%, or 25% &lt; pct ≤ 50% with comp ≤ h</td></tr>
+  <tr><td>Developing</td><td>25% &lt; pct &lt; 51% with comp ≥ h+1, or 50% &lt; pct &lt; 76% with comp ≤ d2</td></tr>
+  <tr><td>Transitioning</td><td>51% ≤ pct &lt; 76% with comp ≥ d2+1, or pct &gt; 75% with comp ≤ g−1</td></tr>
+  <tr><td>Reading at Grade Level</td><td>pct &gt; 75% with comp ≥ g</td></tr>
+</table>
+<div class="box">The formula has a <b>gap</b>: a pct between 50% and 51% with comp above d2 matches no row, so there is no profile, just as in the Excel. BASA keeps the gap on purpose (section 6). The Dart rules were checked against the old database formulas on <b>190,098</b> score combinations, with all of them identical.</div>
+<h3>Where the rules live (one rule, several places)</h3>
+<ul>
+  <li><b>Dart</b> (<code>crla_rules.dart</code>): used by the ViewModel on the device.</li>
+  <li><b>SQLite triggers:</b> refuse invalid rows on the device and compute totals and wpm.</li>
+  <li><b>PostgreSQL triggers and views on the server:</b> the final authority.</li>
+</ul>
+<p>The code comments say "change all of them together", and tests compare them.</p>
+
+<h2 class="break top">5. What BASA improves</h2>
+<table>
+  <tr><th style="width:29%">Without BASA</th><th style="width:43%">In BASA</th><th>Where</th></tr>
+  <tr><td>Scores typed into Excel after the test</td><td>Entered once, during or right after the test, on a phone or PC, even offline</td><td><code>CrlaViewModel</code>, SQLite</td></tr>
+  <tr><td>Wrong word counts and impossible values pass silently</td><td>Words read computed from the stored story; miscues above the word count, comprehension above the maximum and time over the limit are refused</td><td><code>crlaWordsRead</code>, <code>check_crla_part2_limits</code></td></tr>
+  <tr><td>Wrong Task 2 filled in</td><td>Only the Task 2 that applies is accepted (database CHECK)</td><td>Part 1 CHECKs</td></tr>
+  <tr><td>Retake overwrites the old score</td><td>Every attempt kept; the latest per round counts</td><td><code>attempt_no</code>, <code>crla_latest_attempts</code></td></tr>
+  <tr><td>Cut-offs edited in someone's copy, nobody knows which were used</td><td>Cut-offs are settings (region → school), and each attempt stores the ones it used. Re-scoring with new cut-offs is a deliberate admin action</td><td><code>crla_thresholds</code>, <code>thresholds_snapshot</code>, <code>crla_regenerate_results</code></td></tr>
+  <tr><td>One file per grade/section, merged by hand</td><td>One database; section and school summaries are views</td><td><code>crla_section_summary</code>, <code>crla_school_summary</code></td></tr>
+  <tr><td>The official sheet must still be submitted</td><td>Export fills the DepEd CRLA2 template; import reads a filled one</td><td>CRLA export/import ViewModels</td></tr>
+  <tr><td>ARAL list copied from profiles</td><td>ARAL proposal reads the profile directly, in the grade's language and round</td><td><code>aral_rules.dart</code></td></tr>
+  <tr><td>Anyone with the file sees every learner</td><td>Tutors see only their sections and ARAL learners; the server enforces it</td><td>RLS</td></tr>
+</table>
+
+<h2>6. Defending the design: likely questions</h2>
+
+<div class="qa"><div class="q">Why does BASA copy the Excel formula exactly, even the gap where no profile is given?</div>
+<span class="w">Without BASA:</span> the CRLA2 scoresheet is the official tool, and its formula is the reference schools and the Division compare against.<br>
+<span class="b">In BASA:</span> if BASA "fixed" the gap, its profiles would disagree with the official sheet for some learners, and BASA would be the one that looks wrong. The defaults therefore reproduce the formula exactly, which we verified on every score combination. A region or school that wants different boundaries can change the cut-offs; the change is visible and recorded.</div>
+
+<div class="qa"><div class="q">Why can a tutor not edit an attempt's round or learner, or delete an attempt on the server?</div>
+<span class="w">Without BASA:</span> an overwritten cell leaves no trace, and a result can quietly change after it was reported.<br>
+<span class="b">In BASA:</span> the server table accepts only inserts. A retake is a new attempt, so the history is an audit trail. The scores of Part 1 and Part 2 can still be corrected. A wrong attempt can be removed only while it exists only on the tutor's device, i.e. before anyone else has seen it.</div>
+
+<div class="qa"><div class="q">Why does BASA compute "words read" instead of letting the tutor type it?</div>
+<span class="w">Without BASA:</span> the scoresheet itself computes it (column M: story words − miscues), so a typed value is redundant and a common source of errors.<br>
+<span class="b">In BASA:</span> the same subtraction is done from the stored story. A typed value is accepted only if it matches. For regions with no stories in BASA yet, the tutor types it.</div>
+
+<div class="qa"><div class="q">Why save the cut-offs with each attempt?</div>
+<span class="w">Without BASA:</span> if a cut-off changes mid-year, last month's results computed in Excel change too when the sheet recalculates.<br>
+<span class="b">In BASA:</span> a result keeps the cut-offs it was scored with, so a report from BOSY still shows the same numbers at EOSY. Re-scoring with today's cut-offs is an explicit admin action on chosen attempts.</div>
+
+<div class="qa"><div class="q">Why are the comprehension maximum and time limit fixed when other numbers are adjustable?</div>
+<span class="b">Answer:</span> they are facts of the printed test (how many questions there are, the printed time limit), not interpretations. Changing them would mean a different test.</div>
+
+<div class="qa"><div class="q">Why only Grades 1–3, and why is that checked on the server?</div>
+<span class="b">Answer:</span> CRLA is designed for the early grades; older learners take Phil-IRI. The check is in the ViewModel (clear message), the device trigger and the server's insert policy, so a wrong row can't enter even from an old app or a direct API call.</div>
+
+<div class="qa"><div class="q">Why does a Grade 1 learner's ARAL decision use MOSY, and why a specific language?</div>
+<span class="b">Answer:</span> DepEd Memorandum 064 s. 2025 (Enclosure 2): Grade 1 enters ARAL on the CRLA MOSY result and Grades 2–3 on BOSY. The language is Grade 1 Mother Tongue (else Filipino), Grade 2 Filipino, Grade 3 English. BASA applies this automatically instead of the coordinator choosing which sheet to read.</div>
+
+<div class="qa"><div class="q">Why does BASA need the school's region to score Part 2?</div>
+<span class="b">Answer:</span> the CRLA stories differ by region and language. BASA finds the story by region, language, grade and story number to get its word count. Stories are seeded for Region X (Northern Mindanao) so far. Elsewhere the profile stays empty until the words read are typed.</div>
+
+<h2>7. Limits and known gaps</h2>
+<ul>
+  <li>Stories exist only for Region X, Grades 1–3. Other regions type the words read, and the summary's percentage stays empty without a story.</li>
+  <li>If a learner moves section mid-year, the attempt numbering restarts in the new section, so "latest attempt" can pick the old section's attempt in the learner history and the ARAL CRLA profile. This is a known follow-up.</li>
+  <li>The observation level is stored but not used in any formula, as on the scoresheet.</li>
+</ul>
+</body></html>
