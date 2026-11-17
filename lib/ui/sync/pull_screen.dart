@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/models/sync_pull.dart';
+import '../../core/models/sync_upload.dart' show syncCount;
 import '../common/screen_kit.dart';
 
 class PullScreen extends StatefulWidget {
@@ -102,20 +103,20 @@ class _PullScreenState extends State<PullScreen> {
                   children: [
                     InfoRow('Signed in as', p.currentEmail ?? '—'),
                     InfoRow('Last downloaded by', p.owner?.toString() ?? 'Nobody yet'),
-                    InfoRow('Unsent work', p.localTotal == 0 ? 'None' : '${p.localTotal} record(s)'),
+                    InfoRow('Unsent work', p.localTotal == 0 ? 'None' : syncCount(p.localTotal, 'record')),
                   ],
                 ),
                 if (p.localWork.isNotEmpty)
                   ListCard(
                     children: [
                       for (final l in p.localWork)
-                        ListRow(leading: const IconBadge(Icons.edit_note), title: '$l'),
+                        ListRow(leading: const IconBadge(Icons.edit_note), title: l.message),
                     ],
                   ),
                 if (blocked)
                   NoticeBanner(
                     'This device holds work of ${p.owner!.email ?? 'another user'} that is not on the server yet. '
-                    'They should send it first. Downloading as you deletes it.',
+                    'They should send it first. If you download now, their work is deleted.',
                     icon: Icons.warning_amber,
                     tone: StatusTone.bad,
                   )
@@ -144,14 +145,14 @@ String pullResultText(PullResult r) {
   final m = r.merge;
   final total = m.serverRows.values.fold(0, (a, b) => a + b);
   return [
-    'Downloaded $total record(s) from the server.',
+    'Downloaded ${syncCount(total, 'record')} from the server.',
     if (r.ownerChanged) 'This device now belongs to you (was ${r.previousOwnerEmail ?? 'another user'}).',
     if (m.keptNew + m.keptChanged + m.keptPending > 0)
       'Kept on this device: ${m.keptNew} new, ${m.keptChanged} changed, ${m.keptPending} waiting for approval.',
     if (m.discarded + m.discardedChanges + m.discardedPending > 0)
-      'Deleted unsent work: ${m.discarded + m.discardedChanges + m.discardedPending} record(s).',
+      'Deleted unsent work: ${syncCount(m.discarded + m.discardedChanges + m.discardedPending, 'record')}.',
     if (m.skippedUnderDeleted + m.skippedNewClash > 0)
-      'Skipped ${m.skippedUnderDeleted + m.skippedNewClash} record(s) that clash with the server.',
+      'Not kept: ${syncCount(m.skippedUnderDeleted + m.skippedNewClash, 'record')} that do not fit the server\'s data any more.',
     if (r.unknownCalendarRounds.isNotEmpty)
       'Round calendar entries this app does not know (shown as invalid): ${r.unknownCalendarRounds.join(', ')}.',
   ].join('\n');

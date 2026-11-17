@@ -26,8 +26,8 @@ class _UploadScreenState extends State<UploadScreen> {
     if (!await confirm(
       context,
       title: 'Send your work?',
-      body: '${p.package.rowCount} record(s) go to the server as one upload. Until it is approved they are '
-          'read-only on this device.',
+      body: '${syncCount(p.package.rowCount, 'record')} will go to the server as one upload. Until it is approved, '
+          'you cannot change them on this device.',
       action: 'Send',
     )) {
       return;
@@ -39,7 +39,7 @@ class _UploadScreenState extends State<UploadScreen> {
     if (!mounted) return;
     setState(() {
       _busy = false;
-      if (r != null) _result = r.toString();
+      if (r != null) _result = r.message;
       _reload++;
     });
   }
@@ -48,7 +48,7 @@ class _UploadScreenState extends State<UploadScreen> {
     final sync = vmsOf(context).sync;
     final r = await runAction(context, () => sync.resolve(problem.table, problem.key, choice), where: 'UploadScreen');
     if (r != null && mounted) {
-      showNote(context, r.toString());
+      showNote(context, r.message);
       _again();
     }
   }
@@ -95,7 +95,7 @@ class _UploadScreenState extends State<UploadScreen> {
                     child: mainActionButton(onPressed: onSend, icon: Icons.cloud_upload, label: actionLabel, busy: _busy),
                   ),
                 for (final o in p.settled)
-                  NoticeBanner(o.toString(), icon: _statusIcon(o.status), tone: _statusTone(o.status)),
+                  NoticeBanner(o.message, icon: _statusIcon(o.status), tone: _statusTone(o.status)),
                 StatGrid(tiles: [
                   StatTile(label: 'Records to send', value: '${p.package.rowCount}', icon: Icons.cloud_upload_outlined),
                   StatTile(label: 'Conflicts', value: '${p.problems.length}', icon: Icons.call_split),
@@ -114,7 +114,7 @@ class _UploadScreenState extends State<UploadScreen> {
                         ]
                       : [
                           for (final LocalWorkLine l in p.package.summary)
-                            ListRow(leading: const IconBadge(Icons.edit_note), title: '$l'),
+                            ListRow(leading: const IconBadge(Icons.edit_note), title: l.message),
                         ],
                 ),
                 if (p.problems.isNotEmpty)
@@ -124,8 +124,7 @@ class _UploadScreenState extends State<UploadScreen> {
                     trailing: StatusChip('${p.problems.length}', tone: StatusTone.bad),
                     children: [
                       Text(
-                        'The server changed these records since your last download. Keep yours, or take '
-                        "the server's copy.",
+                        "Each record below needs a choice before your work can be sent.",
                         style: TextStyle(color: colors.onSurfaceVariant),
                       ),
                       const SizedBox(height: 8),
@@ -143,14 +142,16 @@ class _UploadScreenState extends State<UploadScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Padding(padding: const EdgeInsets.only(top: 6), child: Text(x.toString())),
+                                    Padding(padding: const EdgeInsets.only(top: 6), child: Text(x.message)),
                                     const SizedBox(height: 8),
                                     Wrap(
                                       spacing: 8,
                                       runSpacing: 8,
                                       children: [
-                                        OutlinedButton(
-                                            onPressed: () => _resolve(x, SyncChoice.mine), child: const Text('Keep mine')),
+                                        // A new record of an archived learner can only be dropped.
+                                        if (x.kind != learnerArchivedKind)
+                                          OutlinedButton(
+                                              onPressed: () => _resolve(x, SyncChoice.mine), child: const Text('Keep mine')),
                                         OutlinedButton(
                                           onPressed: () => _resolve(x, SyncChoice.server),
                                           child: const Text("Take the server's"),
@@ -180,7 +181,7 @@ class _UploadScreenState extends State<UploadScreen> {
                                 foreground: _badgeColors(colors, u.status).$2,
                               ),
                               title: 'Upload ${u.id}',
-                              subtitle: '${u.rows} record(s), sent ${isoDate(u.createdAt.toLocal())}',
+                              subtitle: '${syncCount(u.rows, 'record')}, sent ${isoDate(u.createdAt.toLocal())}',
                               // The reason in full (the subtitle is cut at two lines).
                               footer: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
