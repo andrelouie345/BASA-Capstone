@@ -304,10 +304,10 @@ class CrlaViewModel {
           'time limit for Grade $grade ${_testName(variant)} (${_mmss(timeCap)}).');
     }
     if (learnerExperienceRating != null) {
-      _checkRange('learnerExperienceRating', learnerExperienceRating, 1, 5);
+      _checkRange('The learner experience rating', learnerExperienceRating, 1, 5);
     }
     if (observationLevel != null) {
-      _checkRange('observationLevel', observationLevel, 1, 4);
+      _checkRange('The observation level', observationLevel, 1, 4);
     }
     // Words read follow the CRLA2 scoresheet: story words - miscues (F10).
     final story = await _storyFor(assessment, grade, storyNo);

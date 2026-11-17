@@ -41,3 +41,90 @@ An **archived** learner left the school (transferred out or dropped out): no lon
 
 ===== NLA =====
 Numeracy and Literacy Assessment: DepEd's portal where the coordinator enters the school's reading assessment results (from **Reports → NLA portal report**).
+
+===== Words on the CRLA screens =====
+**Attempt**: one CRLA test of one learner, in one language and one round. A retake is a new attempt; the latest attempt of a round counts.
+
+**Part 1 and Part 2**: Part 1 is the letter and word tasks. Part 2 is reading a story aloud, then answering questions about it.
+
+**Task 1, Task 2 low, Task 2 high**: the Part 1 tasks. A Task 1 score of 0 to 6 leads to Task 2 low (rhymes and words); 7 or more leads to Task 2 high (sentences). In English, Task 2 follows a Task 1 score of 1 or more.
+
+**Full, Moderate, Light Refresher, Grade Ready**: the Part 1 result, from the most help needed (Full Refresher) to none (Grade Ready).
+
+**Story number**: Part 2 has two stories for each grade and language, story 1 and story 2. Enter the one the learner read.
+
+**Words read**: the story's number of words minus the miscues.
+
+**Reading profile**: the CRLA result after Part 1 and Part 2: Low Emerging, High Emerging, Developing, Transitioning, or Reading at Grade Level.
+
+===== Words on the Phil-IRI screens =====
+**Session**: one learner in one round. It holds the learner's readings, their answers and the rubric.
+
+**Passage**: a text the learner reads, made for one grade. A learner never reads the same passage twice.
+
+**Collection**: a set of passages with their questions and rubric.
+
+**Miscue**: a word the learner reads wrong, leaves out, adds or swaps. A miscue counts against word recognition.
+
+**Self-corrected**: a word the learner first read wrong and then fixed alone. It is written down but not counted as a miscue.
+
+**Word recognition**: the share of the passage's words read correctly, as a percentage.
+
+**Words per minute (wpm)**: how fast the learner reads.
+
+**Comprehension**: the share of questions answered correctly, as a percentage. **Looked back**: the learner looked at the passage again to answer; the answer still counts.
+
+**Independent, Instructional, Frustration, Struggling, Non-Reader**: the reading levels, from reading alone with ease (Independent) to not reading yet (Non-Reader).
+
+**Rubric**: a short list of things the tutor observes while the learner reads, each scored on a small scale.
+
+**Complete, Reopen, Finalize**: the tutor completes a session when every reading is done, and can reopen it to fix something. The coordinator finalizes the round; then completed sessions can no longer change.
+
+**Not assessed**: no reading of the learner's own in that round. It counts as Struggling.
+
+===== Words on the ARAL screens =====
+**Roster**: everyone in ARAL this school year, with their program.
+
+**Class**: up to 15 learners with one tutor, for one grade and one program (or mixed programs).
+
+**Waiting for a class**: on the roster, but not in a class yet. The coordinator places them in a class.
+
+**Referral**: a learner a teacher asked to put in ARAL, with the teacher's name and reason.
+
+**Exited**: no longer in ARAL: reads at grade level, transferred out, dropped out, classroom support is enough (KS1), or another reason.
+
+**Present, Absent, Excused**: the attendance marks of a session. Excused sessions do not count in the attendance rate.
+
+**Check-in**: a short test after session 16 and after session 32. **Cut-off**: the score a learner needs to meet it (75% unless the school changed it).
+
+**IRIP cycle, week, strand, target**: an IRIP cycle is 8 weeks. Each week the learner works on one target (a reading skill) in each strand (a part of the plan). **✔ ◑ ✘**: the tutor's weekly rating: observed, partly observed, not observed.
+
+===== Words on the sync screens =====
+**Unsent work**: work saved on this device that is not on the server yet.
+
+**Send my work**: sends all your unsent work to the server as one upload.
+
+**Waiting for approval**: an upload the coordinator has not approved yet. Until then you cannot change those records on this device.
+
+**Conflict**: someone changed a record on the server after your last download. **Keep mine** sends your version instead; **Take the server's** removes your change from this device.
+
+**Download the latest data**: copies everything you may see from the server to this device. Your unsent work is kept.
+
+**Device owner**: the last person who downloaded on this device. Only they can send its work.
+
+**Offline sign-in**: the device owner can sign in without a connection for some days after the last online sign-in (14 unless the school changed it).
+
+===== Words on the admin screens =====
+**Done threshold**: the share of learners that must be assessed for a round to count as done in progress monitoring (85% unless changed).
+
+**Carried and actual values**: carried = a learner's best Phil-IRI result so far; actual = only that round's own reading. Each list uses one (**Manage → Report settings**).
+
+**Approve uploads automatically**: tutors' uploads are applied as soon as they are sent, without review.
+
+**Archive period**: how long an archived learner waits, after their school year, before they may be anonymized (6 months unless changed).
+
+**Form 2b**: the NLA portal's Phil-IRI table for Junior High School.
+
+**BOSY masterlist**: the learners not grade-level ready at the beginning of the school year.
+
+**Phil-IRI ranking**: the lowest learners of one round by one measure.
