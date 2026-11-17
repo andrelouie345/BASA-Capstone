@@ -52,10 +52,10 @@ class SectionViewModel {
     final user = _auth.currentUser;
     if (user?.role == UserRole.admin && user?.schoolId == null) return; // superadmin
     if (user?.role != UserRole.admin && user?.role != UserRole.coordinator) {
-      throw const ViewModelException('Forbidden: admin or coordinator only.');
+      throw const ViewModelException('Not allowed: admin or coordinator only.');
     }
     if (user?.schoolId != schoolId) {
-      throw const ViewModelException('Forbidden: can only manage sections for your own school.');
+      throw const ViewModelException('Not allowed: can only manage sections for your own school.');
     }
   }
 

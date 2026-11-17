@@ -229,7 +229,7 @@ class LearnerHistoryViewModel {
     final me = _requireManager();
     final s = await _history.student(studentId);
     if (s == null) {
-      throw const ViewModelException('Learner not found on this device. Download the latest data first (pull-cloud).');
+      throw const ViewModelException('Learner not found on this device. Download the latest data first.');
     }
     return _build(me, s);
   }
@@ -242,7 +242,7 @@ class LearnerHistoryViewModel {
     final s = await _history.studentByLrn(lrn);
     if (s == null) {
       throw ViewModelException(
-          'No learner with LRN ${lrn.trim()} on this device. Download the latest data first (pull-cloud).');
+          'No learner with LRN ${lrn.trim()} on this device. Download the latest data first.');
     }
     return _build(me, s);
   }
@@ -251,7 +251,7 @@ class LearnerHistoryViewModel {
     final me = _auth.currentUser;
     if (me == null) throw const ViewModelException(notSignedInMessage);
     if (me.role != UserRole.admin && me.role != UserRole.coordinator) {
-      throw const ViewModelException('Forbidden: only an admin or coordinator can view learner history.');
+      throw const ViewModelException('Not allowed: only an admin or coordinator can view learner history.');
     }
     return me;
   }
@@ -265,7 +265,7 @@ class LearnerHistoryViewModel {
         s.schoolId != me.schoolId &&
         !(await _history.moves(id)).any(
             (m) => m.move.source == EnrollmentMoveSource.transferIn && m.move.fromSchoolId == me.schoolId)) {
-      throw const ViewModelException('Forbidden: that learner is not in your school.');
+      throw const ViewModelException('Not allowed: that learner is not in your school.');
     }
     final sections = await _history.sectionEnrollments(id);
     final crla = await _crlaResults.getByStudent(id);

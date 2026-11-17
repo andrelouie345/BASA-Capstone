@@ -111,7 +111,7 @@ class AralReadabilityViewModel {
     var name = _blankToNull(title);
     if (materialId != null) {
       final m = await _materials.findById(materialId);
-      if (m == null) throw ViewModelException('No ARAL material with id $materialId on this device.');
+      if (m == null) throw ViewModelException(notOnDeviceMessage('material'));
       name ??= m.title;
     }
     if (name == null) throw const ViewModelException('Give the title of the selection.');
@@ -178,7 +178,7 @@ class AralReadabilityViewModel {
   Future<void> _requireAvailable(AralEnrollment e) async {
     if (!await available(e.schoolId)) {
       throw const ViewModelException("The readability log is only kept while the school's foundational literacy "
-          'program (SHARP) is switched on (aral-sharp-set).');
+          'program (SHARP) is switched on (ARAL settings).');
     }
   }
 
@@ -192,25 +192,25 @@ class AralReadabilityViewModel {
   /// learner's school (any school for the superadmin).
   Future<AralEnrollment> _require(int enrollmentId) async {
     final e = await _roster.findById(enrollmentId);
-    if (e == null) throw ViewModelException('No ARAL enrollment with id $enrollmentId.');
+    if (e == null) throw ViewModelException(notOnDeviceMessage('ARAL learner'));
     final me = _me();
     if (me.role == UserRole.tutor) {
       if (await _roster.classTutorId(e.id!) != me.id) {
-        throw const ViewModelException('Forbidden: not your ARAL learner.');
+        throw const ViewModelException('Not allowed: not your ARAL learner.');
       }
     } else if (me.role == UserRole.admin || me.role == UserRole.coordinator) {
       if (me.schoolId != null && me.schoolId != e.schoolId) {
-        throw const ViewModelException('Forbidden: that learner is in another school.');
+        throw const ViewModelException('Not allowed: that learner is in another school.');
       }
     } else {
-      throw const ViewModelException('Forbidden.');
+      throw const ViewModelException('Not allowed.');
     }
     return e;
   }
 
   Future<(AralReadabilityLog, AralEnrollment)> _requireEntry(int id) async {
     final l = await _logs.findById(id);
-    if (l == null) throw ViewModelException('No readability log entry with id $id.');
+    if (l == null) throw ViewModelException(notOnDeviceMessage('readability log entry'));
     return (l, await _require(l.enrollmentId));
   }
 

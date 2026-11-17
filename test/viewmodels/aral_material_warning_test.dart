@@ -81,7 +81,7 @@ void main() {
     await vm.deleteMaterial(7);
 
     expect(vm.lastMirrorWarning,
-        'The catalog was changed online, but the copy on this device was not updated. Download the latest data (pull-cloud).');
+        'The catalog was changed online, but the copy on this device was not updated. Download the latest data.');
     expect(log.lines.any((l) => l.contains('locked db')), isTrue);
   });
 
@@ -92,7 +92,7 @@ void main() {
     await expectLater(
         vm.deleteMaterial(7),
         throwsA(isA<ViewModelException>()
-            .having((e) => e.message, 'message', 'The database refused the values.')));
+            .having((e) => e.message, 'message', 'The server did not accept the values.')));
     expect(log.lines.any((l) => l.contains('aral_materials_grades')), isTrue);
   });
 }

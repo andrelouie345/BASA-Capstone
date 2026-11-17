@@ -42,17 +42,17 @@ const leaverNotMirroredNote = "saved on the server, but this device's copy was n
 
 /// Shown when the anonymize code no longer matches the list.
 /// (Wording rule, console_wording_test: the command goes in brackets.)
-const leaverAnonymizeStaleMessage = 'The list changed since the preview: preview again (learner-anonymize-preview).';
+const leaverAnonymizeStaleMessage = 'The list changed since the preview. Press Preview again.';
 
 /// Refuses an archive, move or restore while this device holds the learner's
 /// records that are not on the server yet ([n] of them): the server change
 /// would turn them into a sync conflict, or stop the upload.
 String leaverUploadFirstMessage(int n) => 'This device has $n record${n == 1 ? '' : 's'} of this learner that '
-    "${n == 1 ? 'is' : 'are'} not on the server yet: upload this device's work first (sync-upload), then try again.";
+    "${n == 1 ? 'is' : 'are'} not on the server yet: upload this device's work first (Send my work), then try again.";
 
 /// Shown when the server could not be reached during an action.
 const leaverUnreachableMessage = 'The server could not be reached: check the connection, then download the latest '
-    'data to see whether the change was saved (pull-cloud).';
+    'data to see whether the change was saved.';
 
 /// What one archive, move or restore did.
 class LearnerLeaverOutcome {
@@ -86,7 +86,7 @@ class AnonymizeCandidate {
 }
 
 class LearnerLeaversViewModel {
-  static const forbiddenMessage = 'Forbidden: only an admin or coordinator archives, moves or restores learners.';
+  static const forbiddenMessage = 'Not allowed: only an admin or coordinator archives, moves or restores learners.';
   static const _codeLength = 12;
 
   final ScopedLogger _log;
@@ -239,8 +239,8 @@ class LearnerLeaversViewModel {
         final result = await _server(() => repo.anonymize(l.studentId));
         mirrored = await _tryMirror(result) && mirrored;
       } on ViewModelException catch (e) {
-        lastMessage = 'Anonymized $done of ${preview.learners.length} learners; learner ${l.studentId} was '
-            'refused: ${e.message} Pull to finish clearing, then preview again (learner-anonymize-preview).';
+        lastMessage = 'Anonymized $done of ${preview.learners.length} learners; one learner was '
+            'refused: ${e.message} Download the latest data to finish, then press Preview again.';
         throw ViewModelException(lastMessage!);
       }
       done++;
@@ -268,7 +268,7 @@ class LearnerLeaversViewModel {
     if (!needSchool) return (repo, 0);
     if (me.schoolId != null) {
       if (schoolId != null && schoolId != me.schoolId) {
-        throw const ViewModelException("Forbidden: you can only manage your own school's learners.");
+        throw const ViewModelException("Not allowed: you can only manage your own school's learners.");
       }
       return (repo, me.schoolId!);
     }
@@ -290,8 +290,8 @@ class LearnerLeaversViewModel {
     try {
       return await call();
     } on PostgrestException catch (e) {
-      if (e.code == '42501') throw const ViewModelException('Forbidden: the database refused this change.');
-      throw ViewModelException('The database refused it: ${e.message}.');
+      if (e.code == '42501') throw const ViewModelException('Not allowed: the server did not accept this change.');
+      throw ViewModelException('The server did not accept this: ${e.message}.');
     } on SocketException {
       throw const ViewModelException(leaverUnreachableMessage);
     } on TimeoutException {

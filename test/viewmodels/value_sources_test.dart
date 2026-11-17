@@ -131,13 +131,13 @@ void main() {
         _refused(needsOnlineSignInMessage));
     await expectLater(
         vmFor(FakeOnlineAuth(UserRole.tutor)).setValueSource(1, PhilIriValueList.aral, PhilIriValues.actual),
-        _refused('Forbidden: only an admin or coordinator sets the report settings.'));
+        _refused('Not allowed: only an admin or coordinator sets the report settings.'));
     await expectLater(
         vmFor(FakeOnlineAuth(UserRole.coordinator)).setValueSource(2, PhilIriValueList.aral, PhilIriValues.actual),
-        _refused("Forbidden: you can only set your own school's report settings."));
+        _refused("Not allowed: you can only set your own school's report settings."));
     await expectLater(
         vmFor(FakeOnlineAuth(UserRole.admin)).setValueSource(null, PhilIriValueList.aral, PhilIriValues.actual),
-        _refused('Forbidden: only the superadmin sets the region-wide report settings.'));
+        _refused('Not allowed: only the superadmin sets the region-wide report settings.'));
     expect(cloud.region, isNull);
     expect(cloud.schools, isEmpty);
   });

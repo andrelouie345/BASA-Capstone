@@ -212,7 +212,7 @@ class PhilIriImportViewModel {
   static const staleMessage = 'The data changed since the preview. Preview again before importing.';
   static const oneTimeWarningText =
       "This makes BASA the record for this section's school year. You can't import this section's workbook again.";
-  static const forbiddenMessage = 'Forbidden: only an admin or coordinator imports Phil-IRI results.';
+  static const forbiddenMessage = 'Not allowed: only an admin or coordinator imports Phil-IRI results.';
 
   final ScopedLogger _log;
   final AuthViewModel _auth;
@@ -400,7 +400,7 @@ class PhilIriImportViewModel {
     if (section == null) throw ViewModelException('No section with id $sectionId.');
     final me = _auth.currentUser!;
     if (me.schoolId != null && me.schoolId != section.schoolId) {
-      throw const ViewModelException('Forbidden: that section is in another school.');
+      throw const ViewModelException('Not allowed: that section is in another school.');
     }
     final grade = int.tryParse(section.gradeLevel);
     if (grade == null || grade < 4 || grade > 10) {

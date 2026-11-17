@@ -41,7 +41,7 @@ expect~ CRLA MOSY \S+: Developing Reader
 run learner-history {s_c4}
 expect~ Phil-IRI .*\(section {sec_g7c}\): GST 10/40
 run learner-history-lrn ZZNOLRN
-expect No learner with LRN ZZNOLRN on this device. Download the latest data first (pull-cloud).
+expect No learner with LRN ZZNOLRN on this device. Download the latest data first.
 
 # --- Calendar ----------------------------------------------------------------------
 run calendar-show {school} {year}
@@ -63,15 +63,15 @@ expect Phil-IRI MOSY #1  {past} .. {past}  OPEN  (school override)
 # Refusals: region and another school (coordinator), a skip for the region,
 # an unknown round, closes before opens, a date that does not exist.
 run calendar-set region {year} crla mosy {past} {future}
-refuse Forbidden: only the superadmin sets the region-wide calendar.
+refuse Not allowed: only the superadmin sets the region-wide calendar.
 run calendar-set {schoolB} {year} crla mosy {past} {future}
-refuse Forbidden: you can only set your own school's calendar.
+refuse Not allowed: you can only set your own school's calendar.
 run calendar-skip region {year} crla mosy
 refuse Only a school skips a round; to drop a region window use calendar-clear region ...
 run calendar-skip {schoolB} {year} crla mosy
-refuse Forbidden: you can only set your own school's calendar.
+refuse Not allowed: you can only set your own school's calendar.
 run calendar-clear region {year} crla mosy
-refuse Forbidden: only the superadmin sets the region-wide calendar.
+refuse Not allowed: only the superadmin sets the region-wide calendar.
 run calendar-set {school} {year} crla mosy9 {past} {future}
 refuse CRLA has no round "mosy9"; its rounds are bosy, mosy, eosy.
 run calendar-set {school} {year} crla mosy {future} {past}
@@ -109,9 +109,9 @@ refuse Unknown option "soon". [today=YYYY-MM-DD] [done=<percent>]
 run reminders-coordinator {school} {year} today=2026-02-30
 refuse today must be a real YYYY-MM-DD date (got "2026-02-30")
 run reminders-coordinator all {year}
-refuse Forbidden: only the superadmin sees the reminders of every school.
+refuse Not allowed: only the superadmin sees the reminders of every school.
 run reminders-coordinator {schoolB} {year}
-refuse Forbidden: that school is not yours.
+refuse Not allowed: that school is not yours.
 run reminders-coordinator {year}
 refuse Usage: reminders-coordinator <schoolId|all> <year> [today=YYYY-MM-DD] [done=<percent>]
 
@@ -154,9 +154,9 @@ expect done at 50.0%
 expect MOSY #1 2 (50.0%) DONE
 expect SCHOOL TOTAL (1 section(s))
 run report-settings-set region {=50}
-refuse Forbidden: only the superadmin sets the region-wide report settings.
+refuse Not allowed: only the superadmin sets the region-wide report settings.
 run report-settings-set {schoolB} {=50}
-refuse Forbidden: you can only set your own school's report settings.
+refuse Not allowed: you can only set your own school's report settings.
 run report-settings-set {school} {=0}
 refuse The percent must be 1-100 (got "0").
 run report-settings-set {school} {=101}
@@ -164,7 +164,7 @@ refuse The percent must be 1-100 (got "101").
 run report-settings-reset region
 refuse Only a school override can be reset, not the region row.
 run report-settings-reset {schoolB}
-refuse Forbidden
+refuse Not allowed
 run report-settings-reset {school}
 expect School {school} now uses the region report settings.
 run report-settings-show {school}
@@ -194,9 +194,9 @@ expect~ 3-LD Frustration +1 +0\n
 run trend-bands school:{school} {year} sex=X
 refuse sex is M, F or T (got "X")
 run trend-bands region {year}
-refuse Forbidden: only the superadmin sees the region.
+refuse Not allowed: only the superadmin sees the region.
 run trend-bands school:{schoolB} {year}
-refuse Forbidden: that school is not yours.
+refuse Not allowed: that school is not yours.
 run trend-bands school:x {year}
 refuse A scope is section:ID, school:ID, tutor:ID, tutor:me or region (got "school:x").
 run trend-bands school:{school}
@@ -231,7 +231,7 @@ expect~ No profile +1\n
 run trend-crla-profiles school:{school} {year} variant=xx
 refuse variant is mt, fil or eng (got "xx")
 run trend-crla-profiles school:{schoolB} {year}
-refuse Forbidden: that school is not yours.
+refuse Not allowed: that school is not yours.
 # Division exits: ARAL = 3-LD + 2-LD (s_c4 at BOSY); exited by MOSY 1 = at
 # grade level in it (s_g7_3, s_g7_4); BOSY has no "exited".
 run trend-aral-exits school:{school} {year}
@@ -244,13 +244,13 @@ expect~ Exited \(grade level\) +\. +1
 run trend-aral-exits section:{sec_g7} {year}
 expect~ Exited \(grade level\) +2
 run trend-aral-exits region {year}
-refuse Forbidden: only the superadmin sees the region.
+refuse Not allowed: only the superadmin sees the region.
 # No session is left on the server (T5's stayed on the phone, T6/A4 deleted theirs).
 run trend-aral-activity school:{school} {year}
 expect ARAL sessions per month — ZZTEST PASS r{run} — {year}
 expect No ARAL sessions yet.
 run trend-aral-activity region {year}
-refuse Forbidden: only the superadmin sees the region.
+refuse Not allowed: only the superadmin sees the region.
 
 # --- Dashboard ------------------------------------------------------------------------
 run dashboard-years
@@ -307,7 +307,7 @@ expect | as of {past}
 run nla-report {school} {year} sex=
 refuse An option needs at least one value.
 run nla-report {schoolB} {year}
-refuse Forbidden: that school is not yours.
+refuse Not allowed: that school is not yours.
 run nla-report-csv {school} {year} "{rundir}/a5_nla.csv" sections={sec_g7}
 expect Wrote
 expect a5_nla.csv (1 section(s)).
@@ -332,7 +332,7 @@ refuse asof must be a real YYYY-MM-DD date (got "2026-02-30")
 run progress-report {school} {year} rows=all
 refuse rows is sections, total or both (got "all")
 run progress-report {schoolB} {year}
-refuse Forbidden: that school is not yours.
+refuse Not allowed: that school is not yours.
 run progress-report-csv {school} {year} "{rundir}/a5_progress.csv"
 expect~ a5_progress\.csv \(\d+ section\(s\)\)\.
 run progress-report-csv {school} {year} "{rundir}/a5_progress2.csv" sections={sec_g7}
@@ -352,7 +352,7 @@ refuse asof must be a real YYYY-MM-DD date (got "20261024")
 run bosy-masterlist {school} {year} rows=total
 refuse Unknown option "rows". [sections=<id,...>] [asof=YYYY-MM-DD]
 run bosy-masterlist {schoolB} {year}
-refuse Forbidden: that school is not yours.
+refuse Not allowed: that school is not yours.
 run bosy-masterlist-csv {school} {year} "{rundir}/a5_master.csv"
 expect a5_master.csv (20 learner(s)).
 
@@ -377,7 +377,7 @@ refuse asof must be a real YYYY-MM-DD date (got "2026-02-30")
 run srp-list {school} {year} show=some
 refuse show is all or recommended (got "some")
 run srp-list {schoolB} {year}
-refuse Forbidden: that school is not yours.
+refuse Not allowed: that school is not yours.
 run srp-list-csv {school} {year} "{rundir}/a5_srp.csv"
 expect a5_srp.csv (18 learner(s)).
 run srp-list-csv {school} {year} "{rundir}/a5_srp2.csv" show=recommended
@@ -389,7 +389,7 @@ expect a5_srp2.csv (17 learner(s)).
 run srp-classes {school} {year}
 expect (no SRP classes)
 run srp-build {schoolB} {year}
-refuse Forbidden
+refuse Not allowed
 run srp-build {school} {year} asof=2026-02-30
 refuse asof must be a real YYYY-MM-DD date (got "2026-02-30")
 run srp-build {school} {year} size=x
@@ -410,7 +410,7 @@ expect~ Saved:\n7-4Z \(#{srp_b}\) · Grade 4 · 8 learner\(s\) · room - · no s
 run srp-class-set {srp_a} colour=red
 refuse Unknown option "colour". Options: name= room= schedule= tutor=
 run srp-class-set {srp_a} tutor=nobody@basa.test
-refuse No user nobody@basa.test on this device. Download the latest data (pull-cloud).
+refuse No tutor with the email nobody@basa.test on this device.
 run srp-class-set {srp_a}
 refuse Usage: srp-class-set <classId|name> [name=..] [room=..|-] [schedule=..|-] [tutor=<email>|-]
 # s_c4 (not recommended) added by hand, moved, then taken out again.
@@ -433,7 +433,7 @@ refuse No SRP class named "7-4Q" on this device.
 run srp-classes-csv {school} {year} "{rundir}/a5_srpc.csv"
 expect a5_srpc.csv (2 class(es), 17 learner(s)).
 run srp-classes-csv {schoolB} {year} "{rundir}/a5_srpb.csv"
-refuse Forbidden: that school's SRP classes are not yours to see.
+refuse Not allowed: that school's SRP classes are not yours to see.
 
 # The SRP tutor (tutor2, no section) reads their class and its learners only.
 device a5-t2 tutor fresh
@@ -456,7 +456,7 @@ refuse No SRP class named "7-4Z" on this device.
 run srp-classes-clear {school} {year}
 refuse This deletes every SRP class of the school for that year. Usage: srp-classes-clear <schoolId> <schoolYear> yes
 run srp-classes-clear {schoolB} {year} yes
-refuse Forbidden: only an admin or coordinator of the school manages its SRP classes.
+refuse Not allowed: only an admin or coordinator of the school manages its SRP classes.
 run srp-classes-clear {school} {year} yes
 expect Deleted 1 SRP class(es).
 run srp-classes {school} {year}

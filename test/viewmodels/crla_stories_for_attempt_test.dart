@@ -76,7 +76,7 @@ void main() {
 
   test('refuses an unknown attempt and one outside Grades 1-3', () async {
     await expectLater(vm.storiesForAttempt(1),
-        throwsA(isA<ViewModelException>().having((e) => e.message, 'message', 'No assessment with id 1.')));
+        throwsA(isA<ViewModelException>().having((e) => e.message, 'message', 'This CRLA attempt is not on this device. Download the latest data, then try again.')));
     await expectLater(
         vm.storiesForAttempt(9803),
         throwsA(isA<ViewModelException>()

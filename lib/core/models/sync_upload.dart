@@ -86,6 +86,47 @@ class SyncPackage {
       };
 }
 
+/// What a record of each synced table is called on screens (owner
+/// 2026-11-17: tutors and coordinators read English as a second language, so
+/// screens never show table names, keys or versions).
+const syncRecordKinds = <String, String>{
+  'crla_assessments': 'CRLA attempt',
+  'crla_part1_standard': 'CRLA Part 1',
+  'crla_part1_english': 'CRLA Part 1 (English)',
+  'crla_part2_fluency': 'CRLA Part 2',
+  'phil_iri_gst_results': 'GST score',
+  'phil_iri_assessments': 'Phil-IRI session',
+  'phil_iri_readings': 'Phil-IRI reading',
+  'phil_iri_miscues': 'miscue',
+  'phil_iri_answers': 'comprehension answer',
+  'phil_iri_rubric_scores': 'rubric score',
+  'phil_iri_workbook_imports': 'workbook import',
+  'aral_classes': 'ARAL class',
+  'aral_enrollments': 'ARAL roster entry',
+  'aral_sessions': 'ARAL session',
+  'aral_attendance': 'attendance mark',
+  'aral_irip_weeks': 'IRIP week',
+  'aral_checkins': 'check-in',
+  'aral_checkin_answers': 'check-in answer',
+  'aral_readability_logs': 'readability log entry',
+};
+
+/// A record in plain words, for the middle of a sentence: "the CRLA attempt
+/// of DELA CRUZ, JUAN", or "a CRLA attempt" when its owner (learner, class or
+/// section) is not on this device. [syncCap] starts a sentence with it.
+String syncRecordText(String table, String? owner) {
+  final kind = syncRecordKinds[table] ?? 'record';
+  // "an" before a vowel sound (ARAL is said "ah-ral").
+  final article = RegExp('^[aeiouAEIOU]').hasMatch(kind) ? 'an' : 'a';
+  return owner == null ? '$article $kind' : 'the $kind of $owner';
+}
+
+/// [text] with its first letter in capitals.
+String syncCap(String text) => text.isEmpty ? text : text[0].toUpperCase() + text.substring(1);
+
+/// "1 record", "3 records".
+String syncCount(int n, String word) => '$n $word${n == 1 ? '' : 's'}';
+
 /// Something that stops an upload until resolved (sync-resolve).
 class SyncProblem {
   final String table;
@@ -106,6 +147,10 @@ class SyncProblem {
   /// school that year (SF1 leavers D15): nobody here can restore them.
   final bool transferred;
 
+  /// Whose record it is (a learner's name, a class or a section), read from
+  /// this device; null when it isn't there. Only [message] uses it.
+  final String? owner;
+
   const SyncProblem(
       {required this.table,
       required this.key,
@@ -113,7 +158,38 @@ class SyncProblem {
       this.baseVersion,
       this.serverVersion,
       this.learner,
-      this.transferred = false});
+      this.transferred = false,
+      this.owner});
+
+  /// This problem with [owner] set.
+  SyncProblem withOwner(String? owner) => SyncProblem(
+      table: table,
+      key: key,
+      kind: kind,
+      baseVersion: baseVersion,
+      serverVersion: serverVersion,
+      learner: learner,
+      transferred: transferred,
+      owner: owner);
+
+  /// The problem in plain words for screens (no table names, keys,
+  /// versions or console commands; [toString] is the console's).
+  String get message {
+    final record = syncCap(syncRecordText(table, owner));
+    return switch (kind) {
+      'conflict' => '$record was changed on the server after your last download. '
+          "Keep mine: your version replaces the server's. Take the server's: your change is removed from this device.",
+      'server_deleted' => '$record is no longer on the server for you: it was deleted, or it is not in your '
+          "sections any more. Take the server's to remove it from this device.",
+      learnerArchivedKind when transferred => '$record is new, but the learner moved to another school'
+          ': ${learner ?? 'see Learner history'}. The server does not accept it. '
+          "Take the server's to remove it from this device.",
+      learnerArchivedKind => '$record is new, but the learner was archived: '
+          '${learner ?? 'see Learner history'}. The server does not accept it. Ask your coordinator to '
+          "restore the learner, or take the server's to remove it from this device.",
+      _ => '$record cannot be sent yet.',
+    };
+  }
 
   @override
   String toString() => switch (kind) {
@@ -304,6 +380,28 @@ class SyncOutcome {
         'unknown' => 'Upload $uploadId: the server does not show it to you; its $records row(s) stay locked.',
         _ => 'Upload $uploadId: $status.',
       };
+
+  /// The outcome in plain words for screens ([toString] is the console's).
+  String get message {
+    final n = syncCount(records, 'record');
+    final them = records == 1 ? 'it' : 'them';
+    final list = conflicts.map((c) => '• ${c.message}').join('\n');
+    return switch (status) {
+      'applied' => 'Upload $uploadId was approved: $n now on the server.${note == null ? '' : ' $note.'}',
+      'rejected' => 'Upload $uploadId was rejected: ${reason ?? 'no reason was given'}. '
+          'You can change its $n and send $them again.',
+      'error' => 'Upload $uploadId failed on the server: ${reason ?? 'no reason was given'}. '
+          'You can change its $n again.',
+      'withdrawn' => 'Upload $uploadId was withdrawn. You can change its $n again.',
+      'conflict' => reason != null
+          ? 'Upload $uploadId was stopped: some records were changed on the server ($reason). '
+              'Its $n stay locked for now.\n$list'
+          : 'Upload $uploadId was stopped because some records were changed on the server. It was taken back, '
+              'so you can change its $n again. Settle the records below, then send your work again.\n$list',
+      'unknown' => 'The server does not show upload $uploadId to you. Its $n stay locked.',
+      _ => 'Upload $uploadId: $status.',
+    };
+  }
 }
 
 /// What an upload would send now, and what stops it.
@@ -332,8 +430,30 @@ class SyncResolution {
   /// items (never on the server).
   final bool droppedNew;
 
+  /// Whose record it is (see [SyncProblem.owner]); only [message] uses it.
+  final String? owner;
+
   const SyncResolution(
-      {required this.table, required this.key, required this.choice, this.serverVersion, this.droppedNew = false});
+      {required this.table,
+      required this.key,
+      required this.choice,
+      this.serverVersion,
+      this.droppedNew = false,
+      this.owner});
+
+  /// What was done, in plain words for screens ([toString] is the console's).
+  String get message {
+    final record = syncCap(syncRecordText(table, owner));
+    if (droppedNew) return '$record was removed from this device. The rest of your work can be sent.';
+    if (choice == SyncChoice.mine) {
+      return serverVersion == null
+          ? '$record stays deleted.'
+          : "$record keeps your version. It replaces the server's when you send your work.";
+    }
+    return serverVersion == null
+        ? '$record was removed from this device: it is no longer on the server.'
+        : "$record now has the server's version.";
+  }
 
   @override
   String toString() => droppedNew
@@ -388,6 +508,18 @@ class SyncUploadResult {
           ? 'Upload $uploadId sent: $records row(s). Its decision could not be read ($statusError); check the upload status (sync-status).'
           : 'Upload $uploadId sent: $records row(s), waiting for approval.'
               '${applyError == null ? '' : '\nIt could not be applied at once: $applyError'}');
+
+  /// What happened, in plain words for screens ([toString] is the console's).
+  String get message {
+    if (outcome != null) return outcome!.message;
+    final n = syncCount(records, 'record');
+    if (statusError != null) {
+      return 'Upload $uploadId was sent ($n). BASA could not read the answer yet. '
+          'Open Send my work again later to see it.';
+    }
+    return 'Upload $uploadId was sent ($n). It waits for approval.'
+        '${applyError == null ? '' : '\nIt could not be approved at once: $applyError'}';
+  }
 }
 
 /// What sync() did: the preview, the upload (null when nothing was sent)

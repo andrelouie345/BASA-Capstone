@@ -53,7 +53,7 @@ class UserViewModel {
   }
 
   void _requireAdminOrCoordinator() {
-    if (!_isAdminOrCoordinator) throw const ViewModelException('Forbidden: admin or coordinator only.');
+    if (!_isAdminOrCoordinator) throw const ViewModelException('Not allowed: admin or coordinator only.');
   }
 
   /// Every account the user can see: all of them for a superadmin, their own
@@ -87,7 +87,7 @@ class UserViewModel {
       throw const ViewModelException('Only a superadmin can create an admin with no school.');
     }
     if (schoolId != null && !_isSuperadmin && schoolId != _auth.currentUser?.schoolId) {
-      throw const ViewModelException('Forbidden: you can only create users for your own school.');
+      throw const ViewModelException('Not allowed: you can only create users for your own school.');
     }
 
     final String? tempPassword;
@@ -142,7 +142,7 @@ class UserViewModel {
     try {
       await write();
     } catch (e) {
-      lastMirrorWarning = 'Saved online, but the copy on this device was not updated. Download the latest data (pull-cloud).';
+      lastMirrorWarning = 'Saved online, but the copy on this device was not updated. Download the latest data.';
       _log('mirror failed: $e');
     }
   }

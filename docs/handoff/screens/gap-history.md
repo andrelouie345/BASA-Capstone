@@ -125,7 +125,7 @@ Status: ✅ fixed (VM completeness Task 4).
 ## admin.md
 
 **ADMIN-G1** (I, R, G) — `login-recent`/`login-history` build `LoginLogRepositorySupabase(authVm.client!)` in the command, and the sign-in + admin/coordinator checks are only in the command. `LoginLogViewModel` takes repositories (`useRepository`, `cloud:`) and checks nothing.
-Fix: `LoginLogViewModel` gets the `AuthViewModel` and a cloud-repository factory in its constructor (wiring, like the other ViewModels); `loadRecent({int limit = 50})` and `loadForUser(String userId)` call `requireOnlineSession()` and refuse non-admin/coordinator with `ViewModelException('Forbidden: admin or coordinator only.')`; `record(...)` checks `requireActiveSession()` + the same role. `useRepository` and the `cloud:` parameter go away. Console output unchanged.
+Fix: `LoginLogViewModel` gets the `AuthViewModel` and a cloud-repository factory in its constructor (wiring, like the other ViewModels); `loadRecent({int limit = 50})` and `loadForUser(String userId)` call `requireOnlineSession()` and refuse non-admin/coordinator with `ViewModelException('Not allowed: admin or coordinator only.')`; `record(...)` checks `requireActiveSession()` + the same role. `useRepository` and the `cloud:` parameter go away. Console output unchanged.
 Removes baseline: `core/console/commands/login_commands.dart -> core/data/remote/login_log_repository_supabase.dart`
 Decision: fix (owner 2026-10-24, as recommended).
 Status: ✅ fixed (VM completeness Task 4).
@@ -250,8 +250,8 @@ Fix: no code change if COMMON-G1 is accepted (log the error before rethrowing, o
 Decision: no code change beyond logging the error before the rethrow, since COMMON-G1 is accepted (owner 2026-10-24).
 Status: ✅ fixed (VM completeness Task 7).
 
-**ARAL-G10** (E, found in Task 7) — `aral_material_viewmodel.dart` put the database's CHECK text in a `ViewModelException` (`'The database refused the values (${e.message}).'`).
-Fix: `'The database refused the values.'`; the text goes to the log.
+**ARAL-G10** (E, found in Task 7) — `aral_material_viewmodel.dart` put the database's CHECK text in a `ViewModelException` (`'The server did not accept the values (${e.message}).'`).
+Fix: `'The server did not accept the values.'`; the text goes to the log.
 Decision: fix (owner 2026-10-24, as recommended).
 Status: ✅ fixed (VM completeness Task 7).
 

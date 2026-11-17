@@ -56,7 +56,7 @@ class ConflictResolution {
 }
 
 /// Refusal of [ImportViewModel.transferConflicts] for anyone but the superadmin.
-const transferConflictsForbiddenMessage = 'Forbidden: only the superadmin sees the transfers across schools.';
+const transferConflictsForbiddenMessage = 'Not allowed: only the superadmin sees the transfers across schools.';
 
 /// Where a learner is this school year (their one enrollment), as the
 /// transfers list shows it.
@@ -149,7 +149,7 @@ class ImportViewModel {
     if (sessionError != null) throw ViewModelException(sessionError);
     final role = _auth.currentUser?.role;
     if (role != UserRole.admin && role != UserRole.coordinator) {
-      throw const ViewModelException('Forbidden: admin or coordinator only.');
+      throw const ViewModelException('Not allowed: admin or coordinator only.');
     }
     return _cloudFor(_auth.client!);
   }
@@ -358,7 +358,7 @@ class ImportViewModel {
       r = await cloud.leavers.transferIn(conflict.id!);
     } on PostgrestException catch (e) {
       _log('transfer refused: ${e.message}');
-      throw ViewModelException('The database refused it: ${e.message}.');
+      throw ViewModelException('The server did not accept this: ${e.message}.');
     }
     pendingConflicts.removeWhere((c) => c.id == conflict.id);
     String? warning;
@@ -366,7 +366,7 @@ class ImportViewModel {
       await _localSections.upsertWithId(section);
       await _mirror?.call(r);
     } catch (e) {
-      warning = "Saved on the server, but this device's copy was not updated: pull to refresh (pull-cloud yes).";
+      warning = "Saved on the server, but this device's copy was not updated: download the latest data to refresh it.";
       _log('WARNING: transfer mirror failed ($e)');
     }
     final student = r['student'] as Map;
@@ -476,8 +476,8 @@ String? sf1OtherSchoolRefusal({
   required String fileSchoolName,
   required School? ownSchool,
 }) {
-  if (ownSchool == null) return 'Forbidden: your school could not be read, so the roster cannot be checked.';
+  if (ownSchool == null) return 'Not allowed: your school could not be read, so the roster cannot be checked.';
   if (ownSchool.schoolId.trim() == fileSchoolCode.trim()) return null;
-  return 'Forbidden: this roster is for school ${fileSchoolCode.trim()} ($fileSchoolName); '
+  return 'Not allowed: this roster is for school ${fileSchoolCode.trim()} ($fileSchoolName); '
       "you can only import your own school's rosters.";
 }

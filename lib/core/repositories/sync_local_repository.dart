@@ -9,6 +9,11 @@ abstract class SyncLocalRepository {
   /// New, edited and pending work not on the server yet.
   Future<List<LocalWorkLine>> localWork();
 
+  /// Whose record [key] of synced [table] is, in words for screens: the
+  /// learner's name ("DELA CRUZ, JUAN"), a class (`class "ABA"`) or a
+  /// section ("Grade 7 RIZAL"); null when this device doesn't hold it.
+  Future<String?> recordOwner(String table, String key);
+
   /// Hands the device to [userId] at an online sign-in. Nothing changes when
   /// they already own it. Otherwise the device copy is deleted (every table a
   /// pull empties, the sync journal, other users' offline sign-in) and

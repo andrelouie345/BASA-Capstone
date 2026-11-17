@@ -278,7 +278,7 @@ class SrpViewModel {
     schoolYear = normalizeSchoolYear(schoolYear);
     final manager = _manages(me, schoolId);
     if (!manager && !(me.role == UserRole.tutor && me.schoolId == schoolId)) {
-      throw const ViewModelException("Forbidden: that school's SRP classes are not yours to see.");
+      throw const ViewModelException("Not allowed: that school's SRP classes are not yours to see.");
     }
     var list = await _local.classesFor(schoolId, schoolYear);
     if (!manager) list = list.where((c) => c.tutorId == me.id).toList();
@@ -385,7 +385,7 @@ class SrpViewModel {
     String? tutorId;
     if (tutorEmail != null) {
       final u = await _users.getByEmail(tutorEmail.trim());
-      if (u == null) throw ViewModelException('No user $tutorEmail on this device. Download the latest data (pull-cloud).');
+      if (u == null) throw ViewModelException('No tutor with the email $tutorEmail on this device. Download the latest data, then try again.');
       if (u.role != UserRole.tutor || !u.isActive || u.schoolId != current.schoolId) {
         throw ViewModelException('${u.email} is not an active tutor of school ${current.schoolId}.');
       }
@@ -512,7 +512,7 @@ class SrpViewModel {
     final sessionError = _auth.requireOnlineSession();
     if (sessionError != null) throw ViewModelException(sessionError);
     if (!_manages(_me(), schoolId)) {
-      throw const ViewModelException("Forbidden: only an admin or coordinator of the school manages its SRP classes.");
+      throw const ViewModelException("Not allowed: only an admin or coordinator of the school manages its SRP classes.");
     }
     lastMirrorWarning = null;
     return _cloudFor(_auth.client!);
@@ -520,7 +520,7 @@ class SrpViewModel {
 
   Future<SrpClass> _class(int id) async {
     final c = await _local.findClass(id);
-    if (c == null) throw ViewModelException('No SRP class with id $id on this device. Download the latest data (pull-cloud).');
+    if (c == null) throw ViewModelException('This SRP class is not on this device. Download the latest data, then try again.');
     return c;
   }
 
@@ -544,12 +544,12 @@ class SrpViewModel {
     try {
       return await write();
     } on PostgrestException catch (e) {
-      if (e.code == '42501') throw const ViewModelException('Forbidden: the database refused this change.');
+      if (e.code == '42501') throw const ViewModelException('Not allowed: the server did not accept this change.');
       if (e.code == '23505') {
         throw const ViewModelException(
             'Already there: a class with that name exists, or the learner is already in an SRP class this school year.');
       }
-      if (e.code == 'P0001' || e.code == '23514') throw ViewModelException('The database refused it: ${e.message}.');
+      if (e.code == 'P0001' || e.code == '23514') throw ViewModelException('The server did not accept this: ${e.message}.');
       rethrow;
     }
   }
@@ -558,7 +558,7 @@ class SrpViewModel {
     try {
       await write();
     } catch (e) {
-      lastMirrorWarning = 'The SRP classes were changed online, but the copy on this device was not updated. Download the latest data (pull-cloud).';
+      lastMirrorWarning = 'The SRP classes were changed online, but the copy on this device was not updated. Download the latest data.';
       _log('SRP classes mirror failed: $e');
     }
   }

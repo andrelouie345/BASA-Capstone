@@ -77,7 +77,7 @@ class SyncApproveResult {
 
   @override
   String toString() => switch (status) {
-        'applied' => 'Upload $uploadId applied.${note == null ? '' : ' $note.'} Download the latest data to see it on this device (pull-cloud).',
+        'applied' => 'Upload $uploadId applied.${note == null ? '' : ' $note.'} Download the latest data to see it on this device.',
         'conflict' => 'Upload $uploadId stopped on ${conflicts.length} conflict(s), sent back to $uploader:\n'
             '${conflicts.map((c) => '  $c').join('\n')}',
         'release' => 'Upload $uploadId was made by an older BASA release: reject it so $uploader updates BASA '
@@ -194,7 +194,7 @@ class SyncReviewViewModel {
     if (error != null) throw ViewModelException(error);
     final me = _auth.currentUser!;
     if (me.role != UserRole.admin && me.role != UserRole.coordinator) {
-      throw const ViewModelException('Forbidden: only an admin or coordinator reviews uploads.');
+      throw const ViewModelException('Not allowed: only an admin or coordinator reviews uploads.');
     }
     return me;
   }
@@ -204,10 +204,10 @@ class SyncReviewViewModel {
 
   int _ownSchool(User me, int? schoolId) {
     if (me.schoolId == null) {
-      throw const ViewModelException('Forbidden: your account has no school, so it reviews no uploads.');
+      throw const ViewModelException('Not allowed: your account has no school, so it reviews no uploads.');
     }
     if (schoolId != null && schoolId != me.schoolId) {
-      throw const ViewModelException("Forbidden: you can only review your own school's uploads.");
+      throw const ViewModelException("Not allowed: you can only review your own school's uploads.");
     }
     return me.schoolId!;
   }

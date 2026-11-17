@@ -37,13 +37,13 @@ import 'viewmodel_exception.dart';
 /// moved to another section, SF1 leavers D14), the upload still takes the
 /// work, so uploading comes first; discard-local deletes the work.
 String pullOrphansRefusal(List<PullOrphan> orphans) {
-  final head = 'Refused, nothing was changed: ${orphans.length} record(s) on this device point at '
-      'data the server no longer gives you:\n${orphans.map((o) => '  $o').join('\n')}\n';
+  final head = 'Not downloaded, nothing was changed: ${syncCount(orphans.length, 'record')} on this device '
+      '${orphans.length == 1 ? 'belongs' : 'belong'} to learners, sections or records the server no longer gives you.\n';
   if (orphans.any((o) => o.refTable == 'students' || o.refTable == 'sections')) {
-    return '${head}Upload this device\'s work first (sync-upload), then pull again. '
-        'Only if the upload can\'t go: pull-cloud yes discard-local (it deletes this work).';
+    return '${head}Send your work first (Send my work), then download again. Only if it cannot be sent: '
+        'use "Delete unsent work and download" (it deletes this work).';
   }
-  return '${head}To go on, download again and delete this device\'s unsent work (pull-cloud yes discard-local).';
+  return '${head}To go on, use "Delete unsent work and download" (it deletes this device\'s unsent work).';
 }
 
 class SyncViewModel {
@@ -99,9 +99,9 @@ class SyncViewModel {
     await refreshStatus();
     final preview = await pullPreview();
     if (preview.ownerSwitch && preview.localTotal > 0 && !discardLocal) {
-      throw ViewModelException('Refused: this device holds work of ${preview.owner!.email ?? preview.owner!.userId} '
+      throw ViewModelException('Not downloaded: this device holds work of ${preview.owner!.email ?? 'another user'} '
           'that is not on the server yet:\n${_lines(preview.localWork)}\n'
-          'They must sync first, or download again and delete it (pull-cloud yes discard-local).');
+          'They should send it first. Or delete it with "Delete unsent work and download".');
     }
 
     final Map<String, List<Map<String, dynamic>>> fetched;
@@ -136,7 +136,7 @@ class SyncViewModel {
     final settled = await refreshStatus();
     final package = await _uploadLocal.buildPackage(release: release);
     final problems = await _server('check the records against the server', () => _problems(package));
-    return SyncPreview(package: package, problems: problems, settled: settled);
+    return SyncPreview(package: package, problems: await _withOwners(problems), settled: settled);
   }
 
   /// Settles one problem of [preview]: [SyncChoice.mine] keeps this device's
@@ -153,22 +153,24 @@ class SyncViewModel {
     final r = package.records
         .where((r) => r.table == table && r.rowKey == key && !r.isFollowUp)
         .firstOrNull;
-    if (r == null) throw ViewModelException('Nothing to resolve for $table $key.');
+    final owner = await _local.recordOwner(table, key);
+    final record = syncRecordText(table, owner);
+    if (r == null) throw ViewModelException('Nothing to settle: $record has no problem now.');
     final remote = _remote;
-    if (r.op == 'insert') return _resolveNew(remote, r, choice);
+    if (r.op == 'insert') return _resolveNew(remote, r, choice, owner);
     final server = await _server('read $table $key from the server',
         () async => (await remote.rowsWhere(table, r.keyColumn, [r.key])).firstOrNull);
     final version = (server?['row_version'] as num?)?.toInt();
 
-    if (version == r.baseVersion) throw ViewModelException('Nothing to resolve for $table $key.');
+    if (version == r.baseVersion) throw ViewModelException('Nothing to settle: $record has no problem now.');
     if (choice == SyncChoice.mine) {
       if (version != null) {
         await _uploadLocal.setBaseVersion(table, key, version);
       } else if (r.op == 'delete') {
         await _uploadLocal.dropJournalLine(table, key);
       } else {
-        throw ViewModelException('The server no longer has $table $key for you, so your change cannot be kept. '
-            'Use "server" to drop it.');
+        throw ViewModelException("${syncCap(record)} is no longer on the server for you, so your change can't be kept. "
+            "Take the server's to remove it from this device.");
       }
     } else {
       final rows = server == null
@@ -176,31 +178,37 @@ class SyncViewModel {
           : await _server('read $table $key from the server', () => _serverTree(remote, table, server));
       await _uploadLocal.restoreServerCopy(table, key, rows);
     }
-    return SyncResolution(table: table, key: key, choice: choice, serverVersion: version);
+    return SyncResolution(table: table, key: key, choice: choice, serverVersion: version, owner: owner);
   }
 
   /// A new record: only one of an archived learner has something to resolve.
-  Future<SyncResolution> _resolveNew(SyncRemoteRepository remote, SyncRecord r, SyncChoice choice) async {
+  Future<SyncResolution> _resolveNew(SyncRemoteRepository remote, SyncRecord r, SyncChoice choice, String? owner) async {
+    final record = syncRecordText(r.table, owner);
     final learner = _learnerOf(r);
     final archived = learner == null
         ? null
         : (await _server('check the learner on the server', () => remote.archivedLearners([learner]))).firstOrNull;
-    if (archived == null) throw ViewModelException('Nothing to resolve for ${r.table} ${r.rowKey}.');
+    if (archived == null) throw ViewModelException('Nothing to settle: $record has no problem now.');
     if (choice == SyncChoice.mine && archived.transferredOn != null) {
-      throw ViewModelException('Refused: ${r.table} ${r.rowKey} is a new record of '
-          '${syncArchivedLearnerText(archived)}, and the server refuses new records of a learner who left this '
-          'school, so yours cannot be kept: drop it with sync-resolve ${r.table} ${r.rowKey} server.');
+      throw ViewModelException("Can't keep it: $record is new, but the learner moved to another school: "
+          "${syncArchivedLearnerText(archived)}. The server does not accept it. Take the server's to remove "
+          'it from this device.');
     }
     if (choice == SyncChoice.mine) {
-      throw ViewModelException('Refused: ${r.table} ${r.rowKey} is a new record of '
-          '${syncArchivedLearnerText(archived)}, and the server refuses new records of an archived learner, '
-          'so yours cannot be kept. Ask the coordinator to restore the learner, then upload; '
-          'or drop it with sync-resolve ${r.table} ${r.rowKey} server.');
+      throw ViewModelException("Can't keep it: $record is new, but the learner was archived: "
+          '${syncArchivedLearnerText(archived)}. The server does not accept it. Ask your coordinator to '
+          "restore the learner and then send your work, or take the server's to remove it from this device.");
     }
     await _uploadLocal.restoreServerCopy(r.table, r.rowKey, const {});
     _log('dropped new ${r.table} ${r.rowKey} (archived learner ${archived.studentId})');
-    return SyncResolution(table: r.table, key: r.rowKey, choice: choice, droppedNew: true);
+    return SyncResolution(table: r.table, key: r.rowKey, choice: choice, droppedNew: true, owner: owner);
   }
+
+  /// [problems] with their owners read from this device (for the screens'
+  /// plain messages).
+  Future<List<SyncProblem>> _withOwners(List<SyncProblem> problems) async => [
+        for (final p in problems) p.withOwner(await _local.recordOwner(p.table, p.key)),
+      ];
 
   /// (learner, school year, school) of a new record of a
   /// [syncLearnerTables] table about a learner the server has (positive id);
@@ -252,8 +260,8 @@ class SyncViewModel {
                 uploadId: id,
                 status: 'conflict',
                 records: records,
-                reason: 'it could not be withdrawn on the server (${_plain(e)}); check the upload status again (sync-status)',
-                conflicts: row.conflicts));
+                reason: 'BASA could not take it back from the server (${_plain(e)}); open Send my work again later',
+                conflicts: await _withOwners(row.conflicts)));
             continue;
           }
           await _uploadLocal.releaseUpload(id);
@@ -266,7 +274,7 @@ class SyncViewModel {
           status: row.status,
           records: records,
           reason: row.reason,
-          conflicts: row.conflicts,
+          conflicts: await _withOwners(row.conflicts),
           note: row.note));
     }
     return out;
@@ -280,16 +288,17 @@ class SyncViewModel {
     _guard();
     await _requireOwner();
     final p = await preview();
-    if (p.package.isEmpty) throw ViewModelException('Nothing to upload.');
+    if (p.package.isEmpty) throw ViewModelException('Nothing to send: all your work is on the server or waiting for approval.');
     if (p.problems.isNotEmpty) {
-      throw ViewModelException('Resolve these first (sync-resolve <table> <key> mine|server):\n'
-          '${p.problems.map((x) => '  $x').join('\n')}');
+      throw ViewModelException('Not sent: settle these records first (keep mine, or take the server\'s):\n'
+          '${p.problems.map((x) => '• ${x.message}').join('\n')}');
     }
     final payload = p.package.toJson();
     final bytes = utf8.encode(jsonEncode(payload)).length;
     if (bytes > maxPackageBytes) {
-      throw ViewModelException('Too much unsynced work for one upload (${bytes ~/ 1024} KB, the limit is '
-          '${maxPackageBytes ~/ 1024} KB); sync more often:\n${_lines(p.package.summary)}');
+      throw ViewModelException('Not sent: there is too much work for one upload (${bytes ~/ 1024} KB, the most is '
+          '${maxPackageBytes ~/ 1024} KB). Ask your coordinator for help, and send your work more often:\n'
+          '${_lines(p.package.summary)}');
     }
 
     final clientId = newUuidV4();
@@ -315,12 +324,13 @@ class SyncViewModel {
       try {
         found = await remote.uploadByClientId(clientId);
       } catch (_) {
-        throw ViewModelException('Upload state unknown (the server did not answer): ${_plain(e)}\n'
-            'Its rows stay locked; check the upload status when online (sync-status).');
+        throw ViewModelException('The server did not answer, so BASA does not know if your work arrived '
+            '(${_plain(e)}). It stays locked on this device. Open Send my work again when you are online.');
       }
       if (found == null) {
         await _uploadLocal.abandonUpload();
-        throw ViewModelException('Upload refused, nothing was sent: ${_plain(e)}');
+        throw ViewModelException('Not sent: the server did not accept the upload (${_plain(e)}). '
+            'Nothing was sent; you can try again.');
       }
       row = found;
     }
@@ -405,8 +415,9 @@ class SyncViewModel {
     try {
       found = await remote.uploadByClientId(f.clientUploadId);
     } catch (e) {
-      throw ViewModelException('Upload state unknown (the server did not answer): ${_plain(e)}\n'
-          'Its ${f.recordCount} row(s) stay locked; check the upload status when online (sync-status).');
+      throw ViewModelException('The server did not answer, so BASA does not know if your last upload arrived '
+          '(${_plain(e)}). Its ${syncCount(f.recordCount, 'record')} stay locked on this device. '
+          'Open Send my work again when you are online.');
     }
     if (found == null) {
       await _uploadLocal.abandonUpload();
@@ -443,9 +454,9 @@ class SyncViewModel {
   /// Only the device owner (the last puller) uploads this device's work.
   Future<void> _requireOwner() async {
     final owner = await _local.owner();
-    if (owner == null) throw ViewModelException('This device was never pulled. Download the latest data first (pull-cloud yes).');
+    if (owner == null) throw ViewModelException('Nothing on this device yet. Download the latest data first.');
     if (owner.userId != _auth.currentUser?.id) {
-      throw ViewModelException('This device\'s work belongs to ${owner.email ?? owner.userId}; only they can sync it.');
+      throw ViewModelException("The work on this device is ${owner.email ?? 'another user'}'s. Only they can send it.");
     }
   }
 
@@ -537,7 +548,7 @@ class SyncViewModel {
   }
 }
 
-String _lines(List<LocalWorkLine> work) => work.map((l) => '  $l').join('\n');
+String _lines(List<LocalWorkLine> work) => work.map((l) => '• ${l.message}').join('\n');
 
 /// "CRLA mosy2 (row 12)" for each pulled calendar row whose round this app
 /// version does not know for its instrument (the server holds a newer round

@@ -157,6 +157,55 @@ class SyncLocalRepositorySqlite implements SyncLocalRepository {
     ];
   }
 
+  /// The learner each learner-owned table reaches, as (table, its learner
+  /// column): `student_id` directly or `enrollment_id` through the roster.
+  static const _learnerColumn = <String, String>{
+    'crla_assessments': 'student_id',
+    'phil_iri_assessments': 'student_id',
+    'phil_iri_gst_results': 'student_id',
+    'aral_enrollments': 'student_id',
+    'aral_attendance': 'enrollment_id',
+    'aral_irip_weeks': 'enrollment_id',
+    'aral_checkins': 'enrollment_id',
+    'aral_readability_logs': 'enrollment_id',
+  };
+
+  @override
+  Future<String?> recordOwner(String table, String key) async {
+    // Items name their owner record's owner: climb to the record first.
+    var t = table;
+    Object k = key;
+    for (var up = syncedParents[t]; up != null; up = syncedParents[t]) {
+      final (parent, column) = up;
+      final rows = await db.query(t, columns: [column], where: '${syncedTables[t]} = ?', whereArgs: [k], limit: 1);
+      if (rows.isEmpty || rows.first[column] == null) return null;
+      (t, k) = (parent, rows.first[column]!);
+    }
+    String? text(List<Map<String, Object?>> rows) => rows.isEmpty ? null : rows.first['t'] as String?;
+    if (_learnerColumn[t] case final column?) {
+      final student = column == 'student_id'
+          ? 'x.student_id'
+          : '(SELECT e.student_id FROM aral_enrollments e WHERE e.id = x.enrollment_id)';
+      return text(await db.rawQuery(
+          "SELECT s.last_name || ', ' || s.first_name AS t FROM $t x JOIN students s ON s.id = $student "
+          'WHERE x.id = ?',
+          [k]));
+    }
+    return switch (t) {
+      'aral_classes' =>
+        text(await db.rawQuery("SELECT 'class \"' || class_name || '\"' AS t FROM aral_classes WHERE id = ?", [k])),
+      'aral_sessions' => text(await db.rawQuery(
+          "SELECT 'class \"' || c.class_name || '\" on ' || x.held_on AS t FROM aral_sessions x "
+          'JOIN aral_classes c ON c.id = x.class_id WHERE x.id = ?',
+          [k])),
+      'phil_iri_workbook_imports' => text(await db.rawQuery(
+          "SELECT 'Grade ' || s.grade_level || ' ' || s.section_name AS t FROM phil_iri_workbook_imports x "
+          'JOIN sections s ON s.id = x.section_id WHERE x.id = ?',
+          [k])),
+      _ => null,
+    };
+  }
+
   @override
   Future<PullMerge> mergePull(
     Map<String, List<Map<String, dynamic>>> fetched, {

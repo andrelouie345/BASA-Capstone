@@ -259,9 +259,9 @@ class TrendViewModel {
         totalName = 'School total';
       case RegionScope():
         if (me.role != UserRole.admin && me.role != UserRole.coordinator) {
-          throw const ViewModelException('Forbidden: only an admin or coordinator sees trend charts.');
+          throw const ViewModelException('Not allowed: only an admin or coordinator sees trend charts.');
         }
-        if (me.schoolId != null) throw const ViewModelException('Forbidden: only the superadmin sees the region.');
+        if (me.schoolId != null) throw const ViewModelException('Not allowed: only the superadmin sees the region.');
         name = 'Region';
         final schools = (await _schools.getAll())..sort((a, b) => a.schoolName.compareTo(b.schoolName));
         for (final school in schools) {
@@ -370,20 +370,20 @@ class TrendViewModel {
     final me = _auth.currentUser;
     if (me == null) throw const ViewModelException(notSignedInMessage);
     if (me.role != UserRole.admin && me.role != UserRole.coordinator) {
-      throw const ViewModelException('Forbidden: only an admin or coordinator sees trend charts.');
+      throw const ViewModelException('Not allowed: only an admin or coordinator sees trend charts.');
     }
     switch (scope) {
       case TutorScope():
-        throw const ViewModelException('Forbidden: tutor scope is only for ARAL activity.');
+        throw const ViewModelException('Not allowed: tutor scope is only for ARAL activity.');
       case RegionScope():
         if (me.schoolId != null) {
-          throw const ViewModelException('Forbidden: only the superadmin sees the region.');
+          throw const ViewModelException('Not allowed: only the superadmin sees the region.');
         }
         final schools = (await _schools.getAll())..sort((a, b) => a.schoolName.compareTo(b.schoolName));
         return (name: 'Region', schools: schools, sectionIds: null);
       case SchoolScope(:final schoolId):
         if (me.schoolId != null && me.schoolId != schoolId) {
-          throw const ViewModelException('Forbidden: that school is not yours.');
+          throw const ViewModelException('Not allowed: that school is not yours.');
         }
         final school = await _schools.getById(schoolId) ?? (throw ViewModelException('No school $schoolId on this device.'));
         return (name: school.schoolName, schools: [school], sectionIds: null);
@@ -391,7 +391,7 @@ class TrendViewModel {
         final Section section =
             await _sections.getById(sectionId) ?? (throw ViewModelException('No section $sectionId on this device.'));
         if (me.schoolId != null && me.schoolId != section.schoolId) {
-          throw const ViewModelException('Forbidden: that section is not in your school.');
+          throw const ViewModelException('Not allowed: that section is not in your school.');
         }
         if (section.schoolYear != year) {
           throw ViewModelException('Section $sectionId is in ${section.schoolYear}, not $year.');

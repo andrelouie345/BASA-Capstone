@@ -516,6 +516,6 @@ void main() {
     await signInAs(_tutor, 'tutor@zz', 'tutor');
     expect(() => vm.previewWorkbook(workbook()),
         throwsA(isA<ViewModelException>().having((e) => e.message, 'message', PhilIriImportViewModel.forbiddenMessage)));
-    expect(PhilIriImportViewModel.forbiddenMessage, 'Forbidden: only an admin or coordinator imports Phil-IRI results.');
+    expect(PhilIriImportViewModel.forbiddenMessage, 'Not allowed: only an admin or coordinator imports Phil-IRI results.');
   });
 }

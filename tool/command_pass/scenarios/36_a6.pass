@@ -31,9 +31,9 @@ refuse The offline sign-in window is 1 to 60 days, not 0.
 run offline-days-set {school} {=61}
 refuse The offline sign-in window is 1 to 60 days, not 61.
 run offline-days-set region {=30}
-refuse Forbidden: only the superadmin sets the region-wide report settings.
+refuse Not allowed: only the superadmin sets the region-wide report settings.
 run offline-days-set {schoolB} {=30}
-refuse Forbidden: you can only set your own school's report settings.
+refuse Not allowed: you can only set your own school's report settings.
 # A device that is behind (F20): another device resets the school's row, the
 # server gives the new row a new id, then this device writes.
 device a6-pc2 admin fresh
@@ -83,9 +83,9 @@ refuse Usage: sync-auto-approve <region|schoolId> [on|off]
 run sync-auto-approve
 refuse Usage: sync-auto-approve <region|schoolId> [on|off]
 run sync-auto-approve region on
-refuse Forbidden: only the superadmin sets the region-wide report settings.
+refuse Not allowed: only the superadmin sets the region-wide report settings.
 run sync-auto-approve {schoolB} on
-refuse Forbidden: you can only set your own school's report settings.
+refuse Not allowed: you can only set your own school's report settings.
 run sync-pending
 expect Nothing is waiting for approval.
 expect 0 upload(s) still pending.
@@ -111,7 +111,7 @@ expect 1 upload(s) still pending.
 run sync-pending {school}
 expect 1 upload(s) still pending.
 run sync-pending {schoolB}
-refuse Forbidden: you can only review your own school's uploads.
+refuse Not allowed: you can only review your own school's uploads.
 run sync-pending x
 refuse Usage: sync-pending [schoolId]
 run sync-show latest
@@ -252,13 +252,13 @@ expect Done. Local data now belongs to zztest.super@basa.test.
 # --- A tutor on the admin build reviews nothing -------------------------------
 as tutor1
 run sync-pending
-refuse Forbidden: only an admin or coordinator reviews uploads.
+refuse Not allowed: only an admin or coordinator reviews uploads.
 run sync-approve latest
-refuse Forbidden: only an admin or coordinator reviews uploads.
+refuse Not allowed: only an admin or coordinator reviews uploads.
 run offline-days-set {school} 5
-refuse Forbidden: only an admin or coordinator sets the report settings.
+refuse Not allowed: only an admin or coordinator sets the report settings.
 run sync-auto-approve {school} on
-refuse Forbidden: only an admin or coordinator sets the report settings.
+refuse Not allowed: only an admin or coordinator sets the report settings.
 
 # --- Back to B0's settings -------------------------------------------------------
 device coord-pc admin
