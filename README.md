@@ -1,3 +1,5 @@
+**Start here:** [How the BASA code works](docs/guides/BASA_How_the_code_works.pdf) · Why BASA does it this way: [CRLA](docs/guides/BASA_CRLA.pdf) · [Phil-IRI](docs/guides/BASA_Phil-IRI.pdf) · [ARAL](docs/guides/BASA_ARAL.pdf) (the `.html` beside each PDF is its source)
+
 # BASA — Backend Setup Guide
 
 This covers standing up the backend (users, schools, roster, CRLA, Phil-IRI,
@@ -45,7 +47,7 @@ project) runs nothing here.
 ### 2b. Newer migrations
 
 Run every file in `supabase/migrations/` that is **newer** than the baseline,
-in filename order (the timestamps sort them). As of 2026-10-19 they are
+in filename order (the timestamps sort them). As of 2026-11-14 they are
 `20261018050000` (ARAL readability log), `20261019010000` and `20261019020000`
 (SRP classes), `20261019030000` (assessment calendar), `20261019040000`
 (report settings), `20261019050000` (calendar round pairing),
@@ -174,6 +176,12 @@ also loads them, see `supabase/config.toml`):
 ARAL learning materials are **not** seeded and their files are not stored in
 Supabase; see *ARAL learning materials* below.
 
+**CRLA stories are not seeded either.** No file here adds rows to
+`crla_stories`, and the console only lists them (`crla-stories`). A new project
+has none, so CRLA's "% correct words read" and the reading profile stay empty
+until its region's stories are added (the original project has Region X,
+Grades 1-3). Story import from the source workbooks is planned.
+
 ### Deliberately missing policies
 
 An absent policy means "denied":
@@ -279,6 +287,10 @@ the top-left corner on a phone. An older test install named
 ```
 bootstrap-admin cloud <admin-email> <admin full name>
 ```
+
+This is the debug console. A release build has no console: use the admin app's
+**First admin** screen (Manage), which does the same through the
+`bootstrap-admin` Edge Function on the server set in Server settings.
 
 Only works once per project. The bootstrapped admin has `school_id =
 NULL`, making them a **superadmin** by definition — the account meant to
@@ -435,7 +447,8 @@ the approver's device. With auto-approve on for a school, its tutors' uploads
 apply as they arrive (uploads already waiting still need `sync-approve`);
 admin/coordinator uploads always apply at once. Settings reach the tablets at
 their next pull. `report-settings-reset <schoolId>` drops the school's done
-threshold, auto-approve and offline window so the region's apply.
+threshold, auto-approve, offline window, FLT setting, archive period and
+Phil-IRI value switches so the region's apply.
 
 **Local cache only** (offline reads — may lag behind Supabase)
 
@@ -588,13 +601,21 @@ reason.
   them.
 - **Orphaned students** (`school_id` NULL, never enrolled) can be updated
   by any admin/coordinator but deleted only by a superadmin.
-- **A device has one owner** (the last user who pulled). Another user's
-  `pull-cloud` is refused while the owner has unsent or pending work on it;
-  the owner syncs first (or `pull-cloud yes discard-local` deletes that work).
-  Tablets are handed over, not shared.
-- **No separate admin/tutor builds** — role gating is currently
-  client-side/UI-level only, not enforced by excluding code from the
-  build.
+- **A device has one owner** (the last user who pulled). An online sign-in by
+  anyone else first clears the owner's copy from the device (that user then
+  downloads their own data). While the owner has work not on the server yet
+  (new, edited, pending or being sent), that sign-in is refused with no
+  override: the owner signs in and uploads first. Tablets are handed over,
+  not shared.
+- **Phil-IRI results are recomputed with the current rules** — only the
+  threshold numbers are saved with a finalized round, not its levels. Before
+  any release that changes a Phil-IRI rule, finalized rounds must be built
+  from their stored levels, or old results shift.
+- **No record transfer between BASA servers** — a learner who moves to a
+  school on another server (another division, or a school LAN server) can't
+  take their records along. A coordinator answers by hand from
+  `learner-history-lrn` until a transfer file is built.
+- **No CRLA stories in a new project** — see 2c.
 - **LAN/self-hosted profile is untested end-to-end.**
 - **The version check runs only at online sign-in** — a database migrated
   while someone is signed in is noticed at their next sign-in (or with

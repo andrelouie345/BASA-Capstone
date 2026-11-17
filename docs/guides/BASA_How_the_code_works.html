@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BASA: How the Code Works</title>
+<style>
+  @page { size: A4; margin: 18mm 17mm 18mm 17mm; }
+  :root { --ink:#1d2433; --muted:#5b6475; --accent:#1f5fa8; --soft:#eef3fa; --line:#c9d3e0; --warn:#a2541b; }
+  body { font-family: "Segoe UI", Arial, sans-serif; color: var(--ink); font-size: 10pt; line-height: 1.4; background:#fff; margin:0; }
+  h1 { font-size: 22pt; color: var(--accent); margin: 0 0 4mm; }
+  h2 { font-size: 15pt; color: var(--accent); border-bottom: 1.5px solid var(--accent); padding-bottom: 1.5mm; margin: 0 0 4mm; }
+  h3 { font-size: 11.5pt; margin: 5mm 0 1.5mm; }
+  p { margin: 0 0 2.6mm; }
+  ul, ol { margin: 0 0 3mm 0; padding-left: 6mm; }
+  li { margin-bottom: 1mm; }
+  code { font-family: Consolas, monospace; font-size: 9.4pt; background: var(--soft); padding: 0 1mm; border-radius: 2px; }
+  .page { page-break-after: always; }
+  .page:last-child { page-break-after: auto; }
+  .cover { display:flex; flex-direction:column; justify-content:center; min-height: 240mm; }
+  .cover .sub { font-size: 13pt; color: var(--muted); margin-bottom: 10mm; }
+  .cover .meta { font-size: 10pt; color: var(--muted); margin-top: 14mm; }
+  .box { background: var(--soft); border-left: 3px solid var(--accent); padding: 2.5mm 4mm; margin: 3mm 0 4mm; }
+  .box.warn { border-left-color: var(--warn); background:#fbf3ec; }
+  table { border-collapse: collapse; width: 100%; margin: 2mm 0 3mm; font-size: 9.3pt; }
+  th, td { border: 1px solid var(--line); padding: 1.2mm 2.2mm; text-align: left; vertical-align: top; }
+  th { background: var(--soft); }
+  .fig { margin: 3mm 0 4mm; text-align:center; }
+  .fig svg { max-width: 92%; height:auto; }
+  .cap { font-size: 9pt; color: var(--muted); text-align:center; margin-top: 1mm; }
+  .toc li { margin-bottom: 1.4mm; }
+  .two { display:flex; gap: 6mm; } .two > div { flex:1; }
+  svg text { font-family: "Segoe UI", Arial, sans-serif; }
+</style>
+</head>
+<body>
+
+<!-- 1. Cover -->
+<section class="page cover">
+  <h1>BASA (ARAL-Read)<br>How the Code Works</h1>
+  <div class="sub">A walkthrough of the system's parts and how they fit together</div>
+  <p>BASA is a reading-assessment app for tutors and reading coordinators in DepEd's ARAL-Reading program. It records CRLA (Grades 1 to 3) and Phil-IRI (Grades 4 to 10) assessments, runs ARAL tutoring classes, and produces the reports a school sends to the Division and the NLA portal.</p>
+  <p>This document explains <b>how the code is built</b>. It covers the layers, how data moves from a tutor's device to the server, how access is controlled, and how the release is checked. It is a summary; each part has a detailed design document in the repository (<code>docs/superpowers/specs/</code>).</p>
+  <h3>Contents</h3>
+  <ol class="toc">
+    <li>The system at a glance</li>
+    <li>Layered design (MVVM)</li>
+    <li>How the app starts and connects its parts</li>
+    <li>The data model</li>
+    <li>Who can see what: roles and row-level security</li>
+    <li>Working offline and syncing</li>
+    <li>The modules: CRLA, Phil-IRI, ARAL</li>
+    <li>Imports, exports, reports and the dashboard</li>
+    <li>Two apps from one codebase</li>
+    <li>Keeping devices and server in step</li>
+    <li>How the code is tested</li>
+    <li>Summary of design choices</li>
+  </ol>
+  <div class="meta">Built from the repository on 17 November 2026 (database schema with 32 migration files, local SQLite schema version 45).</div>
+</section>
+
+<!-- 2. At a glance -->
+<section class="page">
+  <h2>1. The system at a glance</h2>
+  <p>BASA has three kinds of parts: the <b>apps</b> on tutors' and coordinators' devices, a <b>local database</b> on each device, and one <b>central server</b> for a region or school.</p>
+  <div class="fig">
+  <svg width="640" height="250" viewBox="0 0 640 250">
+    <defs><marker id="a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#1f5fa8"/></marker></defs>
+    <rect x="10" y="20" width="190" height="90" rx="8" fill="#eef3fa" stroke="#1f5fa8"/>
+    <text x="105" y="45" text-anchor="middle" font-weight="bold" font-size="13">Tutor app</text>
+    <text x="105" y="64" text-anchor="middle" font-size="11">Android phone / Windows PC</text>
+    <rect x="30" y="75" width="150" height="26" rx="4" fill="#fff" stroke="#8aa3c4"/>
+    <text x="105" y="92" text-anchor="middle" font-size="11">SQLite (device copy)</text>
+    <rect x="10" y="140" width="190" height="90" rx="8" fill="#eef3fa" stroke="#1f5fa8"/>
+    <text x="105" y="165" text-anchor="middle" font-weight="bold" font-size="13">Admin app</text>
+    <text x="105" y="184" text-anchor="middle" font-size="11">coordinators and admins</text>
+    <rect x="30" y="195" width="150" height="26" rx="4" fill="#fff" stroke="#8aa3c4"/>
+    <text x="105" y="212" text-anchor="middle" font-size="11">SQLite (device copy)</text>
+    <rect x="400" y="55" width="225" height="140" rx="8" fill="#fff" stroke="#1f5fa8" stroke-width="1.5"/>
+    <text x="512" y="80" text-anchor="middle" font-weight="bold" font-size="13">Supabase server</text>
+    <text x="512" y="100" text-anchor="middle" font-size="11">cloud, or self-hosted on the LAN</text>
+    <text x="512" y="124" text-anchor="middle" font-size="11">PostgreSQL + row-level security</text>
+    <text x="512" y="142" text-anchor="middle" font-size="11">Supabase Auth (sign-in)</text>
+    <text x="512" y="160" text-anchor="middle" font-size="11">server functions (sync, archive …)</text>
+    <text x="512" y="178" text-anchor="middle" font-size="11">2 Edge Functions (accounts)</text>
+    <line x1="205" y1="60" x2="395" y2="105" stroke="#1f5fa8" stroke-width="1.6" marker-end="url(#a)"/>
+    <line x1="395" y1="120" x2="205" y2="75" stroke="#1f5fa8" stroke-width="1.6" stroke-dasharray="5 3" marker-end="url(#a)"/>
+    <line x1="205" y1="185" x2="395" y2="150" stroke="#1f5fa8" stroke-width="1.6" marker-end="url(#a)"/>
+    <line x1="395" y1="165" x2="205" y2="200" stroke="#1f5fa8" stroke-width="1.6" stroke-dasharray="5 3" marker-end="url(#a)"/>
+    <text x="300" y="62" text-anchor="middle" font-size="10.5" fill="#1f5fa8">send work (upload)</text>
+    <text x="300" y="118" text-anchor="middle" font-size="10.5" fill="#1f5fa8">download</text>
+  </svg>
+  <div class="cap">Figure 1. Every device keeps its own copy of the data and exchanges it with one server.</div>
+  </div>
+  <h3>Main choices</h3>
+  <ul>
+    <li><b>Offline-first.</b> Schools often have weak or no internet. A tutor downloads the data once, then works from the copy on the device. Finished work is sent to the server later in one upload.</li>
+    <li><b>Low-cost server.</b> Supabase (PostgreSQL) runs in the cloud or on a cheap computer on the school's network. The same app talks to either one; only the address changes. No files are stored on the server; learning materials are linked from Google Drive.</li>
+    <li><b>The database protects the data.</b> Access rules are written in the database itself (row-level security). The app cannot show a tutor data the server would not give them, even if the app had a bug.</li>
+    <li><b>Two apps.</b> A <b>tutor app</b> and an <b>admin app</b> (coordinators and admins) are built from the same code. The tutor app does not contain admin features at all.</li>
+  </ul>
+  <h3>Size of the code</h3>
+  <table>
+    <tr><th>Part</th><th>Amount</th></tr>
+    <tr><td>Dart source files in <code>lib/</code></td><td>447 files, about 66,000 lines</td></tr>
+    <tr><td>ViewModels (the app's logic)</td><td>about 45</td></tr>
+    <tr><td>Automated test files in <code>test/</code></td><td>107</td></tr>
+    <tr><td>Database migrations (server)</td><td>32 files (one baseline + later changes)</td></tr>
+    <tr><td>Developer console commands</td><td>272 in the admin build, 129 in the tutor build</td></tr>
+  </table>
+</section>
+
+<!-- 3. Layers -->
+<section class="page">
+  <h2>2. Layered design (MVVM)</h2>
+  <p>The code follows <b>Model–View–ViewModel</b>. Each layer has one job and may only call the layer below it. Every module (CRLA, Phil-IRI, ARAL, …) is built in the same order, from the bottom up.</p>
+  <div class="fig">
+  <svg width="640" height="330" viewBox="0 0 640 330">
+    <defs><marker id="b" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#5b6475"/></marker></defs>
+    <rect x="120" y="5" width="400" height="40" rx="6" fill="#fff" stroke="#1f5fa8"/>
+    <text x="320" y="23" text-anchor="middle" font-weight="bold" font-size="12.5">View: Flutter screens</text>
+    <text x="320" y="38" text-anchor="middle" font-size="10.5">lib/ui/ — show data, collect input, nothing else</text>
+    <rect x="120" y="70" width="400" height="40" rx="6" fill="#eef3fa" stroke="#1f5fa8"/>
+    <text x="320" y="88" text-anchor="middle" font-weight="bold" font-size="12.5">ViewModels</text>
+    <text x="320" y="103" text-anchor="middle" font-size="10.5">lib/viewmodels/ — checks, permissions, plain-language messages</text>
+    <rect x="20" y="140" width="250" height="40" rx="6" fill="#eef3fa" stroke="#1f5fa8"/>
+    <text x="145" y="158" text-anchor="middle" font-weight="bold" font-size="12.5">Services (rules)</text>
+    <text x="145" y="173" text-anchor="middle" font-size="10.5">scoring, import readers, report builders</text>
+    <rect x="370" y="140" width="250" height="40" rx="6" fill="#eef3fa" stroke="#1f5fa8"/>
+    <text x="495" y="158" text-anchor="middle" font-weight="bold" font-size="12.5">Repository interfaces</text>
+    <text x="495" y="173" text-anchor="middle" font-size="10.5">lib/core/repositories/ — what data can be asked for</text>
+    <rect x="300" y="210" width="150" height="40" rx="6" fill="#fff" stroke="#1f5fa8"/>
+    <text x="375" y="228" text-anchor="middle" font-weight="bold" font-size="12">SQLite version</text>
+    <text x="375" y="243" text-anchor="middle" font-size="10">data/local/</text>
+    <rect x="470" y="210" width="150" height="40" rx="6" fill="#fff" stroke="#1f5fa8"/>
+    <text x="545" y="228" text-anchor="middle" font-weight="bold" font-size="12">Supabase version</text>
+    <text x="545" y="243" text-anchor="middle" font-size="10">data/remote/</text>
+    <rect x="120" y="280" width="400" height="40" rx="6" fill="#fff" stroke="#8aa3c4" stroke-dasharray="4 3"/>
+    <text x="320" y="298" text-anchor="middle" font-weight="bold" font-size="12.5">Models</text>
+    <text x="320" y="313" text-anchor="middle" font-size="10.5">lib/core/models/ — plain data classes used by every layer</text>
+    <line x1="320" y1="45" x2="320" y2="67" stroke="#5b6475" stroke-width="1.5" marker-end="url(#b)"/>
+    <line x1="270" y1="110" x2="160" y2="137" stroke="#5b6475" stroke-width="1.5" marker-end="url(#b)"/>
+    <line x1="370" y1="110" x2="480" y2="137" stroke="#5b6475" stroke-width="1.5" marker-end="url(#b)"/>
+    <line x1="470" y1="180" x2="390" y2="207" stroke="#5b6475" stroke-width="1.5" marker-end="url(#b)"/>
+    <line x1="520" y1="180" x2="540" y2="207" stroke="#5b6475" stroke-width="1.5" marker-end="url(#b)"/>
+  </svg>
+  <div class="cap">Figure 2. Arrows point to what a layer may call.</div>
+  </div>
+  <table>
+    <tr><th style="width:24%">Layer</th><th>What it does</th></tr>
+    <tr><td><b>Models</b></td><td>Plain Dart classes such as <code>Student</code>, <code>CrlaAssessment</code> and <code>AralClass</code>. Each one turns itself to and from a database row. They hold no logic beyond that.</td></tr>
+    <tr><td><b>Repository interfaces</b></td><td>Abstract lists of operations, e.g. "get the learners of a section". The rest of the app depends only on these, not on a particular database.</td></tr>
+    <tr><td><b>SQLite / Supabase versions</b></td><td>Two implementations of each interface: one reads and writes the device copy, the other the server. Because both follow the same interface, a ViewModel works the same online and offline.</td></tr>
+    <tr><td><b>Services</b></td><td>Pure rules with no database access: CRLA and Phil-IRI scoring, ARAL program placement, the SF1 and workbook readers, the Excel writers. They are easy to test because they only take values and return values.</td></tr>
+    <tr><td><b>ViewModels</b></td><td>The app's logic. A ViewModel checks who is signed in and what they may do, validates the input, calls the repositories and services, and turns errors into short messages a tutor can understand. ViewModels never import Flutter, so they also run in the plain-Dart console.</td></tr>
+    <tr><td><b>Views (screens)</b></td><td>Flutter widgets. A screen only calls ViewModels. It never touches a repository or the database.</td></tr>
+  </table>
+  <div class="box">The boundaries are <b>enforced by tools</b>, not only by agreement. <code>tool/check_vm_boundary.dart</code> fails if a screen or console command imports anything except ViewModels and models. It runs after every change and in every release build.</div>
+</section>
+
+<!-- 4. Startup -->
+<section class="page">
+  <h2>3. How the app starts and connects its parts</h2>
+  <p>All four entry points build the same objects in the same way: the admin app, the tutor app, and the admin and tutor developer consoles. This "wiring" lives in <code>lib/core/wiring/</code>.</p>
+  <ol>
+    <li><b>Data folder.</b> Each build keeps its files in its own folder (<code>Documents/BASA/admin</code> or <code>…/tutor</code>): the SQLite database, the server address and the colour settings.</li>
+    <li><b><code>AppContext.open</code></b> opens the SQLite database and creates or upgrades its tables to the current schema version. It also loads the server settings and creates the <code>AuthViewModel</code>, which handles sign-in.</li>
+    <li><b><code>wireShared</code> → <code>wireTutor</code> → <code>wireAdmin</code></b> create every repository and ViewModel and connect them. The tutor app stops after <code>wireTutor</code>; only the admin app calls <code>wireAdmin</code>.</li>
+    <li>The ViewModels are collected into one object (<code>AppViewModels</code>; the admin app also has <code>AdminViewModels</code>). <b><code>BasaScope</code></b> places it at the top of the screen tree, so any screen can write <code>BasaScope.of(context).crla</code> to reach the CRLA ViewModel.</li>
+    <li>In debug builds, the same ViewModels are also registered as <b>console commands</b>. Developers can then run every feature by typing, without opening a screen.</li>
+  </ol>
+  <div class="fig">
+  <svg width="640" height="120" viewBox="0 0 640 120">
+    <defs><marker id="c" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#1f5fa8"/></marker></defs>
+    <g font-size="11" text-anchor="middle">
+      <rect x="5" y="35" width="105" height="46" rx="6" fill="#eef3fa" stroke="#1f5fa8"/><text x="57" y="55">main.dart /</text><text x="57" y="70">main_tutor.dart</text>
+      <rect x="135" y="35" width="105" height="46" rx="6" fill="#eef3fa" stroke="#1f5fa8"/><text x="187" y="55">AppContext</text><text x="187" y="70">DB, config, auth</text>
+      <rect x="265" y="35" width="115" height="46" rx="6" fill="#eef3fa" stroke="#1f5fa8"/><text x="322" y="55">wireShared /</text><text x="322" y="70">wireTutor / wireAdmin</text>
+      <rect x="405" y="35" width="100" height="46" rx="6" fill="#eef3fa" stroke="#1f5fa8"/><text x="455" y="55">AppViewModels</text><text x="455" y="70">BasaScope</text>
+      <rect x="530" y="35" width="105" height="46" rx="6" fill="#fff" stroke="#1f5fa8"/><text x="582" y="55">Screens</text><text x="582" y="70">(+ console in debug)</text>
+    </g>
+    <g stroke="#1f5fa8" stroke-width="1.5"><line x1="110" y1="58" x2="132" y2="58" marker-end="url(#c)"/><line x1="240" y1="58" x2="262" y2="58" marker-end="url(#c)"/><line x1="380" y1="58" x2="402" y2="58" marker-end="url(#c)"/><line x1="505" y1="58" x2="527" y2="58" marker-end="url(#c)"/></g>
+  </svg>
+  <div class="cap">Figure 3. Start-up, from entry point to screens.</div>
+  </div>
+  <h3>ViewModels are request and response</h3>
+  <p>A screen calls a ViewModel method and waits for the answer, for example <code>await vms.crla.getResult(id)</code>. A ViewModel does not hold screen state or push updates to the screen. This keeps the ViewModels simple and lets the console call exactly the same methods as the screens.</p>
+  <h3>The developer console</h3>
+  <p><code>lib/console/main.dart</code> (admin) and <code>main_tutor.dart</code> (tutor) run in plain Dart, without Flutter. Each command performs one action through a ViewModel, e.g. <code>crla-result</code> or <code>sync-upload</code>. Every feature was built and tested here first and only then given a screen. Shipped release builds do not contain the console.</p>
+</section>
+
+<!-- 5. Data model -->
+<section class="page">
+  <h2>4. The data model</h2>
+  <p>The server runs PostgreSQL. Each device has a SQLite database with the <b>same table names</b>, so the same rows can move between the two. Columns use <code>snake_case</code>.</p>
+  <table>
+    <tr><th style="width:22%">Group</th><th>Main tables</th><th>Purpose</th></tr>
+    <tr><td><b>Core</b></td><td><code>regions</code>, <code>schools</code>, <code>sections</code>, <code>students</code>, <code>enrollments</code>, <code>users</code>, <code>tutor_section_assignments</code></td><td>Schools and their sections per school year. Learners are identified by their LRN; an enrollment puts a learner in a section for one year. Many schools share one regional database.</td></tr>
+    <tr><td><b>CRLA</b></td><td><code>crla_assessments</code>, <code>crla_part1_*</code>, <code>crla_part2_fluency</code>, <code>crla_stories</code></td><td>One assessment per learner, language and attempt, plus its Part 1 and Part 2 scores. Views compute each result and the section and school summaries.</td></tr>
+    <tr><td><b>Phil-IRI</b></td><td><code>phil_iri_passages</code>, <code>_questions</code>, <code>_thresholds</code>; <code>phil_iri_assessments</code>, <code>_readings</code>, <code>_miscues</code>, <code>_answers</code>, <code>_gst_results</code></td><td>The reading passages and their questions (content), then each learner's session per round: readings, miscues, answers and the group screening test.</td></tr>
+    <tr><td><b>ARAL</b></td><td><code>aral_classes</code>, <code>aral_enrollments</code>, <code>aral_sessions</code>, <code>aral_attendance</code>, <code>aral_irip_*</code>, <code>aral_checkin*</code>, <code>aral_materials</code></td><td>The roster, classes of up to 15 learners, sessions and attendance, the weekly reading plan (IRIP), check-in tests, and material recommendations.</td></tr>
+    <tr><td><b>Planning and reports</b></td><td><code>assessment_calendar</code>, <code>report_settings</code>, <code>aral_settings</code>, <code>srp_classes</code></td><td>Round dates per region with school overrides, school-level settings (e.g. the "done" threshold), and summer remediation classes.</td></tr>
+    <tr><td><b>Sync and control</b></td><td><code>sync_uploads</code>, <code>import_conflicts</code>, <code>sf1_last_imports</code>, <code>login_logs</code>, <code>basa_migrations</code></td><td>Uploads waiting for approval, import problems, sign-in history, and the list of migrations the server has applied.</td></tr>
+  </table>
+  <h3>How the schema changes</h3>
+  <ul>
+    <li><code>supabase/migrations/20261018040000_baseline.sql</code> holds the whole server schema. Every later change is a <b>new</b> migration file, and the baseline is never edited.</li>
+    <li>Every migration states whether it requires all devices to update the app. It also records itself in the <code>basa_migrations</code> table, which the version check reads (section 10).</li>
+    <li>On the device, <code>local_database.dart</code> creates the SQLite tables and upgrades them step by step to version 45. It also holds the SQLite <b>triggers</b> that refuse invalid rows, for example a CRLA assessment for a Grade 5 section.</li>
+  </ul>
+  <h3>Rules in more than one place, on purpose</h3>
+  <p>Important rules are checked in three places: the ViewModel (to give a clear message), the SQLite trigger (to protect the device copy), and the server's policies or functions (the final authority). For example, an ARAL class cannot hold more than 15 active learners. The ViewModel refuses the 16th with a plain message, and the server refuses it even if an old app version sends it.</p>
+</section>
+
+<!-- 6. Security -->
+<section class="page">
+  <h2>5. Who can see what: roles and row-level security</h2>
+  <table>
+    <tr><th style="width:24%">Role</th><th>Can see and change</th><th style="width:16%">App</th></tr>
+    <tr><td><b>Superadmin</b><br>(admin without a school)</td><td>Every school in the region; regional settings and content.</td><td>Admin app</td></tr>
+    <tr><td><b>Admin / coordinator</b></td><td>Everything in their own school. The two roles have the same rights.</td><td>Admin app</td></tr>
+    <tr><td><b>Tutor</b></td><td>Only the sections assigned to them and the learners of the ARAL classes they teach. They assess those learners and run their classes.</td><td>Tutor app</td></tr>
+  </table>
+  <h3>Row-level security (RLS)</h3>
+  <p>PostgreSQL decides, <b>row by row</b>, what each signed-in user may read or write. Every table has policies built from a few helper functions in the database:</p>
+  <ul>
+    <li><code>is_superadmin()</code>: regional access;</li>
+    <li>own-school checks for admins and coordinators;</li>
+    <li><code>tutor_has_section()</code> and <code>tutor_has_student()</code>: a tutor's assigned sections and their learners, including the learners of the ARAL classes they teach.</li>
+  </ul>
+  <p>The app only ever uses the public "anon" key and the user's own sign-in. It never holds a key that bypasses these rules. Creating an account needs more rights, so it goes through a small <b>Edge Function</b> on the server (<code>create-user</code>), which checks the caller's role first.</p>
+  <div class="box">Every view is created with <code>security_invoker = true</code>. A view then applies the RLS of the person asking; otherwise it would show every row. Tests check that each new table grants access to signed-in users only, never to anonymous visitors.</div>
+  <h3>Actions that change many rows go through server functions</h3>
+  <p>Some actions must happen completely or not at all. Examples: applying a sync upload, archiving a learner who left, moving a learner to another section. Each is a single <b>SECURITY DEFINER</b> function on the server that checks the caller's role and runs in one transaction. Only these functions may change a learner's section.</p>
+  <h3>Sign-in</h3>
+  <ul>
+    <li>The first sign-in on a device must be online, through Supabase Auth. New accounts get a temporary password that must be changed.</li>
+    <li>After that, the <b>device owner</b> (the last person who downloaded data on it) may sign in offline for a limited number of days (14 unless the school changes it). The device stores only a salted PBKDF2-SHA256 hash of the password for this.</li>
+    <li>Anything that needs the server, like sending work or downloading, requires a live online sign-in.</li>
+    <li>Every sign-in attempt is logged on the device and on the server.</li>
+  </ul>
+</section>
+
+<!-- 7. Offline & sync -->
+<section class="page">
+  <h2>6. Working offline and syncing</h2>
+  <p>Sync is the most complex part of BASA. The aim: a tutor can work for days without internet, and the server still never takes in work that nobody checked or that clashes with newer data.</p>
+  <div class="fig">
+  <svg width="640" height="250" viewBox="0 0 640 250">
+    <defs><marker id="d" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#1f5fa8"/></marker></defs>
+    <g font-size="11" text-anchor="middle">
+      <rect x="5" y="10" width="140" height="52" rx="6" fill="#eef3fa" stroke="#1f5fa8"/><text x="75" y="31" font-weight="bold">1. Sign in online</text><text x="75" y="48">Supabase Auth</text>
+      <rect x="170" y="10" width="140" height="52" rx="6" fill="#eef3fa" stroke="#1f5fa8"/><text x="240" y="31" font-weight="bold">2. Download</text><text x="240" y="48">copy to SQLite</text>
+      <rect x="335" y="10" width="140" height="52" rx="6" fill="#eef3fa" stroke="#1f5fa8"/><text x="405" y="31" font-weight="bold">3. Work offline</text><text x="405" y="48">changes are recorded</text>
+      <rect x="500" y="10" width="135" height="52" rx="6" fill="#eef3fa" stroke="#1f5fa8"/><text x="567" y="31" font-weight="bold">4. Send my work</text><text x="567" y="48">one upload</text>
+      <rect x="500" y="110" width="135" height="58" rx="6" fill="#fff" stroke="#1f5fa8"/><text x="567" y="131" font-weight="bold">5. Coordinator</text><text x="567" y="147">approves or rejects</text><text x="567" y="161" font-size="9.5">(or automatic)</text>
+      <rect x="300" y="110" width="160" height="58" rx="6" fill="#fff" stroke="#1f5fa8"/><text x="380" y="131" font-weight="bold">6. sync_apply</text><text x="380" y="147">one server transaction</text><text x="380" y="161" font-size="9.5">conflict → stop, nothing applied</text>
+      <rect x="95" y="110" width="170" height="58" rx="6" fill="#eef3fa" stroke="#1f5fa8"/><text x="180" y="131" font-weight="bold">7. Device takes in</text><text x="180" y="147">the result: real ids,</text><text x="180" y="161">server copies</text>
+    </g>
+    <g stroke="#1f5fa8" stroke-width="1.5" fill="none">
+      <line x1="145" y1="36" x2="167" y2="36" marker-end="url(#d)"/><line x1="310" y1="36" x2="332" y2="36" marker-end="url(#d)"/><line x1="475" y1="36" x2="497" y2="36" marker-end="url(#d)"/>
+      <line x1="567" y1="62" x2="567" y2="107" marker-end="url(#d)"/><line x1="500" y1="139" x2="463" y2="139" marker-end="url(#d)"/><line x1="300" y1="139" x2="268" y2="139" marker-end="url(#d)"/>
+      <path d="M180,168 L180,200 L482,200 L482,88 L445,88 L445,66" stroke-dasharray="5 3" marker-end="url(#d)"/>
+    </g>
+    <text x="330" y="218"font-size="10.5" fill="#1f5fa8" text-anchor="middle">continue working</text>
+  </svg>
+  <div class="cap">Figure 4. The sync cycle.</div>
+  </div>
+  <h3>How it works</h3>
+  <ul>
+    <li><b>Download is a merge, not a wipe.</b> Rows the user has not changed are replaced with the server's copy. New, edited and pending rows are kept. If kept rows point to records the server no longer gives this user, the download stops and explains why, so nothing is left orphaned.</li>
+    <li><b>New rows get negative ids</b> on the device, e.g. <code>-3</code>. The server gives the real ids when the upload is applied, and the device then replaces its temporary ids everywhere.</li>
+    <li><b>Edits are recorded in a journal</b>, together with the server version they started from. That is how the server detects a <b>conflict</b>: someone else changed the same row after the tutor's download. The tutor chooses <i>Keep mine</i> or <i>Take the server's</i>. Nothing is overwritten silently.</li>
+    <li><b>One upload, one decision.</b> All unsent work goes to the server as a single package (<code>sync_uploads</code>). Until it is decided, those records are read-only on the device. A coordinator reviews and approves it; uploads by coordinators, or at schools with automatic approval, are applied at once.</li>
+    <li><b>All or nothing.</b> The server function <code>sync_apply</code> applies the whole package in one transaction. If any row fails a rule, nothing is applied and the reason is reported.</li>
+  </ul>
+  <h3>One device, one owner</h3>
+  <p>The device copy belongs to one user, the last person who downloaded. When another person signs in online, the copy is cleared first, so they never see the previous user's data. While the owner still has unsent work, other people cannot sign in on that device until the owner sends it. This protects learners' data on shared school devices.</p>
+  <h3>Plain messages</h3>
+  <p>Sync results are shown in plain English and name the learner, e.g. "The Phil-IRI session of Juan Dela Cruz was changed on the server". They never show table names, ids or console commands. An automated test (<code>console_wording_test</code>) checks this, because many tutors and coordinators read English as a second language.</p>
+</section>
+
+<!-- 8. Modules -->
+<section class="page">
+  <h2>7. The modules: CRLA, Phil-IRI, ARAL</h2>
+  <p>They were built in a fixed order: CRLA, then Phil-IRI, then ARAL. ARAL uses the results of the other two.</p>
+  <h3>CRLA (Grades 1 to 3)</h3>
+  <ul>
+    <li>A tutor records an <b>attempt</b> for a learner in Mother Tongue, Filipino or English. Part 1 holds the letter and word tasks; Part 2 is a story read aloud, with comprehension questions.</li>
+    <li>The scores are computed in the database. SQLite triggers on the device and SQL views on the server work out words per minute, totals and the <b>reading profile</b> (Low Emerging … Reading at Grade Level). Both sides therefore give the same answer.</li>
+    <li>The cut-off scores are settings, not fixed numbers (<code>CrlaThresholdViewModel</code>), so a region can change them without a new app.</li>
+    <li>The scoresheet can be imported from, and exported into, the DepEd CRLA Excel template.</li>
+  </ul>
+  <h3>Phil-IRI (Grades 4 to 10, English)</h3>
+  <ul>
+    <li><b>Content:</b> collections of graded passages with their questions, and rubric criteria, loaded from seed files.</li>
+    <li><b>Assessment:</b> a group screening test (GST) for the class first, then one <b>session</b> per learner per round (BOSY, MOSY 1–3, EOSY). In a session the tutor records the miscues, the reading time and the answers for one or more passages. A learner never reads the same passage twice.</li>
+    <li><b>Scoring</b> lives in <code>phil_iri_rules.dart</code> and <code>phil_iri_results.dart</code>. They compute the word-recognition, speed and comprehension levels (Independent … Non-Reader) and the adjusted reading level, following the coordinators' reference table. The cut-offs are adjustable settings.</li>
+    <li>Each round has a status: <i>assessed</i>, <i>carried over</i> or <i>not assessed</i>. Progress figures count only assessed rounds. Schools choose per report whether to show a learner's best result so far ("carried") or only that round's reading ("actual").</li>
+    <li>Results from a coordinator's existing Excel workbook can be imported. A preview shows what will change, and a confirmation code must be entered before anything is written.</li>
+  </ul>
+  <h3>ARAL-Reading (tutoring)</h3>
+  <ul>
+    <li><b>Roster:</b> <code>aral_rules.dart</code> proposes the learners who need tutoring and their <b>program</b> (Foundational, KS1, KS2, KS3, Basic or Plus) from their latest CRLA or Phil-IRI result. Teachers can also refer learners.</li>
+    <li><b>Classes:</b> a class holds at most 15 learners and has one tutor. Enrolling a learner and placing them in a class are two separate steps. Grade or program mismatches need the coordinator's confirmation.</li>
+    <li><b>Daily work:</b> sessions with attendance (excused absences don't count against the rate); the weekly reading plan (IRIP) with ratings; check-in tests after sessions 16 and 32, with an adjustable pass mark.</li>
+    <li><b>Exits and updates:</b> when new assessment results arrive, the roster suggests program changes or exits. Learning materials are recommended per program from a catalogue of Google Drive links.</li>
+  </ul>
+</section>
+
+<!-- 9. Imports/reports -->
+<section class="page">
+  <h2>8. Imports, exports, reports and the dashboard</h2>
+  <h3>Imports</h3>
+  <ul>
+    <li><b>SF1 (School Form 1)</b>, the official class register, creates sections, learners and enrollments. <code>sf1_importer.dart</code> reads <code>.xls</code> and <code>.xlsx</code> files, matches columns by their headers and runs a <b>trial first</b>. Learners already in BASA are matched by LRN. Rows that clash with existing data become <b>import conflicts</b> for a person to decide.</li>
+    <li><b>Learners who left:</b> re-importing an SF1 lists learners no longer on it. The coordinator can archive them (records kept), move them to another section, or restore them. After a set period an archived learner may be anonymized, but only on request with a confirmation code, never automatically.</li>
+    <li><b>CRLA scoresheets</b> and <b>Phil-IRI workbooks</b> are imported through the same preview-then-confirm pattern.</li>
+  </ul>
+  <h3>Exports and reports</h3>
+  <p>Report builders are pure functions. They take the results and return rows; Excel and CSV writers then put those rows into DepEd's own template layouts.</p>
+  <table>
+    <tr><th style="width:32%">Report</th><th>What it shows</th></tr>
+    <tr><td>NLA portal report (Form 2b)</td><td>Phil-IRI results per category, ready to enter in DepEd's NLA portal.</td></tr>
+    <tr><td>ARAL implementation report</td><td>The Division's ARAL report, in the template's layout.</td></tr>
+    <tr><td>Progress monitoring</td><td>How many learners of each section have been assessed in a round, against a "done" threshold (85% unless changed).</td></tr>
+    <tr><td>BOSY masterlist</td><td>Learners not reading at grade level at the start of the year.</td></tr>
+    <tr><td>Summer Remediation (SRP)</td><td>Ranked candidates, and classes with a tutor, room and schedule.</td></tr>
+    <tr><td>Phil-IRI ranking</td><td>The lowest learners of a round by accuracy, speed or comprehension, with a list of those who could not be ranked and why.</td></tr>
+    <tr><td>Learner history</td><td>One learner's progress over the years (admin app only, for privacy).</td></tr>
+  </table>
+  <h3>Dashboard</h3>
+  <ul>
+    <li><b>Round calendar:</b> assessment windows per region, with school overrides or skips.</li>
+    <li><b>Reminders:</b> for coordinators (sections behind schedule) and for tutors (learners not yet assessed, check-ins due, classes with no recent session).</li>
+    <li><b>Trends:</b> charts of reading levels, completion, CRLA profiles and ARAL exits.</li>
+    <li><b>Summary:</b> one view per role: a tutor sees their own classes, a school its sections, the region every school.</li>
+  </ul>
+  <p>The dashboard <b>owns no rules of its own</b>. It only reads results from the report and reminder ViewModels, so a number on the dashboard is always the same as in the matching report.</p>
+</section>
+
+<!-- 10. Two builds -->
+<section class="page">
+  <h2>9. Two apps from one codebase</h2>
+  <p>The admin app (<code>lib/main.dart</code>, "BASA") and the tutor app (<code>lib/main_tutor.dart</code>, "BASA Tutor") come from the same code. Each is built for Android and for Windows, with its own installer.</p>
+  <h3>Why two apps?</h3>
+  <p>The server's RLS already stops a tutor from doing admin work. Leaving admin code out of the tutor app goes further: a tutor's device does not contain the screens, messages or logic for user management, reports, imports or approvals. It is also smaller and simpler.</p>
+  <h3>How the split is kept honest</h3>
+  <ul>
+    <li><b>Where the line is:</b> a feature is "admin" if the server's rules would refuse it to a tutor. Admin-only ViewModels are created only in <code>wire_admin.dart</code>; admin-only console commands live in <code>*_admin_commands.dart</code> files.</li>
+    <li><b>Import walk</b> (<code>tool/check_tutor_imports.dart</code>): follows every import from the tutor entry points. It fails, and shows the chain of imports, if the tutor build reaches an admin file.</li>
+    <li><b>Marker scan</b> (<code>tool/scan_markers.dart</code>): some admin methods sit in ViewModels both apps share; the compiler removes them from the tutor build because no tutor screen calls them. To prove this, the release script searches the compiled apps for marker texts (for example admin-only refusal messages). Each <code>[admin]</code> marker must be in the admin build and in <b>no</b> tutor build.</li>
+    <li><b>No console in release builds:</b> the developer console exists only in debug builds and in special "scan" builds that are used for checking and never shipped.</li>
+  </ul>
+  <h3>The release script</h3>
+  <p><code>tool/build_release.ps1</code> builds everything and stops at the first failed check. In order:</p>
+  <ol>
+    <li>Fetch packages, and check that the patched local copies of third-party packages are used.</li>
+    <li>Run the import walk and the ViewModel boundary check.</li>
+    <li>Build both apps for Android and Windows, plus two scan builds.</li>
+    <li>Run the marker scan, including a self-test that the scan really finds markers.</li>
+    <li>Create the Windows installers. They include a user guide and a glossary written in plain English.</li>
+  </ol>
+</section>
+
+<!-- 11. Version + testing -->
+<section class="page">
+  <h2>10. Keeping devices and server in step</h2>
+  <p>Every device and the server must run the <b>same BASA release</b>. An old app writing to a newer database, or a new app working against an old one, could store wrong results. BASA prevents this at sign-in:</p>
+  <ul>
+    <li>The app carries the list of migrations it was built for (<code>lib/core/release.dart</code>).</li>
+    <li>The server keeps a record of the migrations it has applied (<code>basa_migrations</code>). Each migration also says whether all apps must be updated.</li>
+    <li>At sign-in, <code>version_check.dart</code> compares the two lists. If the server is missing a migration the app needs, or has a required one the app doesn't know, sign-in is refused with an explanation. Smaller differences only show a warning.</li>
+    <li>Before a required update, every device sends its work and every upload is decided, so no work is stranded between versions.</li>
+  </ul>
+
+  <h2 style="margin-top:8mm">11. How the code is tested</h2>
+  <table>
+    <tr><th style="width:28%">Level</th><th>What it checks</th></tr>
+    <tr><td><b>Static analysis</b><br><code>dart analyze</code></td><td>Type errors and mistakes, after every change.</td></tr>
+    <tr><td><b>Unit tests</b><br><code>flutter test</code> (107 files)</td><td>Scoring rules, importers, report builders, ViewModels on a temporary SQLite database, the wording of messages, the command lists of each build, and the migration grants.</td></tr>
+    <tr><td><b>Database tests</b></td><td>Each migration and its RLS policies are run on a throw-away PostgreSQL 18 server, with users of every role checking what they can and cannot read or write.</td></tr>
+    <tr><td><b>Command pass</b><br><code>tool/command_pass/</code></td><td>An automated run of <b>every</b> console command of both builds against a development server, with real accounts of each role, including commands that must be refused. The last clean run: 401 of 401 commands, 3,711 steps.</td></tr>
+    <tr><td><b>Structure checks</b></td><td>The import walk, ViewModel boundary and marker scan described in section 9.</td></tr>
+    <tr><td><b>Manual verification</b></td><td>For each piece of work, a verification kit with prepared data and expected output, checked by a person in the console and the app.</td></tr>
+  </table>
+  <div class="box">Because every feature is a ViewModel method with a console command, the same logic is tested <b>without the screens</b> first. The screens then only add layout and input.</div>
+</section>
+
+<!-- 12. Summary -->
+<section class="page">
+  <h2>12. Summary of design choices</h2>
+  <table>
+    <tr><th style="width:30%">Choice</th><th>Reason</th><th style="width:30%">Where in the code</th></tr>
+    <tr><td>Offline-first with SQLite</td><td>Schools have weak internet; work must never be lost.</td><td><code>core/data/local/</code>, <code>SyncViewModel</code></td></tr>
+    <tr><td>One upload, reviewed, applied in one transaction</td><td>The coordinator checks tutors' work; a partial upload can't corrupt data.</td><td><code>sync_apply</code> (server), <code>SyncReviewViewModel</code></td></tr>
+    <tr><td>Conflicts are shown, never silently overwritten</td><td>Two people may change the same record while offline.</td><td>sync journal, <code>sync-resolve</code></td></tr>
+    <tr><td>Access rules in the database (RLS)</td><td>Data is safe even if the app has a bug or is modified.</td><td><code>supabase/migrations/</code></td></tr>
+    <tr><td>MVVM with checked boundaries</td><td>Logic is testable without screens; screens can't bypass the rules.</td><td><code>check_vm_boundary.dart</code></td></tr>
+    <tr><td>Repository interfaces with two implementations</td><td>The same ViewModel works on the device copy and on the server.</td><td><code>core/repositories/</code></td></tr>
+    <tr><td>Rules as pure services, cut-offs as settings</td><td>DepEd rules change; numbers can be adjusted without a new app.</td><td><code>core/services/*_rules.dart</code></td></tr>
+    <tr><td>Two apps from one codebase</td><td>Tutors' devices contain no admin features.</td><td><code>wire_admin.dart</code>, import walk, marker scan</td></tr>
+    <tr><td>Version check at sign-in</td><td>Devices and server always run the same rules.</td><td><code>release.dart</code>, <code>version_check.dart</code></td></tr>
+    <tr><td>Self-hostable, no file storage</td><td>Low running cost for public schools.</td><td>server config, Google Drive links</td></tr>
+    <tr><td>Plain-English messages</td><td>Most users read English as a second language.</td><td><code>console_wording_test</code>, guide glossary</td></tr>
+  </table>
+  <h3>Further reading in the repository</h3>
+  <ul>
+    <li><code>CLAUDE.md</code>, <code>lib/core/CLAUDE.md</code>, <code>lib/ui/CLAUDE.md</code>: project and layer guides.</li>
+    <li><code>docs/superpowers/specs/</code>: one design document per feature (sync, version check, ARAL classes, SF1 leavers, …).</li>
+    <li><code>docs/handoff/screens/</code>: what each screen calls and shows.</li>
+    <li><code>tool/installer/guide/</code>: the user guide shipped with the apps.</li>
+  </ul>
+</section>
+
+</body>
+</html>

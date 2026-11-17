@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>BASA: ARAL-Reading</title><link rel="stylesheet" href="style.css"></head>
+<body>
+
+<div class="cover">
+<h1>ARAL-Reading in BASA</h1>
+<div class="sub">How the program works, what BASA changes, and why</div>
+<p>For the BASA team. This explains the <b>ARAL-Reading</b> program as schools run it without BASA, then how BASA manages it, from choosing learners to the Division report. The last part answers the questions a panel is likely to ask, each with how it is done without BASA.</p>
+<p>The sources:</p>
+<ul>
+  <li>DepEd Order 018 s. 2025 and the orientation decks;</li>
+  <li><b>DepEd Memorandum 064 s. 2025</b> (Enclosures 1 and 2), which sets entry, Key Stage 1 rules and the 15-learner cap;</li>
+  <li>the official IRIP and check-in forms;</li>
+  <li>the reading coordinator's rules for programs and ranking.</li>
+</ul>
+<p>ARAL builds on CRLA and Phil-IRI: read those two documents first.</p>
+<p class="meta">Built from the code on 17 November 2026. Rules: <code>lib/core/services/aral_rules.dart</code>, <code>aral_checkin_rules.dart</code>, <code>aral_irip_rules.dart</code>. ViewModels: <code>aral_viewmodel.dart</code> (roster), <code>aral_class_viewmodel.dart</code>, <code>aral_session_viewmodel.dart</code>, <code>aral_irip_viewmodel.dart</code>, <code>aral_checkin_viewmodel.dart</code>, <code>aral_material_viewmodel.dart</code>, <code>aral_readability_viewmodel.dart</code>, <code>aral_report_viewmodel.dart</code>. Design: <code>docs/superpowers/specs/2026-10-23-aral-classes-design.md</code>.</p>
+<ol class="toc">
+  <li>What ARAL-Reading is</li><li>ARAL without BASA</li><li>Who gets in, and in which program</li><li>Classes, sessions and attendance</li><li>IRIP and check-ins</li><li>Updates, exits and moves</li><li>Materials, reports and reminders</li><li>What BASA improves</li><li>Defending the design: likely questions</li><li>Limits and known gaps</li>
+</ol>
+</div>
+
+<h2>1. What ARAL-Reading is</h2>
+<ul>
+  <li>ARAL (Academic Recovery and Accessible Learning) is DepEd's learning-recovery program. ARAL-Reading is its reading part: <b>tutoring for learners reading below grade level</b>.</li>
+  <li>It is <b>remediation only</b>. Learners at grade level (enrichment) or above (enhancement) belong to other school reading programs, not ARAL.</li>
+  <li>Learners are grouped by <b>Key Stage program</b>:
+    <ul>
+      <li><b>KS1</b>: early reading, and Grades 1–3;</li>
+      <li><b>KS2</b>: reading levels of Grades 4–6;</li>
+      <li><b>KS3</b>: reading levels of Grades 7–10.</li>
+    </ul>
+    KS2 and KS3 each have <i>Basic</i> (can't decode well yet) and <i>Plus</i> (decodes, but weak in fluency, vocabulary or comprehension). Schools that run SHARP or another foundational literacy program add <b>Foundational</b> for non-readers.</li>
+  <li><b>Classes:</b> at most <b>15 learners</b> with one tutor.</li>
+  <li><b>Sessions:</b> 32 sessions in 8-week cycles, with <b>check-in assessments</b> after sessions 16 and 32.</li>
+  <li><b>IRIP</b> (Individual Reading Intervention Plan): each learner has weekly reading targets, rated by the tutor.</li>
+  <li><b>Exits:</b> a learner leaves when they reach grade level, or when they transfer, drop out or (KS1) do well enough with classroom support.</li>
+</ul>
+
+<h2>2. ARAL without BASA</h2>
+<ol>
+  <li><b>Choosing learners.</b> After CRLA and Phil-IRI, the coordinator reads each learner's result in the scoresheets and workbook, decides who qualifies and which program they need, and types the lists.</li>
+  <li><b>Forming classes.</b> Learners are split into groups of up to 15 on paper and assigned tutors.</li>
+  <li><b>Running sessions.</b> Tutors keep a paper <b>lesson log</b> and <b>attendance sheet</b> per session.</li>
+  <li><b>IRIP.</b> One Word form per learner: 8 weeks of targets, each rated Observed, Partially observed or Not observed. The tutor picks next week's target by hand.</li>
+  <li><b>Check-ins.</b> Printed answer sheets after sessions 16 and 32, checked by hand against the answer key.</li>
+  <li><b>Updates and exits.</b> After each assessment round, the coordinator compares the new results with the lists to see who moves program or exits.</li>
+  <li><b>Reports.</b> The coordinator fills the Division's <b>ARAL implementation report</b> (Excel template) per section, counting learners by level and exits by hand.</li>
+</ol>
+<div class="box warn"><b>Where it goes wrong without BASA</b>
+<ul>
+  <li><b>Lists drift from results.</b> A learner who reached grade level stays in ARAL, or a new low reader is never added.</li>
+  <li><b>Inconsistent programs.</b> Two coordinators place the same result in different programs.</li>
+  <li><b>Over-full classes.</b> Classes go over 15, or mix programs without anyone noticing.</li>
+  <li><b>Lost paperwork.</b> Attendance, lesson logs and IRIP forms are scattered and hard to total, and check-in scoring takes time.</li>
+  <li><b>No follow-up signal.</b> Nothing reminds a tutor that check-ins are due or that a class hasn't met in two weeks.</li>
+  <li><b>Hand-counted reports.</b> The report numbers depend on hand counting from several files.</li>
+</ul></div>
+
+<h2 class="break top">3. Who gets in, and in which program</h2>
+<h3>Grades 1–3 (CRLA, DepEd Memorandum 064 s. 2025)</h3>
+<ul>
+  <li><b>Round:</b> Grade 1 enters on the CRLA <b>MOSY</b> result; Grades 2–3 on <b>BOSY</b>.</li>
+  <li><b>Language:</b> only the grade's language counts: Grade 1 Mother Tongue (Filipino if no Mother Tongue result), Grade 2 Filipino, Grade 3 English.</li>
+  <li><b>Who qualifies:</b> Low Emerging and High Emerging readers. Developing and Transitioning readers qualify only when the school turns on <b>KS1 extended</b> (schools with enough personnel); otherwise they stay in the regular class.</li>
+  <li><b>Program:</b> always KS1.</li>
+</ul>
+<h3>Grades 4–10 (Phil-IRI)</h3>
+<p>Learners below grade level qualify. The program follows the <b>adjusted reading level</b> only (see the Phil-IRI document). The same bands also choose the learning materials:</p>
+<table>
+  <tr><th style="width:32%">Adjusted reading level</th><th>Program</th></tr>
+  <tr><td>0–1 (incl. Non-Readers)</td><td>Foundational, if the school runs SHARP or another foundational literacy program; otherwise KS1</td></tr>
+  <tr><td>2–3</td><td>KS1</td></tr>
+  <tr><td>4–5</td><td>KS2 Basic</td></tr>
+  <tr><td>6–7</td><td>KS2 Plus</td></tr>
+  <tr><td>8</td><td>KS3 Basic</td></tr>
+  <tr><td>9 and up (still below grade)</td><td>KS3 Plus</td></tr>
+  <tr><td>At or above grade (Instructional, Independent)</td><td>Not ARAL (grade-level ready)</td></tr>
+</table>
+<p>A learner with no Phil-IRI result at all counts as Struggling, 3 levels down (the Phil-IRI stand-in), so they are proposed too and marked as not assessed.</p>
+<h3>The proposal</h3>
+<ul>
+  <li>For each section, BASA <b>proposes every qualifying learner, weakest first</b>:
+    <ul>
+      <li>Grades 4–10: by word recognition, then comprehension, then speed;</li>
+      <li>Grades 1–3: by % of words read correctly, then comprehension, then speed.</li>
+    </ul>
+  </li>
+  <li>When a class is filled from the proposal, the weakest go first. Learners tied at the last seat are shown as a tie for the coordinator to choose.</li>
+  <li>The coordinator <b>enrolls</b> the learners. BASA suggests the program, and the coordinator may change it.</li>
+  <li>A teacher can also <b>refer</b> a learner. The referral records who referred them and why.</li>
+  <li>Enrolling and placing in a class are <b>two steps</b>, so an enrolled learner may wait for a class.</li>
+</ul>
+
+<h2>4. Classes, sessions and attendance</h2>
+<ul>
+  <li><b>Class:</b> a name, a home grade, one program (or <i>mixed programs</i>) and a tutor. Its learners may come from any section of the school. A learner's ARAL tutor is their class's tutor.</li>
+  <li><b>Placement rules</b>, checked in this order:
+    <ul>
+      <li>same school and school year;</li>
+      <li>in a one-program class, the same program;</li>
+      <li>fewer than <b>15 active learners</b> already in the class. This is a hard stop on the device and on the server.</li>
+    </ul>
+    A learner of <b>another grade</b> than the class's home grade goes in only when the coordinator confirms it.</li>
+  <li><b>Sessions:</b> the class tutor logs each one (date, minutes, set-up, lesson, remarks). There is <b>one session per class per date</b>, numbered per class. No future dates, and no dates outside the school year.</li>
+  <li><b>Attendance:</b> present, absent or excused, only for that class's learners. Excused sessions don't count against the attendance rate.</li>
+</ul>
+
+<h2>5. IRIP and check-ins</h2>
+<h3>IRIP (KS2 and KS3 programs)</h3>
+<ul>
+  <li>An IRIP cycle is <b>8 weeks</b>. Each week the learner has one <b>target</b> (a reading skill) per <b>strand</b>. The targets come from the official per-program lists; Basic programs have a Filipino and an English strand, worked in parallel.</li>
+  <li>Week 1 starts at the first target. After the tutor rates a week, BASA <b>suggests</b> the next target:
+    <ul>
+      <li><i>Observed</i>: the next target;</li>
+      <li><i>Partially observed</i> or <i>Not observed</i>: the same target again.</li>
+    </ul>
+    The tutor may choose another one.</li>
+  <li>A new cycle continues from where the learner stopped. A program change starts the new program's list from the first target.</li>
+</ul>
+<h3>Check-ins (KS2 and KS3)</h3>
+<ul>
+  <li>The official check-in tools are stored item by item, with answer keys. There is one tool per program for sessions 1–16 and one for 17–32.</li>
+  <li>Choice items are scored automatically. Open items are marked right or wrong by the tutor. An unanswered item counts as wrong.</li>
+  <li>A check-in is <b>Met</b> when the score reaches the cut-off: <b>75%</b> unless the school changes it. It is judged overall and per part.</li>
+  <li>Retakes are allowed, and the latest counts. The cut-off is applied when results are read, so changing it re-judges old check-ins.</li>
+  <li>Check-ins are <b>recorded and reported</b>; they don't move a learner's program by themselves.</li>
+</ul>
+
+<h2 class="break top">6. Updates, exits and moves</h2>
+<ul>
+  <li><b>Automatic updates.</b> When a coordinator opens the roster after new results, BASA re-reads each active learner's latest finished result:
+    <ul>
+      <li>the program follows the new adjusted level;</li>
+      <li>a learner now at grade level <b>exits as grade-level ready</b>;</li>
+      <li>a KS1 learner whose CRLA reaches Developing or Transitioning (with KS1 extended off) exits with <b>classroom support</b>.</li>
+    </ul>
+    Each change is listed with its reason. Tutors' devices don't apply updates; the roster belongs to the coordinator.</li>
+  <li><b>Manual exits:</b> transferred, dropped out, or another reason. A referred learner exits only as grade-level ready.</li>
+  <li><b>Flags instead of silent moves.</b> A learner whose program or grade changed but who stays in a class that no longer fits is <b>flagged</b> in the coordinator's reminders, not moved automatically.</li>
+  <li><b>Section moves</b> keep the ARAL record; the learner's tutor is whoever teaches their class. When a learner leaves the school (SF1 archive), their ARAL entry is exited and their records are kept.</li>
+</ul>
+
+<h2>7. Materials, reports and reminders</h2>
+<ul>
+  <li><b>Materials:</b> a catalogue of ARAL learning materials (title, file name, Google Drive link). BASA <b>recommends materials by program</b>, and a school may set its own link. BASA stores no files, which keeps the server cheap to run. The KS1–KS3 ARAL materials are for Grades 7–10.</li>
+  <li><b>Readability log</b> (only when SHARP is on): the texts used with each learner, with their Flesch reading ease and grade level.</li>
+  <li><b>ARAL implementation report:</b> per section and grade, the ARAL learners at BOSY and MOSY by level group (2-LD, 3-LD, or CRLA profile for Grades 1–3), and the exits (grade-level ready vs. other reasons). It is saved in the <b>DepEd template</b> or as CSV.</li>
+  <li><b>Division ARAL report:</b> the Division's own format, built from all Phil-IRI results (not only the roster), as required.</li>
+  <li><b>Check-in report:</b> per section, who took the check-ins after sessions 16 and 32 and who met the cut-off.</li>
+  <li><b>Reminders</b> (dashboard):
+    <ul>
+      <li>for tutors: check-ins due after a class's 16th and 32nd session, learners without an IRIP, a class with no session for more than 7 days (adjustable);</li>
+      <li>for coordinators: learners waiting for a class, learners in a class of another program or grade, and classes without a tutor.</li>
+    </ul>
+  </li>
+  <li><b>Trends:</b> ARAL exits and activity (sessions and attendance) over the year.</li>
+</ul>
+
+<h2>8. What BASA improves</h2>
+<table>
+  <tr><th style="width:28%">Without BASA</th><th style="width:44%">In BASA</th><th>Where</th></tr>
+  <tr><td>Coordinator reads results and decides by hand who qualifies</td><td>Proposal computed from CRLA and Phil-IRI, weakest first, ties shown</td><td><code>aralPickSeats</code>, <code>AralRankKey</code></td></tr>
+  <tr><td>Program chosen inconsistently</td><td>One placement table for everyone; the coordinator can still override</td><td><code>aralPhilIriPlacement</code></td></tr>
+  <tr><td>Lists drift from new results</td><td>Programs and grade-level exits updated from the latest results, each with a reason</td><td><code>AralViewModel.applyResults</code></td></tr>
+  <tr><td>Classes over 15 or mixed by accident</td><td>Cap and program checked on the device and the server; grade mismatch needs confirmation</td><td><code>aralPlacementProblem</code>, <code>aral_enrollments_class_cap</code></td></tr>
+  <tr><td>Paper attendance and lesson logs</td><td>Logged per class session; one session per class per day; attendance rate computed</td><td><code>AralSessionViewModel</code></td></tr>
+  <tr><td>IRIP forms filled by hand</td><td>Weekly ratings with a suggested next target; cycles continue automatically</td><td><code>aralIripSuggest</code></td></tr>
+  <tr><td>Check-ins scored by hand</td><td>Choice items auto-scored; Met / Not met per part; adjustable cut-off</td><td><code>aralCheckinScore</code></td></tr>
+  <tr><td>Report counted from several files</td><td>Implementation report generated into the DepEd template</td><td><code>AralReportViewModel</code></td></tr>
+  <tr><td>No follow-up signals</td><td>Reminders for due check-ins, idle classes, missing IRIPs, misplaced learners</td><td><code>ReminderViewModel</code></td></tr>
+  <tr><td>Tutor sees the whole school's lists</td><td>A tutor sees and assesses only their class's learners; the server enforces it</td><td>RLS (<code>aral_tutor_has_student</code>)</td></tr>
+</table>
+
+<h2 class="break top">9. Defending the design: likely questions</h2>
+
+<div class="qa"><div class="q">Why are learners ranked by word recognition first, and not by comprehension like the coordinator's workbook?</div>
+<span class="w">Without BASA:</span> the workbook ranks by GST, then comprehension.<br>
+<span class="b">In BASA:</span> after the individual reading, almost every ARAL learner is Frustration by comprehension, so comprehension no longer separates them. Word recognition does. The reading coordinator agreed: word recognition, then comprehension, then speed. The GST is only a reference until the individual reading exists.</div>
+
+<div class="qa"><div class="q">Why is the 15-learner cap a hard stop, checked even on the server?</div>
+<span class="b">Answer:</span> DepEd Memorandum 064 s. 2025 (Enclosure 2, item 7) sets it. With offline devices, two coordinators could each add a learner to a class of 14. Only a server check, applied at the end of each upload, can stop the class from reaching 16.</div>
+
+<div class="qa"><div class="q">Then why is the grade check only a confirmation?</div>
+<span class="b">Answer:</span> a different grade is sometimes the right choice (e.g. a small school with one KS2 class). It is a judgement call, so the coordinator confirms it, and BASA flags it in reminders. Hard limits (cap, school, program) go on the server; judgement calls stay in the ViewModel.</div>
+
+<div class="qa"><div class="q">Why are enrolling and placing two steps?</div>
+<span class="w">Without BASA:</span> the list of who needs ARAL and the class lists are often made at different times.<br>
+<span class="b">In BASA:</span> a learner can qualify before a class or tutor exists. Keeping them on the roster as "waiting for a class" means they aren't forgotten, and they show in the coordinator's reminders.</div>
+
+<div class="qa"><div class="q">Why does BASA move learners to another program or exit them automatically?</div>
+<span class="b">Answer:</span> the reading coordinator's rule: the program follows the latest results, and reaching grade level ends remediation. Doing this by hand is where lists drift. The coordinator still sees every change with its reason and can override a program. Transfers and drop-outs stay manual, because only a person knows them.</div>
+
+<div class="qa"><div class="q">Why do Developing and Transitioning Grade 1–3 learners exit with "classroom support"?</div>
+<span class="b">Answer:</span> DepEd Memorandum 064 s. 2025: KS1 ARAL is for Low and High Emerging readers. Schools with enough personnel may extend it to Developing and Transitioning, which is the <i>KS1 extended</i> switch. Without the switch, those learners are supported in the regular class.</div>
+
+<div class="qa"><div class="q">Why one session per class per date?</div>
+<span class="b">Answer:</span> session numbers drive the check-in schedule (after 16 and 32). A duplicate session would count toward 32 twice. Like the cap, it is checked on the server at the end of an upload.</div>
+
+<div class="qa"><div class="q">Why doesn't a failed check-in change the learner's program?</div>
+<span class="b">Answer:</span> the check-in is a progress check, not a placement test. Programs follow CRLA and Phil-IRI, which are the official instruments. Check-ins are recorded and reported so the tutor and coordinator can act on them.</div>
+
+<div class="qa"><div class="q">Why does BASA only suggest the next IRIP target?</div>
+<span class="b">Answer:</span> the IRIP legend says what each rating means (proceed, practise more, reteach), so BASA can suggest. The tutor knows the learner and may choose another target from the same list.</div>
+
+<div class="qa"><div class="q">Why are materials Google Drive links and not files in BASA?</div>
+<span class="b">Answer:</span> schools must be able to run their own server cheaply. Storing learning materials (large PDFs) would raise the cost. Links keep the server small, and each school can point a material to its own copy.</div>
+
+<div class="qa"><div class="q">Why are there two ARAL reports?</div>
+<span class="b">Answer:</span> the Division asks for its own ARAL report, counted from all learners' Phil-IRI levels. BASA's implementation report counts the actual ARAL roster. The reading coordinator asked for both.</div>
+
+<h2>10. Limits and known gaps</h2>
+<ul>
+  <li>No IRIP target lists or check-in tools exist for KS1 or Foundational, so BASA has none either.</li>
+  <li>The ARAL learning materials cover Grades 7–10; the Grade 1–6 entries are empty until files are available.</li>
+  <li>Some tutor features are admin-only on purpose for now: the tutor's own section list, section-wide material recommendations and the roster file export.</li>
+  <li>A learner who moves to a school on another BASA server can't take their ARAL records along yet.</li>
+</ul>
+</body></html>
