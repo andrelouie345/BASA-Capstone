@@ -75,7 +75,7 @@ void main() {
   test('totals come from the real command lists', () {
     final r = computeCoverage(const [], tutorCommands: _list('tutor_commands.txt'), adminCommands: _list('admin_commands.txt'));
     expect(r.totalTutor, 129);
-    expect(r.totalAdmin, 272);
+    expect(r.totalAdmin, 274);
     expect(r.uncoveredTutor, hasLength(129));
     expect(r.coveredTutor + r.coveredAdmin, 0);
   });

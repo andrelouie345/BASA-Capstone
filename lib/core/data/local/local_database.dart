@@ -91,7 +91,12 @@ class LocalDatabase {
         // from_school_id / from_school_name / from_section_name /
         // from_status / from_left_on columns (upgradeEnrollmentMovesForV45,
         // right after v44, on create and every upgrade).
-        version: 45,
+        // v46: ARAL memo settings (cloud 20261118010000): the ARAL triggers
+        // read the school's settings from the aral_settings mirror (class
+        // maximum, weekdays only, longest session, IRIP cycle length;
+        // createAralLocalSchema) and aral_irip_weeks takes weeks 1-26
+        // (upgradeAralMemoForV46, before createAralLocalSchema on upgrade).
+        version: 46,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
@@ -228,6 +233,9 @@ class LocalDatabase {
           // v21. Must run before createAralLocalSchema, which recreates the
           // triggers and indexes this drops.
           if (oldVersion < 21) await rebuildAralEnrollmentsForV21(db);
+          // v46. Before createAralLocalSchema and createSyncLocalSchema, which
+          // recreate the triggers it drops. Skipped when weeks 1-26 already.
+          await upgradeAralMemoForV46(db);
           // v19. Same pattern: runs on every upgrade.
           await createAralLocalSchema(db);
           // v30. IF NOT EXISTS: runs on every upgrade.
