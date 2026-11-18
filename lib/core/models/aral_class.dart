@@ -8,7 +8,8 @@
 // Owner decisions (2026-10-23, spec docs/superpowers/specs/2026-10-23-aral-classes-design.md):
 //  * A class belongs to a school and a school year, not to a section; its
 //    learners come from any section of the school.
-//  * At most 15 active learners (aralClassCap, the placement rules are in
+//  * At most the school's class_max_learners active learners (ARAL memo
+//    settings, default 15 = aralClassCap; the placement rules are in
 //    aral_rules.dart).
 // Owner decisions (2026-10-24, from the reading coordinator; plan
 // docs/superpowers/plans/2026-10-24-aral-class-grade.md G1-G2):

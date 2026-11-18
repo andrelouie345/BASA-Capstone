@@ -23,8 +23,6 @@ import 'package:sqflite_common/sqflite.dart';
 
 const _gradeLevels = "('1', '2', '3', '4', '5', '6', '7', '8', '9', '10')";
 
-/// Same as the cloud's class cap (aral_check_class_placement, 20261023040000).
-
 /// v21: key_stage allows 'foundational' (no track, like KS1). v36 (ARAL
 /// classes, cloud 20261023040000): class_id (null = waiting for a class)
 /// replaces tutor_id; basis 'referral' with who referred the learner and why.
@@ -299,7 +297,7 @@ Future<void> _createClassTriggers(Database db) async {
 /// The value of an ARAL setting that counts for a school, in trigger SQL:
 /// the school's mirror row, else the default row (school_id null), else NULL
 /// (the caller COALESCEs today's rule). Same order as the cloud's
-/// aral_setting(school, key) (20261118010000) and AralRuleSettings.
+/// basa_private.aral_setting(school, key) (20261118020000) and AralRuleSettings.
 String aralSettingSql(String schoolExpr, String key) =>
     "COALESCE((SELECT json_extract(settings, '\$.$key') FROM aral_settings WHERE school_id = $schoolExpr), "
     "(SELECT json_extract(settings, '\$.$key') FROM aral_settings WHERE school_id IS NULL))";

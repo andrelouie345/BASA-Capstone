@@ -135,7 +135,9 @@ switches for which Phil-IRI values a list shows, carried or actual
 settings: class size, session rules, basis round, check-in sessions and IRIP
 length as school settings, today's values by default; console `aral-setting`,
 `aral-setting-set`; app update required: **yes**, apply only when every device
-has synced and every upload is decided). Each is idempotent.
+has synced and every upload is decided) and `20261118020000` (the server's
+ARAL setting reader leaves the API: `aral_setting` moves to `basa_private`;
+app update required: no). Each is idempotent.
 Do **not** run
 `supabase/migrations_archive/`.
 

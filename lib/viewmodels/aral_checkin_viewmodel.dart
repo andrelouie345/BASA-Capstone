@@ -337,22 +337,27 @@ class AralCheckinViewModel {
 
   // ---- Writing ----
 
-  /// Records an attempt at the check-in after session [checkpoint] (16 or 32)
+  /// Records an attempt at check-in [checkpoint] (16 = first, 32 = second; due
+  /// after the school's checkin_after_sessions)
   /// of the learner's current program, taken [on] (default today).
   Future<AralCheckin> startCheckin(int enrollmentId, int checkpoint, {DateTime? on, String? notes}) async {
     _requireSignIn();
     _log('startCheckin($enrollmentId, $checkpoint)');
-    if (!aralCheckinCheckpoints.contains(checkpoint)) {
-      throw ViewModelException('A check-in comes after session 16 or 32, not $checkpoint.');
-    }
     final e = await _require(enrollmentId);
+    if (!aralCheckinCheckpoints.contains(checkpoint)) {
+      // The checkpoint is the check-in's id (16 = first, 32 = second); the
+      // sessions it comes after are the school's checkin_after_sessions.
+      final after = (await localRuleSettings(e.schoolId)).checkinAfterSessions;
+      throw ViewModelException('A check-in is 16 (the first, after session ${after[0]}) '
+          'or 32 (the second, after session ${after[1]}), not $checkpoint.');
+    }
     if (e.track == null) {
       throw ViewModelException('${e.programLabel} has no check-in tools (only KS2-3 Basic and Plus do).');
     }
     if (!e.isActive) throw const ViewModelException('The learner is not active in ARAL.');
     final tool = await _checkins.toolFor(e.keyStage, e.track!, checkpoint);
     if (tool == null) {
-      throw ViewModelException('The ${e.programLabel} check-in form for session $checkpoint is not on this device. Download the latest data, then try again.');
+      throw ViewModelException('The ${e.programLabel} ${checkpoint == AralRuleSettings.checkpointIds.first ? 'first' : 'second'} check-in form is not on this device. Download the latest data, then try again.');
     }
     final date = _checkDate(on, e);
     return _write(() => _checkins.insertCheckin(AralCheckin(

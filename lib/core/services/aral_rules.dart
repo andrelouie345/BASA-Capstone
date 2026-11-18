@@ -10,7 +10,8 @@
 //    readers are school reading programs, not ARAL.
 //  * Every learner below grade level is proposed (the 15-per-section cap went
 //    with the ARAL classes, 2026-10-24: 15 ACTIVE learners per class,
-//    aralClassCap).
+//    aralClassCap; since the ARAL memo settings the school's
+//    class_max_learners).
 //  * Ranking, weakest first. Grades 4-10 (Phil-IRI): word recognition (word
 //    reading score), then comprehension, then reading speed. Grades 1-3
 //    (CRLA): % of words read correctly, then comprehension, then speed. A

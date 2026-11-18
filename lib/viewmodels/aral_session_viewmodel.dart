@@ -266,7 +266,13 @@ class AralSessionViewModel {
       if (s.classId != null) await _checkDay(await _class(s.classId!), date, exceptId: s.id);
     }
     final mins = minutes ?? s.minutes;
-    _checkSession(date, mins, setup ?? s.setup, await aralLocalRuleSettings(_localSettings, s.schoolId));
+    final newSetup = setup ?? s.setup;
+    // Only a change of date, minutes or set-up is checked (as the device and
+    // cloud triggers do): a session saved before the school tightened its
+    // rules keeps its lesson and remarks editable.
+    if (date != s.heldOn || mins != s.minutes || newSetup != s.setup) {
+      _checkSession(date, mins, newSetup, await aralLocalRuleSettings(_localSettings, s.schoolId));
+    }
     return _write(() => _sessions.updateSession(s.copyWith(
           heldOn: date,
           minutes: mins,

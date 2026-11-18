@@ -116,6 +116,20 @@ void main() {
     await expectLater(sessions.editSession(s.id!, minutes: 61), _refused('at most 60 minutes'));
   });
 
+  test('a session saved before the rules tightened keeps its lesson and remarks editable', () async {
+    await setting(null);
+    final c = await newClass();
+    final s = await log(c, DateTime(2026, 11, 14), minutes: 90, setup: AralSetup.weekend); // Saturday
+    await setting({'sessions_weekdays_only': true, 'session_max_minutes': 60});
+    final edited = await sessions.editSession(s.id!, lesson: () => 'Vowel sounds', remarks: () => 'typo fixed');
+    expect(edited.lesson, 'Vowel sounds');
+    expect(edited.remarks, 'typo fixed');
+    // Changing what the rules cover is checked.
+    await expectLater(sessions.editSession(s.id!, minutes: 80), _refused('Monday to Friday'));
+    await expectLater(sessions.editSession(s.id!, heldOn: DateTime(2026, 11, 16), setup: AralSetup.pullOut),
+        _refused('at most 60 minutes'));
+  });
+
   test('check-ins follow the setting', () async {
     await setting({'checkin_after_sessions': [3, 5]});
     final c = await newClass();
@@ -149,8 +163,7 @@ void main() {
           for (final n in (await reminders.coordinatorReminders(_school, _year, today: today)).single.aral)
             if (n.kind == AralClassNoticeKind.fewSessionsThisWeek && n.aralClass?.id == c.id) n.message
         ];
-    const line = 'Class "C5" has 1 session this week; the school asks for at least 3.';
-    expect(c.className, 'C5');
+    final line = 'Class "${c.className}" has 1 session this week; the school asks for at least 3.';
     expect(await tutorLines(DateTime(2026, 11, 11)), [line]); // Wednesday
     expect(await coordLines(DateTime(2026, 11, 11)), [line]);
     expect(await tutorLines(DateTime(2026, 11, 10)), isEmpty); // Tuesday: too early to say
