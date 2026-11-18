@@ -7,6 +7,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:basa_capstone/core/data/local/aral_local_schema.dart' show upgradeAralMemoForV46;
 import 'package:basa_capstone/core/data/local/local_database.dart';
 import 'package:basa_capstone/core/data/local/sync_local_writes.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -186,5 +187,33 @@ void main() {
       await week(e, w);
     }
     await expectLater(week(e, 27), aborts('has 26 weeks'));
+  });
+
+  test('a stale trigger on another table does not stop the IRIP rebuild (old dev copies)', () async {
+    // v26-v36 devices: upgradeAralSessionsForV37 has dropped aral_tutor_settings,
+    // but check_aral_session_ins still mentions it until createAralLocalSchema.
+    final old = await databaseFactory.openDatabase(inMemoryDatabasePath);
+    await old.execute('''
+      CREATE TABLE aral_irip_weeks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        enrollment_id INTEGER NOT NULL,
+        week_no INTEGER NOT NULL CHECK (week_no BETWEEN 1 AND 8),
+        row_version INTEGER)''');
+    await old.insert('aral_irip_weeks', {'id': 5, 'enrollment_id': 1, 'week_no': 8, 'row_version': 2});
+    await old.execute('CREATE TABLE aral_sessions (id INTEGER PRIMARY KEY)');
+    await old.execute('CREATE TABLE aral_tutor_settings (tutor_id INTEGER)');
+    await old.execute('''
+      CREATE TRIGGER check_aral_session_ins BEFORE INSERT ON aral_sessions
+      BEGIN SELECT 1 FROM aral_tutor_settings; END''');
+    await old.execute('DROP TABLE aral_tutor_settings');
+
+    await upgradeAralMemoForV46(old);
+    final sql = (await old.rawQuery("SELECT sql FROM sqlite_master WHERE name = 'aral_irip_weeks'")).single['sql'] as String;
+    expect(sql, contains('BETWEEN 1 AND 26'));
+    expect(await old.query('aral_irip_weeks'), [
+      {'id': 5, 'enrollment_id': 1, 'week_no': 8, 'row_version': 2}
+    ]);
+    expect((await old.rawQuery('PRAGMA legacy_alter_table')).single.values.single, 0);
+    await old.close();
   });
 }

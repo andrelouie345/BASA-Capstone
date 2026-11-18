@@ -321,6 +321,19 @@ Future<void> upgradeAralMemoForV46(Database db) async {
   final sql = table.single['sql'] as String;
   if (!sql.contains('BETWEEN 1 AND 8')) return;
 
+  // legacy_alter_table on for the rename, as the Phil-IRI rebuilds: on an old
+  // dev copy (v26-v36) check_aral_session_ins still mentions the dropped
+  // aral_tutor_settings until createAralLocalSchema replaces it, and a modern
+  // rename re-checks every trigger.
+  await db.execute('PRAGMA legacy_alter_table = ON');
+  try {
+    await _rebuildIripWeeksForV46(db, sql);
+  } finally {
+    await db.execute('PRAGMA legacy_alter_table = OFF');
+  }
+}
+
+Future<void> _rebuildIripWeeksForV46(Database db, String sql) async {
   await db.transaction((txn) async {
     final columns = [for (final c in await txn.rawQuery('PRAGMA table_info(aral_irip_weeks)')) c['name'] as String]
         .join(', ');

@@ -119,15 +119,17 @@ on `aral_settings` (type and range), like `aral_settings_pass_pct`.
 |---|---|---|---|
 | `class_max_learners` | integer 1-50 | 15 | 10 |
 | `class_min_learners` | integer 0-50, 0 = none; must be <= max (device check) | 0 | 5 |
-| `session_max_minutes` | integer 1-240 | 120 (and today's warning above 60 on weekdays) | 60 |
+| `session_max_minutes` | integer 1-120 (built: both databases limit `aral_sessions.minutes` to 1-120, so a wider value could never be used) | not set = today's rule (refuse above 120, warn above 60 on weekdays) | 60 |
 | `sessions_weekdays_only` | boolean | false | true |
-| `internal_tutor_max_sessions_per_day` | integer 1-10, absent = none | none | 2 |
-| `external_tutor_max_minutes_per_day` | integer 1-600, absent = none | none | 120 |
+| `internal_tutor_max_sessions_per_day` (Plan B) | integer 1-10, absent = none | none | 2 |
+| `external_tutor_max_minutes_per_day` (Plan B) | integer 1-600, absent = none | none | 120 |
 | `class_min_sessions_per_week` | integer 0-7, 0 = none | 0 | 3 |
 | `basis_round` | text `bosy` / `mosy` | `bosy` | `mosy` |
 | `checkin_after_sessions` | array of 2 increasing integers, each 1-200 | [16, 32] | unchanged |
 | `irip_weeks` | integer 1-26 | 8 | unchanged |
-| `adviser_tutors_own_class` | boolean | true (allowed) | false |
+| `adviser_tutors_own_class` (Plan B) | boolean | true (allowed) | false |
+
+Not in this table but needed by a memo school: `ks1_extended` on (an existing setting): the memo takes Developing and Transitioning KS1 learners too (memo Enclosure item 5).
 
 **call:** `session_max_minutes` replaces both 60/120 constants. When the key
 is absent, today's behaviour stays exactly (warn above 60 on weekdays, refuse

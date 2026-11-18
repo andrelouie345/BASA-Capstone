@@ -56,6 +56,7 @@ void main() {
     expect(aralRuleSettingProblem('basis_round', 'eosy'), isNotNull);
     expect(aralRuleSettingProblem('basis_round', 'mosy'), isNull);
     expect(aralRuleSettingProblem('checkin_after_sessions', [24, 12]), isNotNull);
+    expect(aralRuleSettingProblem('checkin_after_sessions', [24, 12]), endsWith('not 24,12.')); // as typed, not a Dart list
     expect(aralRuleSettingProblem('checkin_after_sessions', [12, 24]), isNull);
     expect(aralRuleSettingProblem('sessions_weekdays_only', 'yes'), isNotNull);
     expect(aralRuleSettingProblem('nope', 1), contains('class_max_learners'));

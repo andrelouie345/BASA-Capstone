@@ -153,7 +153,8 @@ String? aralRuleSettingProblem(String key, Object? value) => switch (key) {
               value.every((v) => _wholeIn(v, 1, 200)) &&
               (value[0] as num) < (value[1] as num)
           ? null
-          : 'The check-ins come after two sessions, the first before the second, each 1-200 (e.g. 16,32), not $value.',
+          : 'The check-ins come after two sessions, the first before the second, each 1-200 (e.g. 16,32), '
+              'not ${value is List ? value.join(',') : value}.',
       AralRuleSettings.iripWeeksKey =>
         _wholeIn(value, 1, 26) ? null : 'An IRIP cycle has 1-26 weeks, not $value.',
       _ => 'Unknown ARAL setting "$key". The settings are: ${AralRuleSettings.keys.join(', ')}.',

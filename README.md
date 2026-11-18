@@ -454,6 +454,28 @@ their next pull. `report-settings-reset <schoolId>` drops the school's done
 threshold, auto-approve, offline window, FLT setting, archive period and
 Phil-IRI value switches so the region's apply.
 
+**ARAL school rules** (read: any signed-in user; set: admin/coordinator for
+their school, superadmin for the region; online). Each rule is a school
+setting; nothing set = today's rule. `-` removes a value so the region value or
+the default applies again.
+
+```
+aral-setting [key] [schoolId]                     (no key = every rule: school / region / default)
+aral-setting-set <key> <region|schoolId> <value|->
+```
+
+Keys: `class_max_learners` (1-50, default 15), `class_min_learners` (0-50,
+0 = none; a notice only), `session_max_minutes` (1-120; not set = warn above 60
+on weekdays), `sessions_weekdays_only` (on/off), `class_min_sessions_per_week`
+(0-7; a reminder from Wednesday), `basis_round` (`bosy`/`mosy`: the round new
+ARAL learners are chosen from), `checkin_after_sessions` (two sessions, e.g.
+`16,32`), `irip_weeks` (1-26, default 8). A school following Division
+Memorandum 180 s. 2026 (Valencia City) sets `class_max_learners 10`,
+`class_min_learners 5`, `session_max_minutes 60`, `sessions_weekdays_only on`,
+`class_min_sessions_per_week 3`, `basis_round mosy`, and turns on
+`aral-ks1-extended-set <schoolId> on` (the memo takes Developing and
+Transitioning KS1 learners too).
+
 **Local cache only** (offline reads — may lag behind Supabase)
 
 ```

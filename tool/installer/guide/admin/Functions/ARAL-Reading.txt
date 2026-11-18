@@ -7,7 +7,7 @@ The ARAL-Reading program: learners below grade level get tutoring in small class
 
 ===== Roster =====
 **ARAL → Roster**. Who is in ARAL, their program, class and status.
-* **Who qualifies**: Grade 1 by their CRLA MOSY result, Grades 2-3 by CRLA BOSY (Low or High Emerging; Developing and Transitioning too when the school turns on //KS1 extended//); Grades 4-10 by their Phil-IRI English result below grade level.
+* **Who qualifies**: Grade 1 by their CRLA MOSY result, Grades 2-3 by CRLA BOSY (Low or High Emerging; Developing and Transitioning too when the school turns on //KS1 extended//); Grades 4-10 by their Phil-IRI English result below grade level. When your school sets the //basis round// to MoSY, new learners are chosen from the latest round up to MoSY instead (BoSY when a learner has no MoSY result).
 * BASA **proposes** the qualifying learners of a section; you enroll them. A teacher can **refer** a learner (who referred, and why).
 * BASA suggests each learner's **program** from their **adjusted reading level**: 0-1 Foundational (only when the school has SHARP on, otherwise KS1), 2-3 KS1, 4-5 KS2 Basic, 6-7 KS2 Plus, 8 KS3 Basic, 9 KS3 Plus. Learners at grade level (Instructional or Independent) are not in ARAL. You can change a program.
 * When new results arrive, opening the roster updates programs and **exits** learners who reached grade level. Transfers and drop-outs are exited by hand.
@@ -17,19 +17,31 @@ The ARAL-Reading program: learners below grade level get tutoring in small class
 **ARAL → Tutors**. Each ARAL tutor's classes and active learners.
 
 ===== Classes =====
-**ARAL → Classes**. A class has a name, a home grade, one program (or mixed programs) and a tutor. At most **15 active learners**, from any section of the school. A learner of another grade needs the coordinator's confirmation. A learner's ARAL tutor is their class's tutor.
+**ARAL → Classes**. A class has a name, a home grade, one program (or mixed programs) and a tutor. At most **15 active learners** (or your school's maximum, see //School ARAL rules//), from any section of the school. A learner of another grade needs the coordinator's confirmation. A learner's ARAL tutor is their class's tutor.
 
 ===== Sessions and attendance =====
-**ARAL → Sessions and attendance**. The class tutor logs each session (date, minutes, set-up, lesson) and marks attendance: present, absent or excused. One session per class per date. The program has 32 sessions.
+**ARAL → Sessions and attendance**. The class tutor logs each session (date, minutes, set-up, lesson) and marks attendance: present, absent or excused. One session per class per date. The program has 32 sessions. Your school can allow weekdays only and set the longest session (see //School ARAL rules//).
 
 ===== IRIP =====
-**ARAL → IRIP**. The Individual Reading Intervention Plan: each week a reading target per learner, rated Observed, Partially observed or Not observed. BASA suggests the next target. For KS2 and KS3 programs.
+**ARAL → IRIP**. The Individual Reading Intervention Plan (cycles of 8 weeks unless your school set another length): each week a reading target per learner, rated Observed, Partially observed or Not observed. BASA suggests the next target. For KS2 and KS3 programs.
 
 ===== Check-ins =====
-**ARAL → Check-ins**. The check-in assessments after the 16th and 32nd session (KS2 and KS3). The tutor enters the answers; BASA scores them against the cut-off (75% unless your school changed it) as Met or Not met. Retakes are allowed; the latest counts. Admins and coordinators see the check-in report.
+**ARAL → Check-ins**. The check-in assessments after the 16th and 32nd session, unless your school set other sessions (KS2 and KS3). The tutor enters the answers; BASA scores them against the cut-off (75% unless your school changed it) as Met or Not met. Retakes are allowed; the latest counts. Admins and coordinators see the check-in report.
 
 ===== ARAL settings =====
 **ARAL → ARAL settings**. For your school: the check-in cut-off, SHARP (the Foundational program), KS1 extended, and after how many days without a session a class shows in the reminders.
+
+===== School ARAL rules =====
+DepEd and the Division change ARAL's numbers from time to time, so they are school settings. A rule you never set works as it always has.
+* **Class maximum** (1-50, normally 15): a full class takes no new learner. Lowering it never removes anyone: a class above the new maximum keeps working (sessions, attendance, exits), and your reminders say //Class "X" has 12 active learners, more than the maximum 10: move learners to another class. Their records stay.// Take learners out of the class (**Classes → Unplace**) and place them in another one; their attendance and results stay with them.
+* **Class minimum** (0 = none): a class below it shows in your reminders (combine it with the nearest level of the same grade if there is one). It never blocks anything.
+* **Weekdays only**: no session on Saturday or Sunday, and no //Weekend// set-up.
+* **Longest session** (1-120 minutes): a longer session is refused. Not set: BASA only warns above 60 minutes on a weekday.
+* **Sessions a week** (0 = none): from Wednesday, a class with fewer sessions this week shows in the tutor's and your reminders.
+* **Basis round** (BoSY or MoSY): the round new ARAL learners are chosen from (see //Roster//).
+* **Check-in sessions** (normally after sessions 16 and 32).
+* **IRIP weeks** (1-26, normally 8): a cycle already longer keeps its weeks.
+A school following **Division Memorandum 180 s. 2026** (Valencia City) sets: class maximum 10, class minimum 5, weekdays only on, longest session 60, sessions a week 3, basis round MoSY, and turns **KS1 extended** on (the memo takes Developing and Transitioning learners in Grades 1-3 too). The memo also says a school short of tutors must not enlarge its classes: keep the maximum at 10 and serve the learners with the lowest results first.
 
 ===== Materials and recommendations =====
 **ARAL → Materials**. The learning materials list: title, file name and a Google Drive link (BASA stores no files). BASA recommends materials for each learner's program. A school can set its own link for any material.

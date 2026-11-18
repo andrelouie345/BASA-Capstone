@@ -67,6 +67,13 @@ Calls:
 - `localSettings(schoolId)` → `AralCheckinSettings`, `localSessionSettings(schoolId)` → `AralSessionSettings` (types from `core/models/aral_types.dart`)
 Console: `aral-checkin-cutoff`, `aral-checkin-cutoff-set`, `aral-checkin-cutoff-reset`, `aral-sharp`, `aral-sharp-set`, `aral-ks1-extended`, `aral-ks1-extended-set`, `aral-idle-days`, `aral-idle-days-set`
 
+School ARAL rules (same screen, a part of its own; ARAL memo settings):
+- Fields (key, what to show, allowed values): `class_max_learners` "Class maximum" 1-50; `class_min_learners` "Class minimum" 0-50 (0 = none); `session_max_minutes` "Longest session (minutes)" 1-120 (blank = not set); `sessions_weekdays_only` "Weekdays only" on/off; `class_min_sessions_per_week` "Sessions a week (at least)" 0-7; `basis_round` "Choose new learners from" BoSY/MoSY; `checkin_after_sessions` "Check-ins after sessions" two numbers, first < second, 1-200; `irip_weeks` "IRIP weeks" 1-26. Key names: `AralRuleSettings.keys` and the `*Key` constants.
+- Read: `AralCheckinViewModel.ruleSettingLayers(key, schoolId)` → `(region, school, effective, defaults)` per key (online); `localRuleSettings(schoolId)` → `AralRuleSettings` (this device's copy, offline).
+- admin: `setRuleSetting(schoolId, key, value)` (value `null` removes the school's value: "Use the region value / default"); `ruleSettingValue(key, text)` turns typed text into a value. Refusals are plain sentences (range, minimum above maximum, not your school).
+- Elsewhere: `AralClassViewModel.classMax(schoolId)` / `classMin(schoolId)`, `AralViewModel.ruleSettings(schoolId)`, `AralIripStrandState.cycleLength`; coordinator notices `AralClassNoticeKind.overMax`, `underMin`, `fewSessionsThisWeek`; tutor reminder `TutorReminderKind.fewSessionsThisWeek`.
+Console: `aral-setting`, `aral-setting-set`
+
 ### Materials and recommendations
 Build: both (read, recommend) / admin (catalog)    Roles: all read; catalog admin / coordinator
 Calls:
