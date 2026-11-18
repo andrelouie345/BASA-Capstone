@@ -32,6 +32,7 @@ import '../core/repositories/section_repository.dart';
 import '../core/repositories/student_repository.dart';
 import '../core/services/aral_checkin_rules.dart';
 import '../core/services/aral_rules.dart' show AralProgramSettings, AralSessionSettings;
+import '../core/services/aral_rule_settings.dart';
 import '../core/services/csv.dart';
 import '../core/services/normalizers.dart';
 import '../core/services/sync_upload_rules.dart' show pendingLockMessage;
@@ -595,6 +596,80 @@ class AralCheckinViewModel {
     }
     await _cloudWrite(() => cloud.deleteForSchool(schoolId));
     await _mirror(() => _localSettings.removeMirroredForSchool(schoolId));
+  }
+
+  // ---- ARAL memo settings (spec 2026-11-18) ----
+
+  /// The ARAL rules on this device for [schoolId]: defaults <- region <- the
+  /// school's override (the local mirror; pull-cloud refreshes it).
+  Future<AralRuleSettings> localRuleSettings(int schoolId) async {
+    _requireSignIn();
+    final region = await _localSettings.getRegion();
+    final school = await _localSettings.getForSchool(schoolId);
+    return AralRuleSettings.fromMap({...?region?.settings, ...?school?.settings});
+  }
+
+  /// One ARAL rule in the cloud: the stored region/school values (null = not
+  /// set), the one that applies and the built-in default.
+  Future<({Object? region, Object? school, Object? effective, Object? defaults})> ruleSettingLayers(
+      String key, int? schoolId) async {
+    _requireSignIn();
+    _log('ruleSettingLayers($key, $schoolId)');
+    if (!AralRuleSettings.keys.contains(key)) throw ViewModelException(aralRuleSettingProblem(key, null)!);
+    final cloud = _cloud();
+    final region = await cloud.getRegion();
+    final school = schoolId == null ? null : await cloud.getForSchool(schoolId);
+    return (
+      region: region?.settings[key],
+      school: school?.settings[key],
+      effective: AralRuleSettings.fromMap({...?region?.settings, ...?school?.settings}).valueOf(key),
+      defaults: AralRuleSettings.defaults.valueOf(key),
+    );
+  }
+
+  /// Sets one ARAL rule ([AralRuleSettings.keys]) for the region ([schoolId]
+  /// null, superadmin) or a school (its admin/coordinator); [value] null
+  /// removes it from that row so the region value or the default applies.
+  /// The class minimum may not exceed the maximum that would apply. Online;
+  /// mirrored to this device.
+  Future<AralSetting> setRuleSetting(int? schoolId, String key, Object? value) async {
+    _requireSignIn();
+    _log('setRuleSetting($schoolId, $key, $value)');
+    if (!AralRuleSettings.keys.contains(key)) throw ViewModelException(aralRuleSettingProblem(key, null)!);
+    final cloud = _settingsWriter(schoolId);
+    if (value != null) {
+      final problem = aralRuleSettingProblem(key, value);
+      if (problem != null) throw ViewModelException(problem);
+    }
+    final region = await cloud.getRegion();
+    final current = schoolId == null ? region : await cloud.getForSchool(schoolId);
+    final next = {...?current?.settings}..remove(key);
+    if (value != null) next[key] = value;
+    _checkMinMax({...?(schoolId == null ? null : region?.settings), ...next});
+    final saved = await _cloudWrite(() => cloud.save(schoolId, next));
+    await _mirror(() => _localSettings.upsertWithId(saved));
+    return saved;
+  }
+
+  /// [text] typed for [key] as the value [setRuleSetting] takes (`10`, `on`,
+  /// `mosy`, `16,32`); text that doesn't parse comes back as it is and is
+  /// refused there with the key's range.
+  Object? ruleSettingValue(String key, String text) => aralRuleSettingFromText(key, text);
+
+  /// Refuses a class minimum above the class maximum in [merged] (the values
+  /// that would apply after the change).
+  static void _checkMinMax(Map<String, Object?> merged) {
+    num? read(String key, int fallback) {
+      final v = merged[key];
+      return aralRuleSettingProblem(key, v) == null ? v as num : fallback;
+    }
+
+    final max = read(AralRuleSettings.classMaxLearnersKey, AralRuleSettings.defaults.classMaxLearners)!;
+    final min = read(AralRuleSettings.classMinLearnersKey, AralRuleSettings.defaults.classMinLearners)!;
+    if (min > max) {
+      throw ViewModelException('The class minimum ($min) would be above the class maximum ($max). '
+          'Lower the minimum first, or raise the maximum.');
+    }
   }
 
   // ---- helpers ----

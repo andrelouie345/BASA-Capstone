@@ -72,6 +72,8 @@ aral-roster
 aral-session-delete
 aral-session-edit
 aral-sessions
+aral-setting
+aral-setting-set
 aral-sharp
 aral-sharp-set
 aral-sheet
