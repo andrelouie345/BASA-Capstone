@@ -33,6 +33,7 @@ import '../models/aral_class.dart';
 import '../models/aral_enrollment.dart';
 import '../models/crla_assessment.dart' show CrlaRound;
 import '../models/crla_result.dart';
+import 'aral_rule_settings.dart' show AralBasisRound;
 import 'crla_rules.dart';
 import 'phil_iri_results.dart' show PhilIriRoundResult, PhilIriRoundView;
 
@@ -95,8 +96,12 @@ String aralPlacementMessage(AralPlacementProblem p,
 /// suggestion through applyResults, the basis itself never changes.
 const aralNotAssessedLevel = 'not_assessed';
 
-/// The CRLA round a Grade 1-3 learner's ARAL placement comes from.
-CrlaRound aralCrlaBasisRound(int grade) => grade == 1 ? CrlaRound.mosy : CrlaRound.bosy;
+/// The CRLA round a Grade 1-3 learner's ARAL placement comes from: Grade 1
+/// always MoSY (DM 064); Grades 2-3 BoSY, or MoSY when the school's
+/// basis_round is mosy (ARAL memo settings; the proposal falls back to BoSY
+/// when the learner has no MoSY result).
+CrlaRound aralCrlaBasisRound(int grade, AralBasisRound setting) =>
+    grade == 1 || setting == AralBasisRound.mosy ? CrlaRound.mosy : CrlaRound.bosy;
 
 /// CRLA reading profiles from weakest to strongest (chart order).
 const aralCrlaProfileOrder = [

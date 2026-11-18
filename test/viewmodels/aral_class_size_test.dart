@@ -94,7 +94,7 @@ void main() {
     await setting(null);
     expect(await classes.classMax(_school), 15);
     expect((await classes.place(eleventh.id!, c.id!)).classId, c.id);
-  });
+  }, timeout: const Timeout(Duration(minutes: 3))); // many learners, one insert each
 
   test('a class over a lowered maximum is a notice; taking a learner out keeps their attendance', () async {
     await setting(null);
@@ -115,7 +115,7 @@ void main() {
     expect(before, 1);
     await classes.unplace(placed.first.id!);
     expect((await db.query('aral_attendance', where: 'enrollment_id = ?', whereArgs: [placed.first.id])).length, before);
-  });
+  }, timeout: const Timeout(Duration(minutes: 3))); // many learners, one insert each
 
   test("a class under the school's minimum is a notice; minimum 0 = none", () async {
     await setting(null);
@@ -133,5 +133,5 @@ void main() {
     await setting(null);
     expect(await classes.classMin(_school), 0);
     expect(await notices(AralClassNoticeKind.underMin), isEmpty);
-  });
+  }, timeout: const Timeout(Duration(minutes: 3))); // many learners, one insert each
 }

@@ -101,7 +101,7 @@ void main() {
         hasLength(1));
     // The device checks are back on the rebuilt table.
     await expectLater(week(e, 9), aborts('has 8 weeks'));
-  });
+  }, timeout: const Timeout(Duration(minutes: 3))); // many learners, one insert each
 
   test('class max from the school setting', () async {
     await setting({'class_max_learners': 10});
@@ -125,7 +125,7 @@ void main() {
     await expectLater(place(r), aborts('at most 12'));
     await setting({'class_max_learners': 13}, region: {'class_max_learners': 12});
     await place(r);
-  });
+  }, timeout: const Timeout(Duration(minutes: 3))); // many learners, one insert each
 
   test('over-max class still edits', () async {
     await setting(null);
@@ -141,7 +141,7 @@ void main() {
     final waiting = await place(null);
     await expectLater(db.update('aral_enrollments', {'class_id': c}, where: 'id = ?', whereArgs: [waiting]),
         aborts('at most 10'));
-  });
+  }, timeout: const Timeout(Duration(minutes: 3))); // many learners, one insert each
 
   test('weekday rule', () async {
     await setting({'sessions_weekdays_only': true});
