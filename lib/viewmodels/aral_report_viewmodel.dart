@@ -66,6 +66,49 @@ String aralNotAssessedNote(int count, PhilIriValues values, String asOf) {
       'coordinator asked; the CSV shows them as "$aralReportNotAssessed".';
 }
 
+/// One ARAL learner's BoSY and MoSY result as the implementation report
+/// counts it (ARAL memo Plan B; the ARAL forms read these).
+class AralLearnerRounds {
+  static const crla = 'CRLA';
+  static const philIri = 'Phil-IRI';
+
+  final AralEnrollment enrollment;
+  final int grade;              // the section's grade
+  final String instrument;      // [crla] (Grades 1-3) or [philIri]
+  /// Still in ARAL on the as-of date; false = left by then (MoSY fields null).
+  final bool inAral;
+  /// Phil-IRI: nothing at all by the as-of date (counted as 3-LD, flagged).
+  final bool notAssessed;
+  /// The report's column: a CRLA profile; for Phil-IRI the levels-down group
+  /// (philIriReportGroup, e.g. '3-LD', '2-LD', 'GLR'); or [aralReportNoResult]
+  /// / [aralReportNotAssessed].
+  final String bosyResult;
+  /// As [bosyResult]; Phil-IRI carries BoSY forward when there is no MoSY
+  /// round (see [mosyOwn]). Null when the learner left ARAL by the date.
+  final String? mosyResult;
+  /// Orderable: CRLA profile order (0 Low Emerging ... 4 At Grade Level);
+  /// Phil-IRI adjusted level (0 Non-Reader). Null = no result / not assessed.
+  final int? bosyRank;
+  final int? mosyRank;
+  /// The learner has a MoSY result of their own (not BoSY carried forward).
+  final bool mosyOwn;
+
+  const AralLearnerRounds({
+    required this.enrollment,
+    required this.grade,
+    required this.instrument,
+    required this.inAral,
+    required this.notAssessed,
+    required this.bosyResult,
+    required this.mosyResult,
+    required this.bosyRank,
+    required this.mosyRank,
+    required this.mosyOwn,
+  });
+
+  int get enrollmentId => enrollment.id!;
+}
+
 /// One section's row.
 class AralSectionReportRow {
   final Section section;
@@ -77,6 +120,8 @@ class AralSectionReportRow {
   final Map<String, int> mosy;
   final int exitedGradeLevelReady;
   final int exitedOther;          // transferred out, dropped out, other, classroom support
+  /// The learners these counts add up (AralReportViewModel.learnerRounds).
+  final List<AralLearnerRounds> learners;
 
   const AralSectionReportRow({
     required this.section,
@@ -88,6 +133,7 @@ class AralSectionReportRow {
     required this.mosy,
     required this.exitedGradeLevelReady,
     required this.exitedOther,
+    this.learners = const [],
   });
 
   int get bosyTotal => bosy.values.fold(0, (a, b) => a + b);
@@ -350,51 +396,123 @@ class AralReportViewModel {
     ]);
   }
 
-  Future<AralSectionReportRow> _row(
-      Section s, String year, String asOf, PhilIriThresholds t, PhilIriValues values) async {
-    final grade = int.parse(s.gradeLevel);
-    final usesCrla = grade <= 3;
-    final enrolment = (await _students.getBySection(s.id!)).length;
+  /// Every ARAL learner of the school's Grade 1-10 sections entered by [asOf]
+  /// (YYYY-MM-DD, default today) with their BoSY and MoSY result: the
+  /// per-learner part of [implementationReport] (which adds these up), shared
+  /// with the ARAL forms. By grade, section name, then roster order.
+  Future<List<AralLearnerRounds>> learnerRounds({
+    required int schoolId,
+    required String schoolYear,
+    String? asOf,
+  }) async {
+    _log('learnerRounds(school: $schoolId, year: $schoolYear, asOf: $asOf)');
+    final date = asOf == null ? _date(DateTime.now()) : _isoDay(asOf);
+    final report = await implementationReport(
+        schoolId: schoolId, schoolYear: schoolYear, asOf: DateTime.parse(date));
+    return [for (final r in report.rows) ...r.learners];
+  }
+
+  static final _isoDayPattern = RegExp(r'^\d{4}-\d{2}-\d{2}$');
+
+  static String _isoDay(String s) {
+    final d = _isoDayPattern.hasMatch(s) ? DateTime.tryParse(s) : null;
+    if (d == null || _date(d) != s) {
+      throw ViewModelException('"$s" is not a date: write it as YYYY-MM-DD, e.g. 2026-11-14.');
+    }
+    return s;
+  }
+
+  /// One section's ARAL learners entered by [asOf] with their results.
+  Future<List<AralLearnerRounds>> _learners(
+      Section s, int grade, String year, String asOf, PhilIriThresholds t, PhilIriValues values) async {
     final roster = (await _roster.getBySection(s.id!, schoolYear: year))
         .where((e) => e.enteredOn.compareTo(asOf) <= 0)
         .toList();
     bool inAralOn(AralEnrollment e) => e.exitedOn == null || e.exitedOn!.compareTo(asOf) > 0;
-    final exited = roster.where((e) => !inAralOn(e)).toList();
+    final out = <AralLearnerRounds>[];
 
-    final bosy = <String, int>{};
-    final mosy = <String, int>{};
-    void add(Map<String, int> m, String k) => m[k] = (m[k] ?? 0) + 1;
-
-    if (usesCrla) {
+    if (grade <= 3) {
       final results = await _crlaResults.getBySection(s.id!, schoolYear: year);
+      int? rank(String? profile) {
+        final i = profile == null ? -1 : aralCrlaProfileOrder.indexOf(profile);
+        return i < 0 ? null : i;
+      }
+
       for (final e in roster) {
         final mine = results.where((r) => r.studentId == e.studentId).toList();
-        add(bosy, aralCrlaLearnerProfile(mine, CrlaRound.bosy, asOf, grade: grade) ?? aralReportNoResult);
-        if (inAralOn(e)) {
-          add(mosy, aralCrlaLearnerProfile(mine, CrlaRound.mosy, asOf, grade: grade) ?? aralReportNoResult);
-        }
+        final b = aralCrlaLearnerProfile(mine, CrlaRound.bosy, asOf, grade: grade);
+        final inAral = inAralOn(e);
+        final m = inAral ? aralCrlaLearnerProfile(mine, CrlaRound.mosy, asOf, grade: grade) : null;
+        out.add(AralLearnerRounds(
+          enrollment: e,
+          grade: grade,
+          instrument: AralLearnerRounds.crla,
+          inAral: inAral,
+          notAssessed: false,
+          bosyResult: b ?? aralReportNoResult,
+          bosyRank: rank(b),
+          mosyResult: inAral ? m ?? aralReportNoResult : null,
+          mosyRank: rank(m),
+          mosyOwn: m != null,
+        ));
       }
     } else {
       for (final e in roster) {
         final res = await _philIri.reportResults(
             studentId: e.studentId, sectionId: e.sectionId, schoolYear: year, asOf: asOf);
-        String group(Iterable<PhilIriRound> rounds) {
+        (String, int?) group(Iterable<PhilIriRound> rounds) {
           // Not assessed at all by the report date: assumed 3-LD, flagged.
-          if (res.notAssessed) return aralReportNotAssessed;
+          if (res.notAssessed) return (aralReportNotAssessed, null);
           final last = res.latestView(rounds, values);
           // Actual: no reading of their own in these rounds = not assessed.
-          if (last == null) return values == PhilIriValues.actual ? aralReportNotAssessed : aralReportNoResult;
+          if (last == null) {
+            return (values == PhilIriValues.actual ? aralReportNotAssessed : aralReportNoResult, null);
+          }
           // Non-readers go with the furthest group (the open last one).
-          return last.profile == PhilIriLevel.nonReader
+          final label = last.profile == PhilIriLevel.nonReader
               ? philIriReportGroup(99, t)
               : philIriReportGroup(last.levelsDown, t);
+          return (label, last.adjustedLevel);
         }
-        add(bosy, group(const [PhilIriRound.bosy]));
+
+        final inAral = inAralOn(e);
+        final b = group(const [PhilIriRound.bosy]);
         // MOSY: the latest MOSY round; without one, BOSY carries forward.
-        if (inAralOn(e)) {
-          add(mosy, group(const [PhilIriRound.bosy, PhilIriRound.mosy1, PhilIriRound.mosy2, PhilIriRound.mosy3]));
-        }
+        final m = inAral
+            ? group(const [PhilIriRound.bosy, PhilIriRound.mosy1, PhilIriRound.mosy2, PhilIriRound.mosy3])
+            : null;
+        const mosyRounds = [PhilIriRound.mosy1, PhilIriRound.mosy2, PhilIriRound.mosy3];
+        out.add(AralLearnerRounds(
+          enrollment: e,
+          grade: grade,
+          instrument: AralLearnerRounds.philIri,
+          inAral: inAral,
+          notAssessed: res.notAssessed,
+          bosyResult: b.$1,
+          bosyRank: b.$2,
+          mosyResult: m?.$1,
+          mosyRank: m?.$2,
+          mosyOwn: inAral && !res.notAssessed && res.latestView(mosyRounds, values) != null,
+        ));
       }
+    }
+    return out;
+  }
+
+  Future<AralSectionReportRow> _row(
+      Section s, String year, String asOf, PhilIriThresholds t, PhilIriValues values) async {
+    final grade = int.parse(s.gradeLevel);
+    final usesCrla = grade <= 3;
+    final enrolment = (await _students.getBySection(s.id!)).length;
+    final learners = await _learners(s, grade, year, asOf, t, values);
+    final exited = learners.where((x) => !x.inAral).map((x) => x.enrollment).toList();
+
+    final bosy = <String, int>{};
+    final mosy = <String, int>{};
+    void add(Map<String, int> m, String k) => m[k] = (m[k] ?? 0) + 1;
+    for (final x in learners) {
+      add(bosy, x.bosyResult);
+      if (x.inAral) add(mosy, x.mosyResult!);
     }
 
     final columns = usesCrla ? _crlaColumns(bosy, mosy) : _philIriColumns(bosy, mosy, t, grade);
@@ -408,6 +526,7 @@ class AralReportViewModel {
       mosy: mosy,
       exitedGradeLevelReady: exited.where((e) => e.exitReason == AralExitReason.gradeLevelReady).length,
       exitedOther: exited.where((e) => e.exitReason != AralExitReason.gradeLevelReady).length,
+      learners: learners,
     );
   }
 
