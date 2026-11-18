@@ -137,7 +137,12 @@ length as school settings, today's values by default; console `aral-setting`,
 `aral-setting-set`; app update required: **yes**, apply only when every device
 has synced and every upload is decided) and `20261118020000` (the server's
 ARAL setting reader leaves the API: `aral_setting` moves to `basa_private`;
-app update required: no). Each is idempotent.
+app update required: no) and `20261118030000` (ARAL memo, people: section
+advisers, tutor type and class session type; an adviser does not tutor their
+own learners and daily tutor limits (an internal tutor's sessions, an external
+tutor's minutes), as school settings, off by default; app update required:
+**yes**, apply only when every device has synced and every upload is decided).
+Each is idempotent.
 Do **not** run
 `supabase/migrations_archive/`.
 

@@ -4,7 +4,7 @@
 
 **Goal:** Record section advisers, tutor type and each class's session type; enforce "an adviser does not tutor their own learners" and the daily tutor limits as school settings; suggest memo-style class names; export ARAL Forms 1, 2 and 4 (Reading).
 
-**Architecture:** Builds on Plan A (`AralRuleSettings`, the `aral_setting` server helper, SQLite v46). New columns on `sections`, `users`, `aral_classes` (migration `20261118020000`, SQLite v47); three more setting keys; checks in the ViewModels and on the server; a new read-only `AralFormsViewModel` (admin build) that reuses the implementation report's per-learner results and writes `.xlsx` with `writeXlsx`.
+**Architecture:** Builds on Plan A (`AralRuleSettings`, the `aral_setting` server helper, SQLite v46). New columns on `sections`, `users`, `aral_classes` (migration `20261118030000`, SQLite v47); three more setting keys; checks in the ViewModels and on the server; a new read-only `AralFormsViewModel` (admin build) that reuses the implementation report's per-learner results and writes `.xlsx` with `writeXlsx`.
 
 **Tech Stack:** Dart, sqflite_common_ffi, Supabase Postgres, `lib/core/services/xlsx_writer.dart`, `excel_plus` (reading back in tests), flutter_test.
 
@@ -20,7 +20,7 @@
 - Class names suggested as `ARAL-R-G<grade>-<nn>` (two digits, next free for that school and year, compared ignoring case); names stay free text.
 - Forms are admin build only, `.xlsx`, BASA's own layout copying the form's header fields and columns (no DepEd template file exists). Fields BASA doesn't hold are blank and listed in each sheet's footer note. Mathematics columns blank.
 - Form 4 definitions (owner-approved 2026-11-18): Identified at BoSY = ARAL learners of the year with `basisRound` BoSY; Served = placed in a class and marked present at least once by the date; Reached grade level = exited grade-level ready by the date; Improved, still below = still in ARAL, MoSY result better than BoSY (CRLA profile order; Phil-IRI adjusted level higher); No improvement = still in ARAL, MoSY not better or none; ARAL learners at MoSY = still in ARAL on the date; results follow the school's ARAL value source; Part II = classes, internal/external tutors, sessions and hours (sum of minutes / 60) by the date.
-- Migration `20261118020000`: header `App update required on all devices: yes` (new refusals), the apply-only-when-finalized line, ledger row, `release.dart`, README 2b; RLS of `sections`, `users`, `aral_classes`, `aral_sessions` reviewed in the file (no policy should need widening: section and class writes are already admin/coordinator of the school; `users_update_scoped` already lets them update their school's users).
+- Migration `20261118030000`: header `App update required on all devices: yes` (new refusals), the apply-only-when-finalized line, ledger row, `release.dart`, README 2b; RLS of `sections`, `users`, `aral_classes`, `aral_sessions` reviewed in the file (no policy should need widening: section and class writes are already admin/coordinator of the school; `users_update_scoped` already lets them update their school's users).
 - Admin-only writes and the forms in `*_admin_commands.dart`; both tool checks pass. Owner rule: never run git; hand over commit messages. Close any open BASA console before console/kit runs.
 
 ## Review Focus
@@ -36,18 +36,18 @@
 ### Task 1: Server migration (columns, adviser rule, daily tutor limits)
 
 **Files:**
-- Create: `supabase/migrations/20261118020000_aral_memo_people.sql`
+- Create: `supabase/migrations/20261118030000_aral_memo_people.sql`
 - Modify: `lib/core/release.dart`, `README.md` (2b)
 - Test: PG 18 throwaway harness (stubs + baseline + every migration, the new one twice).
 
 **Interfaces:**
-- Produces (SQL): columns above with CHECKs; `aral_settings` CHECKs for the three keys; trigger `sections_adviser_same_school` (adviser_user_id's `users.school_id` = section's school); adviser rule inside `aral_check_class_placement` (reads `coalesce((aral_setting(school,'adviser_tutors_own_class'))::boolean, true)`) and a BEFORE UPDATE OF tutor_id trigger on `aral_classes`; constraint trigger `aral_sessions_tutor_day_limits` (deferrable initially immediate, advisory lock on tutor+date) refusing more than N sessions (internal) or more than N minutes (external) per tutor per date; messages name the number and the tutor's type.
-- [ ] **Step 1: Write the PG steps** — defaults: none of the new refusals fire; adviser rule off/on (place refused, tutor change refused, other section fine); adviser of another school refused; internal limit 2: 3rd session that day refused, next day fine; external 120 minutes: 60+60 fine, +1 minute refused; `sync_apply` moving a session from one date to another at the limit succeeds; type null → no limit; CHECKs refuse bad values.
-- [ ] **Step 2: Run** — new cases FAIL.
-- [ ] **Step 3: Write the migration** (idempotent).
-- [ ] **Step 4: Run** twice — PASS; stop and remove the cluster.
-- [ ] **Step 5: release.dart + README 2b** line ("ARAL memo, people: section advisers, tutor type and class session type; an adviser does not tutor their own learners and daily tutor limits, as school settings, off by default; app update required: **yes**, …"); `flutter test test/supabase/migration_grants_test.dart` — PASS.
-- [ ] **Step 6: Commit message:** `feat(aral,db): advisers, tutor type, class session type and their rules (20261118020000)`.
+- Produces (SQL): columns above with CHECKs; `aral_settings` CHECKs for the three keys; trigger `sections_adviser_same_school` (adviser_user_id's `users.school_id` = section's school); adviser rule inside `aral_check_class_placement` (reads `coalesce((aral_setting(school,'adviser_tutors_own_class'))::boolean, true)`) and a BEFORE UPDATE OF tutor_id trigger on `aral_classes`; constraint trigger `aral_sessions_tutor_day_limits` (built instead inside the existing constraint trigger `aral_sessions_one_per_day`, owner 2026-11-18, so `sync_apply` needs no change; advisory lock on tutor+date) refusing more than N sessions (internal) or more than N minutes (external) per tutor per date; messages name the number and the tutor's type.
+- [x] **Step 1: Write the PG steps** — defaults: none of the new refusals fire; adviser rule off/on (place refused, tutor change refused, other section fine); adviser of another school refused; internal limit 2: 3rd session that day refused, next day fine; external 120 minutes: 60+60 fine, +1 minute refused; `sync_apply` moving a session from one date to another at the limit succeeds; type null → no limit; CHECKs refuse bad values.
+- [x] **Step 2: Run** — new cases FAIL.
+- [x] **Step 3: Write the migration** (idempotent).
+- [x] **Step 4: Run** twice — PASS; stop and remove the cluster.
+- [x] **Step 5: release.dart + README 2b** line ("ARAL memo, people: section advisers, tutor type and class session type; an adviser does not tutor their own learners and daily tutor limits, as school settings, off by default; app update required: **yes**, …"); `flutter test test/supabase/migration_grants_test.dart` — PASS.
+- [x] **Step 6: Commit message:** `feat(aral,db): advisers, tutor type, class session type and their rules (20261118030000)`.
 
 ### Task 2: SQLite v47, models and repositories
 
@@ -120,7 +120,7 @@
 **Files:**
 - Modify: `README.md` (7: new commands), `tool/installer/guide/admin/Functions/ARAL-Reading.txt` (advisers, tutor type, the two school rules, class names, the forms, and "Forms 3, 5 and 6: tutor details, printing and overload pay are kept in the separate tutor-management system, so BASA leaves them out; BASA's session records give each tutor's ARAL hours"), `docs/handoff/screens/` (section adviser field, user tutor type, class session type and suggested name, forms export), `CLAUDE.md` (module checklist; command counts), `lib/core/CLAUDE.md` (adviser rule checked in the ViewModel and on the server), `docs/guides/BASA_ARAL.html` + re-export `BASA_ARAL.pdf` (class size and session rules are school settings; the forms), `test/core/wiring/admin_commands.txt` (+ `section-adviser`, `user-tutor-type`, `aral-form1`, `aral-form2`, `aral-form4`), `tool/command_pass/scenarios/` (batch: set adviser, rule on → placement refused, tutor type + internal limit → 3rd session refused, export each form to the run folder)
 - [ ] **Step 1:** update the command list; `flutter test test/core/wiring` — PASS.
-- [ ] **Step 2:** owner applies `20261118020000` on the dev cloud (closes any open console); run the pass batch — PASS (**DO NOT PLAY RESOURCE INTENSIVE GAMES** while it runs).
+- [ ] **Step 2:** owner applies `20261118030000` on the dev cloud (closes any open console); run the pass batch — PASS (**DO NOT PLAY RESOURCE INTENSIVE GAMES** while it runs).
 - [ ] **Step 3:** `dart analyze`, `flutter test`, both tool checks — PASS.
 - [ ] **Step 4:** write the docs; verify kit `D:/0_CAPSTONE/verify/aral-memo-b/` (adviser, tutor type, refusals, three form files with expected cells).
 - [ ] **Step 5: Commit message:** `docs(aral): advisers, tutor type and ARAL Forms in the README, guides and project notes; why Forms 3, 5, 6 are outside BASA`.
