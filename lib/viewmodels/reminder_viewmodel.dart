@@ -32,6 +32,7 @@ import '../core/models/report_setting.dart';
 import '../core/models/section.dart';
 import '../core/models/user_role.dart';
 import '../core/models/aral_enrollment.dart';
+import '../core/models/aral_session.dart' show AralSession;
 import '../core/models/student.dart';
 import '../core/repositories/aral_checkin_repository.dart';
 import '../core/repositories/aral_class_repository.dart';
@@ -130,8 +131,10 @@ class SchoolReminders {
 
 /// overMax / underMin: a class above the school's class_max_learners (the
 /// maximum was lowered after it filled) or below its class_min_learners
-/// (ARAL memo settings; 0 = no minimum).
-enum AralClassNoticeKind { waiting, programMismatch, otherGrade, noTutor, overMax, underMin }
+/// (ARAL memo settings; 0 = no minimum). fewSessionsThisWeek: from
+/// Wednesday, a class with active learners that held fewer sessions this
+/// Monday-Friday week than the school's class_min_sessions_per_week.
+enum AralClassNoticeKind { waiting, programMismatch, otherGrade, noTutor, overMax, underMin, fewSessionsThisWeek }
 
 /// An ARAL class matter for the coordinator.
 class AralClassNotice {
@@ -154,7 +157,7 @@ class AralClassNotice {
 /// In display order (spec D3): overdue assessments, check-ins due, open-round
 /// assessments, learners without a GST (BOSY; spec 2026-11-09 D13), no IRIP,
 /// no session lately.
-enum TutorReminderKind { overdueAssessment, checkinDue, openAssessment, noGst, noIrip, noSessionLately }
+enum TutorReminderKind { overdueAssessment, checkinDue, openAssessment, noGst, noIrip, noSessionLately, fewSessionsThisWeek }
 
 class ReminderLearner {
   final int studentId;
@@ -353,6 +356,20 @@ class ReminderViewModel {
     return SchoolReminders(schoolId, name, threshold, out, await _aralNotices(schoolId, year, calendarDate(today)));
   }
 
+  /// "Class "X" has 1 session this week; the school asks for at least 3."
+  /// when [day] is a Wednesday or later and [sessions] (the class's) held from
+  /// that week's Monday to [day] are fewer than [minPerWeek] (0 = no rule).
+  static String? _fewSessionsLine(AralClass c, List<AralSession> sessions, int minPerWeek, String day) {
+    if (minPerWeek <= 0) return null;
+    final today = DateTime.parse(day);
+    if (today.weekday < DateTime.wednesday) return null; // too early in the week to say
+    final monday = calendarDate(today.subtract(Duration(days: today.weekday - 1)));
+    final n = sessions.where((s) => s.heldOn.compareTo(monday) >= 0 && s.heldOn.compareTo(day) <= 0).length;
+    if (n >= minPerWeek) return null;
+    return 'Class "${c.className}" has ${n == 1 ? '1 session' : '$n sessions'} this week; '
+        'the school asks for at least $minPerWeek.';
+  }
+
   /// The school's ARAL learners waiting for a class or in a class of another
   /// program (one-program classes) or another grade on [day], its classes
   /// without a tutor, and its classes above the school's maximum or below its
@@ -420,6 +437,11 @@ class ReminderViewModel {
               'Class "${c.className}" has ${count(placed[c.id]!)}, more than the maximum ${rules.classMaxLearners}: '
               'move learners to another class. Their records stay.',
               aralClass: c),
+      for (final c in byName)
+        if (placed.containsKey(c.id))
+          if (_fewSessionsLine(c, await _aralSessions.getByClass(c.id!), rules.classMinSessionsPerWeek, day)
+              case final line?)
+            AralClassNotice(AralClassNoticeKind.fewSessionsThisWeek, line, aralClass: c),
       for (final c in byName)
         if ((placed[c.id] ?? 0) > 0 && placed[c.id]! < rules.classMinLearners)
           AralClassNotice(
@@ -578,13 +600,21 @@ class ReminderViewModel {
       }
     }
 
-    // 2. Check-ins due, per class: after the class's 16th / 32nd session,
-    // active learners whose program has a tool at that checkpoint and no
-    // attempt at one by today.
+    // 2. Check-ins due, per class: after the class's first / second check-in
+    // session (the school's checkin_after_sessions, default 16 and 32; the
+    // tools and saved check-ins keep the checkpoint ids 16 and 32), active
+    // learners whose program has a tool at that checkpoint and no attempt at
+    // one by today.
+    final rulesOf = <int, AralRuleSettings>{};
+    Future<AralRuleSettings> rules(int schoolId) async => rulesOf[schoolId] ??= AralRuleSettings.fromMap({
+          ...?(await _aralSettings.getRegion())?.settings,
+          ...?(await _aralSettings.getForSchool(schoolId))?.settings,
+        });
     for (final cls in classes) {
-      for (final checkpoint in aralCheckinCheckpoints) {
+      final after = (await rules(cls.schoolId)).checkinAfterSessions;
+      for (final (i, checkpoint) in aralCheckinCheckpoints.indexed) {
         final classHeld = heldIn[cls.id]!.length;
-        if (classHeld < checkpoint) continue;
+        if (classHeld < after[i]) continue;
         final due = <ReminderLearner>[];
         for (final e in roster.where((e) => e.classId == cls.id)) {
           if (e.track == null || await _checkins.toolFor(e.keyStage, e.track!, checkpoint) == null) continue;
@@ -602,7 +632,7 @@ class ReminderViewModel {
         due.sort(_byName);
         out.add(TutorReminder(
           TutorReminderKind.checkinDue,
-          'Class "${cls.className}": check-in due (session $checkpoint done; $classHeld held): ${due.length} '
+          'Class "${cls.className}": check-in due (session ${after[i]} done; $classHeld held): ${due.length} '
           'learner${due.length == 1 ? '' : 's'} without one.',
           due,
           checkpoint: checkpoint,
@@ -640,6 +670,14 @@ class ReminderViewModel {
               const [], days: since, aralClass: c));
         }
       }
+    }
+
+    // 5. Fewer sessions this week than the school asks for (ARAL memo
+    // settings, class_min_sessions_per_week), per class with active learners.
+    for (final c in classes) {
+      if (!roster.any((e) => e.classId == c.id)) continue;
+      final line = _fewSessionsLine(c, heldIn[c.id]!, (await rules(c.schoolId)).classMinSessionsPerWeek, day);
+      if (line != null) out.add(TutorReminder(TutorReminderKind.fewSessionsThisWeek, line, const [], aralClass: c));
     }
 
     int sectionOrder(TutorReminder r) {

@@ -51,11 +51,17 @@ Non-goals:
 - The CRLA language per grade (G1 Mother Tongue, G2 Filipino, G3 English)
   stays in code: it drives story matching and the scoresheet (**owner**, as
   recommended). Flagged in the docs as a known risk.
-- Changing who qualifies for Grades 4-10. The memo's "Frustration or
-  Instructional" is the ARAL template's own groups (3 Level Down, 2 Level
-  Down), i.e. every learner below grade level, which BASA already proposes
-  (**owner**, confirmed with the reading coordinator's earlier input). No
-  qualification change.
+- Changing who qualifies for Grades 4-10. The reading coordinator's answers
+  (2026-11-18): a learner at Instructional or Independent on a grade-level
+  passage (not an adjusted-grade passage) is grade-level ready, does not
+  qualify, and an ARAL learner exits there; every other list that uses
+  "grade-level ready" stays as it is; the memo is clarificatory and any
+  DepEd school may follow it. That is what BASA already does (one grade-level
+  passage per round; Frustration, Struggling or Non-Reader there = below
+  grade level). The memo's "Frustration or Instructional" therefore names
+  the ARAL report's groups (3 Level Down, 2 Level Down). No qualification
+  change. (This reading was first proposed by Claude while drafting this
+  spec; it is the coordinator's answers above that confirm it.)
 - Scoring (CRLA, Phil-IRI) is untouched; no result shifts.
 
 Anti-goals (a failure even if it works):

@@ -50,7 +50,7 @@ Console: `aral-irip`, `aral-irip-targets`, `aral-irip-start`, `aral-irip-next`, 
 
 ### Check-ins
 Build: both (take) / admin (report, cut-off)    Roles: class tutor takes them; admin / coordinator report
-Purpose: the 16th/32nd-session check-in: start, answer items (letters or open items), result Met / Not met.
+Purpose: the first and second check-in (after session 16 and 32 unless the school set other sessions; the forms and saved check-ins still call them 16 and 32): start, answer items (letters or open items), result Met / Not met.
 Calls:
 - `AralCheckinViewModel.tools()`, `items(toolId)`, `learnerCheckins(enrollmentId)` → `AralLearnerCheckins`; `result(checkinId)` → `AralCheckinResult` (`score: AralCheckinScore`, `passPct`; types from `core/models/aral_types.dart`)
 - `startCheckin(...)`, `editCheckin(...)`, `deleteCheckin(id)`, `answerChoices(...)`, `markOpen(...)`, `clearAnswer(...)`

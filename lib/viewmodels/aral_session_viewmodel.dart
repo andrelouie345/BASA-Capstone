@@ -29,18 +29,18 @@ import '../core/models/user_role.dart';
 import '../core/repositories/aral_class_repository.dart';
 import '../core/repositories/aral_enrollment_repository.dart';
 import '../core/repositories/aral_session_repository.dart';
+import '../core/repositories/aral_setting_repository.dart';
 import '../core/repositories/student_repository.dart';
 import '../core/repositories/user_repository.dart';
+import '../core/services/aral_rule_settings.dart';
 import '../core/services/normalizers.dart';
 import '../core/services/sync_upload_rules.dart' show pendingLockMessage;
+import 'aral_class_viewmodel.dart' show aralLocalRuleSettings;
 import 'auth_viewmodel.dart';
 import '../core/services/auth_messages.dart';
 import 'viewmodel_exception.dart';
 import '../core/services/school_year_dates.dart';
 
-/// Check-in assessments come after these session numbers (DepEd: 32 sessions,
-/// check-ins after 16 and 32).
-const aralCheckInAfter = [16, 32];
 
 /// One learner's line on a session's attendance sheet.
 class AralSheetLine {
@@ -86,7 +86,7 @@ class AralTutorSummary {
   final int sessions;
   final int totalMinutes;
   final int? lastSessionNo;    // the highest session number among their classes
-  final int? nextCheckInAfter; // the check-in (16 or 32) of the class closest to one; null when all are past
+  final int? nextCheckInAfter; // the session number of the class closest to a check-in; null when all are past
   final int? sessionsToNextCheckIn; // that class's sessions to go
   final int activeLearners;
   final AralAttendanceSummary attendance;
@@ -109,7 +109,8 @@ class AralClassSummary {
   final int sessions;
   final int totalMinutes;
   final int? lastSessionNo;
-  final int? nextCheckInAfter; // the next check-in's session number; null when both are past
+  final int? nextCheckInAfter; // the next check-in's session number (the school's
+  // checkin_after_sessions, default 16 and 32); null when both are past
   final int activeLearners;
   final AralAttendanceSummary attendance;
 
@@ -131,6 +132,7 @@ class AralSessionViewModel {
     'An ARAL session keeps its tutor, class, school, year and number; only the date, minutes, set-up, lesson and remarks change',
     'An attendance mark keeps its session and learner; delete it and add a new one instead',
     'An ARAL class already has a session on that date',
+    'ARAL sessions are held Monday to Friday at this school',
     'A new ARAL session needs a class',
     'The ARAL class belongs to another school or school year',
   ];
@@ -142,6 +144,7 @@ class AralSessionViewModel {
   final UserRepository _users;
   final StudentRepository _students;
   final AralClassRepository _classes;
+  final AralSettingRepository _localSettings;
 
   /// A non-blocking notice from the last write (a long weekday session, a
   /// check-in that is due).
@@ -154,9 +157,11 @@ class AralSessionViewModel {
     required UserRepository users,
     required StudentRepository students,
     required AralClassRepository classes,
+    required AralSettingRepository localSettings,
     Logger? logger,
   })  : _auth = auth,
         _classes = classes,
+        _localSettings = localSettings,
         _sessions = sessions,
         _roster = roster,
         _users = users,
@@ -213,7 +218,8 @@ class AralSessionViewModel {
     }
     final date = _date(heldOn ?? DateTime.now());
     _checkDate(date, cls.schoolYear);
-    _checkMinutes(date, minutes);
+    final rules = await aralLocalRuleSettings(_localSettings, cls.schoolId);
+    _checkSession(date, minutes, setup, rules);
     await _checkDay(cls, date);
 
     final stored = await _write(() => _sessions.insertSession(AralSession(
@@ -229,7 +235,7 @@ class AralSessionViewModel {
           createdBy: me.id,
         )));
     _log('logged session ${stored.id} (class ${cls.id} #${stored.sessionNo})');
-    _noteCheckIn(stored, cls);
+    _noteCheckIn(stored, cls, rules);
     return stored;
   }
 
@@ -260,7 +266,7 @@ class AralSessionViewModel {
       if (s.classId != null) await _checkDay(await _class(s.classId!), date, exceptId: s.id);
     }
     final mins = minutes ?? s.minutes;
-    _checkMinutes(date, mins);
+    _checkSession(date, mins, setup ?? s.setup, await aralLocalRuleSettings(_localSettings, s.schoolId));
     return _write(() => _sessions.updateSession(s.copyWith(
           heldOn: date,
           minutes: mins,
@@ -460,12 +466,13 @@ class AralSessionViewModel {
       marks.addAll(await _sessions.getAttendance(s.id!));
     }
     final last = list.isEmpty ? null : list.map((s) => s.sessionNo ?? 0).reduce((a, b) => a > b ? a : b);
+    final checkinAfter = (await aralLocalRuleSettings(_localSettings, c.schoolId)).checkinAfterSessions;
     return AralClassSummary(
       aralClass: c,
       sessions: list.length,
       totalMinutes: list.fold(0, (sum, s) => sum + s.minutes),
       lastSessionNo: last,
-      nextCheckInAfter: aralCheckInAfter.where((n) => n > (last ?? 0)).firstOrNull,
+      nextCheckInAfter: checkinAfter.where((n) => n > (last ?? 0)).firstOrNull,
       activeLearners: (await _roster.getByClass(c.id!)).where((e) => e.isActive).length,
       attendance: AralAttendanceSummary.of(marks),
     );
@@ -582,12 +589,28 @@ class AralSessionViewModel {
     }
   }
 
-  void _checkMinutes(String date, int minutes) {
+  /// The session rules (ARAL memo settings, cloud
+  /// basa_private.aral_check_session_rules): 1-120 minutes always; the
+  /// school's weekdays-only rule (no Saturday, Sunday or weekend set-up) and
+  /// longest session when set; without a longest session, today's warning
+  /// above 60 minutes on a weekday.
+  void _checkSession(String date, int minutes, AralSetup setup, AralRuleSettings r) {
     if (minutes < 1 || minutes > aralMaxMinutes) {
       throw ViewModelException('A session lasts 1 to $aralMaxMinutes minutes (got $minutes).');
     }
     final weekday = DateTime.parse(date).weekday;
     final weekend = weekday == DateTime.saturday || weekday == DateTime.sunday;
+    if (r.sessionsWeekdaysOnly && (weekend || setup == AralSetup.weekend)) {
+      throw ViewModelException('ARAL sessions are held Monday to Friday at this school'
+          '${weekend ? ' ($date is a ${weekday == DateTime.saturday ? 'Saturday' : 'Sunday'})' : ', so not with the weekend set-up'}.');
+    }
+    final max = r.sessionMaxMinutes;
+    if (max != null) {
+      if (minutes > max) {
+        throw ViewModelException('An ARAL session at this school lasts at most $max minutes (got $minutes).');
+      }
+      return;
+    }
     if (!weekend && minutes > aralWeekdayMaxMinutes) {
       lastWarning = 'A weekday session should last at most $aralWeekdayMaxMinutes minutes ($minutes logged).';
       _log(lastWarning!);
@@ -602,8 +625,10 @@ class AralSessionViewModel {
     }
   }
 
-  void _noteCheckIn(AralSession s, AralClass c) {
-    if (!aralCheckInAfter.contains(s.sessionNo)) return;
+  /// After the class's first or second check-in session (the school's
+  /// checkin_after_sessions, default 16 and 32): the check-in is due.
+  void _noteCheckIn(AralSession s, AralClass c, AralRuleSettings r) {
+    if (aralCheckpointForSession(r, s.sessionNo ?? 0) == 0) return;
     final note = 'Class "${c.className}": session ${s.sessionNo} done: the check-in assessment is due.';
     lastWarning = lastWarning == null ? note : '$lastWarning\n$note';
     _log(note);
@@ -619,6 +644,10 @@ class AralSessionViewModel {
       final text = e.toString().toLowerCase();
       for (final refusal in _dbRefusals) {
         if (text.contains(refusal.toLowerCase())) throw ViewModelException('$refusal.');
+      }
+      final longest = RegExp(r'an aral session at this school lasts at most (\d+) minutes').firstMatch(text);
+      if (longest != null) {
+        throw ViewModelException('An ARAL session at this school lasts at most ${longest.group(1)} minutes.');
       }
       if (text.contains('minutes')) throw const ViewModelException('A session lasts 1 to $aralMaxMinutes minutes.');
       rethrow;
