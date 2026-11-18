@@ -3,7 +3,7 @@
 // 2-10 uses the latest assessed round up to MoSY (CRLA mosy; Phil-IRI the
 // latest of MOSY #3, #2, #1 that counts), else BoSY; 'bosy' (default) is
 // today's rule. Grade 1 already uses CRLA MoSY. The round's values follow
-// the school's values_aral (carried = best so far, the default; actual).
+// the school's values_aral (carried = best so far; actual, the default).
 //
 // Grade 7 section 81 (school 1), 10 questions per passage, one-minute
 // readings of 120 words with no miscues (word reading 100%):
@@ -128,9 +128,9 @@ void main() {
     expect((cg.status, cg.basisRound), (AralCandidateStatus.proposed, 'bosy'), reason: cg.reason);
   });
 
-  test('basis round mosy, carried values (default): the latest MoSY that counts, best so far', () async {
+  test('basis round mosy, carried values: the latest MoSY that counts, best so far', () async {
     await basis('mosy');
-    await valuesAral(null);
+    await valuesAral('carried');
     // A: MOSY #1 carries BoSY's 90%: still not ARAL.
     final ca = await candidate(_g7, a);
     expect((ca.status, ca.basisRound), (AralCandidateStatus.notQualified, 'mosy1'), reason: ca.reason);
@@ -144,9 +144,9 @@ void main() {
     expect(cc.basisAssessmentId, isNotNull);
   });
 
-  test('basis round mosy, actual values: the latest MoSY reading itself', () async {
+  test('basis round mosy, actual values (default): the latest MoSY reading itself', () async {
     await basis('mosy');
-    await valuesAral('actual');
+    await valuesAral(null);
     final ca = await candidate(_g7, a);
     expect((ca.status, ca.basisRound), (AralCandidateStatus.proposed, 'mosy1'), reason: ca.reason);
     final cf = await candidate(_g7, f);

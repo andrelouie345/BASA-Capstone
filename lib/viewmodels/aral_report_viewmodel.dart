@@ -164,7 +164,7 @@ class AralImplementationReport {
   final PhilIriValues values;
 
   const AralImplementationReport(this.schoolId, this.schoolYear, this.asOf, this.rows,
-      {this.values = PhilIriValues.carried});
+      {this.values = PhilIriValues.actual});
 
   /// Every grade's sections added up, by grade (lowest first).
   Map<int, AralReportTotals> get gradeTotals {

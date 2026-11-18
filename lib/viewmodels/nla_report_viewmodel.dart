@@ -97,7 +97,7 @@ class NlaReport {
   final PhilIriValues values;
 
   const NlaReport(this.schoolId, this.schoolYear, this.asOf, this.sections, this.total,
-      {this.values = PhilIriValues.carried});
+      {this.values = PhilIriValues.actual});
 }
 
 /// The header line of Form 2b under [values]: under actual a learner not
@@ -351,7 +351,7 @@ class BosyMasterlist {
   final PhilIriValues values;
 
   const BosyMasterlist(this.schoolId, this.schoolYear, this.asOf, this.sections,
-      {this.values = PhilIriValues.carried});
+      {this.values = PhilIriValues.actual});
 }
 
 /// The masterlist as CSV: one row per listed learner.

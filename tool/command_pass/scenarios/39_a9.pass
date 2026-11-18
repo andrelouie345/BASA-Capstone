@@ -11,7 +11,7 @@
 #   L4  nothing
 # Under carried MOSY 1 shows the best so far (L1 80%); under actual L1's own
 # 10%, and L2-L4 are "not assessed this round" (3-LD Frustration on Form 2b).
-# The school's switches are back at their defaults at the end.
+# The school's switches end as b0 left them (carried; ranking actual).
 
 device a9-pc admin fresh
 as coord
@@ -114,7 +114,7 @@ expect~ .
 run sync-upload yes
 expect~ [Aa]pplied
 
-# --- Every list under carried (the defaults) ------------------------------------------
+# --- Every list under carried (as b0 set them) ----------------------------------------
 run nla-report {school} {year} sections={sec_a9} blocks=form2b rounds=mosy1
 expect Values: carried (best so far)
 # L1 80% (BOSY carried), L2 75% (the GST), L3 80%: all grade level ready; L4 has no comprehension.
@@ -199,7 +199,7 @@ expect~ #1 [^\n]*: 75\.0%
 expect~ #2 [^\n]*: 80\.0%[^\n]*\n#2 [^\n]*: 80\.0%
 expect Not ranked (1):
 
-# --- Back to the defaults -----------------------------------------------------------------
+# --- Back to the run's settings (b0) -------------------------------------------------------
 run value-source-set {school} form2b carried
 expect~ .
 run value-source-set {school} bosy-masterlist carried

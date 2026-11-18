@@ -88,7 +88,7 @@ class SrpList {
   final PhilIriValues values;
 
   const SrpList(this.schoolId, this.schoolYear, this.asOf, this.perSection, this.sections,
-      {this.values = PhilIriValues.carried});
+      {this.values = PhilIriValues.actual});
 }
 
 /// The list as CSV: one row per candidate ([recommendedOnly]: only those

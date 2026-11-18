@@ -17,6 +17,19 @@ capture schoolB = OK: (\d+) \|
 # Creating the same school again leaves it as it is.
 run school-create {code_a} X - {name_a}
 expect Already exists (unchanged): {school} |
+# Phil-IRI values: the lists default to actual since 2026-11-18; the older
+# batches (t2, t4, a4, a4b, a5, a7, a8) were written for carried values, so
+# the run's school shows carried. A9 sets each list itself (both kinds).
+run value-source-set {school} form2b carried
+expect form2b values for school {school} are now carried.
+run value-source-set {school} bosy-masterlist carried
+expect bosy-masterlist values for school {school} are now carried.
+run value-source-set {school} srp carried
+expect srp values for school {school} are now carried.
+run value-source-set {school} aral carried
+expect aral values for school {school} are now carried.
+run value-source-set {school} learner-pages carried
+expect learner-pages values for school {school} are now carried.
 
 run user-create zztest.pass.r{run}.coord@basa.test coordinator {school} ZZTEST Pass Coord r{run}
 expect Created: zztest.pass.r{run}.coord@basa.test as coordinator at school {school}.

@@ -12,8 +12,8 @@
 // archive_keep_months (whole months 1-120, default 6; SF1 leavers D12: how
 // long an archived learner is kept before they may be anonymized), and the
 // six Phil-IRI value switches values_aral, values_bosy_masterlist,
-// values_form2b, values_srp, values_learner_pages (default "carried") and
-// values_ranking (default "actual"): "carried" | "actual", which Phil-IRI
+// values_form2b, values_srp, values_learner_pages and values_ranking (all
+// default "actual"): "carried" | "actual", which Phil-IRI
 // values a list shows (spec 2026-11-14 value sources D1-D3; anything else
 // stored reads as the key's default).
 import 'dart:convert';
@@ -26,11 +26,11 @@ enum PhilIriValues { carried, actual }
 /// The lists a school switches between carried and actual values, with
 /// their report_settings key, console name and default.
 enum PhilIriValueList {
-  aral('values_aral', 'aral', PhilIriValues.carried),
-  bosyMasterlist('values_bosy_masterlist', 'bosy-masterlist', PhilIriValues.carried),
-  form2b('values_form2b', 'form2b', PhilIriValues.carried),
-  srp('values_srp', 'srp', PhilIriValues.carried),
-  learnerPages('values_learner_pages', 'learner-pages', PhilIriValues.carried),
+  aral('values_aral', 'aral', PhilIriValues.actual),
+  bosyMasterlist('values_bosy_masterlist', 'bosy-masterlist', PhilIriValues.actual),
+  form2b('values_form2b', 'form2b', PhilIriValues.actual),
+  srp('values_srp', 'srp', PhilIriValues.actual),
+  learnerPages('values_learner_pages', 'learner-pages', PhilIriValues.actual),
   ranking('values_ranking', 'ranking', PhilIriValues.actual);
 
   final String key;
@@ -132,11 +132,11 @@ class ReportSettings {
 
   /// Every list at its default (keep in step with [PhilIriValueList]).
   static const Map<PhilIriValueList, PhilIriValues> defaultValueSources = {
-    PhilIriValueList.aral: PhilIriValues.carried,
-    PhilIriValueList.bosyMasterlist: PhilIriValues.carried,
-    PhilIriValueList.form2b: PhilIriValues.carried,
-    PhilIriValueList.srp: PhilIriValues.carried,
-    PhilIriValueList.learnerPages: PhilIriValues.carried,
+    PhilIriValueList.aral: PhilIriValues.actual,
+    PhilIriValueList.bosyMasterlist: PhilIriValues.actual,
+    PhilIriValueList.form2b: PhilIriValues.actual,
+    PhilIriValueList.srp: PhilIriValues.actual,
+    PhilIriValueList.learnerPages: PhilIriValues.actual,
     PhilIriValueList.ranking: PhilIriValues.actual,
   };
 
