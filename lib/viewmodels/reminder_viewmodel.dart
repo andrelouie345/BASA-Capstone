@@ -46,6 +46,7 @@ import '../core/repositories/student_repository.dart';
 import '../core/repositories/tutor_section_assignment_repository.dart';
 import '../core/repositories/user_repository.dart';
 import '../core/services/aral_checkin_rules.dart' show aralCheckinCheckpoints;
+import '../core/services/aral_rule_settings.dart' show AralRuleSettings;
 import '../core/services/aral_rules.dart' show AralSessionSettings, aralActiveOn;
 import '../core/services/auth_messages.dart';
 import '../core/services/phil_iri_rules.dart' show philIriGradeOf;
@@ -127,7 +128,10 @@ class SchoolReminders {
   const SchoolReminders(this.schoolId, this.schoolName, this.doneThreshold, this.reminders, [this.aral = const []]);
 }
 
-enum AralClassNoticeKind { waiting, programMismatch, otherGrade, noTutor }
+/// overMax / underMin: a class above the school's class_max_learners (the
+/// maximum was lowered after it filled) or below its class_min_learners
+/// (ARAL memo settings; 0 = no minimum).
+enum AralClassNoticeKind { waiting, programMismatch, otherGrade, noTutor, overMax, underMin }
 
 /// An ARAL class matter for the coordinator.
 class AralClassNotice {
@@ -138,7 +142,7 @@ class AralClassNotice {
   /// each with their ARAL roster row.
   final List<ReminderLearner> learners;
 
-  /// The class concerned (no tutor).
+  /// The class concerned (no tutor, over the maximum, under the minimum).
   final AralClass? aralClass;
 
   const AralClassNotice(this.kind, this.message, {this.learners = const [], this.aralClass});
@@ -350,8 +354,9 @@ class ReminderViewModel {
   }
 
   /// The school's ARAL learners waiting for a class or in a class of another
-  /// program (one-program classes) or another grade on [day], and its
-  /// classes without a tutor.
+  /// program (one-program classes) or another grade on [day], its classes
+  /// without a tutor, and its classes above the school's maximum or below its
+  /// minimum (ARAL memo settings).
   Future<List<AralClassNotice>> _aralNotices(int schoolId, String year, String day) async {
     final classes = {for (final c in await _classes.getBySchool(schoolId, schoolYear: year)) c.id!: c};
     final active = (await _roster.getBySchool(schoolId, schoolYear: year)).where((e) => aralActiveOn(e, day)).toList();
@@ -386,6 +391,16 @@ class ReminderViewModel {
     }
 
     String learners(int n) => n == 1 ? '1 ARAL learner' : '$n ARAL learners';
+    final rules = AralRuleSettings.fromMap({
+      ...?(await _aralSettings.getRegion())?.settings,
+      ...?(await _aralSettings.getForSchool(schoolId))?.settings,
+    });
+    final placed = <int, int>{};
+    for (final e in active) {
+      if (e.classId != null && classes.containsKey(e.classId)) placed[e.classId!] = (placed[e.classId!] ?? 0) + 1;
+    }
+    String count(int n) => n == 1 ? '1 active learner' : '$n active learners';
+    final byName = classes.values.toList()..sort((a, b) => a.className.compareTo(b.className));
     return [
       if (waiting.isNotEmpty)
         AralClassNotice(AralClassNoticeKind.waiting, '${learners(waiting.length)} waiting for a class.',
@@ -398,6 +413,20 @@ class ReminderViewModel {
             '${learners(otherGrade.length)} in a class of another grade.', learners: await named(otherGrade)),
       for (final c in classes.values.where((c) => c.tutorId == null))
         AralClassNotice(AralClassNoticeKind.noTutor, 'Class "${c.className}" has no tutor.', aralClass: c),
+      for (final c in byName)
+        if ((placed[c.id] ?? 0) > rules.classMaxLearners)
+          AralClassNotice(
+              AralClassNoticeKind.overMax,
+              'Class "${c.className}" has ${count(placed[c.id]!)}, more than the maximum ${rules.classMaxLearners}: '
+              'move learners to another class. Their records stay.',
+              aralClass: c),
+      for (final c in byName)
+        if ((placed[c.id] ?? 0) > 0 && placed[c.id]! < rules.classMinLearners)
+          AralClassNotice(
+              AralClassNoticeKind.underMin,
+              'Class "${c.className}" has ${count(placed[c.id]!)}, fewer than ${rules.classMinLearners}: '
+              'combine it with the nearest level of the same grade if there is one.',
+              aralClass: c),
     ];
   }
 

@@ -30,9 +30,10 @@ String aralLine(AralEnrollment e, Map<int, String> names, [Map<int, String> clas
 }
 
 /// One ARAL class: `#id | name | Grade 7, KS2 Basic | tutor id` (+ room and
-/// schedule when set, and `n/<cap> active` when [active] is given; [cap] is
-/// AralClassViewModel.classCap).
+/// schedule when set, and `n/<cap> active` when [active] is given, with
+/// ", over the maximum" when more; [cap] is AralClassViewModel.classMax).
 String aralClassLine(AralClass c, {int? active, required int cap}) =>
     '#${c.id} | ${c.className} | ${c.groupLabel} | '
     'tutor ${c.tutorId ?? '-'}${c.room == null ? '' : ' | room ${c.room}'}'
-    '${c.schedule == null ? '' : ' | ${c.schedule}'}${active == null ? '' : ' | $active/$cap active'}';
+    '${c.schedule == null ? '' : ' | ${c.schedule}'}'
+    '${active == null ? '' : ' | $active/$cap active${active > cap ? ', over the maximum' : ''}'}';

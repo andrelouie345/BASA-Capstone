@@ -36,9 +36,11 @@ import '../models/crla_result.dart';
 import 'crla_rules.dart';
 import 'phil_iri_results.dart' show PhilIriRoundResult, PhilIriRoundView;
 
-/// At most this many ACTIVE learners in one ARAL class (DepEd Memorandum 064
-/// s. 2025, Encl. 2 item 7; hard stop on the device and the cloud). Exited
-/// learners stay linked to the class but don't count.
+/// The built-in maximum of ACTIVE learners in one ARAL class (DepEd
+/// Memorandum 064 s. 2025, Encl. 2 item 7). A school's class_max_learners
+/// setting replaces it (ARAL memo settings, AralRuleSettings.classMaxLearners;
+/// hard stop on the device and the cloud). Exited learners stay linked to the
+/// class but don't count.
 const aralClassCap = 15;
 
 /// Why a learner can't go into an ARAL class. School, program and cap are
@@ -49,7 +51,8 @@ enum AralPlacementProblem { otherSchoolOrYear, programMismatch, otherGrade, full
 
 /// The first reason an active learner of [schoolId]/[schoolYear] in [program]
 /// and Grade [grade] can't go into [target], which already holds
-/// [activeOthersInClass] other active learners; null = they can. A mixed
+/// [activeOthersInClass] other active learners and holds at most
+/// [maxLearners] (the school's class maximum); null = they can. A mixed
 /// class takes any program; a learner of another grade than the class's
 /// only with [otherGradeOk] (the coordinator's confirmation).
 AralPlacementProblem? aralPlacementProblem({
@@ -59,20 +62,26 @@ AralPlacementProblem? aralPlacementProblem({
   required AralClassProgram program,
   required int grade,
   required int activeOthersInClass,
+  required int maxLearners,
   bool otherGradeOk = false,
 }) {
   if (target.schoolId != schoolId || target.schoolYear != schoolYear) return AralPlacementProblem.otherSchoolOrYear;
   if (target.program != null && target.program != program) return AralPlacementProblem.programMismatch;
   if (grade != target.gradeLevel && !otherGradeOk) return AralPlacementProblem.otherGrade;
-  if (activeOthersInClass >= aralClassCap) return AralPlacementProblem.full;
+  if (activeOthersInClass >= maxLearners) return AralPlacementProblem.full;
   return null;
 }
 
-/// The refusal text for [p] ([learner] = "Last, First").
+/// The refusal text for [p] ([learner] = "Last, First"; [maxLearners] = the
+/// school's class maximum).
 String aralPlacementMessage(AralPlacementProblem p,
-        {required String learner, required AralClass target, required int grade, required AralClassProgram program}) =>
+        {required String learner,
+        required AralClass target,
+        required int grade,
+        required AralClassProgram program,
+        required int maxLearners}) =>
     switch (p) {
-      AralPlacementProblem.full => 'Class "${target.className}" already has $aralClassCap active ARAL learners.',
+      AralPlacementProblem.full => 'Class "${target.className}" already has $maxLearners active ARAL learners.',
       AralPlacementProblem.programMismatch =>
         '$learner is in ${program.label}; class "${target.className}" is ${target.program?.label}.',
       AralPlacementProblem.otherGrade =>

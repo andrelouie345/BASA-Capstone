@@ -6,7 +6,8 @@
 //
 // Owner decisions (2026-10-23):
 //  * A class belongs to a school and a school year (not a section), with at
-//    most 15 active learners (aral_rules.dart).
+//    most 15 active learners (aral_rules.dart; since the ARAL memo settings,
+//    the school's class_max_learners).
 //  * One tutor per class, possibly blank for a while; a tutor may teach
 //    several classes.
 //  * Admins and coordinators create, change and delete classes; a tutor reads
@@ -31,10 +32,12 @@ import '../core/models/aral_enrollment.dart';
 import '../core/models/user_role.dart';
 import '../core/repositories/aral_class_repository.dart';
 import '../core/repositories/aral_enrollment_repository.dart';
+import '../core/repositories/aral_setting_repository.dart';
 import '../core/repositories/aral_session_repository.dart';
 import '../core/repositories/section_repository.dart';
 import '../core/repositories/student_repository.dart';
 import '../core/repositories/user_repository.dart';
+import '../core/services/aral_rule_settings.dart';
 import '../core/services/aral_rules.dart';
 import '../core/services/normalizers.dart';
 import '../core/services/sync_upload_rules.dart' show pendingLockMessage;
@@ -42,13 +45,22 @@ import 'auth_viewmodel.dart';
 import 'viewmodel_exception.dart';
 import '../core/services/auth_messages.dart';
 
+/// The school's ARAL rule settings on this device: defaults <- region row <-
+/// school row of the aral_settings mirror (pull-cloud refreshes it).
+Future<AralRuleSettings> aralLocalRuleSettings(AralSettingRepository settings, int schoolId) async {
+  final region = await settings.getRegion();
+  final school = await settings.getForSchool(schoolId);
+  return AralRuleSettings.fromMap({...?region?.settings, ...?school?.settings});
+}
+
 /// Why [e] (Grade [grade], named [learner]) can't go into [c], and the
 /// reason as a readable sentence; null = they can. [otherGradeOk] = the
 /// coordinator confirmed another grade. Counts [c]'s other active learners
-/// from [roster]. Shared by AralClassViewModel and AralViewModel.
+/// from [roster] against [maxLearners] (the school's class maximum). Shared
+/// by AralClassViewModel and AralViewModel.
 Future<(AralPlacementProblem, String)?> aralPlacementRefusal(
     AralEnrollmentRepository roster, AralClass c, AralEnrollment e,
-    {required int grade, required String learner, bool otherGradeOk = false}) async {
+    {required int grade, required String learner, required int maxLearners, bool otherGradeOk = false}) async {
   final others = (await roster.getByClass(c.id!)).where((x) => x.isActive && x.id != e.id).length;
   final program = AralClassProgram.of(e.keyStage, e.track);
   final problem = aralPlacementProblem(
@@ -58,19 +70,29 @@ Future<(AralPlacementProblem, String)?> aralPlacementRefusal(
       program: program,
       grade: grade,
       activeOthersInClass: others,
+      maxLearners: maxLearners,
       otherGradeOk: otherGradeOk);
   return problem == null
       ? null
-      : (problem, aralPlacementMessage(problem, learner: learner, target: c, grade: grade, program: program));
+      : (problem,
+          aralPlacementMessage(problem,
+              learner: learner, target: c, grade: grade, program: program, maxLearners: maxLearners));
 }
 
 /// The device and cloud placement refusals (trigger texts), mapped back to
-/// readable sentences by the ViewModels.
+/// readable sentences by the ViewModels. The class maximum's text names the
+/// school's number: see [aralClassFullDbRefusal].
 const aralPlacementDbRefusals = [
-  'An ARAL class has at most 15 active learners',
   "The learner's program does not match the ARAL class",
   'The ARAL class belongs to another school or school year',
 ];
+
+/// The device or cloud refusal of a full class in [text] ("An ARAL class has
+/// at most N active learners", the number = the school's maximum), or null.
+String? aralClassFullDbRefusal(String text) {
+  final m = RegExp(r'an ARAL class has at most (\d+) active learners', caseSensitive: false).firstMatch(text);
+  return m == null ? null : 'An ARAL class has at most ${m.group(1)} active learners.';
+}
 
 class AralClassViewModel {
   /// The local trigger texts, shown as they are.
@@ -89,9 +111,7 @@ class AralClassViewModel {
   final SectionRepository _sections;
   final StudentRepository _students;
   final UserRepository _users;
-
-  /// The most active learners a class holds (aral_rules.dart).
-  int get classCap => aralClassCap;
+  final AralSettingRepository _localSettings;
 
   AralClassViewModel({
     required AuthViewModel auth,
@@ -101,8 +121,10 @@ class AralClassViewModel {
     required SectionRepository sections,
     required StudentRepository students,
     required UserRepository users,
+    required AralSettingRepository localSettings,
     Logger? logger,
   })  : _auth = auth,
+        _localSettings = localSettings,
         _classes = classes,
         _roster = roster,
         _sessions = sessions,
@@ -149,7 +171,23 @@ class AralClassViewModel {
     return _roster.getByClass(classId);
   }
 
-  /// How many active learners the class holds (at most 15).
+  /// The most active learners a class of [schoolId] holds: the school's
+  /// class_max_learners on this device (default 15).
+  Future<int> classMax(int schoolId) async {
+    _requireSignIn();
+    return (await aralLocalRuleSettings(_localSettings, schoolId)).classMaxLearners;
+  }
+
+  /// The fewest active learners a class of [schoolId] should hold: the
+  /// school's class_min_learners on this device (0 = no minimum). A class
+  /// below it is a coordinator notice, never a refusal.
+  Future<int> classMin(int schoolId) async {
+    _requireSignIn();
+    return (await aralLocalRuleSettings(_localSettings, schoolId)).classMinLearners;
+  }
+
+  /// How many active learners the class holds (at most the school's
+  /// maximum, [classMax]; more when the maximum was lowered later).
   Future<int> activeCount(int classId) async {
     _requireSignIn();
     await _readable(classId);
@@ -160,8 +198,8 @@ class AralClassViewModel {
 
   /// Puts an active ARAL learner in a class, or moves them from their class
   /// to another one. The class must be of the learner's school and year, teach
-  /// their program (unless it mixes programs) and have a free place (15
-  /// active). A learner of another grade than the class's goes in only with
+  /// their program (unless it mixes programs) and have a free place (fewer
+  /// active learners than the school's maximum, [classMax]). A learner of another grade than the class's goes in only with
   /// [otherGrade] (the coordinator's decision, G3).
   Future<AralEnrollment> place(int enrollmentId, int classId, {bool otherGrade = false}) async {
     _requireSignIn();
@@ -174,7 +212,9 @@ class AralClassViewModel {
     }
     if (e.classId == classId) throw ViewModelException('This learner is already in class "${c.className}".');
     final (grade, name) = await _gradeAndName(e);
-    final refusal = await aralPlacementRefusal(_roster, c, e, grade: grade, learner: name, otherGradeOk: otherGrade);
+    final max = (await aralLocalRuleSettings(_localSettings, c.schoolId)).classMaxLearners;
+    final refusal = await aralPlacementRefusal(_roster, c, e,
+        grade: grade, learner: name, maxLearners: max, otherGradeOk: otherGrade);
     if (refusal != null) {
       throw ViewModelException(refusal.$1 == AralPlacementProblem.otherGrade
           ? '${refusal.$2} To place them in it anyway, confirm the other grade (other-grade).'
@@ -375,6 +415,8 @@ class AralClassViewModel {
       if (text.contains('aral_classes_name_key')) {
         throw const ViewModelException('A class with that name already exists for that school year.');
       }
+      final full = aralClassFullDbRefusal(text);
+      if (full != null) throw ViewModelException(full);
       for (final refusal in _dbRefusals) {
         if (text.toLowerCase().contains(refusal.toLowerCase())) throw ViewModelException('$refusal.');
       }

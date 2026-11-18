@@ -258,6 +258,7 @@ TutorVms wireTutor(AppContext ctx, SharedVms s) {
     sections: SectionRepositorySqlite(db),
     students: StudentRepositorySqlite(db),
     users: UserRepositorySqlite(db),
+    localSettings: AralSettingRepositorySqlite(db),
     logger: session,
   );
   vms.register('AralClassViewModel', aralClassVm);

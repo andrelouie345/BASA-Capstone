@@ -20,11 +20,11 @@ Console: `aral-tutors`
 
 ### Classes
 Build: both (view) / admin (edit)    Roles: view all; edit admin / coordinator
-Purpose: classes of a school year (at most 15 active learners), their roster, placing and unplacing learners.
+Purpose: classes of a school year (at most the school's maximum of active learners, 15 unless the school set another), their roster, placing and unplacing learners.
 Calls:
 - `AralClassViewModel.classes(schoolId:, schoolYear:)`, `getClass(id)`, `classRoster(id)`, `activeCount(id)`
 - admin: `createClass(...)`, `editClass(c)`, `deleteClass(id)`, `place(enrollmentId, classId, otherGrade:)`, `unplace(enrollmentId)`
-- `AralClassViewModel.classCap` → `int` (15) for "n/15 active"
+- `AralClassViewModel.classMax(schoolId)` → `Future<int>` (the school's maximum, 15 by default) for "n/15 active"; `classMin(schoolId)` → `Future<int>` (0 = no minimum). A class can hold more than the maximum when the school lowered it later: show it as over the maximum (the coordinator's reminders say so).
 - `AralSessionViewModel.classSummary(classId)` → `AralClassSummary`
 Errors: class full, other grade without confirmation, sessions exist on delete (ViewModelException); other errors: the error rule in `common.md`.
 Console: `aral-classes`, `aral-class-show`, `aral-class-summary`, `aral-class-add`, `aral-class-edit`, `aral-class-delete`, `aral-class-place`, `aral-class-unplace`

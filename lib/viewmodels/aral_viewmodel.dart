@@ -43,13 +43,15 @@ import '../core/repositories/crla_result_repository.dart';
 import '../core/repositories/section_repository.dart';
 import '../core/repositories/student_repository.dart';
 import '../core/repositories/user_repository.dart';
+import '../core/services/aral_rule_settings.dart';
 import '../core/services/aral_rules.dart';
 import '../core/services/csv.dart';
 import '../core/services/crla_rules.dart' show crlaAtGradeLevel;
 import '../core/services/phil_iri_results.dart' show PhilIriRoundResult, PhilIriRoundView, philIriNotAssessedResult, philIriRoundView;
 import '../core/services/normalizers.dart';
 import '../core/services/sync_upload_rules.dart' show pendingLockMessage;
-import 'aral_class_viewmodel.dart' show aralPlacementRefusal, aralPlacementDbRefusals;
+import 'aral_class_viewmodel.dart'
+    show aralClassFullDbRefusal, aralLocalRuleSettings, aralPlacementRefusal, aralPlacementDbRefusals;
 import 'auth_viewmodel.dart';
 import 'phil_iri_viewmodel.dart';
 import '../core/services/auth_messages.dart';
@@ -399,6 +401,14 @@ class AralViewModel {
     return AralProgramSettings.fromMap({...?region?.settings, ...?school?.settings});
   }
 
+  /// The school's ARAL rule settings on this device (ARAL memo settings:
+  /// class size, session rules, basis round, check-in sessions, IRIP length):
+  /// defaults <- region <- school.
+  Future<AralRuleSettings> ruleSettings(int schoolId) async {
+    _requireSignIn();
+    return aralLocalRuleSettings(_localSettings, schoolId);
+  }
+
   Future<void> _checkFoundational(AralKeyStage keyStage, int schoolId) async {
     if (keyStage == AralKeyStage.foundational && !(await programSettings(schoolId)).foundationalProgram) {
       throw const ViewModelException('This school has no foundational literacy program (SHARP) switched on: '
@@ -505,7 +515,10 @@ class AralViewModel {
       {required int grade, required String learner}) async {
     // Another grade is never placed here: only the coordinator's
     // aral-class-place ... other-grade does that (G3).
-    final refusal = cls == null ? null : await aralPlacementRefusal(_roster, cls, draft, grade: grade, learner: learner);
+    final refusal = cls == null
+        ? null
+        : await aralPlacementRefusal(_roster, cls, draft,
+            grade: grade, learner: learner, maxLearners: (await ruleSettings(cls.schoolId)).classMaxLearners);
     final stored = await _write(() => _roster.insert(
         cls == null || refusal != null ? draft : draft.copyWith(classId: () => cls.id)));
     _log('enrolled ${stored.id} (${stored.programLabel}${stored.classId == null ? '' : ', class ${stored.classId}'})');
@@ -688,7 +701,10 @@ class AralViewModel {
       final section = await _sections.getById(e.sectionId);
       final grade = int.tryParse(section?.gradeLevel ?? '') ?? 0;
       final refusal = await aralPlacementRefusal(_roster, cls, back,
-          grade: grade, learner: await _learnerName(e.studentId, e.sectionId), otherGradeOk: true);
+          grade: grade,
+          learner: await _learnerName(e.studentId, e.sectionId),
+          maxLearners: (await ruleSettings(cls.schoolId)).classMaxLearners,
+          otherGradeOk: true);
       if (refusal != null) {
         back = back.copyWith(classId: () => null);
         _warn(refusal.$1 == AralPlacementProblem.full
@@ -1118,6 +1134,8 @@ class AralViewModel {
           text.contains('aral_enrollments_one_per_year')) {
         throw const ViewModelException('This learner is already on the ARAL roster for that school year.');
       }
+      final full = aralClassFullDbRefusal(text);
+      if (full != null) throw ViewModelException(full);
       for (final refusal in _dbRefusals) {
         if (text.toLowerCase().contains(refusal.toLowerCase())) {
           throw ViewModelException(refusal.endsWith('.') ? refusal : '$refusal.');
