@@ -16,9 +16,14 @@
 //  * checkin_after_sessions [first, second], increasing, 1-200 (default
 //    [16, 32]): when the two check-ins are due. Tools and saved check-ins
 //    keep their checkpoint ids 16 and 32 (= first, second);
-//  * irip_weeks 1-26 (default 8): the length of an IRIP cycle.
+//  * irip_weeks 1-26 (default 8): the length of an IRIP cycle;
+//  * internal_tutor_max_sessions_per_day 1-10 and
+//    external_tutor_max_minutes_per_day 1-600 (absent = no limit): the
+//    daily tutor limits, by the tutor's users.tutor_type (none = no limit);
+//  * adviser_tutors_own_class (default true): false = a section's adviser
+//    does not tutor the learners of that section.
 // The same keys and ranges are checked by the cloud (aral_settings CHECK
-// constraints, migration 20261118010000).
+// constraints, migrations 20261118010000 and 20261118030000).
 library;
 
 /// The round new ARAL learners are chosen from.
@@ -41,6 +46,9 @@ class AralRuleSettings {
   static const basisRoundKey = 'basis_round';
   static const checkinAfterSessionsKey = 'checkin_after_sessions';
   static const iripWeeksKey = 'irip_weeks';
+  static const internalTutorMaxSessionsPerDayKey = 'internal_tutor_max_sessions_per_day';
+  static const externalTutorMaxMinutesPerDayKey = 'external_tutor_max_minutes_per_day';
+  static const adviserTutorsOwnClassKey = 'adviser_tutors_own_class';
 
   /// Every key, in the order the console lists them.
   static const keys = [
@@ -52,6 +60,9 @@ class AralRuleSettings {
     basisRoundKey,
     checkinAfterSessionsKey,
     iripWeeksKey,
+    internalTutorMaxSessionsPerDayKey,
+    externalTutorMaxMinutesPerDayKey,
+    adviserTutorsOwnClassKey,
   ];
 
   /// The check-in checkpoint ids the tools and saved check-ins use (first,
@@ -67,6 +78,9 @@ class AralRuleSettings {
     basisRound: AralBasisRound.bosy,
     checkinAfterSessions: [16, 32],
     iripWeeks: 8,
+    internalTutorMaxSessionsPerDay: null,
+    externalTutorMaxMinutesPerDay: null,
+    adviserTutorsOwnClass: true,
   );
 
   final int classMaxLearners;
@@ -77,6 +91,9 @@ class AralRuleSettings {
   final AralBasisRound basisRound;
   final List<int> checkinAfterSessions; // [first, second]
   final int iripWeeks;
+  final int? internalTutorMaxSessionsPerDay; // null = no limit
+  final int? externalTutorMaxMinutesPerDay;  // null = no limit
+  final bool adviserTutorsOwnClass;
 
   const AralRuleSettings({
     required this.classMaxLearners,
@@ -87,6 +104,9 @@ class AralRuleSettings {
     required this.basisRound,
     required this.checkinAfterSessions,
     required this.iripWeeks,
+    required this.internalTutorMaxSessionsPerDay,
+    required this.externalTutorMaxMinutesPerDay,
+    required this.adviserTutorsOwnClass,
   });
 
   /// Defaults, then [m]'s keys; unknown keys and bad values are ignored, and
@@ -104,6 +124,11 @@ class AralRuleSettings {
       basisRound: pick(basisRoundKey, defaults.basisRound),
       checkinAfterSessions: pick(checkinAfterSessionsKey, defaults.checkinAfterSessions),
       iripWeeks: pick(iripWeeksKey, defaults.iripWeeks),
+      internalTutorMaxSessionsPerDay:
+          pick<int?>(internalTutorMaxSessionsPerDayKey, defaults.internalTutorMaxSessionsPerDay),
+      externalTutorMaxMinutesPerDay:
+          pick<int?>(externalTutorMaxMinutesPerDayKey, defaults.externalTutorMaxMinutesPerDay),
+      adviserTutorsOwnClass: pick(adviserTutorsOwnClassKey, defaults.adviserTutorsOwnClass),
     );
   }
 
@@ -117,6 +142,9 @@ class AralRuleSettings {
         basisRoundKey => basisRound.value,
         checkinAfterSessionsKey => checkinAfterSessions,
         iripWeeksKey => iripWeeks,
+        internalTutorMaxSessionsPerDayKey => internalTutorMaxSessionsPerDay,
+        externalTutorMaxMinutesPerDayKey => externalTutorMaxMinutesPerDay,
+        adviserTutorsOwnClassKey => adviserTutorsOwnClass,
         _ => throw ArgumentError('Unknown ARAL setting "$key"'),
       };
 }
@@ -126,7 +154,7 @@ class AralRuleSettings {
 Object? _typed(String key, Object? value) => switch (key) {
       AralRuleSettings.basisRoundKey => AralBasisRound.tryParse(value),
       AralRuleSettings.checkinAfterSessionsKey => [for (final v in value as List) (v as num).toInt()],
-      AralRuleSettings.sessionsWeekdaysOnlyKey => value,
+      AralRuleSettings.sessionsWeekdaysOnlyKey || AralRuleSettings.adviserTutorsOwnClassKey => value,
       _ => (value as num).toInt(),
     };
 
@@ -157,6 +185,14 @@ String? aralRuleSettingProblem(String key, Object? value) => switch (key) {
               'not ${value is List ? value.join(',') : value}.',
       AralRuleSettings.iripWeeksKey =>
         _wholeIn(value, 1, 26) ? null : 'An IRIP cycle has 1-26 weeks, not $value.',
+      AralRuleSettings.internalTutorMaxSessionsPerDayKey => _wholeIn(value, 1, 10)
+          ? null
+          : "An internal tutor's sessions a day are a whole number 1-10, not $value.",
+      AralRuleSettings.externalTutorMaxMinutesPerDayKey => _wholeIn(value, 1, 600)
+          ? null
+          : "An external tutor's minutes a day are a whole number 1-600, not $value.",
+      AralRuleSettings.adviserTutorsOwnClassKey =>
+        value is bool ? null : 'Advisers tutoring their own learners is on or off (true/false), not $value.',
       _ => 'Unknown ARAL setting "$key". The settings are: ${AralRuleSettings.keys.join(', ')}.',
     };
 
@@ -175,6 +211,7 @@ Object? aralRuleSettingFromText(String key, String text) {
   final t = text.trim();
   switch (key) {
     case AralRuleSettings.sessionsWeekdaysOnlyKey:
+    case AralRuleSettings.adviserTutorsOwnClassKey:
       return switch (t.toLowerCase()) { 'on' || 'true' => true, 'off' || 'false' => false, _ => t };
     case AralRuleSettings.basisRoundKey:
       return t.toLowerCase();

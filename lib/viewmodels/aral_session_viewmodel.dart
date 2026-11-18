@@ -125,6 +125,19 @@ class AralClassSummary {
   });
 }
 
+/// The device or cloud refusal of a daily tutor limit in [text] (trigger
+/// texts of 20261118030000 / SQLite v47; the cloud's ends with "(N on
+/// date)"), as a sentence, or null. Checked before the generic "minutes"
+/// refusal, which the external tutor's text would otherwise match.
+String? aralSessionDbRefusal(String text) {
+  final m = RegExp(r'an? (internal|external) tutor holds at most (\d+) (ARAL sessions|minutes of ARAL sessions) a day',
+          caseSensitive: false)
+      .firstMatch(text);
+  if (m == null) return null;
+  final type = m.group(1)!.toLowerCase();
+  return 'An $type tutor holds at most ${m.group(2)} ${m.group(3)} a day at this school.';
+}
+
 class AralSessionViewModel {
   static const _dbRefusals = [
     'The session tutor must be an active tutor of the school',
@@ -221,6 +234,7 @@ class AralSessionViewModel {
     final rules = await aralLocalRuleSettings(_localSettings, cls.schoolId);
     _checkSession(date, minutes, setup, rules);
     await _checkDay(cls, date);
+    await _checkTutorDay(tutor, cls.schoolId, date, minutes, rules);
 
     final stored = await _write(() => _sessions.insertSession(AralSession(
           tutorId: tutor.id,
@@ -271,7 +285,14 @@ class AralSessionViewModel {
     // cloud triggers do): a session saved before the school tightened its
     // rules keeps its lesson and remarks editable.
     if (date != s.heldOn || mins != s.minutes || newSetup != s.setup) {
-      _checkSession(date, mins, newSetup, await aralLocalRuleSettings(_localSettings, s.schoolId));
+      final rules = await aralLocalRuleSettings(_localSettings, s.schoolId);
+      _checkSession(date, mins, newSetup, rules);
+      // The daily limits only when the date or length changes (as the
+      // triggers): a day over a limit set later keeps its sessions editable.
+      final tutor = await _users.getById(s.tutorId);
+      if (tutor != null && (date != s.heldOn || mins != s.minutes)) {
+        await _checkTutorDay(tutor, s.schoolId, date, mins, rules, exceptId: s.id);
+      }
     }
     return _write(() => _sessions.updateSession(s.copyWith(
           heldOn: date,
@@ -623,6 +644,31 @@ class AralSessionViewModel {
     }
   }
 
+  /// The daily tutor limits (ARAL memo; cloud basa_private.aral_check_tutor_day):
+  /// an internal tutor holds at most the school's sessions a day, an external
+  /// tutor at most its minutes a day, counting the tutor's sessions at
+  /// [schoolId] on [date] with this one ([minutes]). A tutor without a type
+  /// has no limit. [exceptId] = the session being edited.
+  Future<void> _checkTutorDay(User tutor, int schoolId, String date, int minutes, AralRuleSettings r,
+      {int? exceptId}) async {
+    final type = tutor.tutorType;
+    final maxSessions = type == TutorType.internal ? r.internalTutorMaxSessionsPerDay : null;
+    final maxMinutes = type == TutorType.external ? r.externalTutorMaxMinutesPerDay : null;
+    if (maxSessions == null && maxMinutes == null) return;
+    final sameDay = (await _sessions.getByTutor(tutor.id))
+        .where((s) => s.schoolId == schoolId && s.heldOn == date && s.id != exceptId)
+        .toList();
+    if (maxSessions != null && sameDay.length + 1 > maxSessions) {
+      throw ViewModelException('An internal tutor holds at most $maxSessions ARAL sessions a day at this school '
+          '(${tutor.fullName} already has ${sameDay.length} on $date).');
+    }
+    final used = sameDay.fold<int>(0, (sum, s) => sum + s.minutes);
+    if (maxMinutes != null && used + minutes > maxMinutes) {
+      throw ViewModelException('An external tutor holds at most $maxMinutes minutes of ARAL sessions a day at this '
+          'school (${tutor.fullName} already has $used minutes on $date; this session is $minutes).');
+    }
+  }
+
   /// One session per class per date.
   Future<void> _checkDay(AralClass c, String date, {int? exceptId}) async {
     final same = (await _sessions.getByClass(c.id!)).where((s) => s.heldOn == date && s.id != exceptId).firstOrNull;
@@ -651,6 +697,8 @@ class AralSessionViewModel {
       for (final refusal in _dbRefusals) {
         if (text.contains(refusal.toLowerCase())) throw ViewModelException('$refusal.');
       }
+      final daily = aralSessionDbRefusal(text);
+      if (daily != null) throw ViewModelException(daily);
       final longest = RegExp(r'an aral session at this school lasts at most (\d+) minutes').firstMatch(text);
       if (longest != null) {
         throw ViewModelException('An ARAL session at this school lasts at most ${longest.group(1)} minutes.');

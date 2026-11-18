@@ -71,9 +71,9 @@
 **Interfaces:**
 - Consumes: Task 2 models; Plan A `AralRuleSettings`, `_rules(schoolId)` pattern.
 - Produces: `Future<Section> setAdviser(int sectionId, {String? name, String? userId})`; `Future<User> setTutorType(String userId, TutorType? type)` (online, admin/coordinator of the user's school); `Future<String> suggestClassName({required int schoolId, required String schoolYear, required int grade})`; `AralRuleSettings` fields `int? internalTutorMaxSessionsPerDay`, `int? externalTutorMaxMinutesPerDay`, `bool adviserTutorsOwnClass`.
-- [ ] **Step 1: Failing tests:** adviser rule off → placement works; on → `place` of the adviser's own learner refused naming learner and section; setting the class tutor to that adviser refused; internal limit 2 → 3rd `logSession` that day refused, `editSession` moving one to a full day refused; external 120 → minutes over refused; no type → no limit; type changed later doesn't re-check old sessions; `suggestClassName` with existing `aral-r-g4-01` → `ARAL-R-G4-02`, empty → `ARAL-R-G4-01`; session type saved and shown; adviser with a user of another school refused.
-- [ ] **Step 2: Run** — FAIL. **Step 3: Implement.** **Step 4: Run** `flutter test test/viewmodels` and `dart analyze` — PASS.
-- [ ] **Step 5: Commit message:** `feat(aral): section advisers, tutor type, daily tutor limits, class session type and suggested class names`.
+- [x] **Step 1: Failing tests:** adviser rule off → placement works; on → `place` of the adviser's own learner refused naming learner and section; setting the class tutor to that adviser refused; internal limit 2 → 3rd `logSession` that day refused, `editSession` moving one to a full day refused; external 120 → minutes over refused; no type → no limit; type changed later doesn't re-check old sessions; `suggestClassName` with existing `aral-r-g4-01` → `ARAL-R-G4-02`, empty → `ARAL-R-G4-01`; session type saved and shown; adviser with a user of another school refused.
+- [x] **Step 2: Run** — FAIL. **Step 3: Implement.** **Step 4: Run** `flutter test test/viewmodels` and `dart analyze` — PASS.
+- [x] **Step 5: Commit message:** `feat(aral): section advisers, tutor type, daily tutor limits, class session type and suggested class names`.
 
 ### Task 4: Per-learner BoSY/MoSY results shared with the implementation report
 

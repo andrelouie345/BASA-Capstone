@@ -10,6 +10,10 @@ abstract class UserRepository {
   Future<List<User>> getAll();
   Future<void> setActive(String id, bool isActive);
 
+  /// Sets (or clears, null) the tutor type the ARAL daily limits read;
+  /// returns the stored account.
+  Future<User> setTutorType(String id, TutorType? type);
+
   /// Local mirror only: writes an account read from the server onto this
   /// device (insert, or update in place), so a device that created or changed
   /// it knows it before the next pull-cloud.

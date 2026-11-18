@@ -52,6 +52,8 @@ Not allowed: only an admin or coordinator imports Phil-IRI results.
 A referral needs who referred the learner and why.
 This learner left ARAL; reactivate them before placing them in a class.
 A class needs a name.
+The adviser's BASA account must be a user of the section's school.
+ARAL-R-G
 Not allowed: only an admin or coordinator archives, moves or restores learners.
 # One string from each admin-only file without a refusal of its own
 " (expected skip or update).

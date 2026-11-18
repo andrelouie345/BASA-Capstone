@@ -36,4 +36,5 @@ String aralClassLine(AralClass c, {int? active, required int cap}) =>
     '#${c.id} | ${c.className} | ${c.groupLabel} | '
     'tutor ${c.tutorId ?? '-'}${c.room == null ? '' : ' | room ${c.room}'}'
     '${c.schedule == null ? '' : ' | ${c.schedule}'}'
+    '${c.sessionType == null ? '' : ' | ${c.sessionType!.label}'}'
     '${active == null ? '' : ' | $active/$cap active${active > cap ? ', over the maximum' : ''}'}';

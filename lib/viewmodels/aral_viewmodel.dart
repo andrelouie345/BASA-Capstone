@@ -537,8 +537,8 @@ class AralViewModel {
     // aral-class-place ... other-grade does that (G3).
     final refusal = cls == null
         ? null
-        : await aralPlacementRefusal(_roster, cls, draft,
-            grade: grade, learner: learner, maxLearners: (await ruleSettings(cls.schoolId)).classMaxLearners);
+        : await aralPlacementRefusal(_roster, _sections, cls, draft,
+            grade: grade, learner: learner, rules: await ruleSettings(cls.schoolId));
     final stored = await _write(() => _roster.insert(
         cls == null || refusal != null ? draft : draft.copyWith(classId: () => cls.id)));
     _log('enrolled ${stored.id} (${stored.programLabel}${stored.classId == null ? '' : ', class ${stored.classId}'})');
@@ -720,10 +720,10 @@ class AralViewModel {
     if (cls != null) {
       final section = await _sections.getById(e.sectionId);
       final grade = int.tryParse(section?.gradeLevel ?? '') ?? 0;
-      final refusal = await aralPlacementRefusal(_roster, cls, back,
+      final refusal = await aralPlacementRefusal(_roster, _sections, cls, back,
           grade: grade,
           learner: await _learnerName(e.studentId, e.sectionId),
-          maxLearners: (await ruleSettings(cls.schoolId)).classMaxLearners,
+          rules: await ruleSettings(cls.schoolId),
           otherGradeOk: true);
       if (refusal != null) {
         back = back.copyWith(classId: () => null);

@@ -56,13 +56,18 @@ Future<AralRuleSettings> aralLocalRuleSettings(AralSettingRepository settings, i
 /// Why [e] (Grade [grade], named [learner]) can't go into [c], and the
 /// reason as a readable sentence; null = they can. [otherGradeOk] = the
 /// coordinator confirmed another grade. Counts [c]'s other active learners
-/// from [roster] against [maxLearners] (the school's class maximum). Shared
-/// by AralClassViewModel and AralViewModel.
+/// from [roster] against the school's class maximum in [rules], and, when
+/// the school's advisers don't tutor their own learners, refuses a class
+/// whose tutor advises [e]'s section (read from [sections]). Shared by
+/// AralClassViewModel and AralViewModel.
 Future<(AralPlacementProblem, String)?> aralPlacementRefusal(
-    AralEnrollmentRepository roster, AralClass c, AralEnrollment e,
-    {required int grade, required String learner, required int maxLearners, bool otherGradeOk = false}) async {
+    AralEnrollmentRepository roster, SectionRepository sections, AralClass c, AralEnrollment e,
+    {required int grade, required String learner, required AralRuleSettings rules, bool otherGradeOk = false}) async {
   final others = (await roster.getByClass(c.id!)).where((x) => x.isActive && x.id != e.id).length;
   final program = AralClassProgram.of(e.keyStage, e.track);
+  final maxLearners = rules.classMaxLearners;
+  final section = c.tutorId == null || rules.adviserTutorsOwnClass ? null : await sections.getById(e.sectionId);
+  final tutorIsAdviser = section != null && section.adviserUserId == c.tutorId;
   final problem = aralPlacementProblem(
       target: c,
       schoolId: e.schoolId,
@@ -71,12 +76,18 @@ Future<(AralPlacementProblem, String)?> aralPlacementRefusal(
       grade: grade,
       activeOthersInClass: others,
       maxLearners: maxLearners,
-      otherGradeOk: otherGradeOk);
+      otherGradeOk: otherGradeOk,
+      tutorIsAdviser: tutorIsAdviser);
   return problem == null
       ? null
       : (problem,
           aralPlacementMessage(problem,
-              learner: learner, target: c, grade: grade, program: program, maxLearners: maxLearners));
+              learner: learner,
+              target: c,
+              grade: grade,
+              program: program,
+              maxLearners: maxLearners,
+              sectionName: section?.sectionName));
 }
 
 /// The device and cloud placement refusals (trigger texts), mapped back to
@@ -85,6 +96,7 @@ Future<(AralPlacementProblem, String)?> aralPlacementRefusal(
 const aralPlacementDbRefusals = [
   "The learner's program does not match the ARAL class",
   'The ARAL class belongs to another school or school year',
+  'An adviser does not tutor their own learners at this school',
 ];
 
 /// The device or cloud refusal of a full class in [text] ("An ARAL class has
@@ -212,9 +224,9 @@ class AralClassViewModel {
     }
     if (e.classId == classId) throw ViewModelException('This learner is already in class "${c.className}".');
     final (grade, name) = await _gradeAndName(e);
-    final max = (await aralLocalRuleSettings(_localSettings, c.schoolId)).classMaxLearners;
-    final refusal = await aralPlacementRefusal(_roster, c, e,
-        grade: grade, learner: name, maxLearners: max, otherGradeOk: otherGrade);
+    final rules = await aralLocalRuleSettings(_localSettings, c.schoolId);
+    final refusal = await aralPlacementRefusal(_roster, _sections, c, e,
+        grade: grade, learner: name, rules: rules, otherGradeOk: otherGrade);
     if (refusal != null) {
       throw ViewModelException(refusal.$1 == AralPlacementProblem.otherGrade
           ? '${refusal.$2} To place them in it anyway, confirm the other grade (other-grade).'
@@ -247,6 +259,7 @@ class AralClassViewModel {
     String? room,
     String? schedule,
     String? notes,
+    AralSessionType? sessionType,
   }) async {
     _requireSignIn();
     _log('createClass(school: $schoolId, year: $schoolYear, name: $className, grade $gradeLevel, '
@@ -269,8 +282,29 @@ class AralClassViewModel {
           room: _blankToNull(room),
           schedule: _blankToNull(schedule),
           notes: _blankToNull(notes),
+          sessionType: sessionType,
           createdBy: _auth.currentUser?.id,
         )));
+  }
+
+  /// The memo-style name for the next class of Grade [grade] (Division
+  /// Memorandum 180 s. 2026): `ARAL-R-G<grade>-<nn>`, one more than the
+  /// highest number of that grade at the school that year (names compared
+  /// ignoring case; a deleted class's number is never given again). Names
+  /// stay free text: this is only a suggestion.
+  Future<String> suggestClassName({required int schoolId, required String schoolYear, required int grade}) async {
+    _requireSignIn();
+    _log('suggestClassName(school: $schoolId, year: $schoolYear, grade $grade)');
+    _requireManager();
+    _requireOwnSchool(schoolId);
+    _checkGrade(grade);
+    final pattern = RegExp('^ARAL-R-G$grade-(\\d+)\$', caseSensitive: false);
+    var highest = 0;
+    for (final c in await _classes.getBySchool(schoolId, schoolYear: _year(schoolYear))) {
+      final n = int.tryParse(pattern.firstMatch(c.className.trim())?.group(1) ?? '') ?? 0;
+      if (n > highest) highest = n;
+    }
+    return 'ARAL-R-G$grade-${(highest + 1).toString().padLeft(2, '0')}';
   }
 
   /// Saves a changed class: name, grade, program (null = mixed), tutor, room,
@@ -290,7 +324,10 @@ class AralClassViewModel {
       await _checkName(current.schoolId, current.schoolYear, name, current.id);
     }
     final tutorId = _blankToNull(changed.tutorId);
-    if (tutorId != null && tutorId != current.tutorId) await _checkTutor(tutorId, current.schoolId);
+    if (tutorId != null && tutorId != current.tutorId) {
+      await _checkTutor(tutorId, current.schoolId);
+      await _checkAdviserTutor(current, tutorId);
+    }
     _checkGrade(changed.gradeLevel);
     if ((changed.program != current.program || changed.gradeLevel != current.gradeLevel) &&
         (await _roster.getByClass(current.id!)).isNotEmpty) {
@@ -383,6 +420,20 @@ class AralClassViewModel {
     final u = await _users.getById(tutorId);
     if (u == null || u.role != UserRole.tutor || !u.isActive || u.schoolId != schoolId) {
       throw const ViewModelException('The class tutor must be an active tutor of the school.');
+    }
+  }
+
+  /// With the school's advisers not tutoring their own learners: [tutorId]
+  /// must not advise the section of one of [c]'s active learners.
+  Future<void> _checkAdviserTutor(AralClass c, String tutorId) async {
+    if ((await aralLocalRuleSettings(_localSettings, c.schoolId)).adviserTutorsOwnClass) return;
+    for (final e in (await _roster.getByClass(c.id!)).where((e) => e.isActive)) {
+      final section = await _sections.getById(e.sectionId);
+      if (section?.adviserUserId == tutorId) {
+        final (_, name) = await _gradeAndName(e);
+        throw ViewModelException('The new tutor is the adviser of $name (${section!.sectionName}): '
+            'an adviser does not tutor their own learners at this school.');
+      }
     }
   }
 

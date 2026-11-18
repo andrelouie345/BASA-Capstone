@@ -216,6 +216,7 @@ school-delete
 school-list
 school-list-local
 school-update
+section-adviser
 section-create
 section-delete
 section-list
@@ -267,6 +268,7 @@ unassign-section
 user-create
 user-list
 user-set-active
+user-tutor-type
 value-source-set
 value-sources
 version-app

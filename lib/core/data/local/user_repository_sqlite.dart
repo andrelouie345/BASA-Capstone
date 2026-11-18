@@ -36,17 +36,24 @@ class UserRepositorySqlite implements UserRepository {
     await db.update('users', {'is_active': isActive ? 1 : 0}, where: 'id = ?', whereArgs: [id]);
   }
 
+  @override
+  Future<User> setTutorType(String id, TutorType? type) async {
+    final n = await db.update('users', {'tutor_type': type?.value}, where: 'id = ?', whereArgs: [id]);
+    if (n == 0) throw StateError('No user $id on this device');
+    return (await getById(id))!;
+  }
+
   /// An upsert, not INSERT OR REPLACE: REPLACE deletes the old row first,
   /// which rows pointing at the account (login_logs, ...) would not allow.
   @override
   Future<void> upsertMirror(User user) async {
     await db.rawInsert('''
-      INSERT INTO users (id, email, full_name, role, school_id, is_active, created_at, created_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO users (id, email, full_name, role, school_id, is_active, created_at, created_by, tutor_type)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         email = excluded.email, full_name = excluded.full_name, role = excluded.role,
         school_id = excluded.school_id, is_active = excluded.is_active,
-        created_at = excluded.created_at, created_by = excluded.created_by
+        created_at = excluded.created_at, created_by = excluded.created_by, tutor_type = excluded.tutor_type
     ''', [
       user.id,
       user.email,
@@ -56,6 +63,7 @@ class UserRepositorySqlite implements UserRepository {
       user.isActive ? 1 : 0,
       user.createdAt.toIso8601String(),
       user.createdBy,
+      user.tutorType?.value,
     ]);
   }
 }

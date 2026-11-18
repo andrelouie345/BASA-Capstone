@@ -100,6 +100,7 @@ void main() {
       'class.editClass': () => cls.editClass(const AralClass(
           id: 1, schoolId: 1, schoolYear: y, className: 'x', gradeLevel: 1, program: AralClassProgram.ks1)),
       'class.deleteClass': () => cls.deleteClass(1),
+      'class.suggestClassName': () => cls.suggestClassName(schoolId: 1, schoolYear: y, grade: 4),
       'class.classRoster': () => cls.classRoster(1),
       'class.activeCount': () => cls.activeCount(1),
       'class.place': () => cls.place(1, 1),
