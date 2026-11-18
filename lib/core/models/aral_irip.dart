@@ -7,7 +7,7 @@
 //  * Basic runs a Filipino and an English strand in parallel (each week one
 //    target per strand); Plus has one strand of 8 targets, each a group of
 //    skills.
-//  * A cycle is 8 weeks; each week the tutor rates the week's target and
+//  * A cycle is 8 weeks (the school's irip_weeks, 1-26); each week the tutor rates the week's target and
 //    writes notes. A new cycle continues when the learner is still in ARAL.
 import 'aral_enrollment.dart';
 
@@ -133,7 +133,7 @@ class AralIripTarget {
 class AralIripWeek {
   final int? id;
   final int enrollmentId;   // aral_enrollments.id
-  final int cycleNo;        // 1, 2, ... (8 weeks each)
+  final int cycleNo;        // 1, 2, ... (8 weeks each unless the school set irip_weeks)
   final int weekNo;         // 1-8
   final AralIripStrand strand;
   final int targetId;

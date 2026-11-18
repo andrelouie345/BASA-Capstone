@@ -279,6 +279,7 @@ TutorVms wireTutor(AppContext ctx, SharedVms s) {
     auth: authVm,
     irip: AralIripRepositorySqlite(db),
     roster: AralEnrollmentRepositorySqlite(db),
+    localSettings: AralSettingRepositorySqlite(db),
     logger: session,
   );
   vms.register('AralIripViewModel', aralIripVm);
