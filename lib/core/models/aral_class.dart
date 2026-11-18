@@ -46,6 +46,22 @@ enum AralClassProgram {
       );
 }
 
+/// How a class meets (ARAL Form 1, Division Memorandum 180 s. 2026; cloud
+/// aral_classes.session_type, 20261118030000). Null = not recorded.
+enum AralSessionType {
+  pullOut('pull_out', 'Pull-out'),
+  beforeAfter('before_after', 'Before/after class');
+
+  final String value;
+  final String label;
+  const AralSessionType(this.value, this.label);
+
+  static AralSessionType? fromValue(String? v) => v == null
+      ? null
+      : AralSessionType.values.firstWhere((t) => t.value == v,
+          orElse: () => throw ArgumentError('Invalid AralSessionType value: $v'));
+}
+
 class AralClass {
   final int? id;
   final int schoolId;
@@ -57,6 +73,7 @@ class AralClass {
   final String? room;
   final String? schedule;
   final String? notes;
+  final AralSessionType? sessionType;
   final String? createdBy;     // users.id; stamped by the cloud
   final String? createdAt;
   final String? updatedAt;
@@ -72,6 +89,7 @@ class AralClass {
     this.room,
     this.schedule,
     this.notes,
+    this.sessionType,
     this.createdBy,
     this.createdAt,
     this.updatedAt,
@@ -88,6 +106,7 @@ class AralClass {
         'room': room,
         'schedule': schedule,
         'notes': notes,
+        'session_type': sessionType?.value,
         if (createdBy != null) 'created_by': createdBy,
         if (createdAt != null) 'created_at': createdAt,
         if (updatedAt != null) 'updated_at': updatedAt,
@@ -104,6 +123,7 @@ class AralClass {
         room: m['room'] as String?,
         schedule: m['schedule'] as String?,
         notes: m['notes'] as String?,
+        sessionType: AralSessionType.fromValue(m['session_type'] as String?),
         createdBy: m['created_by'] as String?,
         createdAt: m['created_at']?.toString(),
         updatedAt: m['updated_at']?.toString(),
@@ -117,6 +137,7 @@ class AralClass {
     String? Function()? room,
     String? Function()? schedule,
     String? Function()? notes,
+    AralSessionType? Function()? sessionType,
   }) =>
       AralClass(
         id: id,
@@ -129,6 +150,7 @@ class AralClass {
         room: room == null ? this.room : room(),
         schedule: schedule == null ? this.schedule : schedule(),
         notes: notes == null ? this.notes : notes(),
+        sessionType: sessionType == null ? this.sessionType : sessionType(),
         createdBy: createdBy,
         createdAt: createdAt,
         updatedAt: updatedAt,

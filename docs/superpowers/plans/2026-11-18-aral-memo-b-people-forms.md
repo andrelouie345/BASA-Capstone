@@ -57,9 +57,9 @@
 
 **Interfaces:**
 - Produces: `enum TutorType { internal, external }` (`value` strings), `enum AralSessionType { pullOut('pull_out','Pull-out'), beforeAfter('before_after','Before/after class') }`; model fields nullable; `copyWith` with `() => value` closures like the existing ones.
-- [ ] **Step 1: Failing test:** a v46 database upgraded keeps rows and gains the three columns; a section/user/class round-trips the new fields through the SQLite repositories; a pulled row with the fields is mirrored.
-- [ ] **Step 2: Run** — FAIL. **Step 3: Implement.** **Step 4: Run** `flutter test test/core/data` — PASS.
-- [ ] **Step 5: Commit message:** `feat(sqlite): v47 section adviser, tutor type and class session type`.
+- [x] **Step 1: Failing test:** a v46 database upgraded keeps rows and gains the three columns; a section/user/class round-trips the new fields through the SQLite repositories; a pulled row with the fields is mirrored.
+- [x] **Step 2: Run** — FAIL. **Step 3: Implement.** **Step 4: Run** `flutter test test/core/data` — PASS.
+- [x] **Step 5: Commit message:** `feat(sqlite): v47 section adviser, tutor type and class session type`.
 
 ### Task 3: Setting and checking them in the ViewModels (advisers, tutor type, daily limits, session type, class names)
 

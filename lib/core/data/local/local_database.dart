@@ -96,7 +96,11 @@ class LocalDatabase {
         // maximum, weekdays only, longest session, IRIP cycle length;
         // createAralLocalSchema) and aral_irip_weeks takes weeks 1-26
         // (upgradeAralMemoForV46, before createAralLocalSchema on upgrade).
-        version: 46,
+        // v47: ARAL memo, people (cloud 20261118030000): sections.adviser_name
+        // / adviser_user_id, users.tutor_type, aral_classes.session_type
+        // (upgradeAralMemoForV47, every upgrade, before createAralLocalSchema,
+        // whose triggers read them: the adviser rule and the daily tutor limits).
+        version: 47,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
@@ -236,6 +240,8 @@ class LocalDatabase {
           // v46. Before createAralLocalSchema and createSyncLocalSchema, which
           // recreate the triggers it drops. Skipped when weeks 1-26 already.
           await upgradeAralMemoForV46(db);
+          // v47. Column adds, skipped when present; before the triggers that read them.
+          await upgradeAralMemoForV47(db);
           // v19. Same pattern: runs on every upgrade.
           await createAralLocalSchema(db);
           // v30. IF NOT EXISTS: runs on every upgrade.
@@ -411,6 +417,8 @@ class LocalDatabase {
       school_year TEXT NOT NULL,
       grade_level TEXT NOT NULL,
       section_name TEXT NOT NULL,
+      adviser_name TEXT,
+      adviser_user_id TEXT REFERENCES users(id),
       UNIQUE(school_id, school_year, grade_level, section_name)
       )
     ''');
@@ -486,7 +494,8 @@ class LocalDatabase {
         school_id INTEGER REFERENCES schools(id),
         is_active INTEGER NOT NULL DEFAULT 1,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        created_by TEXT REFERENCES users(id)
+        created_by TEXT REFERENCES users(id),
+        tutor_type TEXT CHECK (tutor_type IN ('internal', 'external'))
       )
     ''');
 

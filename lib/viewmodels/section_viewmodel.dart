@@ -117,6 +117,9 @@ class SectionViewModel {
         schoolYear: _normalize(normalizeSchoolYear, schoolYear),
         gradeLevel: _normalize(normalizeGradeLevel, gradeLevel),
         sectionName: _requireName(sectionName),
+        // Kept: the update writes every column, and the adviser is set elsewhere.
+        adviserName: existing.adviserName,
+        adviserUserId: existing.adviserUserId,
       ));
       await _refreshIfLoaded();
       return updated;
