@@ -131,7 +131,11 @@ required: **yes**, same rule) and `20261114010000` (report settings: six
 switches for which Phil-IRI values a list shows, carried or actual
 (`values_aral`, `values_bosy_masterlist`, `values_form2b`, `values_srp`,
 `values_learner_pages`, `values_ranking`; console `value-sources`,
-`value-source-set`); app update required: no). Each is idempotent.
+`value-source-set`); app update required: no) and `20261118010000` (ARAL memo
+settings: class size, session rules, basis round, check-in sessions and IRIP
+length as school settings, today's values by default; console `aral-setting`,
+`aral-setting-set`; app update required: **yes**, apply only when every device
+has synced and every upload is decided). Each is idempotent.
 Do **not** run
 `supabase/migrations_archive/`.
 
