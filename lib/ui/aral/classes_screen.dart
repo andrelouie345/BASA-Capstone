@@ -117,18 +117,21 @@ class _AralClassesScreenState extends State<AralClassesScreen> {
                                       'Grade ${s.aralClass.gradeLevel} · ${s.aralClass.program?.label ?? 'mixed programs'}',
                                       '${s.activeLearners}/$cap active · ${s.sessions} session(s) · attendance ${s.attendance.label}',
                                     ].join('\n'),
-                                    footer: s.nextCheckInAfter == null && s.aralClass.room == null && s.aralClass.schedule == null
+                                    footer: s.nextCheckInAfter == null && s.aralClass.room == null && s.aralClass.schedule == null &&
+                                            s.aralClass.sessionType == null
                                         ? null
                                         : Wrap(spacing: 8, runSpacing: 6, children: [
-                                            if (s.aralClass.room != null || s.aralClass.schedule != null)
+                                            if (s.aralClass.room != null || s.aralClass.schedule != null || s.aralClass.sessionType != null)
                                               Text(
-                                                [s.aralClass.room, s.aralClass.schedule].whereType<String>().join(' · '),
+                                                [s.aralClass.room, s.aralClass.schedule, s.aralClass.sessionType?.label]
+                                                    .whereType<String>()
+                                                    .join(' · '),
                                                 style: Theme.of(context).textTheme.bodySmall
                                                     ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
                                               ),
                                             if (s.nextCheckInAfter != null)
                                               StatusChip('Check-in after session ${s.nextCheckInAfter}',
-                                                  tone: StatusTone.warn, icon: Icons.assignment_outlined),
+                                                  tone: StatusTone.warn, icon: Icons.assignment_outlined, shrink: true),
                                           ]),
                                     trailing: [
                                       StatusChip(
@@ -225,6 +228,7 @@ class _AralClassScreenState extends State<AralClassScreen> {
                   InfoRow('School year', c.schoolYear),
                   if (c.room != null) InfoRow('Room', c.room!),
                   if (c.schedule != null) InfoRow('Schedule', c.schedule!),
+                  if (c.sessionType != null) InfoRow('Session type', c.sessionType!.label),
                   if (c.notes != null) InfoRow('Notes', c.notes!),
                 ]),
               const SizedBox(height: 4),

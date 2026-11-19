@@ -90,7 +90,8 @@ void main() {
     }
     Future<int> localId() async => -(await db.rawInsert("INSERT INTO local_ids (made_at) VALUES (datetime('now'))"));
     _classId = await localId();
-    await db.insert('aral_classes', {'id': _classId, 'school_id': 1, 'school_year': _year, 'class_name': 'Sampaguita', 'grade_level': 5});
+    await db.insert('aral_classes', {'id': _classId, 'school_id': 1, 'school_year': _year, 'class_name': 'Sampaguita', 'grade_level': 5,
+        'session_type': 'pull_out'});
     for (final student in [3, 4]) {
       final id = await localId();
       if (student == 3) _enrollmentId = id;
@@ -164,6 +165,14 @@ void main() {
     await _show(tester, AralClassScreen(classId: _classId, editor: const AdminAralClassEditor()));
     expect(find.text('Sampaguita'), findsOneWidget);
     expect(find.textContaining('Bautista'), findsOneWidget);
+    expect(tester.takeException(), isNull, reason: 'class page');
+    expect(find.text('Pull-out'), findsOneWidget); // the class's session type
+
+    await _show(tester, const AralClassesScreen(editor: AdminAralClassEditor()));
+    expect(tester.takeException(), isNull, reason: 'classes list opened');
+    await _pick(tester, 'School year', _year);
+    expect(tester.takeException(), isNull, reason: 'classes list with a year');
+    expect(find.textContaining('Pull-out'), findsOneWidget);
 
     await _show(tester, LearnerAralScreen(enrollmentId: _enrollmentId, name: 'Cruz, Ana'));
     expect(find.text('Attendance'), findsWidgets);

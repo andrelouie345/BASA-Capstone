@@ -232,7 +232,11 @@ class AdminAralClassEditor extends AralClassEditor {
   // The year is shown because only learners of that year can be placed.
   Future<Map<String, String>?> _form(BuildContext context, {AralClass? c, String? schoolYear}) => askFields(context,
           title: c == null ? 'New class for ${schoolYear ?? ''}'.trim() : 'Edit class (${c.schoolYear})', fields: [
-    FieldSpec('name', 'Class name', initial: c?.className ?? ''),
+    if (c == null)
+      const FieldSpec('name', 'Class name', optional: true,
+          helper: 'Leave it empty for the next class code, e.g. ARAL-R-G7-01 (Reading, Grade 7, class 1).')
+    else
+      FieldSpec('name', 'Class name', initial: c.className),
     FieldSpec('grade', 'Home grade (1 to 10)', initial: c == null ? '' : '${c.gradeLevel}', number: true),
     FieldSpec('room', 'Room', initial: c?.room ?? '', optional: true),
     FieldSpec('schedule', 'Schedule', initial: c?.schedule ?? '', optional: true),
@@ -244,6 +248,16 @@ class AdminAralClassEditor extends AralClassEditor {
         title: 'Program', options: ['mixed', ...AralClassProgram.values.map((p) => p.value)], label: (v) => v == 'mixed' ? 'Mixed programs' : AralClassProgram.values.firstWhere((p) => p.value == v).label);
     if (p == null) return null;
     return (true, p == 'mixed' ? null : AralClassProgram.values.firstWhere((x) => x.value == p));
+  }
+
+  /// The class's session type (ARAL memo item 14): (picked, value); null = cancelled.
+  Future<(bool, AralSessionType?)?> _sessionType(BuildContext context) async {
+    final t = await pickOne<String>(context,
+        title: 'Session type',
+        options: [...AralSessionType.values.map((t) => t.value), 'none'],
+        label: (v) => v == 'none' ? 'Not set' : AralSessionType.values.firstWhere((t) => t.value == v).label);
+    if (t == null) return null;
+    return (true, t == 'none' ? null : AralSessionType.values.firstWhere((x) => x.value == t));
   }
 
   Future<String?> _tutor(BuildContext context, int schoolId, String year) async {
@@ -272,25 +286,29 @@ class AdminAralClassEditor extends AralClassEditor {
     if (p == null || !context.mounted) return false;
     final tutor = await _tutor(context, schoolId, schoolYear);
     if (tutor == null || !context.mounted) return false;
+    final type = await _sessionType(context);
+    if (type == null || !context.mounted) return false;
     String? opt(String k) => f[k]!.isEmpty ? null : f[k];
     final vm = vmsOf(context).aralClass;
-    return await runAction(
-          context,
-          () => vm.createClass(
-            schoolId: schoolId,
-            schoolYear: schoolYear,
-            className: f['name']!,
-            gradeLevel: grade,
-            program: p.$2,
-            tutorId: tutor == 'none' ? null : tutor,
-            room: opt('room'),
-            schedule: opt('schedule'),
-            notes: opt('notes'),
-          ),
-          done: 'Class created.',
-          where: 'AralClasses',
-        ) !=
-        null;
+    final made = await runAction(
+      context,
+      () async => vm.createClass(
+        schoolId: schoolId,
+        schoolYear: schoolYear,
+        // No name typed: the next memo-style code for that grade.
+        className: opt('name') ?? await vm.suggestClassName(schoolId: schoolId, schoolYear: schoolYear, grade: grade),
+        gradeLevel: grade,
+        program: p.$2,
+        tutorId: tutor == 'none' ? null : tutor,
+        room: opt('room'),
+        schedule: opt('schedule'),
+        notes: opt('notes'),
+        sessionType: type.$2,
+      ),
+      where: 'AralClasses',
+    );
+    if (made != null && context.mounted) showNote(context, 'Class "${made.className}" created.');
+    return made != null;
   }
 
   /// True when the class is gone (the caller closes its page).
@@ -299,11 +317,12 @@ class AdminAralClassEditor extends AralClassEditor {
     final vm = vmsOf(context).aralClass;
     final a = await pickOne<String>(context,
         title: c.className,
-        options: const ['edit', 'program', 'tutor', 'delete'],
+        options: const ['edit', 'program', 'tutor', 'session', 'delete'],
         label: (a) => switch (a) {
           'edit' => 'Edit name, grade, room, schedule',
           'program' => 'Change the program',
           'tutor' => 'Change the tutor',
+          'session' => 'Change the session type',
           _ => 'Delete the class',
         });
     if (a == null || !context.mounted) return false;
@@ -328,6 +347,10 @@ class AdminAralClassEditor extends AralClassEditor {
         final t = await _tutor(context, c.schoolId, c.schoolYear);
         if (t == null || !context.mounted) return false;
         changed = c.copyWith(tutorId: () => t == 'none' ? null : t);
+      case 'session':
+        final t = await _sessionType(context);
+        if (t == null || !context.mounted) return false;
+        changed = c.copyWith(sessionType: () => t.$2);
       default:
         if (!await confirm(context, title: 'Delete ${c.className}?', action: 'Delete', destructive: true) || !context.mounted) return false;
         return runStep(context, () => vm.deleteClass(c.id!), done: 'Class deleted.', where: 'AralClasses');

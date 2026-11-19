@@ -480,7 +480,11 @@ class StatusChip extends StatelessWidget {
   final String label;
   final StatusTone tone;
   final IconData? icon;
-  const StatusChip(this.label, {super.key, this.tone = StatusTone.neutral, this.icon});
+
+  /// Cut the label with "…" when the space is too narrow. Only where the chip
+  /// gets a bounded width (a Wrap, a column), never in an unbounded row.
+  final bool shrink;
+  const StatusChip(this.label, {super.key, this.tone = StatusTone.neutral, this.icon, this.shrink = false});
 
   @override
   Widget build(BuildContext context) {
@@ -500,7 +504,15 @@ class StatusChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[Icon(icon, size: 14, color: fg), const SizedBox(width: 4)],
-          Text(label, style: theme.textTheme.labelSmall?.copyWith(color: fg, fontWeight: FontWeight.w700)),
+          if (shrink)
+            Flexible(
+              child: Text(label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(color: fg, fontWeight: FontWeight.w700)),
+            )
+          else
+            Text(label, style: theme.textTheme.labelSmall?.copyWith(color: fg, fontWeight: FontWeight.w700)),
         ],
       ),
     );
