@@ -33,6 +33,7 @@ sf1_archive_learner
 learner_anonymize_eligible
 # Refusals in admin-only methods
 Not allowed: only an admin or coordinator reviews uploads.
+Not allowed: only an admin or coordinator can make the ARAL forms.
 Not allowed: you can only create users for your own school.
 Not allowed: only an admin or coordinator can import an ARAL roster.
 Not allowed: only an admin or coordinator can generate ARAL reports.
@@ -68,6 +69,7 @@ SyncReviewViewModel
 LoginLogViewModel
 CrlaImportViewModel
 AralReportViewModel
+AralFormsViewModel
 AralRosterImportViewModel
 TutorSectionAssignmentViewModel
 PhilIriImportViewModel

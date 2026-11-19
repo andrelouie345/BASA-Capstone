@@ -33,6 +33,7 @@ const _adminFiles = [
   'viewmodels/import_viewmodel.dart',
   'viewmodels/login_log_viewmodel.dart',
   'viewmodels/crla_import_viewmodel.dart',
+  'viewmodels/aral_forms_viewmodel.dart',
   'viewmodels/aral_report_viewmodel.dart',
   'viewmodels/aral_roster_import_viewmodel.dart',
   'viewmodels/tutor_section_assignment_viewmodel.dart',
