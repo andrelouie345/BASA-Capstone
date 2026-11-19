@@ -42,4 +42,5 @@ const Map<String, String> basaMigrations = {
   '20261118010000': 'aral_memo_settings',
   '20261118020000': 'aral_setting_private',
   '20261118030000': 'aral_memo_people',
+  '20261119010000': 'aral_memo_review',
 };

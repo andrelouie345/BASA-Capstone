@@ -47,8 +47,8 @@ import '../helpers/fake_online_auth.dart';
 import '../helpers/offline_owner.dart';
 
 const _year = '2026-2027';
-const _two = 71, _seven = 72;
-const gina = 701, hugo = 702, pia = 703, quin = 704, rey = 705;
+const _one = 70, _two = 71, _seven = 72;
+const gina = 701, hugo = 702, pia = 703, quin = 704, rey = 705, ivy = 706;
 const _cruz = '00000000-0000-0000-0000-0000000005c1';
 const _santos = '00000000-0000-0000-0000-0000000005c2';
 const _asOf = '2026-11-14';
@@ -73,6 +73,8 @@ void main() {
       await db.insert('users', {'id': id, 'email': '$id@zz', 'full_name': name, 'role': 'tutor', 'school_id': 1,
           'is_active': 1, 'tutor_type': type});
     }
+    await db.insert('sections', {'id': _one, 'school_id': 1, 'school_year': _year, 'grade_level': '1',
+        'section_name': 'One'});
     await db.insert('sections', {'id': _two, 'school_id': 1, 'school_year': _year, 'grade_level': '2',
         'section_name': 'Two', 'adviser_name': 'Ms. Two'});
     await db.insert('sections', {'id': _seven, 'school_id': 1, 'school_year': _year, 'grade_level': '7',
@@ -83,11 +85,12 @@ void main() {
       (pia, 'Perez', 'Pia', null, 'F'),
       (quin, 'Quino', 'Quin', null, 'M'),
       (rey, 'Ramos', 'Rey', null, 'M'),
+      (ivy, 'Ibay', 'Ivy', null, 'F'),
     ]) {
       await db.insert('students', {'id': id, 'lrn': '00999999$id', 'last_name': last, 'first_name': first,
           'middle_name': middle, 'school_id': 1, 'sex': sex});
       await db.insert('enrollments',
-          {'student_id': id, 'section_id': id <= hugo ? _two : _seven, 'school_year': _year, 'status': 'active'});
+          {'student_id': id, 'section_id': id == ivy ? _one : (id <= hugo ? _two : _seven), 'school_year': _year, 'status': 'active'});
     }
     var attempt = 0;
     Future<void> crla(int student, String round, String profile, String at) {
@@ -102,6 +105,12 @@ void main() {
     await crla(gina, 'mosy', crlaDeveloping, '2026-10-05');
     await crla(hugo, 'bosy', crlaHighEmerging, '2026-08-05');
     await crla(hugo, 'mosy', crlaDeveloping, '2026-10-06');
+    // Ivy, Grade 1: CRLA starts at MoSY, so she has no BoSY result.
+    await db.insert('crla_assessments', {
+      'id': -150, 'student_id': ivy, 'school_id': 1, 'section_id': _one, 'school_year': _year,
+      'subject_variant': 'fil', 'language': 'Filipino', 'round': 'mosy', 'attempt_no': 1,
+      'assessed_at': '2026-10-07', 'reading_profile': crlaHighEmerging,
+    });
 
     await db.insert('phil_iri_collections', {'id': 1, 'name': 'Graded rounds', 'is_grade_leveled': 1});
     for (var n = 1; n <= 2; n++) {
@@ -152,6 +161,7 @@ void main() {
     await roster(pia, _seven, 'ks3');
     await roster(quin, _seven, 'ks3', basisRound: null);
     await roster(rey, _seven, 'ks3', exited: true);
+    await roster(ivy, _one, 'ks1', basisRound: 'mosy');
 
     final classes = t.aralClassVm;
     classA = (await classes.createClass(schoolId: 1, schoolYear: _year, className: 'ARAL-R-G2-01', gradeLevel: 2,
@@ -247,7 +257,13 @@ void main() {
       // round), no MoSY result -> No improvement; Pia: improved; no sessions held.
       expect((g7.identified, g7.served, g7.reachedGradeLevel, g7.improved, g7.noImprovement, g7.atMosy),
           (2, 0, 1, 1, 1, 2));
-      for (final g in f.grades.where((g) => g.grade != 2 && g.grade != 7)) {
+      // Ivy (Grade 1): a MoSY result but no BoSY result -> No improvement, named.
+      final g1 = f.grades[0];
+      expect((g1.identified, g1.served, g1.reachedGradeLevel, g1.improved, g1.noImprovement, g1.atMosy),
+          (0, 0, 0, 0, 1, 1));
+      expect(f.notes, contains('1 learner without a BoSY result by $_asOf is counted under No improvement: '
+          'Ibay, Ivy (Grade 1).'));
+      for (final g in f.grades.where((g) => g.grade != 1 && g.grade != 2 && g.grade != 7)) {
         expect((g.identified, g.served, g.reachedGradeLevel, g.improved, g.noImprovement, g.atMosy),
             (0, 0, 0, 0, 0, 0), reason: 'grade ${g.grade}');
       }

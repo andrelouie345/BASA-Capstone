@@ -20,7 +20,8 @@
 //  * Form 4: identified = basis round BoSY; served = placed in a class and
 //    marked present at least once by the date; improved = own MoSY result
 //    ranked above BoSY; everything else still in ARAL = No improvement
-//    (learners without a MoSY result named in the notes).
+//    (learners without a MoSY result, and those with a MoSY result but no
+//    BoSY result, named in the notes; review I1).
 import '../core/console/logger.dart';
 import '../core/models/aral_forms.dart';
 import '../core/models/aral_class.dart';
@@ -238,6 +239,7 @@ class AralFormsViewModel {
 
     final grades = [for (var g = 1; g <= 10; g++) AralForm4Grade(g)];
     final noMosy = <String>[];
+    final noBosy = <String>[];
     for (final x in ctx.rounds.values) {
       if (x.grade < 1 || x.grade > 10) continue;
       final row = grades[x.grade - 1];
@@ -254,13 +256,20 @@ class AralFormsViewModel {
         row.improved++;
       } else {
         row.noImprovement++;
-        if (!x.mosyOwn) noMosy.add('${_name(ctx.students[e.studentId])} (Grade ${x.grade})');
+        final who = '${_name(ctx.students[e.studentId])} (Grade ${x.grade})';
+        if (!x.mosyOwn) {
+          noMosy.add(who);
+        } else if (b == null) {
+          // e.g. Grade 1: CRLA starts at MoSY (review I1, owner 2026-11-19: named).
+          noBosy.add(who);
+        }
       }
     }
 
     final (internal, external, untyped) = ctx.tutorCounts();
     final minutes = held.fold(0, (a, s) => a + s.minutes);
     noMosy.sort();
+    noBosy.sort();
     return AralForm4(
       schoolName: ctx.schoolName,
       schoolCode: ctx.schoolCode,
@@ -275,6 +284,9 @@ class AralFormsViewModel {
         if (noMosy.isNotEmpty)
           '${_learners(noMosy.length)} without a MoSY result by $date ${noMosy.length == 1 ? 'is' : 'are'} '
               'counted under No improvement: ${noMosy.join('; ')}.',
+        if (noBosy.isNotEmpty)
+          '${_learners(noBosy.length)} without a BoSY result by $date ${noBosy.length == 1 ? 'is' : 'are'} '
+              'counted under No improvement: ${noBosy.join('; ')}.',
         if (untyped.isNotEmpty) _untypedNote(untyped),
         'Left blank for hand entry: ${form4Blanks.join(', ')}.',
       ],

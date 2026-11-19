@@ -287,11 +287,13 @@ class AralSessionViewModel {
     if (date != s.heldOn || mins != s.minutes || newSetup != s.setup) {
       final rules = await aralLocalRuleSettings(_localSettings, s.schoolId);
       _checkSession(date, mins, newSetup, rules);
-      // The daily limits only when the date or length changes (as the
-      // triggers): a day over a limit set later keeps its sessions editable.
+      // The daily limits (as the triggers): a new date is checked in full; on
+      // the same date only a longer session (the external minutes), so a day
+      // over a limit set later keeps its sessions editable (review M1).
       final tutor = await _users.getById(s.tutorId);
-      if (tutor != null && (date != s.heldOn || mins != s.minutes)) {
-        await _checkTutorDay(tutor, s.schoolId, date, mins, rules, exceptId: s.id);
+      if (tutor != null && (date != s.heldOn || mins > s.minutes)) {
+        await _checkTutorDay(tutor, s.schoolId, date, mins, rules,
+            exceptId: s.id, minutesOnly: date == s.heldOn);
       }
     }
     return _write(() => _sessions.updateSession(s.copyWith(
@@ -648,11 +650,12 @@ class AralSessionViewModel {
   /// an internal tutor holds at most the school's sessions a day, an external
   /// tutor at most its minutes a day, counting the tutor's sessions at
   /// [schoolId] on [date] with this one ([minutes]). A tutor without a type
-  /// has no limit. [exceptId] = the session being edited.
+  /// has no limit. [exceptId] = the session being edited; [minutesOnly] = the
+  /// same day's session made longer (the session count doesn't change).
   Future<void> _checkTutorDay(User tutor, int schoolId, String date, int minutes, AralRuleSettings r,
-      {int? exceptId}) async {
+      {int? exceptId, bool minutesOnly = false}) async {
     final type = tutor.tutorType;
-    final maxSessions = type == TutorType.internal ? r.internalTutorMaxSessionsPerDay : null;
+    final maxSessions = type == TutorType.internal && !minutesOnly ? r.internalTutorMaxSessionsPerDay : null;
     final maxMinutes = type == TutorType.external ? r.externalTutorMaxMinutesPerDay : null;
     if (maxSessions == null && maxMinutes == null) return;
     final sameDay = (await _sessions.getByTutor(tutor.id))

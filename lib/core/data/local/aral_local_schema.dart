@@ -551,12 +551,16 @@ ${placement("NEW.class_id IS NOT NULL AND NEW.status = 'active' AND (NEW.class_i
   final maxDayMinutes = "CAST(${aralSettingSql('NEW.school_id', 'external_tutor_max_minutes_per_day')} AS INTEGER)";
   const sameDay = 'FROM aral_sessions WHERE tutor_id = NEW.tutor_id AND school_id = NEW.school_id '
       'AND held_on = NEW.held_on AND id IS NOT NEW.id';
-  String dayLimits(String applies) => '''
+  // [sessionsApply] / [minutesApply]: when the count / the minutes are
+  // checked. An edit on the same day checks only a longer session, so a day
+  // over a limit set later keeps its sessions editable (review M1; the
+  // ViewModel and the cloud's aral_sessions_one_per_day do the same).
+  String dayLimits(String sessionsApply, String minutesApply) => '''
       SELECT RAISE(ABORT, 'An internal tutor holds at most ' || $maxSessions || ' ARAL sessions a day at this school')
-      WHERE $applies AND $tutorType = 'internal' AND $maxSessions IS NOT NULL
+      WHERE $sessionsApply AND $tutorType = 'internal' AND $maxSessions IS NOT NULL
         AND (SELECT count(*) $sameDay) + 1 > $maxSessions;
       SELECT RAISE(ABORT, 'An external tutor holds at most ' || $maxDayMinutes || ' minutes of ARAL sessions a day at this school')
-      WHERE $applies AND $tutorType = 'external' AND $maxDayMinutes IS NOT NULL
+      WHERE $minutesApply AND $tutorType = 'external' AND $maxDayMinutes IS NOT NULL
         AND (SELECT COALESCE(sum(minutes), 0) $sameDay) + NEW.minutes > $maxDayMinutes;''';
   await db.execute('DROP TRIGGER IF EXISTS check_aral_session_ins');
   await db.execute('''
@@ -574,7 +578,7 @@ ${placement("NEW.class_id IS NOT NULL AND NEW.status = 'active' AND (NEW.class_i
       SELECT RAISE(ABORT, '$dayTaken')
       WHERE EXISTS (SELECT 1 FROM aral_sessions WHERE class_id = NEW.class_id AND held_on = NEW.held_on);
 ${sessionRules('1')}
-${dayLimits('1')}
+${dayLimits('1', '1')}
     END
   ''');
   await db.execute('DROP TRIGGER IF EXISTS check_aral_session_upd');
@@ -593,7 +597,7 @@ ${dayLimits('1')}
         AND EXISTS (SELECT 1 FROM aral_sessions
                     WHERE class_id = NEW.class_id AND held_on = NEW.held_on AND id <> NEW.id);
 ${sessionRules('(NEW.held_on IS NOT OLD.held_on OR NEW.minutes IS NOT OLD.minutes OR NEW.setup IS NOT OLD.setup)')}
-${dayLimits('(NEW.held_on IS NOT OLD.held_on OR NEW.minutes IS NOT OLD.minutes)')}
+${dayLimits('NEW.held_on IS NOT OLD.held_on', '(NEW.held_on IS NOT OLD.held_on OR NEW.minutes > OLD.minutes)')}
     END
   ''');
 

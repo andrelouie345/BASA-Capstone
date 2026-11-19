@@ -100,7 +100,11 @@ class LocalDatabase {
         // / adviser_user_id, users.tutor_type, aral_classes.session_type
         // (upgradeAralMemoForV47, every upgrade, before createAralLocalSchema,
         // whose triggers read them: the adviser rule and the daily tutor limits).
-        version: 47,
+        // v48: no table change; the bump recreates the ARAL session triggers
+        // (createAralLocalSchema) so an edit on the same day checks only a
+        // longer session against the daily limits (review M1; cloud
+        // 20261119010000).
+        version: 48,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (

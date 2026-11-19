@@ -204,6 +204,24 @@ void main() {
       await setting(null);
     });
 
+    test('a day over a limit set later keeps its sessions editable (review M1)', () async {
+      await setting(null);
+      final a = await newClass(tutor: _adviser), b = await newClass(tutor: _adviser), c = await newClass(tutor: _adviser);
+      final s1 = await log(a, _adviser, DateTime(2026, 11, 10), minutes: 60);
+      await log(b, _adviser, DateTime(2026, 11, 10));
+      await log(c, _adviser, DateTime(2026, 11, 10));
+      final e = await newClass(tutor: _external), f = await newClass(tutor: _external);
+      final x1 = await log(e, _external, DateTime(2026, 11, 11), minutes: 90);
+      await log(f, _external, DateTime(2026, 11, 11), minutes: 90);
+      await setting({'internal_tutor_max_sessions_per_day': 2, 'external_tutor_max_minutes_per_day': 120});
+      // Internal: 3 sessions that day (limit 2 set later): the count doesn't change.
+      expect((await sessions.editSession(s1.id!, minutes: 50)).minutes, 50);
+      // External: 180 minutes that day (limit 120 set later): shorter is fine, longer is not.
+      expect((await sessions.editSession(x1.id!, minutes: 80)).minutes, 80);
+      await expectLater(sessions.editSession(x1.id!, minutes: 85), _refused('at most 120 minutes of ARAL sessions a day'));
+      await setting(null);
+    });
+
     test("a server refusal of the external limit keeps its own words", () {
       expect(aralSessionDbRefusal('PostgrestException(message: an external tutor holds at most 90 minutes of '
               'ARAL sessions a day at this school (100 on 2026-11-18))'),
