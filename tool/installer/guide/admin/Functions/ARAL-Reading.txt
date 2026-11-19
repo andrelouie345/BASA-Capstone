@@ -16,14 +16,14 @@ The ARAL-Reading program: learners below grade level get tutoring in small class
 ===== Tutors =====
 **ARAL → Tutors**. Each ARAL tutor's classes and active learners.
 
-Each tutor can have a **tutor type**: //internal// (a teacher of your school) or //external// (from outside). The type shows on the ARAL forms, and your school's daily tutor limits (see //School ARAL rules//) go by it. A tutor without a type has no daily limit.
+Each tutor can have a **tutor type**: //internal// (a teacher of your school) or //external// (from outside). The type shows on the ARAL forms, and your school's daily tutor limits (see //School ARAL rules//) go by it. A tutor without a type has no daily limit. Set it in **Manage → Users**: the //Tutor type// button on a tutor's row (Internal, External or Not set).
 
-Each section can have an **adviser**: a typed name, the adviser's BASA account, or both. The name shows on ARAL Form 1. The account is what the adviser rule checks, so link it when your school uses that rule.
+Each section can have an **adviser**: a typed name, the adviser's BASA account, or both. The name shows on ARAL Form 1. The account is what the adviser rule checks, so link it when your school uses that rule. Set it in **Learners → Sections**: a section's menu → //Adviser//. Type the name (optional), then choose the account: keep the current one, no account, or one of your school's accounts. With an account and no typed name, BASA uses the account's name.
 
 ===== Classes =====
 **ARAL → Classes**. A class has a name, a home grade, one program (or mixed programs) and a tutor. At most **15 active learners** (or your school's maximum, see //School ARAL rules//), from any section of the school. A learner of another grade needs the coordinator's confirmation. A learner's ARAL tutor is their class's tutor.
 
-A new class without a name gets the next free memo-style code, e.g. **ARAL-R-G7-02** (Reading, Grade 7, class 2); you can still type any name. Each class can also record its **session type**: //pull-out// or //before/after class//.
+Leave the name empty when you add a class and BASA gives it the next free memo-style code, e.g. **ARAL-R-G7-02** (Reading, Grade 7, class 2); the note after saving says which. You can still type any name. Each class can also record its **session type**: //pull-out// or //before/after class//: choose it when you add the class, or later with //Change the session type// in the class's menu. The class list and the class page show it.
 
 ===== Sessions and attendance =====
 **ARAL → Sessions and attendance**. The class tutor logs each session (date, minutes, set-up, lesson) and marks attendance: present, absent or excused. One session per class per date. The program has 32 sessions. Your school can allow weekdays only and set the longest session (see //School ARAL rules//).
@@ -38,7 +38,7 @@ A new class without a name gets the next free memo-style code, e.g. **ARAL-R-G7-
 **ARAL → ARAL settings**. For your school: the check-in cut-off, SHARP (the Foundational program), KS1 extended, and after how many days without a session a class shows in the reminders.
 
 ===== School ARAL rules =====
-DepEd and the Division change ARAL's numbers from time to time, so they are school settings. A rule you never set works as it always has.
+DepEd and the Division change ARAL's numbers from time to time, so they are school settings. A rule you never set works as it always has. They are on **ARAL → ARAL settings**, in the card //School ARAL rules//: each rule shows the value in force, the region's and your school's value and the default. The pencil changes your school's value; leave it empty, or choose //Use the region value / default//, to remove it. Without a connection the card shows this device's copy and nothing can be changed.
 * **Class maximum** (1-50, normally 15): a full class takes no new learner. Lowering it never removes anyone: a class above the new maximum keeps working (sessions, attendance, exits), and your reminders say //Class "X" has 12 active learners, more than the maximum 10: move learners to another class. Their records stay.// Take learners out of the class (**Classes → Unplace**) and place them in another one; their attendance and results stay with them.
 * **Class minimum** (0 = none): a class below it shows in your reminders (combine it with the nearest level of the same grade if there is one). It never blocks anything.
 * **Weekdays only**: no session on Saturday or Sunday, and no //Weekend// set-up.
@@ -62,7 +62,7 @@ A tutor's type changed later never re-checks their past sessions.
 **ARAL → Readability log**. Only when SHARP is on: the readability (Flesch reading ease and grade) of the texts used.
 
 ===== ARAL Forms 1, 2 and 4 =====
-**Reports → ARAL forms** (admin build). The Division Memorandum 180 s. 2026 forms for Reading, saved as Excel files from this device's copy (download the latest data first):
+**Reports → ARAL Forms 1, 2 and 4** (admin build; also in **Reports & files**). The Division Memorandum 180 s. 2026 forms for Reading, saved as Excel files from this device's copy (download the latest data first). Pick the school year; for Form 1 choose //Every class// (one sheet each) or one class; for Form 4 choose the //As of// date (today unless you change it); then //Save .xlsx//. BASA shows where the file was saved and the form's notes, which also stay on the screen:
 * **Form 1**, the class list: one sheet per class, with the school, class code, grade, tutor and type, session type, days and time, venue, number of learners, and each learner's LRN, name, sex, section, adviser and MoSY tool and result.
 * **Form 2**, the classes: one row per class, its MoSY result (the one all its learners share, else //mixed//), tutor, type, the tutor's advisory class, schedule and venue, and the number of classes, learners and tutors.
 * **Form 4**, the progress report, as of a date: per grade, learners identified at BoSY, served (marked present at least once), reached grade level, improved but still below, no improvement, and in ARAL at MoSY; then classes, tutors, sessions held and hours.

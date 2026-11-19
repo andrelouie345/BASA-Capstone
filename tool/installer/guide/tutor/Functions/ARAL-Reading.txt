@@ -24,4 +24,4 @@ ARAL-Reading tutoring for learners below grade level. You teach the classes your
 **ARAL → Readability log**. Only when your school uses SHARP: the texts you used, with their readability.
 
 ===== Roster, tutors and settings =====
-**ARAL → Roster**, **ARAL → Tutors** and **ARAL → ARAL settings**: who is in ARAL and the school's settings (view only).
+**ARAL → Roster**, **ARAL → Tutors** and **ARAL → ARAL settings**: who is in ARAL and the school's settings (view only), including the //School ARAL rules//: class size, session length and days, sessions a week, and how many sessions (internal tutors) or minutes (external tutors) a tutor may hold in a day. A session over one of your school's rules is refused, and the message says which rule.
