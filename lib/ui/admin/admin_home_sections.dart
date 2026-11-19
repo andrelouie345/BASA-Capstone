@@ -19,6 +19,7 @@ import '../phil_iri/content_screen.dart';
 import '../phil_iri/phil_iri_thresholds_screen.dart';
 import '../reports/srp_screen.dart';
 import 'aral_editing.dart';
+import 'aral_forms_screen.dart';
 import 'aral_report_screen.dart';
 import 'calendar_editing.dart';
 import 'crla_import_screen.dart';
@@ -228,6 +229,14 @@ List<HomeSection> adminHomeSections() => [
           doc: 'aral.md#implementation-report-and-roster-files',
           builder: _row43,
         ),
+        HomeEntry(
+          title: 'ARAL Forms 1, 2 and 4',
+          description: 'The Division memo forms as Excel files',
+          icon: Icons.table_view_outlined,
+          checklistRow: 71,
+          doc: 'aral.md#aral-forms-1-2-and-4-reading',
+          builder: _row71,
+        ),
       ]),
     ],
   ),
@@ -271,4 +280,5 @@ Widget _row62(BuildContext _) => const UndecidedLearnersScreen();
 Widget _row63(BuildContext _) => const AnonymizeLearnersScreen();
 Widget _row64(BuildContext _) => const TransfersScreen();
 Widget _row43(BuildContext _) => const AralReportScreen();
+Widget _row71(BuildContext _) => const AralFormsScreen();
 Widget _row20(BuildContext _) => const FirstAdminScreen();

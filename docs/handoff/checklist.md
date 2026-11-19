@@ -84,3 +84,7 @@ The debug console (`lib/ui/debug/`) is a developer tool, not an app screen: leav
 | 65 | Report settings: archive period + Phil-IRI value switches (carried / actual per list) | screen part | admin | [value-sources.md](screens/value-sources.md#phil-iri-value-switches-in-report-settings), [sf1-leavers.md](screens/sf1-leavers.md#archive-period-report-setting) | Ethan | in progress |
 | 66 | Phil-IRI ranking list (lowest N by accuracy / wpm / comprehension) | screen | admin | [value-sources.md](screens/value-sources.md#ranking-list) | Ethan | in progress |
 | 67 | "Values:" label on Form 2b, BOSY masterlist, SRP, ARAL report and learner pages | screen part | admin / both (learner pages) | [value-sources.md](screens/value-sources.md#lists-that-now-show-the-label) | Ethan | in progress |
+| 68 | ARAL settings: school ARAL rules (class size, sessions, basis round, check-ins, IRIP, adviser rule, daily tutor limits) | screen part | both (view) / admin (set) | [aral.md](screens/aral.md#aral-settings) | Ethan | in progress |
+| 69 | Tutor type (Users) and section adviser (Sections) | screen part | admin (set) / both (adviser shown) | [admin.md](screens/admin.md#users) | Ethan | in progress |
+| 70 | ARAL class session type and suggested class names | screen part | both (view) / admin (edit) | [aral.md](screens/aral.md#classes) | Ethan | in progress |
+| 71 | ARAL Forms 1, 2 and 4 (Reading; also in the hub) | screen | admin | [aral.md](screens/aral.md#aral-forms-1-2-and-4-reading) | Ethan | in progress |

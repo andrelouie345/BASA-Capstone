@@ -8,6 +8,7 @@ import '../common/screen_kit.dart';
 import '../crla/crla_export_screen.dart';
 import '../learners/learners_screen.dart';
 import '../reports/srp_screen.dart';
+import 'aral_forms_screen.dart';
 import 'aral_report_screen.dart';
 import 'crla_import_screen.dart';
 import 'phil_iri_import_screen.dart';
@@ -54,6 +55,7 @@ class ReportsHubScreen extends StatelessWidget {
         tile(Icons.grid_on_outlined, 'Phil-IRI scoresheet template', 'Per section, to fill from the paper',
             (_) => const PhilIriImportScreen(scoresheet: true)),
         tile(Icons.description_outlined, 'ARAL implementation report, roster, check-ins', 'Template or CSV', (_) => const AralReportScreen()),
+        tile(Icons.table_view_outlined, 'ARAL Forms 1, 2 and 4', 'Division memo forms, Excel', (_) => const AralFormsScreen()),
         tile(Icons.assessment_outlined, 'NLA portal report', 'CSV', (_) => const NlaReportScreen()),
         tile(Icons.donut_large_outlined, 'Progress monitoring', 'CSV', (_) => const ProgressScreen()),
         tile(Icons.format_list_numbered, 'BOSY masterlist', 'CSV', (_) => const BosyMasterlistScreen()),
