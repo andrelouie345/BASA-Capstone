@@ -26,7 +26,10 @@ Calls:
 - admin: `createClass(...)`, `editClass(c)`, `deleteClass(id)`, `place(enrollmentId, classId, otherGrade:)`, `unplace(enrollmentId)`
 - `AralClassViewModel.classMax(schoolId)` → `Future<int>` (the school's maximum, 15 by default) for "n/15 active"; `classMin(schoolId)` → `Future<int>` (0 = no minimum). A class can hold more than the maximum when the school lowered it later: show it as over the maximum (the coordinator's reminders say so).
 - `AralSessionViewModel.classSummary(classId)` → `AralClassSummary`
-Errors: class full, other grade without confirmation, sessions exist on delete (ViewModelException); other errors: the error rule in `common.md`.
+- ARAL memo: `AralClassViewModel.suggestClassName(schoolId:, schoolYear:, grade:)` → `String` (`ARAL-R-G7-02`: prefill the name field of a new class; the name stays free text). Session type: `createClass(sessionType:)` / `editClass(c.copyWith(sessionType: () => …))`, `AralSessionType.pullOut` "Pull-out" / `beforeAfter` "Before/after class" / null (blank).
+- The adviser rule (school setting `adviser_tutors_own_class` off): `place` and `editClass` (tutor change) refuse in a plain sentence naming the learner and section; enrolling with a class leaves the learner waiting and `AralViewModel.lastWarning` says why.
+- Sessions: `AralSessionViewModel.logSession` / `editSession` refuse past the school's daily limit for the tutor's type ("An internal tutor holds at most 2 ARAL sessions a day at this school…").
+Errors: class full, other grade without confirmation, adviser rule, sessions exist on delete (ViewModelException); other errors: the error rule in `common.md`.
 Console: `aral-classes`, `aral-class-show`, `aral-class-summary`, `aral-class-add`, `aral-class-edit`, `aral-class-delete`, `aral-class-place`, `aral-class-unplace`
 
 ### Sessions and attendance
@@ -72,6 +75,7 @@ School ARAL rules (same screen, a part of its own; ARAL memo settings):
 - Read: `AralCheckinViewModel.ruleSettingLayers(key, schoolId)` → `(region, school, effective, defaults)` per key (online); `localRuleSettings(schoolId)` → `AralRuleSettings` (this device's copy, offline).
 - admin: `setRuleSetting(schoolId, key, value)` (value `null` removes the school's value: "Use the region value / default"); `ruleSettingValue(key, text)` turns typed text into a value. Refusals are plain sentences (range, minimum above maximum, not your school).
 - Elsewhere: `AralClassViewModel.classMax(schoolId)` / `classMin(schoolId)`, `AralViewModel.ruleSettings(schoolId)`, `AralIripStrandState.cycleLength`; coordinator notices `AralClassNoticeKind.overMax`, `underMin`, `fewSessionsThisWeek`; tutor reminder `TutorReminderKind.fewSessionsThisWeek`.
+- ARAL memo, people (same part): `adviser_tutors_own_class` "Advisers tutor their own learners" on/off (default on); `internal_tutor_max_sessions_per_day` "Internal tutor: sessions a day" 1-10 (blank = no limit); `external_tutor_max_minutes_per_day` "External tutor: minutes a day" 1-600 (blank = no limit).
 Console: `aral-setting`, `aral-setting-set`
 
 ### Materials and recommendations
@@ -95,3 +99,13 @@ Calls:
 - `implementationReportXlsx(template:, ...)` → `(bytes, notes)`; `implementationReportCsv(...)` → `String`
 - `AralViewModel.rosterCsv(...)`; `AralRosterImportViewModel.preview(schoolId, year, bytes, fileName)`, `importRoster(...)`
 Console: `aral-report`, `aral-export-report`, `aral-export-report-csv`, `aral-export-roster`, `aral-import-roster-preview`, `aral-import-roster`
+
+### ARAL Forms 1, 2 and 4 (Reading)
+Build: admin    Roles: admin / coordinator of the school; superadmin
+Purpose: the Division Memorandum 180 s. 2026 forms saved as .xlsx from the device copy (BASA's own layout; blanks for hand entry are listed at the foot of each form). Forms 3, 5 and 6 are not in BASA (separate tutor-management system).
+Fields: school year; Form 1: class (one, or every class); Form 4: as-of date (default today).
+Calls:
+- `AralFormsViewModel.form1Xlsx(schoolId:, schoolYear:, classId:)`, `form2Xlsx(schoolId:, schoolYear:)`, `form4Xlsx(schoolId:, schoolYear:, asOf: 'YYYY-MM-DD')` → `List<int>` (save with the file picker)
+- preview on screen, if wanted: `form1(...)` → `List<AralForm1>`, `form2(...)` → `AralForm2`, `form4(...)` → `AralForm4` (`notes` / `blanks` are plain sentences to show under it)
+Errors: tutors refused ("Not allowed: …"); Form 1 with no classes ("This school has no ARAL classes for 2026-2027 yet."); a bad date (ViewModelException).
+Console: `aral-form1`, `aral-form2`, `aral-form4`

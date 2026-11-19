@@ -364,7 +364,12 @@ school-bound admin/coordinator: own school only)
 user-create <email> <admin|coordinator|tutor> <schoolId|-> <full name>
 user-list
 user-set-active <userId> <true|false>
+user-tutor-type <userId> <internal|external|->
 ```
+
+A tutor's type (internal = a teacher of the school, external = from outside,
+`-` = not set) is shown on the ARAL forms and drives the daily tutor limits
+below; a tutor without a type has no daily limit.
 
 **Schools** (create: superadmin only; list/update: own school, or all for superadmin)
 
@@ -380,8 +385,14 @@ school-update <id> <schoolIdCode> <region|-> <division|-> <full school name>
 section-create <schoolId> <schoolYear> <gradeLevel> <sectionName>
 section-list
 section-update <id> <schoolYear> <gradeLevel> <sectionName>
+section-adviser <sectionId> <"name"|-> [userId|-]
 section-delete <id>
 ```
+
+`section-adviser` records the section's adviser: a typed name, a BASA account of
+the school, or both (an account left out is kept, `-` removes it; a linked
+adviser without a name gets the account's name). The name shows on ARAL Form 1;
+the account is what the adviser rule below checks.
 
 **Tutor-section assignments** (admin/coordinator, own school; superadmin: all)
 
@@ -482,6 +493,31 @@ Memorandum 180 s. 2026 (Valencia City) sets `class_max_learners 10`,
 `class_min_sessions_per_week 3`, `basis_round mosy`, and turns on
 `aral-ks1-extended-set <schoolId> on` (the memo takes Developing and
 Transitioning KS1 learners too).
+
+Three more keys (ARAL memo, people): `adviser_tutors_own_class` (on/off,
+default on; off = a learner is not placed in a class whose tutor advises their
+section, and an adviser can't become the tutor of a class holding their own
+learners), `internal_tutor_max_sessions_per_day` (1-10, not set = no limit) and
+`external_tutor_max_minutes_per_day` (1-600, not set = no limit), by the
+tutor's type (`user-tutor-type`). A class's session type (pull-out or
+before/after class) is set with `aral-class-edit <classId> session
+<pull_out|before_after|->`; `aral-class-add` without a name gives the class
+the next free `ARAL-R-G<grade>-<nn>`.
+
+**ARAL Forms 1, 2 and 4 (Reading)** (admin/coordinator of the school,
+superadmin; from this device's copy). BASA's own .xlsx layout with the
+Division Memorandum 180 s. 2026 forms' header fields and columns; fields BASA
+doesn't hold are left blank for hand entry and listed at the foot of each form.
+
+```
+aral-form1 <schoolId> <schoolYear> <out.xlsx> [classId]       (one sheet per class: the class list)
+aral-form2 <schoolId> <schoolYear> <out.xlsx>                 (one row per class)
+aral-form4 <schoolId> <schoolYear> <out.xlsx> [asof=YYYY-MM-DD] (learners per grade; classes, tutors, sessions, hours)
+```
+
+Forms 3, 5 and 6 are not in BASA: tutor details, printing and overload pay
+are kept in the separate tutor-management system. BASA's session records give
+each tutor's ARAL hours for them.
 
 **Local cache only** (offline reads — may lag behind Supabase)
 

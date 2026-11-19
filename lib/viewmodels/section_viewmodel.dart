@@ -147,9 +147,15 @@ class SectionViewModel {
   /// the section's school (superadmin any); copied onto this device.
   Future<Section> setAdviser(int sectionId, {String? name, String? userId, bool clearUser = false}) async {
     _log('setAdviser($sectionId, name: $name, user: ${clearUser ? '-' : userId ?? 'kept'})');
-    final repo = _repo();
+    final repo = _repo(); // the sign-in first (notSignedInMessage)
+    final role = _auth.currentUser?.role;
+    // Then the role: a tutor is refused whether or not the section is there
+    // (command pass r56); the school is checked once the section is read.
+    if (role != UserRole.admin && role != UserRole.coordinator) {
+      throw const ViewModelException('Not allowed: admin or coordinator only.');
+    }
     final existing = await repo.getById(sectionId);
-    if (existing == null) throw ViewModelException('No section found with id $sectionId.');
+    if (existing == null) throw const ViewModelException('That section was not found.');
     _checkCanManage(existing.schoolId);
     final link = clearUser ? null : (userId?.trim().isEmpty ?? true ? existing.adviserUserId : userId!.trim());
     String? accountName;

@@ -261,6 +261,18 @@ void main() {
       expect((local.adviserName, local.adviserUserId), (null, null));
     });
 
+    test('a tutor is refused before any lookup; a missing section is named without its id', () async {
+      final asTutor = SectionViewModel(
+          auth: FakeOnlineAuth(UserRole.tutor, id: _plain, schoolId: _school),
+          repoFactory: (_) => SectionRepositorySqlite(db),
+          userRepoFactory: (_) => UserRepositorySqlite(db),
+          local: SectionRepositorySqlite(db));
+      // A section the tutor's device doesn't hold (command pass r56 L119).
+      await expectLater(asTutor.setAdviser(987654, name: 'X'), _refused('Not allowed: admin or coordinator only.'));
+      await expectLater(sectionVm().setAdviser(987654, name: 'X'),
+          throwsA(isA<ViewModelException>().having((e) => e.message, 'message', 'That section was not found.')));
+    });
+
     test('an adviser account of another school is refused', () async {
       await expectLater(sectionVm().setAdviser(_boron, name: 'X', userId: _elsewhere), _refused("section's school"));
       await expectLater(sectionVm().setAdviser(_boron, name: 'X', userId: 'no-such-user'), _refused("section's school"));

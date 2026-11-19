@@ -129,6 +129,10 @@ expect Values: carried (best so far)
 expect~ {l2} \| [^\n]*Phil-IRI BOSY \(GST only\)
 run aral-report {school} {year} {sec_a9}
 expect Grades 4-10: Values: carried (best so far)
+# Learner pages default to actual since 2026-11-18 (B0 pins only the four
+# older lists): set them to carried for this check.
+run value-source-set {school} learner-pages carried
+expect learner-pages values for school {school} are now carried.
 run phil-iri-results {l1} {sec_a9} {year}
 expect Values: carried (best so far)
 expect~ MOSY #1 +session \d+ completed · WR [^\n]*comp 80%

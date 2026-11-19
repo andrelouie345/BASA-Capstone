@@ -169,10 +169,18 @@ run report-settings-reset {school}
 expect School {school} now uses the region report settings.
 run report-settings-show {school}
 expect Done threshold: region not set · school not set · applies 85%
-# Back to B0's school value (reset also drops auto-approve and the offline
-# window; neither was set, see above).
+# Back to B0's school values (reset also drops auto-approve and the offline
+# window; neither was set, see above), including B0's carried value switches.
 run report-settings-set {school} {=85}
 expect Done threshold for school {school}: 85%.
+run value-source-set {school} form2b carried
+expect form2b values for school {school} are now carried.
+run value-source-set {school} bosy-masterlist carried
+expect bosy-masterlist values for school {school} are now carried.
+run value-source-set {school} srp carried
+expect srp values for school {school} are now carried.
+run value-source-set {school} aral carried
+expect aral values for school {school} are now carried.
 run report-settings-show region
 expect Done threshold: region not set · applies 85%
 
