@@ -3,6 +3,7 @@
 // reminders list carried-over learners and learners without a GST, the
 // dashboard shows the carried count, Form 2b counts a Non-Reader in 3-LD
 // Frustration and a Struggling GST profile under Frustration.
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:basa_capstone/core/models/phil_iri_assessment.dart' show PhilIriRound;
@@ -118,11 +119,19 @@ void main() {
     expect(p.total.assessed[PhilIriRound.bosy]!.total, 0);
   });
 
-  test('Form 2b counts a Non-Reader once in 3-LD Frustration', () async {
-    final r = await t.nlaReportVm.report(schoolId: 1, schoolYear: _year, sectionIds: {82});
-    final ld3 = r.total.band(PhilIriRound.bosy, NlaBand.ld3Frustration);
-    expect(ld3.male, 1); // E (605): Non-Reader with 0%, not counted before
-    expect(ld3.female, 1); // F (606): GST 25% carried into BOSY
+  test('Form 2b counts a Non-Reader once in 3-LD Frustration (carried values)', () async {
+    // Carried values (the rule of 2026-11-09); under actual, a learner not
+    // read in the round counts in 3-LD too (form2b_actual_zero_test).
+    await ctx.localDb.insert('report_settings',
+        {'id': 1, 'school_id': 1, 'settings': jsonEncode({'values_form2b': 'carried'})});
+    try {
+      final r = await t.nlaReportVm.report(schoolId: 1, schoolYear: _year, sectionIds: {82});
+      final ld3 = r.total.band(PhilIriRound.bosy, NlaBand.ld3Frustration);
+      expect(ld3.male, 1); // E (605): Non-Reader with 0%, not counted before
+      expect(ld3.female, 1); // F (606): GST 25% carried into BOSY
+    } finally {
+      await ctx.localDb.delete('report_settings');
+    }
   });
 
   test('GST profile counts Struggling under Frustration', () async {

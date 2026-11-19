@@ -1,0 +1,135 @@
+# A11 ARAL memo, people and forms (Division Memorandum 180 s. 2026; spec
+# docs/superpowers/specs/2026-11-18-aral-division-memo-design.md, plan B Task 7;
+# needs migration 20261118030000): section advisers (section-adviser), tutor type
+# (user-tutor-type), the adviser rule and the internal tutor's daily limit as
+# school settings, suggested class names, class session type, ARAL Forms 1, 2, 4
+# (aral-form1, aral-form2, aral-form4).
+# A new Grade 7 section ZZTEST-A11{stamp} with 3 learners (from=stamp); its
+# adviser is tutor2 (kept: test data). The classes and learners stay on this
+# device (never uploaded), so the batch reruns; every school setting it sets and
+# tutor2's tutor type are removed again ("-") at the end.
+#   cls_adv = "ZZ A11 adviser {stamp}" (tutor2): the adviser's own class
+#   cls_t1  = "ZZ A11 tutor1 {stamp}" (tutor1): learner 2 placed
+#   three suggested-name classes (tutor2) for the daily limit, on {ago3} (no
+#   other batch logs a tutor2 session that day on the server)
+
+device a11-pc admin fresh
+as coord
+run pull-cloud yes
+expect users:
+
+# --- A section, its adviser ------------------------------------------------------
+make-sf1 sf1_a11 a 7 ZZTEST-A11{stamp} 3 from=stamp
+run import-students "{sf1_a11}"
+expect Inserted: 3, Conflicts: 0, Already enrolled: 0
+capture sec_a11 = resolved section: 7 - ZZTEST-A11{stamp} \({year}\) \(id=(\d+)\)
+run student-list-section {sec_a11}
+capture m1 = (\d+) \| \d+ \|
+capture m2 = (?:\d+ \| \d+ \|[^\n]*\n){1}(\d+) \| \d+ \|
+capture m3 = (?:\d+ \| \d+ \|[^\n]*\n){2}(\d+) \| \d+ \|
+run pull-cloud yes
+expect users:
+run section-adviser {sec_a11} "ZZ Adviser A11"
+expect : ZZ Adviser A11 (no BASA account)
+run section-adviser {sec_a11} "ZZ Adviser A11" {tutor2_id}
+expect : ZZ Adviser A11 (account {tutor2_id})
+run section-adviser {sec_a11}
+refuse Usage: section-adviser <sectionId> <"name"|-> [userId|-]
+
+# --- The adviser rule: off by default, then on ------------------------------------
+run aral-setting adviser_tutors_own_class {school}
+expect~ adviser_tutors_own_class: true  \(school -
+run aral-class-add {school} {year} {=7} ks3_basic ZZ A11 adviser {stamp} tutor={tutor2_id}
+capture cls_adv = ARAL class added: #(-\d+)
+run aral-class-add {school} {year} {=7} ks3_basic ZZ A11 tutor1 {stamp} tutor={tutor1_id}
+capture cls_t1 = ARAL class added: #(-\d+)
+run aral-setting-set adviser_tutors_own_class {school} off
+expect adviser_tutors_own_class = false for school {school}.
+run aral-enroll {sec_a11} {year} {m1} ks3 basic class={cls_adv} entered={past}
+expect an adviser does not tutor their own learners at this school
+capture e1 = On the ARAL roster: #(-?\d+)
+run aral-class-place {e1} {cls_adv}
+refuse an adviser does not tutor their own learners at this school
+run aral-enroll {sec_a11} {year} {m2} ks3 basic class={cls_t1} entered={past}
+expect class "ZZ A11 tutor1 {stamp}"
+run aral-class-edit {cls_t1} tutor {tutor2_id}
+refuse an adviser does not tutor their own learners at this school
+run aral-setting-set adviser_tutors_own_class {school} -
+expect adviser_tutors_own_class removed for school {school}.
+run aral-class-place {e1} {cls_adv}
+expect placed in #{cls_adv} | ZZ A11 adviser {stamp} |
+
+# --- Tutor type and the internal tutor's daily limit ------------------------------------
+run user-tutor-type {tutor2_id} internal
+expect tutor type internal.
+run user-tutor-type {tutor2_id} sometimes
+refuse Invalid value: "sometimes" (expected internal, external or -)
+run aral-setting-set internal_tutor_max_sessions_per_day {school} {=2}
+expect internal_tutor_max_sessions_per_day = 2 for school {school}.
+run aral-setting-set internal_tutor_max_sessions_per_day {school} {=11}
+refuse An internal tutor's sessions a day are a whole number 1-10, not 11.
+run aral-class-add {school} {year} {=7} ks3_basic tutor={tutor2_id}
+expect~ \| ARAL-R-G7-\d\d \| Grade 7, KS3 Basic \| tutor {tutor2_id}
+capture day1 = ARAL class added: #(-\d+)
+run aral-class-add {school} {year} {=7} ks3_basic tutor={tutor2_id}
+expect~ \| ARAL-R-G7-\d\d \|
+capture day2 = ARAL class added: #(-\d+)
+run aral-class-edit {day2} session pull_out
+expect | Pull-out |
+run aral-log {cls_adv} {=45} pull_out {ago3}
+expect | class #{cls_adv} | session 1 | {ago3} | 45 min | Pull-out | tutor {tutor2_id}
+run aral-log {day1} {=45} pull_out {ago3}
+expect | class #{day1} | session 1 | {ago3} | 45 min |
+run aral-log {day2} {=45} pull_out {ago3}
+refuse An internal tutor holds at most 2 ARAL sessions a day at this school
+run aral-log {day2} {=45} pull_out {ago2}
+expect | class #{day2} | session 1 | {ago2} | 45 min |
+
+# --- ARAL Forms 1, 2 and 4 ---------------------------------------------------------------
+run aral-form1 {school} {year} "{rundir}\a11_form1_all.xlsx"
+expect Wrote {rundir}\a11_form1_all.xlsx
+run aral-form1 {school} {year} "{rundir}\a11_form1_adv.xlsx" {cls_adv}
+expect Wrote {rundir}\a11_form1_adv.xlsx
+run aral-form1 {school} 2099-2100 "{rundir}\a11_form1_none.xlsx"
+refuse This school has no ARAL classes for 2099-2100 yet.
+run aral-form2 {school} {year} "{rundir}\a11_form2.xlsx"
+expect Wrote {rundir}\a11_form2.xlsx
+run aral-form4 {school} {year} "{rundir}\a11_form4.xlsx" asof={today}
+expect Wrote {rundir}\a11_form4.xlsx
+run aral-form4 {school} {year} "{rundir}\a11_form4_bad.xlsx" asof=2026-02-30
+refuse asof must be a real YYYY-MM-DD date (got "2026-02-30")
+run aral-form4 {school} {year}
+refuse Usage: aral-form4 <schoolId> <schoolYear> <out.xlsx> [asof=YYYY-MM-DD]
+run aral-form2 {schoolB} {year} "{rundir}\a11_form2_b.xlsx"
+refuse Not allowed: that school is not yours.
+
+# --- Back to today's rules ----------------------------------------------------------------
+run aral-setting-set internal_tutor_max_sessions_per_day {school} -
+expect internal_tutor_max_sessions_per_day removed for school {school}.
+run user-tutor-type {tutor2_id} -
+expect tutor type -.
+run aral-setting {school}
+expect~ internal_tutor_max_sessions_per_day: -  \(school -
+expect~ adviser_tutors_own_class: true  \(school -
+
+# --- Refusals for a tutor (a device of its own) ---------------------------------------------
+device a11-tutor admin fresh
+as tutor1
+run section-adviser {sec_a11} "ZZ Not Mine"
+refuse Not allowed: admin or coordinator only.
+run user-tutor-type {tutor2_id} external
+refuse Not allowed
+run aral-form2 {school} {year} "{rundir}\a11_form2_tutor.xlsx"
+refuse Not allowed: only an admin or coordinator can make the ARAL forms.
+run aral-form4 {school} {year} "{rundir}\a11_form4_tutor.xlsx"
+refuse Not allowed: only an admin or coordinator can make the ARAL forms.
+
+# --- Signed out -----------------------------------------------------------------------------
+run sign-out
+expect Signed out.
+run aral-form1 {school} {year} "{rundir}\a11_form1_out.xlsx"
+refuse Not signed in
+run section-adviser {sec_a11} "ZZ Signed Out"
+refuse Not signed in
+run user-tutor-type {tutor2_id} internal
+refuse Not signed in

@@ -10,7 +10,8 @@
 //    readers are school reading programs, not ARAL.
 //  * Every learner below grade level is proposed (the 15-per-section cap went
 //    with the ARAL classes, 2026-10-24: 15 ACTIVE learners per class,
-//    aralClassCap).
+//    aralClassCap; since the ARAL memo settings the school's
+//    class_max_learners).
 //  * Ranking, weakest first. Grades 4-10 (Phil-IRI): word recognition (word
 //    reading score), then comprehension, then reading speed. Grades 1-3
 //    (CRLA): % of words read correctly, then comprehension, then speed. A
@@ -33,25 +34,32 @@ import '../models/aral_class.dart';
 import '../models/aral_enrollment.dart';
 import '../models/crla_assessment.dart' show CrlaRound;
 import '../models/crla_result.dart';
+import 'aral_rule_settings.dart' show AralBasisRound;
 import 'crla_rules.dart';
 import 'phil_iri_results.dart' show PhilIriRoundResult, PhilIriRoundView;
 
-/// At most this many ACTIVE learners in one ARAL class (DepEd Memorandum 064
-/// s. 2025, Encl. 2 item 7; hard stop on the device and the cloud). Exited
-/// learners stay linked to the class but don't count.
+/// The built-in maximum of ACTIVE learners in one ARAL class (DepEd
+/// Memorandum 064 s. 2025, Encl. 2 item 7). A school's class_max_learners
+/// setting replaces it (ARAL memo settings, AralRuleSettings.classMaxLearners;
+/// hard stop on the device and the cloud). Exited learners stay linked to the
+/// class but don't count.
 const aralClassCap = 15;
 
 /// Why a learner can't go into an ARAL class. School, program and cap are
 /// checked in the order of the cloud's aral_check_class_placement
 /// (20261024010000); the grade only here, after the program (owner
 /// 2026-10-24, G3: another grade joins only when the coordinator confirms it).
-enum AralPlacementProblem { otherSchoolOrYear, programMismatch, otherGrade, full }
+enum AralPlacementProblem { otherSchoolOrYear, programMismatch, otherGrade, full, adviser }
 
 /// The first reason an active learner of [schoolId]/[schoolYear] in [program]
 /// and Grade [grade] can't go into [target], which already holds
-/// [activeOthersInClass] other active learners; null = they can. A mixed
+/// [activeOthersInClass] other active learners and holds at most
+/// [maxLearners] (the school's class maximum); null = they can. A mixed
 /// class takes any program; a learner of another grade than the class's
-/// only with [otherGradeOk] (the coordinator's confirmation).
+/// only with [otherGradeOk] (the coordinator's confirmation). [tutorIsAdviser]
+/// = the class tutor advises the learner's section and the school's
+/// adviser_tutors_own_class is false (ARAL memo; cloud
+/// aral_check_class_placement since 20261118030000).
 AralPlacementProblem? aralPlacementProblem({
   required AralClass target,
   required int schoolId,
@@ -59,26 +67,37 @@ AralPlacementProblem? aralPlacementProblem({
   required AralClassProgram program,
   required int grade,
   required int activeOthersInClass,
+  required int maxLearners,
   bool otherGradeOk = false,
+  bool tutorIsAdviser = false,
 }) {
   if (target.schoolId != schoolId || target.schoolYear != schoolYear) return AralPlacementProblem.otherSchoolOrYear;
   if (target.program != null && target.program != program) return AralPlacementProblem.programMismatch;
   if (grade != target.gradeLevel && !otherGradeOk) return AralPlacementProblem.otherGrade;
-  if (activeOthersInClass >= aralClassCap) return AralPlacementProblem.full;
+  if (activeOthersInClass >= maxLearners) return AralPlacementProblem.full;
+  if (tutorIsAdviser) return AralPlacementProblem.adviser;
   return null;
 }
 
-/// The refusal text for [p] ([learner] = "Last, First").
+/// The refusal text for [p] ([learner] = "Last, First"; [maxLearners] = the
+/// school's class maximum).
 String aralPlacementMessage(AralPlacementProblem p,
-        {required String learner, required AralClass target, required int grade, required AralClassProgram program}) =>
+        {required String learner,
+        required AralClass target,
+        required int grade,
+        required AralClassProgram program,
+        required int maxLearners,
+        String? sectionName}) =>
     switch (p) {
-      AralPlacementProblem.full => 'Class "${target.className}" already has $aralClassCap active ARAL learners.',
+      AralPlacementProblem.full => 'Class "${target.className}" already has $maxLearners active ARAL learners.',
       AralPlacementProblem.programMismatch =>
         '$learner is in ${program.label}; class "${target.className}" is ${target.program?.label}.',
       AralPlacementProblem.otherGrade =>
         '$learner is in Grade $grade; class "${target.className}" is for Grade ${target.gradeLevel}.',
       AralPlacementProblem.otherSchoolOrYear =>
         'Class "${target.className}" belongs to another school or school year.',
+      AralPlacementProblem.adviser => '$learner of ${sectionName ?? 'their section'} has the tutor of class '
+          '"${target.className}" as adviser: an adviser does not tutor their own learners at this school.',
     };
 
 /// basis_level of a Phil-IRI learner entered while not assessed at all
@@ -86,8 +105,12 @@ String aralPlacementMessage(AralPlacementProblem p,
 /// suggestion through applyResults, the basis itself never changes.
 const aralNotAssessedLevel = 'not_assessed';
 
-/// The CRLA round a Grade 1-3 learner's ARAL placement comes from.
-CrlaRound aralCrlaBasisRound(int grade) => grade == 1 ? CrlaRound.mosy : CrlaRound.bosy;
+/// The CRLA round a Grade 1-3 learner's ARAL placement comes from: Grade 1
+/// always MoSY (DM 064); Grades 2-3 BoSY, or MoSY when the school's
+/// basis_round is mosy (ARAL memo settings; the proposal falls back to BoSY
+/// when the learner has no MoSY result).
+CrlaRound aralCrlaBasisRound(int grade, AralBasisRound setting) =>
+    grade == 1 || setting == AralBasisRound.mosy ? CrlaRound.mosy : CrlaRound.bosy;
 
 /// CRLA reading profiles from weakest to strongest (chart order).
 const aralCrlaProfileOrder = [

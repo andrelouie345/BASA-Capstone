@@ -55,6 +55,7 @@ String tutorRemindersText(TutorReminders t) {
       TutorReminderKind.noIrip => 'NO IRIP',
       TutorReminderKind.noSessionLately => 'NO SESSION',
       TutorReminderKind.noGst => 'NO GST',
+      TutorReminderKind.fewSessionsThisWeek => 'FEW SESSIONS',
     };
     out.write('\n  [$tag] ${r.message}');
     for (final l in r.learners) {

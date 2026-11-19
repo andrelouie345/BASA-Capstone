@@ -103,8 +103,8 @@ void main() {
         _refused('ZZR, L9516 is in KS3 Basic; class "2-Sun" is KS1.'));
   });
 
-  test('classCap is 15', () {
-    expect(classes.classCap, 15);
+  test('classMax is 15 without a school setting', () async {
+    expect(await classes.classMax(_school), 15);
   });
 
   test('tutors names its counts', () async {

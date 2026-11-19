@@ -422,6 +422,7 @@ Future<(StepOutcome, String)> _signInOrThrow(Device dev, String account, Account
 /// Captures plus the built-in values (which win): {run}, {year}, {code_a},
 /// {code_b}, {name_a}, {name_b}, {today}, {past} (today - 30 days), {yesterday},
 /// {ago2} / {ago3} (today - 2 / 3 days),
+/// {lastsat} / {lastmon} (the latest Saturday / Monday before today),
 /// {future} (today + 30 days), {rundir}, {stamp}, `{email_<account>}`, `{pw_<account>}`.
 Map<String, String> _vars(Accounts accounts, RunState state) {
   final n = accounts.runNumber;
@@ -440,6 +441,8 @@ Map<String, String> _vars(Accounts accounts, RunState state) {
     'yesterday': day(now.subtract(const Duration(days: 1))),
     'ago2': day(now.subtract(const Duration(days: 2))),
     'ago3': day(now.subtract(const Duration(days: 3))),
+    'lastsat': day(_latestBefore(now, DateTime.saturday)),
+    'lastmon': day(_latestBefore(now, DateTime.monday)),
     'future': day(now.add(const Duration(days: 30))),
     'rundir': state.runDir.path,
     'stamp': state.stamp,
@@ -470,6 +473,12 @@ Future<(StepOutcome, String)> _sql(SqlStep step, Device dev, Map<String, String>
   } catch (e) {
     return (StepOutcome(false, 'sql failed: $e'), query);
   }
+}
+
+/// The latest [weekday] strictly before [now] (1-7 days back).
+DateTime _latestBefore(DateTime now, int weekday) {
+  final back = (now.weekday - weekday + 7) % 7;
+  return now.subtract(Duration(days: back == 0 ? 7 : back));
 }
 
 /// `make-sf1 ... from=stamp`: the next block of [count] unused learner

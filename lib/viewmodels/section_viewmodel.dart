@@ -4,6 +4,7 @@ import '../core/console/logger.dart';
 import '../core/models/section.dart';
 import '../core/models/user_role.dart';
 import '../core/repositories/section_repository.dart';
+import '../core/repositories/user_repository.dart';
 import '../core/services/normalizers.dart';
 import 'auth_viewmodel.dart';
 import 'viewmodel_exception.dart';
@@ -19,15 +20,21 @@ class SectionViewModel {
   final AuthViewModel _auth;
   final SectionRepository Function(SupabaseClient client) _repoFor;
   final SectionRepository? _local;
+  final UserRepository Function(SupabaseClient client)? _usersFor;
   List<Section> items = [];
+
+  /// Set when an adviser was saved online but not copied onto this device.
+  String? lastMirrorWarning;
 
   SectionViewModel({
     required AuthViewModel auth,
     required SectionRepository Function(SupabaseClient client) repoFactory,
     SectionRepository? local,
+    UserRepository Function(SupabaseClient client)? userRepoFactory,
     Logger? logger,
   })  : _auth = auth,
         _repoFor = repoFactory,
+        _usersFor = userRepoFactory,
         _local = local,
         _log = ScopedLogger(logger, 'SectionViewModel');
 
@@ -117,6 +124,9 @@ class SectionViewModel {
         schoolYear: _normalize(normalizeSchoolYear, schoolYear),
         gradeLevel: _normalize(normalizeGradeLevel, gradeLevel),
         sectionName: _requireName(sectionName),
+        // Kept: the update writes every column, and the adviser is set elsewhere.
+        adviserName: existing.adviserName,
+        adviserUserId: existing.adviserUserId,
       ));
       await _refreshIfLoaded();
       return updated;
@@ -126,6 +136,67 @@ class SectionViewModel {
       }
       rethrow;
     }
+  }
+
+  /// The section's adviser (ARAL Form 2; the adviser rule of the ARAL memo
+  /// settings). [name] = the adviser's name as the school writes it; an
+  /// account is optional. [userId] links the adviser's BASA account (a user
+  /// of the section's school, checked here and by the server); left out, the
+  /// current link is kept; [clearUser] removes it. A linked adviser without a
+  /// typed name gets the account's full name. Online, admin/coordinator of
+  /// the section's school (superadmin any); copied onto this device.
+  Future<Section> setAdviser(int sectionId, {String? name, String? userId, bool clearUser = false}) async {
+    _log('setAdviser($sectionId, name: $name, user: ${clearUser ? '-' : userId ?? 'kept'})');
+    final repo = _repo(); // the sign-in first (notSignedInMessage)
+    final role = _auth.currentUser?.role;
+    // Then the role: a tutor is refused whether or not the section is there
+    // (command pass r56); the school is checked once the section is read.
+    if (role != UserRole.admin && role != UserRole.coordinator) {
+      throw const ViewModelException('Not allowed: admin or coordinator only.');
+    }
+    final existing = await repo.getById(sectionId);
+    if (existing == null) throw const ViewModelException('That section was not found.');
+    _checkCanManage(existing.schoolId);
+    final link = clearUser ? null : (userId?.trim().isEmpty ?? true ? existing.adviserUserId : userId!.trim());
+    String? accountName;
+    if (link != null) {
+      final users = _usersFor;
+      final user = users == null ? null : await users(_auth.client!).getById(link);
+      if (users != null && (user == null || user.schoolId != existing.schoolId)) {
+        throw const ViewModelException("The adviser's BASA account must be a user of the section's school.");
+      }
+      accountName = user?.fullName;
+    }
+    final typed = name?.trim();
+    final Section saved;
+    try {
+      saved = await repo.update(Section(
+        id: existing.id,
+        schoolId: existing.schoolId,
+        schoolYear: existing.schoolYear,
+        gradeLevel: existing.gradeLevel,
+        sectionName: existing.sectionName,
+        adviserName: typed == null || typed.isEmpty ? accountName : typed,
+        adviserUserId: link,
+      ));
+    } on PostgrestException catch (e) {
+      if (e.message.contains("adviser must be a user of the section's school")) {
+        throw const ViewModelException("The adviser's BASA account must be a user of the section's school.");
+      }
+      rethrow;
+    }
+    lastMirrorWarning = null;
+    final local = _local;
+    if (local != null) {
+      try {
+        await local.upsertWithId(saved);
+      } catch (e) {
+        lastMirrorWarning = 'Saved online, but the copy on this device was not updated. Download the latest data.';
+        _log('mirror failed: $e');
+      }
+    }
+    await _refreshIfLoaded();
+    return saved;
   }
 
   /// Refused by the database while anything still points at the section

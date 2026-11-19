@@ -9,9 +9,10 @@ Calls:
 - `UserViewModel.loadAll()` → `items: List<User>`
 - `UserViewModel.create(email:, fullName:, role:, schoolId:)` → `String?` (temporary password), then `lastMirrorWarning` → `String?` (saved online but not copied onto the device; show it as a warning)
 - `UserViewModel.setActive(id, isActive)`; `findByEmail(email)` → `User?`
+- tutor type (ARAL memo): `UserViewModel.setTutorType(id, TutorType?)` → `User` (online; `null` = not set), then `lastMirrorWarning`. Show on a tutor's row: "Internal" / "External" / blank (`User.tutorType`). A tutor without a type has no daily ARAL limit.
 Live previews: none.
 Errors: forbidden role/school, email taken (ViewModelException); server errors (error rule in `common.md`).
-Console: `user-list`, `user-create`, `user-set-active`
+Console: `user-list`, `user-create`, `user-set-active`, `user-tutor-type`
 
 ### Tutor assignments
 Build: admin    Roles: admin / coordinator
@@ -34,7 +35,8 @@ Build: both (list) / admin (edit)    Roles: admin / coordinator edit; tutors see
 Calls:
 - `SectionViewModel.loadAll()` → `items` (online); `localSections()` → `List<Section>` (device); `getById(id)`
 - `create(...)` → `({Section section, bool created})`; `update(...)`; `delete(id)` (grade level normalized; non-numeric refused)
-Console: `section-list`, `list-sections`, `section-create`, `section-update`, `section-delete`
+- adviser (ARAL memo): `SectionViewModel.setAdviser(sectionId, name:, userId:, clearUser:)` → `Section` (online), then `lastMirrorWarning`. Fields: "Adviser" (free text, optional) and "Adviser's BASA account" (a user of the section's school, optional; a linked adviser without a typed name gets the account's name; `clearUser: true` unlinks). Read `Section.adviserName`, `Section.adviserUserId`. Changing the adviser later never takes anyone out of an ARAL class.
+Console: `section-list`, `list-sections`, `section-create`, `section-update`, `section-adviser`, `section-delete`
 
 ### Learners and roster CSV
 Build: both    Roles: all (RLS-scoped)

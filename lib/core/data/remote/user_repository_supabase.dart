@@ -54,5 +54,14 @@ class UserRepositorySupabase implements UserRepository {
   }
 
   @override
+  Future<User> setTutorType(String id, TutorType? type) async {
+    final rows = await client.from('users').update({'tutor_type': type?.value}).eq('id', id).select();
+    if ((rows as List).isEmpty) {
+      throw Exception('No user updated — check the id or your permissions ("$id")');
+    }
+    return User.fromMap(rows.first as Map<String, Object?>);
+  }
+
+  @override
   Future<void> upsertMirror(User user) => throw UnimplementedError('local mirror only');
 }

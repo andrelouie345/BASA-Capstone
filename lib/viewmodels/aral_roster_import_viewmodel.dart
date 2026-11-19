@@ -31,7 +31,6 @@ import '../core/repositories/aral_class_repository.dart';
 import '../core/repositories/aral_enrollment_repository.dart';
 import '../core/repositories/section_repository.dart';
 import '../core/repositories/student_repository.dart';
-import '../core/services/aral_rules.dart' show aralClassCap;
 import '../core/services/auth_messages.dart';
 import '../core/services/normalizers.dart';
 import '../core/services/table_reader.dart';
@@ -166,6 +165,7 @@ class AralRosterImportViewModel {
     final taken = <int, int>{
       for (final c in classes.values) c.id!: (await _roster.getByClass(c.id!)).where((e) => e.isActive).length,
     };
+    final classMax = (await _aral.ruleSettings(schoolId)).classMaxLearners; // the school's maximum
     final today = _date(DateTime.now());
     final seen = <String>{};
     final rows = <AralRosterImportRow>[];
@@ -239,7 +239,7 @@ class AralRosterImportViewModel {
           classFlag = 'class "${cls.className}" is ${cls.program!.label}: imported without a class';
         } else if (grade != cls.gradeLevel) {
           classFlag = 'class "${cls.className}" is for Grade ${cls.gradeLevel}: imported without a class';
-        } else if (taken[cls.id!]! >= aralClassCap) {
+        } else if (taken[cls.id!]! >= classMax) {
           classFlag = 'class "${cls.className}" is full: imported without a class';
         } else {
           taken[cls.id!] = taken[cls.id!]! + 1;

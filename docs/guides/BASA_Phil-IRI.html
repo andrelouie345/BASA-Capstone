@@ -46,7 +46,7 @@
       <li>the teacher counts words and miscues and computes the % and wpm by hand or calculator, then looks the levels up in the manual's tables.</li>
     </ul>
   </li>
-  <li><b>Encoding:</b> the coordinator types every score into a large workbook (one sheet per section, about 50 sheets per grade). Formulas give levels, carried results, adjusted levels and summary sheets.</li>
+  <li><b>Encoding:</b> the coordinator types every score into a large workbook (one sheet per section, about 50 sheets per grade). Formulas give levels, adjusted levels and summary sheets.</li>
   <li><b>Tracking passages:</b> the teacher must remember which passage each learner already read, so it is not repeated in a later round.</li>
   <li><b>Reporting:</b> the coordinator reads totals off the workbook and <b>types them into the NLA portal</b>, then builds the BOSY masterlist, the SRP list and the ARAL lists from the same sheets.</li>
 </ol>
@@ -54,7 +54,7 @@
 <ul>
   <li><b>Counting errors</b> in miscues, words, seconds and percentages, and wrong table look-ups.</li>
   <li><b>Repeated passages.</b> A learner given a passage they already read scores higher because they remember it.</li>
-  <li><b>Formula mistakes go unnoticed.</b> Reviewing the workbook found a missing carry from BOSY to MOSY #1, a bug that made some learners look worse than they were.</li>
+  <li><b>Formula mistakes go unnoticed.</b> A formula copied wrongly into one round changes every learner's result in that round, and nothing shows it.</li>
   <li><b>Missing learners vanish.</b> A learner never assessed simply isn't counted, which makes the school's numbers look better than they are.</li>
   <li><b>Lost history.</b> Results that change when a cut-off cell is edited; no record of which cut-offs a past report used.</li>
   <li><b>Retyping.</b> The same numbers are typed again into the NLA portal and several lists.</li>
@@ -159,7 +159,7 @@
   <tr><td>Counting words, miscues, %, wpm by hand</td><td>Tap the miscued words; BASA counts and computes everything</td><td><code>philIriScorePassage</code></td></tr>
   <tr><td>Looking up levels in the manual's tables</td><td>Bands and Table 8 applied automatically, the same way every time</td><td><code>phil_iri_rules.dart</code></td></tr>
   <tr><td>Remembering which passage a learner read</td><td>Never offered again, ever; same text in another collection is recognised</td><td>no-repeat check (ViewModel, device trigger, server trigger)</td></tr>
-  <tr><td>Workbook formula bugs (e.g. missing BOSY → MOSY carry)</td><td>Carry rules written once, tested, applied to every round</td><td><code>philIriRoundResults</code></td></tr>
+  <tr><td>Workbook formula mistakes</td><td>Round rules written once, tested, applied to every round</td><td><code>philIriRoundResults</code></td></tr>
   <tr><td>Unassessed learners silently left out</td><td>Counted as not assessed (Struggling, 3 down) and shown in progress monitoring and reminders</td><td><code>philIriNotAssessedResult</code></td></tr>
   <tr><td>Results shift when a cut-off cell changes</td><td>Cut-offs are settings; a finalized round keeps the cut-offs it was finalized with</td><td>thresholds snapshot at finalize</td></tr>
   <tr><td>Retyping totals into the NLA portal and several lists</td><td>Form 2b, masterlist, SRP and ARAL all built from the same results</td><td>report ViewModels</td></tr>
@@ -173,9 +173,9 @@
 <span class="w">Without BASA:</span> the manual has the teacher move to easier or harder passages until the learner's level is found. This takes several readings per learner and is rarely done fully in practice.<br>
 <span class="b">In BASA:</span> the reading coordinator's practice is one grade-level passage per round. The adjusted level is then worked out from comprehension (section 4, step 3). It is faster, the same for every learner, and matches how the school actually assesses.</div>
 
-<div class="qa"><div class="q">Why do results "carry up" instead of showing the latest score?</div>
-<span class="w">Without BASA:</span> the coordinator's workbook already carries comprehension upward; BASA found and fixed a round where it didn't.<br>
-<span class="b">In BASA:</span> one bad day (tired, sick, a hard passage) should not move a learner back into ARAL or into a lower report group. The carried value is for decisions and reports. The <i>actual</i> value (that round alone) is still kept, and each school can switch a list to it.</div>
+<div class="qa"><div class="q">Can a list show the best result so far instead of each round's own reading?</div>
+<span class="w">Without BASA:</span> whichever way a report is computed, nothing on it says which way it was.<br>
+<span class="b">In BASA:</span> each round's own reading (<i>actual</i>) is always kept. A school can choose, list by list, to report the best result so far (<i>carried</i>), in case its division asks for that; every exported list states which values it used, and the ranking of the learners who need help most uses each round's own reading.</div>
 
 <div class="qa"><div class="q">Why is a learner with no assessment counted as Struggling instead of being left out?</div>
 <span class="w">Without BASA:</span> an unassessed learner is simply absent from the counts, so a section that tests fewer learners can look better.<br>

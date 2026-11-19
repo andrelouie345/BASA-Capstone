@@ -23,9 +23,6 @@ import 'package:sqflite_common/sqflite.dart';
 
 const _gradeLevels = "('1', '2', '3', '4', '5', '6', '7', '8', '9', '10')";
 
-/// Same as the cloud's class cap (aral_check_class_placement, 20261023040000).
-const _classCap = 15;
-
 /// v21: key_stage allows 'foundational' (no track, like KS1). v36 (ARAL
 /// classes, cloud 20261023040000): class_id (null = waiting for a class)
 /// replaces tutor_id; basis 'referral' with who referred the learner and why.
@@ -252,7 +249,8 @@ String _classesTableSql(String name) => '''
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
       origin TEXT NOT NULL DEFAULT 'local' CHECK (origin IN ('local', 'cloud')),
-      row_version INTEGER
+      row_version INTEGER,
+      session_type TEXT CHECK (session_type IN ('pull_out', 'before_after'))
     )
   ''';
 
@@ -293,8 +291,107 @@ Future<void> _createClassTriggers(Database db) async {
       SELECT RAISE(ABORT, 'An ARAL class with learners keeps its grade and program')
       WHERE (NEW.program IS NOT OLD.program OR NEW.grade_level IS NOT OLD.grade_level)
         AND EXISTS (SELECT 1 FROM aral_enrollments WHERE class_id = NEW.id);
+      SELECT RAISE(ABORT, 'The new tutor is the adviser of ' || (
+               SELECT st.first_name || ' ' || st.last_name || ' (' || s.section_name || ')'
+               FROM aral_enrollments e JOIN sections s ON s.id = e.section_id JOIN students st ON st.id = e.student_id
+               WHERE e.class_id = NEW.id AND e.status = 'active' AND s.adviser_user_id = NEW.tutor_id
+               ORDER BY st.last_name, st.first_name LIMIT 1)
+             || ': an adviser does not tutor their own learners at this school')
+      WHERE NEW.tutor_id IS NOT NULL AND NEW.tutor_id IS NOT OLD.tutor_id
+        AND NOT ${_adviserMayTutor('NEW.school_id')}
+        AND EXISTS (SELECT 1 FROM aral_enrollments e JOIN sections s ON s.id = e.section_id
+                    WHERE e.class_id = NEW.id AND e.status = 'active' AND s.adviser_user_id = NEW.tutor_id);
     END
   ''');
+}
+
+/// v47 adviser rule (cloud basa_private.aral_adviser_may_tutor): true unless
+/// the school's adviser_tutors_own_class is false.
+String _adviserMayTutor(String schoolExpr) =>
+    "(COALESCE(${aralSettingSql(schoolExpr, 'adviser_tutors_own_class')}, 1) = 1)";
+
+/// The value of an ARAL setting that counts for a school, in trigger SQL:
+/// the school's mirror row, else the default row (school_id null), else NULL
+/// (the caller COALESCEs today's rule). Same order as the cloud's
+/// basa_private.aral_setting(school, key) (20261118020000) and AralRuleSettings.
+String aralSettingSql(String schoolExpr, String key) =>
+    "COALESCE((SELECT json_extract(settings, '\$.$key') FROM aral_settings WHERE school_id = $schoolExpr), "
+    "(SELECT json_extract(settings, '\$.$key') FROM aral_settings WHERE school_id IS NULL))";
+
+/// v46 (ARAL memo settings, cloud 20261118010000): an IRIP cycle may have up
+/// to 26 weeks (aral_irip_weeks.week_no 1-26; the school's irip_weeks setting
+/// is checked by the insert trigger). SQLite can't alter a CHECK, so the table
+/// is rebuilt from its own stored SQL with only the week range widened,
+/// copying every column (row_version included) and keeping ids and indexes.
+/// Drops every trigger that mentions the table; onUpgrade runs this before
+/// createAralLocalSchema and createSyncLocalSchema, which recreate them. Does
+/// nothing when the table is missing (the creator builds it) or already
+/// takes 26 weeks. The triggers that read the settings (class maximum,
+/// sessions, IRIP length) live in createAralLocalSchema, which every
+/// upgrade runs.
+Future<void> upgradeAralMemoForV46(Database db) async {
+  final table = await db.rawQuery("SELECT sql FROM sqlite_master WHERE type='table' AND name='aral_irip_weeks'");
+  if (table.isEmpty) return;
+  final sql = table.single['sql'] as String;
+  if (!sql.contains('BETWEEN 1 AND 8')) return;
+
+  // legacy_alter_table on for the rename, as the Phil-IRI rebuilds: on an old
+  // dev copy (v26-v36) check_aral_session_ins still mentions the dropped
+  // aral_tutor_settings until createAralLocalSchema replaces it, and a modern
+  // rename re-checks every trigger.
+  await db.execute('PRAGMA legacy_alter_table = ON');
+  try {
+    await _rebuildIripWeeksForV46(db, sql);
+  } finally {
+    await db.execute('PRAGMA legacy_alter_table = OFF');
+  }
+}
+
+Future<void> _rebuildIripWeeksForV46(Database db, String sql) async {
+  await db.transaction((txn) async {
+    final columns = [for (final c in await txn.rawQuery('PRAGMA table_info(aral_irip_weeks)')) c['name'] as String]
+        .join(', ');
+    final indexes = [
+      for (final i in await txn.rawQuery(
+          "SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name='aral_irip_weeks' AND sql IS NOT NULL"))
+        i['sql'] as String
+    ];
+    final triggers = await txn.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='trigger' AND sql LIKE '%aral_irip_weeks%'");
+    for (final t in triggers) {
+      await txn.execute('DROP TRIGGER IF EXISTS ${t['name']}');
+    }
+    final widened = sql
+        .replaceFirst(RegExp(r'CREATE TABLE\s+(IF NOT EXISTS\s+)?"?aral_irip_weeks"?'), 'CREATE TABLE aral_irip_weeks_v46')
+        .replaceFirst('BETWEEN 1 AND 8', 'BETWEEN 1 AND 26');
+    await txn.execute(widened);
+    await txn.execute('INSERT INTO aral_irip_weeks_v46 ($columns) SELECT $columns FROM aral_irip_weeks');
+    await txn.execute('DROP TABLE aral_irip_weeks');
+    await txn.execute('ALTER TABLE aral_irip_weeks_v46 RENAME TO aral_irip_weeks');
+    for (final i in indexes) {
+      await txn.execute(i);
+    }
+  });
+}
+
+/// v47 (ARAL memo, people, cloud 20261118030000): sections.adviser_name /
+/// adviser_user_id, users.tutor_type and aral_classes.session_type. Plain
+/// column adds (ADD COLUMN takes a CHECK and a REFERENCES), each skipped when
+/// the column is there or the table is missing (its creator has them). Runs
+/// on every upgrade, before createAralLocalSchema, whose triggers read them.
+Future<void> upgradeAralMemoForV47(Database db) async {
+  const adds = [
+    ('sections', 'adviser_name', 'TEXT'),
+    ('sections', 'adviser_user_id', 'TEXT REFERENCES users(id)'),
+    ('users', 'tutor_type', "TEXT CHECK (tutor_type IN ('internal', 'external'))"),
+    ('aral_classes', 'session_type', "TEXT CHECK (session_type IN ('pull_out', 'before_after'))"),
+  ];
+  for (final (table, column, type) in adds) {
+    final have = {for (final c in await db.rawQuery('PRAGMA table_info($table)')) c['name'] as String};
+    if (have.isNotEmpty && !have.contains(column)) {
+      await db.execute('ALTER TABLE $table ADD COLUMN $column $type');
+    }
+  }
 }
 
 Future<void> createAralLocalSchema(Database db) async {
@@ -312,10 +409,11 @@ Future<void> createAralLocalSchema(Database db) async {
 
   // Placement (v38, same rules as the cloud's aral_check_class_placement): an
   // active learner going into a class matches its school and year and, in a
-  // one-program class, its program; the class has fewer than 15 other active
-  // learners. Grades are not checked here: another grade joins only when the
+  // one-program class, its program; the class has fewer other active learners
+  // than the school's class_max_learners (v46; default 15). Grades are not checked here: another grade joins only when the
   // coordinator confirms it (AralClassViewModel.place), and a placed learner
   // whose grade changes stays (flagged by aral-update).
+  final classMax = "CAST(COALESCE(${aralSettingSql('NEW.school_id', 'class_max_learners')}, 15) AS INTEGER)";
   String placement(String applies) => '''
       SELECT RAISE(ABORT, 'The ARAL class belongs to another school or school year')
       WHERE $applies AND NOT EXISTS (
@@ -325,9 +423,15 @@ Future<void> createAralLocalSchema(Database db) async {
       WHERE $applies AND EXISTS (
         SELECT 1 FROM aral_classes WHERE id = NEW.class_id AND program IS NOT NULL
           AND program IS NOT (NEW.key_stage || COALESCE('_' || NEW.track, '')));
-      SELECT RAISE(ABORT, 'An ARAL class has at most $_classCap active learners')
+      SELECT RAISE(ABORT, 'An ARAL class has at most ' || $classMax || ' active learners')
       WHERE $applies AND (SELECT count(*) FROM aral_enrollments
-                          WHERE class_id = NEW.class_id AND status = 'active' AND id IS NOT NEW.id) >= $_classCap;''';
+                          WHERE class_id = NEW.class_id AND status = 'active' AND id IS NOT NEW.id) >= $classMax;
+      SELECT RAISE(ABORT, (SELECT first_name || ' ' || last_name FROM students WHERE id = NEW.student_id)
+             || ' of ' || (SELECT section_name FROM sections WHERE id = NEW.section_id)
+             || ' has the class tutor as adviser: an adviser does not tutor their own learners at this school')
+      WHERE $applies AND NOT ${_adviserMayTutor('NEW.school_id')}
+        AND EXISTS (SELECT 1 FROM aral_classes c JOIN sections s ON s.id = NEW.section_id
+                    WHERE c.id = NEW.class_id AND c.tutor_id IS NOT NULL AND s.adviser_user_id = c.tutor_id);''';
 
   await db.execute('DROP TRIGGER IF EXISTS check_aral_enrollment_ins');
   await db.execute('''
@@ -430,6 +534,34 @@ ${placement("NEW.class_id IS NOT NULL AND NEW.status = 'active' AND (NEW.class_i
   const sessionTutorOk = '''(SELECT 1 FROM users u WHERE u.id = NEW.tutor_id AND u.role = 'tutor'
                         AND u.is_active = 1 AND u.school_id = NEW.school_id)''';
   const dayTaken = 'An ARAL class already has a session on that date';
+  // v46: the school's session rules (cloud basa_private.aral_check_session_rules).
+  final weekdaysOnly = "COALESCE(${aralSettingSql('NEW.school_id', 'sessions_weekdays_only')}, 0) = 1";
+  final maxMinutes = "CAST(${aralSettingSql('NEW.school_id', 'session_max_minutes')} AS INTEGER)";
+  String sessionRules(String applies) => '''
+      SELECT RAISE(ABORT, 'ARAL sessions are held Monday to Friday at this school')
+      WHERE $applies AND $weekdaysOnly
+        AND (strftime('%w', NEW.held_on) IN ('0', '6') OR NEW.setup = 'weekend');
+      SELECT RAISE(ABORT, 'An ARAL session at this school lasts at most ' || $maxMinutes || ' minutes')
+      WHERE $applies AND $maxMinutes IS NOT NULL AND NEW.minutes > $maxMinutes;''';
+  // v47: the daily tutor limits (cloud basa_private.aral_check_tutor_day):
+  // the tutor's sessions at this school on that date, this one included. A
+  // tutor without a type has none.
+  final tutorType = '(SELECT tutor_type FROM users WHERE id = NEW.tutor_id)';
+  final maxSessions = "CAST(${aralSettingSql('NEW.school_id', 'internal_tutor_max_sessions_per_day')} AS INTEGER)";
+  final maxDayMinutes = "CAST(${aralSettingSql('NEW.school_id', 'external_tutor_max_minutes_per_day')} AS INTEGER)";
+  const sameDay = 'FROM aral_sessions WHERE tutor_id = NEW.tutor_id AND school_id = NEW.school_id '
+      'AND held_on = NEW.held_on AND id IS NOT NEW.id';
+  // [sessionsApply] / [minutesApply]: when the count / the minutes are
+  // checked. An edit on the same day checks only a longer session, so a day
+  // over a limit set later keeps its sessions editable (review M1; the
+  // ViewModel and the cloud's aral_sessions_one_per_day do the same).
+  String dayLimits(String sessionsApply, String minutesApply) => '''
+      SELECT RAISE(ABORT, 'An internal tutor holds at most ' || $maxSessions || ' ARAL sessions a day at this school')
+      WHERE $sessionsApply AND $tutorType = 'internal' AND $maxSessions IS NOT NULL
+        AND (SELECT count(*) $sameDay) + 1 > $maxSessions;
+      SELECT RAISE(ABORT, 'An external tutor holds at most ' || $maxDayMinutes || ' minutes of ARAL sessions a day at this school')
+      WHERE $minutesApply AND $tutorType = 'external' AND $maxDayMinutes IS NOT NULL
+        AND (SELECT COALESCE(sum(minutes), 0) $sameDay) + NEW.minutes > $maxDayMinutes;''';
   await db.execute('DROP TRIGGER IF EXISTS check_aral_session_ins');
   await db.execute('''
     CREATE TRIGGER check_aral_session_ins
@@ -445,6 +577,8 @@ ${placement("NEW.class_id IS NOT NULL AND NEW.status = 'active' AND (NEW.class_i
                           AND c.school_id = NEW.school_id AND c.school_year = NEW.school_year);
       SELECT RAISE(ABORT, '$dayTaken')
       WHERE EXISTS (SELECT 1 FROM aral_sessions WHERE class_id = NEW.class_id AND held_on = NEW.held_on);
+${sessionRules('1')}
+${dayLimits('1', '1')}
     END
   ''');
   await db.execute('DROP TRIGGER IF EXISTS check_aral_session_upd');
@@ -462,6 +596,8 @@ ${placement("NEW.class_id IS NOT NULL AND NEW.status = 'active' AND (NEW.class_i
       WHERE NEW.held_on IS NOT OLD.held_on AND NEW.class_id IS NOT NULL
         AND EXISTS (SELECT 1 FROM aral_sessions
                     WHERE class_id = NEW.class_id AND held_on = NEW.held_on AND id <> NEW.id);
+${sessionRules('(NEW.held_on IS NOT OLD.held_on OR NEW.minutes IS NOT OLD.minutes OR NEW.setup IS NOT OLD.setup)')}
+${dayLimits('NEW.held_on IS NOT OLD.held_on', '(NEW.held_on IS NOT OLD.held_on OR NEW.minutes > OLD.minutes)')}
     END
   ''');
 
@@ -528,7 +664,7 @@ ${placement("NEW.class_id IS NOT NULL AND NEW.status = 'active' AND (NEW.class_i
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       enrollment_id INTEGER NOT NULL REFERENCES aral_enrollments(id),
       cycle_no INTEGER NOT NULL DEFAULT 1 CHECK (cycle_no >= 1),
-      week_no INTEGER NOT NULL CHECK (week_no BETWEEN 1 AND 8),
+      week_no INTEGER NOT NULL CHECK (week_no BETWEEN 1 AND 26),
       strand TEXT NOT NULL CHECK (strand IN ('filipino', 'english', 'main')),
       target_id INTEGER NOT NULL REFERENCES aral_irip_targets(id),
       status TEXT CHECK (status IN ('observed', 'partial', 'not_observed')),
@@ -556,6 +692,9 @@ ${placement("NEW.class_id IS NOT NULL AND NEW.status = 'active' AND (NEW.class_i
             WHEN e.key_stage = 'ks3' AND e.track = 'plus' THEN 'plus_ks3' END)''';
   const learnerActive =
       "EXISTS (SELECT 1 FROM aral_enrollments WHERE id = NEW.enrollment_id AND status = 'active')";
+  // v46: a new week stays within the school's IRIP cycle length (irip_weeks,
+  // default 8); saved weeks above a lowered length stay.
+  final iripWeeks = "CAST(COALESCE(${aralSettingSql('(SELECT school_id FROM aral_enrollments WHERE id = NEW.enrollment_id)', 'irip_weeks')}, 8) AS INTEGER)";
   await db.execute('DROP TRIGGER IF EXISTS check_aral_irip_week_ins');
   await db.execute('''
     CREATE TRIGGER check_aral_irip_week_ins
@@ -566,6 +705,8 @@ ${placement("NEW.class_id IS NOT NULL AND NEW.status = 'active' AND (NEW.class_i
       WHERE NOT $learnerActive;
       SELECT RAISE(ABORT, 'That reading target is not in the learner''s IRIP list')
       WHERE NOT $targetOk;
+      SELECT RAISE(ABORT, 'An IRIP cycle at this school has ' || $iripWeeks || ' weeks')
+      WHERE NEW.week_no > $iripWeeks;
       SELECT RAISE(ABORT, 'An IRIP week needs the previous week of its cycle')
       WHERE NEW.week_no > 1 AND NOT EXISTS (
         SELECT 1 FROM aral_irip_weeks

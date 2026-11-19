@@ -17,11 +17,11 @@ Calls (`AppViewModels.reportSettings`, `ReportSettingsViewModel`):
 - `valueSourceLayers(schoolId)` → `Map<PhilIriValueList, ({PhilIriValues? region, PhilIriValues? school, PhilIriValues effective})>` (device copy; `schoolId` null = the region row)
 - `setValueSource(schoolId, list, values)` (online)
 The six lists (`PhilIriValueList`, in this order; the label is yours):
-- `aral`: ARAL proposals, automatic updates/exits, implementation report (default carried)
-- `bosyMasterlist`: BOSY masterlist (default carried)
-- `form2b`: NLA portal report (Form 2b) and the band trend chart (default carried; under actual a learner not read in a round, or with 0% / no comprehension entry, counts in 3-LD Frustration)
-- `srp`: SRP candidates (default carried)
-- `learnerPages`: a learner's Phil-IRI results and learner history (default carried)
+- `aral`: ARAL proposals, automatic updates/exits, implementation report (default actual)
+- `bosyMasterlist`: BOSY masterlist (default actual)
+- `form2b`: NLA portal report (Form 2b) and the band trend chart (default actual; under actual a learner not read in a round, or with 0% / no comprehension entry, counts in 3-LD Frustration)
+- `srp`: SRP candidates (default actual)
+- `learnerPages`: a learner's Phil-IRI results and learner history (default actual)
 - `ranking`: the ranking list below (default actual)
 Show per list: the school value (or "region: …" when the school has none) and what applies. A change reaches other devices after their next download.
 Errors: `Not allowed: only an admin or coordinator sets the report settings.`, `Not allowed: you can only set your own school's report settings.`, `Not allowed: only the superadmin sets the region-wide report settings.`, the online-sign-in message.

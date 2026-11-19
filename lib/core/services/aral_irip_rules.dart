@@ -9,7 +9,8 @@ library;
 
 import '../models/aral_irip.dart';
 
-/// Weeks in one IRIP cycle.
+/// Weeks in one IRIP cycle by default (DepEd IRIP format). A school's
+/// irip_weeks setting replaces it (ARAL memo settings, AralRuleSettings).
 const aralIripWeeks = 8;
 
 /// The suggested target after [current] was rated [status], from [strandList]

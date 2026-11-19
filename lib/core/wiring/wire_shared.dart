@@ -32,6 +32,7 @@ import '../data/local/test_repository_sqlite.dart';
 import '../data/local/tutor_section_assignment_repository_sqlite.dart';
 import '../data/remote/school_repository_supabase.dart';
 import '../data/remote/section_repository_supabase.dart';
+import '../data/remote/user_repository_supabase.dart';
 import '../data/remote/student_repository_supabase.dart';
 import '../data/remote/sync_download_supabase.dart';
 import '../data/remote/sync_remote_supabase.dart';
@@ -89,7 +90,11 @@ SharedVms wireShared(AppContext ctx) {
       auth: authVm, repoFactory: SchoolRepositorySupabase.new, local: SchoolRepositorySqlite(db), logger: session);
   vms.register('SchoolViewModel', schoolVm);
   final sectionVm = SectionViewModel(
-      auth: authVm, repoFactory: SectionRepositorySupabase.new, local: sectionRepo, logger: session);
+      auth: authVm,
+      repoFactory: SectionRepositorySupabase.new,
+      local: sectionRepo,
+      userRepoFactory: UserRepositorySupabase.new,
+      logger: session);
   vms.register('SectionViewModel', sectionVm);
   final tutorSectionRepo = TutorSectionAssignmentRepositorySqlite(db);
 

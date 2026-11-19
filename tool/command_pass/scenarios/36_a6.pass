@@ -45,6 +45,15 @@ run report-settings-reset {school}
 expect School {school} now uses the region report settings.
 run report-settings-set {school} {=85}
 expect Done threshold for school {school}: 85%.
+# B0's carried value switches (the reset dropped them).
+run value-source-set {school} form2b carried
+expect form2b values for school {school} are now carried.
+run value-source-set {school} bosy-masterlist carried
+expect bosy-masterlist values for school {school} are now carried.
+run value-source-set {school} srp carried
+expect srp values for school {school} are now carried.
+run value-source-set {school} aral carried
+expect aral values for school {school} are now carried.
 device a6-pc2 admin
 run offline-days-set {school} {=3}
 expect Offline sign-in window for school {school}: 3 days. Tablets get it after their next pull-cloud.
@@ -266,6 +275,15 @@ run report-settings-reset {school}
 expect School {school} now uses the region report settings.
 run report-settings-set {school} {=85}
 expect Done threshold for school {school}: 85%.
+# B0's carried value switches (the reset dropped them).
+run value-source-set {school} form2b carried
+expect form2b values for school {school} are now carried.
+run value-source-set {school} bosy-masterlist carried
+expect bosy-masterlist values for school {school} are now carried.
+run value-source-set {school} srp carried
+expect srp values for school {school} are now carried.
+run value-source-set {school} aral carried
+expect aral values for school {school} are now carried.
 run offline-days {school}
 expect Offline sign-in window: region not set · school not set · applies 14 days
 run sync-auto-approve {school}

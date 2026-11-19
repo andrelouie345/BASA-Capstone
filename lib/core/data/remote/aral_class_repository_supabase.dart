@@ -13,7 +13,7 @@ class AralClassRepositorySupabase implements AralClassRepository {
 
   static AralClass _c(Object? r) => AralClass.fromMap(r as Map<String, Object?>);
 
-  static const _changeable = ['class_name', 'grade_level', 'program', 'tutor_id', 'room', 'schedule', 'notes'];
+  static const _changeable = ['class_name', 'grade_level', 'program', 'tutor_id', 'room', 'schedule', 'notes', 'session_type'];
 
   @override
   Future<AralClass> insert(AralClass aralClass) async {

@@ -25,6 +25,7 @@ void main() {
     int grade = 7,
     int others = 0,
     bool otherGradeOk = false,
+    int max = 15,
   }) =>
       aralPlacementProblem(
           target: target,
@@ -33,6 +34,7 @@ void main() {
           program: program,
           grade: grade,
           activeOthersInClass: others,
+          maxLearners: max,
           otherGradeOk: otherGradeOk);
 
   test('a program from key stage and track', () {
@@ -57,6 +59,15 @@ void main() {
     expect(check(others: 14), isNull);
     expect(check(others: 15), AralPlacementProblem.full);
     expect(check(target: mixed, others: 15), AralPlacementProblem.full);
+  });
+
+  test("full at the school's maximum (ARAL memo setting class_max_learners)", () {
+    expect(check(others: 10, max: 10), AralPlacementProblem.full);
+    expect(check(others: 9, max: 10), isNull);
+    expect(check(others: 15, max: 20), isNull);
+    expect(aralPlacementMessage(AralPlacementProblem.full,
+            learner: 'DELA CRUZ, JUAN', target: rose, grade: 7, program: AralClassProgram.ks3Basic, maxLearners: 10),
+        'Class "7-Rose" already has 10 active ARAL learners.');
   });
 
   test('program and school are checked; a mixed class takes any program', () {
@@ -85,7 +96,7 @@ void main() {
 
   test('messages', () {
     String msg(AralPlacementProblem p, {int grade = 7, AralClassProgram program = AralClassProgram.ks3Basic}) =>
-        aralPlacementMessage(p, learner: 'DELA CRUZ, JUAN', target: rose, grade: grade, program: program);
+        aralPlacementMessage(p, learner: 'DELA CRUZ, JUAN', target: rose, grade: grade, program: program, maxLearners: 15);
     expect(msg(AralPlacementProblem.full), 'Class "7-Rose" already has 15 active ARAL learners.');
     expect(msg(AralPlacementProblem.programMismatch, program: AralClassProgram.ks2Plus),
         'DELA CRUZ, JUAN is in KS2 Plus; class "7-Rose" is KS3 Basic.');

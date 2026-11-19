@@ -7,6 +7,7 @@ library;
 
 import '../console_command.dart';
 import '../console_registry.dart';
+import '../../models/user.dart';
 import '../../models/user_role.dart';
 import '../../../viewmodels/user_viewmodel.dart';
 
@@ -60,6 +61,34 @@ void registerUserCommands(ConsoleRegistry registry, UserViewModel vm) {
         await vm.setActive(args[0], activeArg == 'true');
         final warn = vm.lastMirrorWarning;
         return 'Set ${args[0]} active=$activeArg.${warn == null ? '' : '\n$warn'}';
+      } catch (e) {
+        return 'Update failed: $e';
+      }
+    },
+  ));
+
+  registry.register(ConsoleCommand(
+    name: 'user-tutor-type',
+    description: 'user-tutor-type <userId> <internal|external|-> — a tutor\'s type for the ARAL daily limits '
+        '(internal = a teacher of the school; - = none, no limit) (admin/coordinator of the user\'s school only)',
+    handler: (args) async {
+      const usage = 'Usage: user-tutor-type <userId> <internal|external|->';
+      if (args.length != 2) return usage;
+      final TutorType? type;
+      switch (args[1].toLowerCase()) {
+        case 'internal':
+          type = TutorType.internal;
+        case 'external':
+          type = TutorType.external;
+        case '-':
+          type = null;
+        default:
+          return 'Invalid value: "${args[1]}" (expected internal, external or -)';
+      }
+      try {
+        final u = await vm.setTutorType(args[0], type);
+        final warn = vm.lastMirrorWarning;
+        return 'Set ${u.fullName} (${u.id}) tutor type ${u.tutorType?.value ?? '-'}.${warn == null ? '' : '\n$warn'}';
       } catch (e) {
         return 'Update failed: $e';
       }

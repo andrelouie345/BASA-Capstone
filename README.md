@@ -131,7 +131,22 @@ required: **yes**, same rule) and `20261114010000` (report settings: six
 switches for which Phil-IRI values a list shows, carried or actual
 (`values_aral`, `values_bosy_masterlist`, `values_form2b`, `values_srp`,
 `values_learner_pages`, `values_ranking`; console `value-sources`,
-`value-source-set`); app update required: no). Each is idempotent.
+`value-source-set`); app update required: no) and `20261118010000` (ARAL memo
+settings: class size, session rules, basis round, check-in sessions and IRIP
+length as school settings, today's values by default; console `aral-setting`,
+`aral-setting-set`; app update required: **yes**, apply only when every device
+has synced and every upload is decided) and `20261118020000` (the server's
+ARAL setting reader leaves the API: `aral_setting` moves to `basa_private`;
+app update required: no) and `20261118030000` (ARAL memo, people: section
+advisers, tutor type and class session type; an adviser does not tutor their
+own learners and daily tutor limits (an internal tutor's sessions, an external
+tutor's minutes), as school settings, off by default; app update required:
+**yes**, apply only when every device has synced and every upload is decided)
+and `20261119010000` (ARAL memo review: the adviser rule on placement is
+checked at the end of an upload, so an offline tutor change followed by
+placing the old tutor's advisees uploads; on the same day the daily tutor
+limits check only a longer session; app update required: no).
+Each is idempotent.
 Do **not** run
 `supabase/migrations_archive/`.
 
@@ -353,7 +368,12 @@ school-bound admin/coordinator: own school only)
 user-create <email> <admin|coordinator|tutor> <schoolId|-> <full name>
 user-list
 user-set-active <userId> <true|false>
+user-tutor-type <userId> <internal|external|->
 ```
+
+A tutor's type (internal = a teacher of the school, external = from outside,
+`-` = not set) is shown on the ARAL forms and drives the daily tutor limits
+below; a tutor without a type has no daily limit.
 
 **Schools** (create: superadmin only; list/update: own school, or all for superadmin)
 
@@ -369,8 +389,14 @@ school-update <id> <schoolIdCode> <region|-> <division|-> <full school name>
 section-create <schoolId> <schoolYear> <gradeLevel> <sectionName>
 section-list
 section-update <id> <schoolYear> <gradeLevel> <sectionName>
+section-adviser <sectionId> <"name"|-> [userId|-]
 section-delete <id>
 ```
+
+`section-adviser` records the section's adviser: a typed name, a BASA account of
+the school, or both (an account left out is kept, `-` removes it; a linked
+adviser without a name gets the account's name). The name shows on ARAL Form 1;
+the account is what the adviser rule below checks.
 
 **Tutor-section assignments** (admin/coordinator, own school; superadmin: all)
 
@@ -449,6 +475,53 @@ admin/coordinator uploads always apply at once. Settings reach the tablets at
 their next pull. `report-settings-reset <schoolId>` drops the school's done
 threshold, auto-approve, offline window, FLT setting, archive period and
 Phil-IRI value switches so the region's apply.
+
+**ARAL school rules** (read: any signed-in user; set: admin/coordinator for
+their school, superadmin for the region; online). Each rule is a school
+setting; nothing set = today's rule. `-` removes a value so the region value or
+the default applies again.
+
+```
+aral-setting [key] [schoolId]                     (no key = every rule: school / region / default)
+aral-setting-set <key> <region|schoolId> <value|->
+```
+
+Keys: `class_max_learners` (1-50, default 15), `class_min_learners` (0-50,
+0 = none; a notice only), `session_max_minutes` (1-120; not set = warn above 60
+on weekdays), `sessions_weekdays_only` (on/off), `class_min_sessions_per_week`
+(0-7; a reminder from Wednesday), `basis_round` (`bosy`/`mosy`: the round new
+ARAL learners are chosen from), `checkin_after_sessions` (two sessions, e.g.
+`16,32`), `irip_weeks` (1-26, default 8). A school following Division
+Memorandum 180 s. 2026 (Valencia City) sets `class_max_learners 10`,
+`class_min_learners 5`, `session_max_minutes 60`, `sessions_weekdays_only on`,
+`class_min_sessions_per_week 3`, `basis_round mosy`, and turns on
+`aral-ks1-extended-set <schoolId> on` (the memo takes Developing and
+Transitioning KS1 learners too).
+
+Three more keys (ARAL memo, people): `adviser_tutors_own_class` (on/off,
+default on; off = a learner is not placed in a class whose tutor advises their
+section, and an adviser can't become the tutor of a class holding their own
+learners), `internal_tutor_max_sessions_per_day` (1-10, not set = no limit) and
+`external_tutor_max_minutes_per_day` (1-600, not set = no limit), by the
+tutor's type (`user-tutor-type`). A class's session type (pull-out or
+before/after class) is set with `aral-class-edit <classId> session
+<pull_out|before_after|->`; `aral-class-add` without a name gives the class
+the next free `ARAL-R-G<grade>-<nn>`.
+
+**ARAL Forms 1, 2 and 4 (Reading)** (admin/coordinator of the school,
+superadmin; from this device's copy). BASA's own .xlsx layout with the
+Division Memorandum 180 s. 2026 forms' header fields and columns; fields BASA
+doesn't hold are left blank for hand entry and listed at the foot of each form.
+
+```
+aral-form1 <schoolId> <schoolYear> <out.xlsx> [classId]       (one sheet per class: the class list)
+aral-form2 <schoolId> <schoolYear> <out.xlsx>                 (one row per class)
+aral-form4 <schoolId> <schoolYear> <out.xlsx> [asof=YYYY-MM-DD] (learners per grade; classes, tutors, sessions, hours)
+```
+
+Forms 3, 5 and 6 are not in BASA: tutor details, printing and overload pay
+are kept in the separate tutor-management system. BASA's session records give
+each tutor's ARAL hours for them.
 
 **Local cache only** (offline reads — may lag behind Supabase)
 

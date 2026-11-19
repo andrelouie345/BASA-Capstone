@@ -5,6 +5,7 @@
 // handed to the widget tree by ui/admin/admin_scope.dart:
 // `AdminScope.of(context).users`.
 import 'admin_bootstrap_viewmodel.dart';
+import 'aral_forms_viewmodel.dart';
 import 'aral_report_viewmodel.dart';
 import 'aral_roster_import_viewmodel.dart';
 import 'crla_import_viewmodel.dart';
@@ -31,6 +32,9 @@ class AdminViewModels {
   final AralRosterImportViewModel aralRosterImport;
   final AralReportViewModel aralReport;
 
+  /// ARAL Forms 1, 2 and 4 (Reading), Division Memorandum 180 s. 2026.
+  final AralFormsViewModel aralForms;
+
   /// One learner's progress by school year.
   final LearnerHistoryViewModel learnerHistory;
 
@@ -53,6 +57,7 @@ class AdminViewModels {
     required this.crlaImport,
     required this.aralRosterImport,
     required this.aralReport,
+    required this.aralForms,
     required this.learnerHistory,
     required this.philIriImport,
     required this.learnerLeavers,

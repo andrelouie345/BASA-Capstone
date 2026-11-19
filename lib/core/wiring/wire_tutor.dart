@@ -258,6 +258,7 @@ TutorVms wireTutor(AppContext ctx, SharedVms s) {
     sections: SectionRepositorySqlite(db),
     students: StudentRepositorySqlite(db),
     users: UserRepositorySqlite(db),
+    localSettings: AralSettingRepositorySqlite(db),
     logger: session,
   );
   vms.register('AralClassViewModel', aralClassVm);
@@ -269,6 +270,7 @@ TutorVms wireTutor(AppContext ctx, SharedVms s) {
     users: UserRepositorySqlite(db),
     students: StudentRepositorySqlite(db),
     classes: AralClassRepositorySqlite(db),
+    localSettings: AralSettingRepositorySqlite(db),
     logger: session,
   );
   vms.register('AralSessionViewModel', aralSessionVm);
@@ -277,6 +279,7 @@ TutorVms wireTutor(AppContext ctx, SharedVms s) {
     auth: authVm,
     irip: AralIripRepositorySqlite(db),
     roster: AralEnrollmentRepositorySqlite(db),
+    localSettings: AralSettingRepositorySqlite(db),
     logger: session,
   );
   vms.register('AralIripViewModel', aralIripVm);

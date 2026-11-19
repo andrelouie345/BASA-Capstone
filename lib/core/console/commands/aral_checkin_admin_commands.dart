@@ -4,6 +4,7 @@
 import '../console_command.dart';
 import '../console_registry.dart';
 import '../../../viewmodels/aral_checkin_viewmodel.dart';
+import '../../models/aral_types.dart' show AralRuleSettings;
 import 'aral_checkin_command_helpers.dart';
 
 void registerAralCheckinAdminCommands(ConsoleRegistry registry, AralCheckinViewModel vm) {
@@ -81,6 +82,42 @@ void registerAralCheckinAdminCommands(ConsoleRegistry registry, AralCheckinViewM
     return 'Foundational literacy program (SHARP) ${args[1]} for '
         '${schoolId == null ? 'the region' : 'school $schoolId'}. Learners already in ARAL move at the next '
         'aral-update.${warn == null ? '' : '\n$warn'}';
+  });
+
+  String keysLine() => 'Settings: ${AralRuleSettings.keys.join(', ')}.';
+  String show(Object? v) => v == null ? '-' : (v is List ? v.join(',') : '$v');
+
+  add('aral-setting',
+      'aral-setting [key] [schoolId] — the ARAL rules a school follows (class size, session rules, basis round, '
+          'check-in sessions, IRIP weeks): school / region / default; no key = all of them (online)', (args) async {
+    const usage = 'Usage: aral-setting [key] [schoolId]';
+    if (args.length > 2) throw const AralCheckinUsage(usage);
+    final keys = args.isEmpty || int.tryParse(args[0]) != null ? AralRuleSettings.keys : [args[0]];
+    final schoolArg = args.isEmpty ? null : (int.tryParse(args[0]) != null ? args[0] : (args.length > 1 ? args[1] : null));
+    final schoolId = schoolArg == null ? null : aralCheckinInt(schoolArg, 'schoolId');
+    if (!AralRuleSettings.keys.contains(keys.first)) throw AralCheckinUsage('Unknown setting "${keys.first}". ${keysLine()}');
+    final lines = <String>[];
+    for (final key in keys) {
+      final l = await vm.ruleSettingLayers(key, schoolId);
+      lines.add('$key: ${show(l.effective)}  (school ${show(l.school)} / region ${show(l.region)} / default ${show(l.defaults)})');
+    }
+    return lines.join('\n');
+  });
+
+  add('aral-setting-set',
+      'aral-setting-set <key> <region|schoolId> <value|-> — set one ARAL rule for the region (superadmin) or a '
+          'school; "-" removes it so the region value or the default applies; check-in sessions as 16,32 (online)',
+      (args) async {
+    const usage = 'Usage: aral-setting-set <key> <region|schoolId> <value|->';
+    if (args.length != 3) throw AralCheckinUsage('$usage\n${keysLine()}');
+    if (!AralRuleSettings.keys.contains(args[0])) throw AralCheckinUsage('Unknown setting "${args[0]}". ${keysLine()}');
+    final schoolId = args[1] == 'region' ? null : aralCheckinInt(args[1], 'schoolId');
+    final value = args[2] == '-' ? null : vm.ruleSettingValue(args[0], args[2]);
+    await vm.setRuleSetting(schoolId, args[0], value);
+    final warn = vm.lastMirrorWarning;
+    final where = schoolId == null ? 'the region' : 'school $schoolId';
+    return '${value == null ? '${args[0]} removed for $where' : '${args[0]} = ${show(value)} for $where'}.'
+        '${warn == null ? '' : '\n$warn'}';
   });
 
   add('aral-ks1-extended-set',

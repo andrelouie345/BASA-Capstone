@@ -107,15 +107,15 @@ void main() {
     expect(r.latestView({mosy2}, carried), isNull);
   });
 
-  test('learnerResults.values follows values_learner_pages (default carried)', () async {
+  test('learnerResults.values follows values_learner_pages (default actual)', () async {
     final vm = t.philIriVm;
     Future<PhilIriValues> values() async =>
         (await vm.learnerResults(studentId: _learner, sectionId: _section, schoolYear: _year)).values;
-    await schoolRow(null);
+    await schoolRow({'values_learner_pages': 'carried'});
     expect(await values(), carried);
     expect(await vm.valueSource(1, PhilIriValueList.learnerPages), carried);
     expect(await vm.valueSource(1, PhilIriValueList.ranking), actual);
-    await schoolRow({'values_learner_pages': 'actual'});
+    await schoolRow(null);
     expect(await values(), actual);
     expect(await vm.valueSource(1, PhilIriValueList.learnerPages), actual);
 
@@ -123,7 +123,7 @@ void main() {
     expect(res.view(mosy2).notAssessedThisRound, isTrue);
     expect(res.view(mosy1).comprehensionScore, 0.5);
     expect(res.endView()!.round, mosy1);
-    await schoolRow(null);
+    await schoolRow({'values_learner_pages': 'carried'});
     final carriedRes = await vm.learnerResults(studentId: _learner, sectionId: _section, schoolYear: _year);
     expect(carriedRes.view(mosy2).comprehensionScore, 1.0);
     expect(carriedRes.endView()!.round, carriedRes.end!.round);
