@@ -31,46 +31,61 @@ void registerAralClassAdminCommands(ConsoleRegistry registry, AralClassViewModel
       : AralClassProgram.values.firstWhere((p) => p.value == raw,
           orElse: () => throw AralUsage('Unknown program "$raw" (expected $programs)'));
   int grade(String raw) => aralInt(raw, 'grade');
+  final sessionTypes = AralSessionType.values.map((t) => t.value).join('|');
+  // '-' = not recorded.
+  AralSessionType? sessionType(String raw) => raw == '-'
+      ? null
+      : AralSessionType.values.firstWhere((t) => t.value == raw,
+          orElse: () => throw AralUsage('Unknown session type "$raw" (expected $sessionTypes or -)'));
 
-  final addUsage = 'Usage: aral-class-add <schoolId> <schoolYear> <grade 1-10> <$programs> <name...> [tutor=<userId>] '
-      '["room=<room>"] ["schedule=<when>"] ["notes=<text>"]';
+  final addUsage = 'Usage: aral-class-add <schoolId> <schoolYear> <grade 1-10> <$programs> [name...] [tutor=<userId>] '
+      '["room=<room>"] ["schedule=<when>"] ["notes=<text>"] [session=<$sessionTypes>]';
   add('aral-class-add',
-      'aral-class-add <schoolId> <schoolYear> <grade 1-10> <program|mixed> <name...> [tutor=<userId>] ["room=.."] '
-          '["schedule=.."] ["notes=.."] — a new ARAL class of one grade, with one program or mixed programs '
-          '(program $programs)', (args) async {
-    if (args.length < 5) throw AralUsage(addUsage);
+      'aral-class-add <schoolId> <schoolYear> <grade 1-10> <program|mixed> [name...] [tutor=<userId>] ["room=.."] '
+          '["schedule=.."] ["notes=.."] [session=pull_out|before_after] — a new ARAL class of one grade, with one '
+          'program or mixed programs (program $programs); without a name it gets the suggested ARAL-R-G<grade>-<nn>',
+      (args) async {
+    if (args.length < 4) throw AralUsage(addUsage);
     final words = <String>[];
     final opts = <String, String>{};
     for (final a in args.skip(4)) {
       final eq = a.indexOf('=');
       final key = eq > 0 ? a.substring(0, eq) : null;
-      if (key != null && const {'tutor', 'room', 'schedule', 'notes'}.contains(key)) {
+      if (key != null && const {'tutor', 'room', 'schedule', 'notes', 'session'}.contains(key)) {
         opts[key] = a.substring(eq + 1);
       } else {
         words.add(a);
       }
     }
-    if (words.isEmpty) throw AralUsage(addUsage);
+    final schoolId = aralInt(args[0], 'schoolId');
+    final level = grade(args[2]);
+    final classProgram = program(args[3]);
+    final kind = opts['session'] == null ? null : sessionType(opts['session']!);
+    final name = words.isEmpty
+        ? await vm.suggestClassName(schoolId: schoolId, schoolYear: args[1], grade: level)
+        : words.join(' ');
     final c = await vm.createClass(
-      schoolId: aralInt(args[0], 'schoolId'),
+      schoolId: schoolId,
       schoolYear: args[1],
-      gradeLevel: grade(args[2]),
-      program: program(args[3]),
-      className: words.join(' '),
+      gradeLevel: level,
+      program: classProgram,
+      className: name,
+      sessionType: kind,
       tutorId: opts['tutor'],
       room: opts['room'],
       schedule: opts['schedule'],
       notes: opts['notes'],
     );
-    return 'ARAL class added: ${aralClassLine(c, cap: vm.classCap, active: 0)}';
+    return 'ARAL class added: ${aralClassLine(c, cap: await vm.classMax(c.schoolId), active: 0)}';
   });
 
-  const editUsage = 'Usage: aral-class-edit <classId> <name|tutor|room|schedule|notes|grade|program> <value...> '
-      '("-" clears tutor, room, schedule or notes; program mixed = mixed programs)';
+  final editUsage = 'Usage: aral-class-edit <classId> <name|tutor|room|schedule|notes|grade|program|session> <value...> '
+      '("-" clears tutor, room, schedule, notes or session; program mixed = mixed programs; session $sessionTypes)';
   add('aral-class-edit',
-      'aral-class-edit <classId> <name|tutor|room|schedule|notes|grade|program> <value...> — change one thing about '
-          'an ARAL class ("-" clears tutor, room, schedule or notes; program mixed = mixed programs)', (args) async {
-    if (args.length < 3) throw const AralUsage(editUsage);
+      'aral-class-edit <classId> <name|tutor|room|schedule|notes|grade|program|session> <value...> — change one thing '
+          'about an ARAL class ("-" clears tutor, room, schedule, notes or session; program mixed = mixed programs; '
+          'session $sessionTypes)', (args) async {
+    if (args.length < 3) throw AralUsage(editUsage);
     final current = await vm.getClass(aralInt(args[0], 'classId'));
     final value = args.skip(2).join(' ');
     String? orNull() => value == '-' ? null : value;
@@ -82,10 +97,11 @@ void registerAralClassAdminCommands(ConsoleRegistry registry, AralClassViewModel
       'notes' => current.copyWith(notes: orNull),
       'grade' => current.copyWith(gradeLevel: grade(value)),
       'program' => current.copyWith(program: () => program(value)),
-      _ => throw const AralUsage(editUsage),
+      'session' => current.copyWith(sessionType: () => sessionType(value)),
+      _ => throw AralUsage(editUsage),
     };
     final saved = await vm.editClass(changed);
-    return 'ARAL class saved: ${aralClassLine(saved, cap: vm.classCap, active: await vm.activeCount(saved.id!))}';
+    return 'ARAL class saved: ${aralClassLine(saved, cap: await vm.classMax(saved.schoolId), active: await vm.activeCount(saved.id!))}';
   });
 
   const placeUsage = 'Usage: aral-class-place <enrollmentId> <classId> [other-grade]';
@@ -98,7 +114,7 @@ void registerAralClassAdminCommands(ConsoleRegistry registry, AralClassViewModel
     final e = await vm.place(aralInt(args[0], 'enrollmentId'), aralInt(args[1], 'classId'),
         otherGrade: args.length == 3);
     final c = await vm.getClass(e.classId!);
-    return 'ARAL learner #${e.id} placed in ${aralClassLine(c, cap: vm.classCap, active: await vm.activeCount(c.id!))}';
+    return 'ARAL learner #${e.id} placed in ${aralClassLine(c, cap: await vm.classMax(c.schoolId), active: await vm.activeCount(c.id!))}';
   });
 
   add('aral-class-unplace', 'aral-class-unplace <enrollmentId> — take an ARAL learner out of their class',

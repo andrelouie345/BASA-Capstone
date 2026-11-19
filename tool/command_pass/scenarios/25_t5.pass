@@ -200,7 +200,7 @@ capture ck_2 = Check-in #(-?\d+)
 run aral-checkin-delete {ck_2}
 expect Deleted check-in {ck_2}.
 run aral-checkin-start {enr_1} 20
-refuse A check-in comes after session 16 or 32, not 20.
+refuse A check-in is 16 (the first, after session 16) or 32 (the second, after session 32), not 20.
 run aral-checkin-start {enr_3} 16
 refuse KS1 has no check-in tools (only KS2-3 Basic and Plus do).
 # --- Readability (SHARP on) -----------------------------------------------------

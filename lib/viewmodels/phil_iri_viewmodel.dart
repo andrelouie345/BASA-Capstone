@@ -78,7 +78,7 @@ class PhilIriLearnerResults {
     required this.end,
     required this.regenerated,
     this.comprehensionOptional = const {},
-    this.values = PhilIriValues.carried,
+    this.values = PhilIriValues.actual,
     this.showValues = true,
   });
 

@@ -4,6 +4,7 @@
 // import. Never imported from the tutor entry points (tool/check_tutor_imports.dart).
 import '../../viewmodels/admin_bootstrap_viewmodel.dart';
 import '../../viewmodels/admin_viewmodels.dart';
+import '../../viewmodels/aral_forms_viewmodel.dart';
 import '../../viewmodels/aral_report_viewmodel.dart';
 import '../../viewmodels/aral_roster_import_viewmodel.dart';
 import '../../viewmodels/crla_import_viewmodel.dart';
@@ -21,6 +22,7 @@ import '../console/commands/aral_admin_commands.dart';
 import '../console/commands/aral_checkin_admin_commands.dart';
 import '../console/commands/aral_class_admin_commands.dart';
 import '../console/commands/aral_export_commands.dart';
+import '../console/commands/aral_forms_admin_commands.dart';
 import '../console/commands/aral_material_admin_commands.dart';
 import '../console/commands/aral_report_commands.dart';
 import '../console/commands/calendar_admin_commands.dart';
@@ -86,6 +88,7 @@ class AdminVms {
   final LoginLogViewModel loginLogVm;
   final CrlaImportViewModel crlaImportVm;
   final AralReportViewModel aralReportVm;
+  final AralFormsViewModel aralFormsVm;
   final AralRosterImportViewModel aralRosterImportVm;
   final TutorSectionAssignmentViewModel tutorSectionVm;
   final LearnerHistoryViewModel learnerHistoryVm;
@@ -101,6 +104,7 @@ class AdminVms {
     required this.loginLogVm,
     required this.crlaImportVm,
     required this.aralReportVm,
+    required this.aralFormsVm,
     required this.aralRosterImportVm,
     required this.tutorSectionVm,
     required this.learnerHistoryVm,
@@ -121,6 +125,7 @@ AdminViewModels adminViewModels(AdminVms a) => AdminViewModels(
       crlaImport: a.crlaImportVm,
       aralRosterImport: a.aralRosterImportVm,
       aralReport: a.aralReportVm,
+      aralForms: a.aralFormsVm,
       learnerHistory: a.learnerHistoryVm,
       philIriImport: a.philIriImportVm,
       learnerLeavers: a.learnerLeaversVm,
@@ -192,6 +197,20 @@ Future<AdminVms> wireAdmin(AppContext ctx, SharedVms s, TutorVms t) async {
     logger: session,
   );
   vms.register('AralReportViewModel', aralReportVm);
+
+  final aralFormsVm = AralFormsViewModel(
+    auth: authVm,
+    report: aralReportVm,
+    classes: AralClassRepositorySqlite(db),
+    roster: AralEnrollmentRepositorySqlite(db),
+    sessions: AralSessionRepositorySqlite(db),
+    users: UserRepositorySqlite(db),
+    sections: SectionRepositorySqlite(db),
+    students: StudentRepositorySqlite(db),
+    schools: SchoolRepositorySqlite(db),
+    logger: session,
+  );
+  vms.register('AralFormsViewModel', aralFormsVm);
 
   final aralRosterImportVm = AralRosterImportViewModel(
     auth: authVm,
@@ -278,6 +297,7 @@ Future<AdminVms> wireAdmin(AppContext ctx, SharedVms s, TutorVms t) async {
     bootstrapVm: bootstrapVm,
     crlaImportVm: crlaImportVm,
     aralReportVm: aralReportVm,
+    aralFormsVm: aralFormsVm,
     aralRosterImportVm: aralRosterImportVm,
     tutorSectionVm: tutorSectionVm,
     learnerHistoryVm: learnerHistoryVm,
@@ -314,6 +334,7 @@ void registerAdminCommands(AppContext ctx, SharedVms s, TutorVms t, AdminVms a) 
   registerTrendAdminCommands(r, t.trendVm);
   registerSrpAdminCommands(r, t.srpVm);
   registerAralReportCommands(r, a.aralReportVm);
+  registerAralFormsAdminCommands(r, authVm, a.aralFormsVm);
   registerAralExportCommands(r, t.aralVm, a.aralReportVm, t.aralCheckinVm);
   registerAralRosterImportCommands(r, a.aralRosterImportVm);
   registerLearnerHistoryCommands(r, a.learnerHistoryVm);

@@ -1,0 +1,191 @@
+# A10 ARAL memo settings (Division Memorandum 180 s. 2026; spec
+# docs/superpowers/specs/2026-11-18-aral-division-memo-design.md, plan A Task 8;
+# needs migration 20261118010000): the ARAL rules as school settings
+# (aral-setting, aral-setting-set), with today's rules when nothing is set.
+# A new Grade 7 section ZZTEST-A10{stamp} with 13 learners (from=stamp). The
+# class and its learners stay on this device (never uploaded), so the batch
+# reruns; every school setting it sets is removed again ("-") at the end.
+#   cls = "ZZ A10 {stamp}" (Grade 7, KS3 Basic, tutor2): 12 learners placed
+#   while the maximum is 15; learner 13 waits for a class.
+
+# --- Refusals for a tutor (a device of its own) --------------------------------
+device a10-tutor admin fresh
+as tutor1
+run aral-setting class_max_learners {school}
+expect~ class_max_learners: \S+  \(school \S+ / region \S+ / default 15\)
+run aral-setting-set class_max_learners {school} {=10}
+refuse Not allowed: admin or coordinator only.
+
+device a10-pc admin fresh
+as coord
+run pull-cloud yes
+expect users:
+
+# --- Defaults: nothing set for the school ------------------------------------------
+run aral-setting {school}
+expect~ class_max_learners: 15  \(school -
+expect~ class_min_learners: 0  \(school -
+expect~ session_max_minutes: -  \(school -
+expect~ sessions_weekdays_only: false  \(school -
+expect~ class_min_sessions_per_week: 0  \(school -
+expect~ basis_round: bosy  \(school -
+expect~ checkin_after_sessions: 16,32  \(school -
+expect~ irip_weeks: 8  \(school -
+run aral-setting nope {school}
+refuse Unknown setting "nope". Settings: class_max_learners, class_min_learners
+run aral-setting-set nope {school} {=1}
+refuse Unknown setting "nope".
+run aral-setting-set class_max_learners {school}
+refuse Usage: aral-setting-set <key> <region|schoolId> <value|->
+
+# --- Values the rules refuse -----------------------------------------------------
+run aral-setting-set class_max_learners {school} {=0}
+refuse The class maximum is a whole number 1-50, not 0.
+run aral-setting-set session_max_minutes {school} {=150}
+refuse The longest session is 1-120 minutes, not 150.
+run aral-setting-set checkin_after_sessions {school} {=32,16}
+refuse The check-ins come after two sessions, the first before the second
+run aral-setting-set basis_round {school} eosy
+refuse The basis round is bosy or mosy, not eosy.
+run aral-setting-set irip_weeks {school} {=27}
+refuse An IRIP cycle has 1-26 weeks, not 27.
+run aral-setting-set class_max_learners {schoolB} {=10}
+refuse Not allowed: you can only change your own school's ARAL settings.
+run aral-setting-set class_max_learners region {=10}
+refuse Not allowed: only the superadmin sets the region-wide ARAL settings.
+
+# --- A section, a class of 12 and one learner waiting ----------------------------------
+make-sf1 sf1_a10 a 7 ZZTEST-A10{stamp} 13 from=stamp
+run import-students "{sf1_a10}"
+expect Inserted: 13, Conflicts: 0, Already enrolled: 0
+capture sec_a10 = resolved section: 7 - ZZTEST-A10{stamp} \({year}\) \(id=(\d+)\)
+run student-list-section {sec_a10}
+capture m1 = (\d+) \| \d+ \|
+capture m2 = (?:\d+ \| \d+ \|[^\n]*\n){1}(\d+) \| \d+ \|
+capture m3 = (?:\d+ \| \d+ \|[^\n]*\n){2}(\d+) \| \d+ \|
+capture m4 = (?:\d+ \| \d+ \|[^\n]*\n){3}(\d+) \| \d+ \|
+capture m5 = (?:\d+ \| \d+ \|[^\n]*\n){4}(\d+) \| \d+ \|
+capture m6 = (?:\d+ \| \d+ \|[^\n]*\n){5}(\d+) \| \d+ \|
+capture m7 = (?:\d+ \| \d+ \|[^\n]*\n){6}(\d+) \| \d+ \|
+capture m8 = (?:\d+ \| \d+ \|[^\n]*\n){7}(\d+) \| \d+ \|
+capture m9 = (?:\d+ \| \d+ \|[^\n]*\n){8}(\d+) \| \d+ \|
+capture m10 = (?:\d+ \| \d+ \|[^\n]*\n){9}(\d+) \| \d+ \|
+capture m11 = (?:\d+ \| \d+ \|[^\n]*\n){10}(\d+) \| \d+ \|
+capture m12 = (?:\d+ \| \d+ \|[^\n]*\n){11}(\d+) \| \d+ \|
+capture m13 = (?:\d+ \| \d+ \|[^\n]*\n){12}(\d+) \| \d+ \|
+run pull-cloud yes
+expect users:
+run aral-class-add {school} {year} {=7} ks3_basic ZZ A10 {stamp} tutor={tutor2_id}
+expect | ZZ A10 {stamp} | Grade 7, KS3 Basic | tutor {tutor2_id} | 0/15 active
+capture cls = ARAL class added: #(-\d+)
+run aral-enroll {sec_a10} {year} {m1} ks3 basic class={cls} entered={past}
+expect class "ZZ A10 {stamp}"
+run aral-enroll {sec_a10} {year} {m2} ks3 basic class={cls} entered={past}
+expect class "ZZ A10 {stamp}"
+run aral-enroll {sec_a10} {year} {m3} ks3 basic class={cls} entered={past}
+expect class "ZZ A10 {stamp}"
+run aral-enroll {sec_a10} {year} {m4} ks3 basic class={cls} entered={past}
+expect class "ZZ A10 {stamp}"
+run aral-enroll {sec_a10} {year} {m5} ks3 basic class={cls} entered={past}
+expect class "ZZ A10 {stamp}"
+run aral-enroll {sec_a10} {year} {m6} ks3 basic class={cls} entered={past}
+expect class "ZZ A10 {stamp}"
+run aral-enroll {sec_a10} {year} {m7} ks3 basic class={cls} entered={past}
+expect class "ZZ A10 {stamp}"
+run aral-enroll {sec_a10} {year} {m8} ks3 basic class={cls} entered={past}
+expect class "ZZ A10 {stamp}"
+run aral-enroll {sec_a10} {year} {m9} ks3 basic class={cls} entered={past}
+expect class "ZZ A10 {stamp}"
+run aral-enroll {sec_a10} {year} {m10} ks3 basic class={cls} entered={past}
+expect class "ZZ A10 {stamp}"
+run aral-enroll {sec_a10} {year} {m11} ks3 basic class={cls} entered={past}
+expect class "ZZ A10 {stamp}"
+run aral-enroll {sec_a10} {year} {m12} ks3 basic class={cls} entered={past}
+expect class "ZZ A10 {stamp}"
+run aral-enroll {sec_a10} {year} {m13} ks3 basic entered={past}
+capture e13 = On the ARAL roster: #(-?\d+)
+run aral-classes {school} {year}
+expect | ZZ A10 {stamp} | Grade 7, KS3 Basic | tutor {tutor2_id} | 12/15 active
+
+# --- Class size: the school's maximum 10 and minimum 5 ----------------------------------
+run aral-setting-set class_max_learners {school} {=10}
+expect class_max_learners = 10 for school {school}.
+run aral-setting class_max_learners {school}
+expect~ class_max_learners: 10  \(school 10 / region \S+ / default 15\)
+run aral-setting-set class_min_learners {school} {=12}
+refuse The class minimum (12) would be above the class maximum (10).
+run aral-classes {school} {year}
+expect | ZZ A10 {stamp} | Grade 7, KS3 Basic | tutor {tutor2_id} | 12/10 active, over the maximum
+run aral-class-place {e13} {cls}
+refuse Class "ZZ A10 {stamp}" already has 10 active ARAL learners.
+run reminders-coordinator {school} {year}
+expect [ARAL] Class "ZZ A10 {stamp}" has 12 active learners, more than the maximum 10: move learners to another class. Their records stay.
+run aral-setting-set class_min_learners {school} {=5}
+expect class_min_learners = 5 for school {school}.
+
+# --- Sessions: weekdays only, at most 60 minutes, check-ins after sessions 1 and 2 -----------
+run aral-setting-set sessions_weekdays_only {school} on
+expect sessions_weekdays_only = true for school {school}.
+run aral-setting-set session_max_minutes {school} {=60}
+expect session_max_minutes = 60 for school {school}.
+run aral-setting-set checkin_after_sessions {school} {=1,2}
+expect checkin_after_sessions = 1,2 for school {school}.
+run aral-log {cls} {=45} pull_out {lastsat}
+refuse ARAL sessions are held Monday to Friday at this school
+run aral-log {cls} {=45} weekend {lastmon}
+refuse ARAL sessions are held Monday to Friday at this school, so not with the weekend set-up.
+run aral-log {cls} {=61} pull_out {lastmon}
+refuse An ARAL session at this school lasts at most 60 minutes (got 61).
+run aral-log {cls} {=60} pull_out {lastmon}
+expect | class #{cls} | session 1 | {lastmon} | 60 min | Pull-out | tutor {tutor2_id}
+expect Class "ZZ A10 {stamp}": session 1 done: the check-in assessment is due.
+capture ses1 = Logged: #(-?\d+)
+run aral-class-summary {cls}
+expect 1 session(s), 60 minutes, last session 1; next check-in after session 2 (1 to go)
+
+# --- Basis round and IRIP weeks --------------------------------------------------------
+run aral-setting-set basis_round {school} mosy
+expect basis_round = mosy for school {school}.
+run aral-setting-set irip_weeks {school} {=6}
+expect irip_weeks = 6 for school {school}.
+run aral-setting-set class_min_sessions_per_week {school} {=3}
+expect class_min_sessions_per_week = 3 for school {school}.
+run aral-setting {school}
+expect~ basis_round: mosy  \(school mosy
+expect~ irip_weeks: 6  \(school 6
+expect~ class_min_sessions_per_week: 3  \(school 3
+
+# --- Back to today's rules ------------------------------------------------------------
+run aral-setting-set class_max_learners {school} -
+expect class_max_learners removed for school {school}.
+run aral-setting-set class_min_learners {school} -
+expect class_min_learners removed for school {school}.
+run aral-setting-set session_max_minutes {school} -
+expect session_max_minutes removed for school {school}.
+run aral-setting-set sessions_weekdays_only {school} -
+expect sessions_weekdays_only removed for school {school}.
+run aral-setting-set class_min_sessions_per_week {school} -
+expect class_min_sessions_per_week removed for school {school}.
+run aral-setting-set basis_round {school} -
+expect basis_round removed for school {school}.
+run aral-setting-set checkin_after_sessions {school} -
+expect checkin_after_sessions removed for school {school}.
+run aral-setting-set irip_weeks {school} -
+expect irip_weeks removed for school {school}.
+run aral-setting {school}
+expect~ class_max_learners: 15  \(school -
+expect~ sessions_weekdays_only: false  \(school -
+expect~ checkin_after_sessions: 16,32  \(school -
+expect~ irip_weeks: 8  \(school -
+run aral-classes {school} {year}
+expect | ZZ A10 {stamp} | Grade 7, KS3 Basic | tutor {tutor2_id} | 12/15 active
+run aral-log {cls} {=90} weekend {lastsat}
+expect | class #{cls} | session 2 | {lastsat} | 90 min | Weekend
+
+# --- Signed out ---------------------------------------------------------------------
+run sign-out
+expect Signed out.
+run aral-setting {school}
+refuse Not signed in
+run aral-setting-set class_max_learners {school} {=10}
+refuse Not signed in

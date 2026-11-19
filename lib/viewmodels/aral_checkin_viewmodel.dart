@@ -32,6 +32,7 @@ import '../core/repositories/section_repository.dart';
 import '../core/repositories/student_repository.dart';
 import '../core/services/aral_checkin_rules.dart';
 import '../core/services/aral_rules.dart' show AralProgramSettings, AralSessionSettings;
+import '../core/services/aral_rule_settings.dart';
 import '../core/services/csv.dart';
 import '../core/services/normalizers.dart';
 import '../core/services/sync_upload_rules.dart' show pendingLockMessage;
@@ -336,22 +337,27 @@ class AralCheckinViewModel {
 
   // ---- Writing ----
 
-  /// Records an attempt at the check-in after session [checkpoint] (16 or 32)
+  /// Records an attempt at check-in [checkpoint] (16 = first, 32 = second; due
+  /// after the school's checkin_after_sessions)
   /// of the learner's current program, taken [on] (default today).
   Future<AralCheckin> startCheckin(int enrollmentId, int checkpoint, {DateTime? on, String? notes}) async {
     _requireSignIn();
     _log('startCheckin($enrollmentId, $checkpoint)');
-    if (!aralCheckinCheckpoints.contains(checkpoint)) {
-      throw ViewModelException('A check-in comes after session 16 or 32, not $checkpoint.');
-    }
     final e = await _require(enrollmentId);
+    if (!aralCheckinCheckpoints.contains(checkpoint)) {
+      // The checkpoint is the check-in's id (16 = first, 32 = second); the
+      // sessions it comes after are the school's checkin_after_sessions.
+      final after = (await localRuleSettings(e.schoolId)).checkinAfterSessions;
+      throw ViewModelException('A check-in is 16 (the first, after session ${after[0]}) '
+          'or 32 (the second, after session ${after[1]}), not $checkpoint.');
+    }
     if (e.track == null) {
       throw ViewModelException('${e.programLabel} has no check-in tools (only KS2-3 Basic and Plus do).');
     }
     if (!e.isActive) throw const ViewModelException('The learner is not active in ARAL.');
     final tool = await _checkins.toolFor(e.keyStage, e.track!, checkpoint);
     if (tool == null) {
-      throw ViewModelException('The ${e.programLabel} check-in form for session $checkpoint is not on this device. Download the latest data, then try again.');
+      throw ViewModelException('The ${e.programLabel} ${checkpoint == AralRuleSettings.checkpointIds.first ? 'first' : 'second'} check-in form is not on this device. Download the latest data, then try again.');
     }
     final date = _checkDate(on, e);
     return _write(() => _checkins.insertCheckin(AralCheckin(
@@ -595,6 +601,80 @@ class AralCheckinViewModel {
     }
     await _cloudWrite(() => cloud.deleteForSchool(schoolId));
     await _mirror(() => _localSettings.removeMirroredForSchool(schoolId));
+  }
+
+  // ---- ARAL memo settings (spec 2026-11-18) ----
+
+  /// The ARAL rules on this device for [schoolId]: defaults <- region <- the
+  /// school's override (the local mirror; pull-cloud refreshes it).
+  Future<AralRuleSettings> localRuleSettings(int schoolId) async {
+    _requireSignIn();
+    final region = await _localSettings.getRegion();
+    final school = await _localSettings.getForSchool(schoolId);
+    return AralRuleSettings.fromMap({...?region?.settings, ...?school?.settings});
+  }
+
+  /// One ARAL rule in the cloud: the stored region/school values (null = not
+  /// set), the one that applies and the built-in default.
+  Future<({Object? region, Object? school, Object? effective, Object? defaults})> ruleSettingLayers(
+      String key, int? schoolId) async {
+    _requireSignIn();
+    _log('ruleSettingLayers($key, $schoolId)');
+    if (!AralRuleSettings.keys.contains(key)) throw ViewModelException(aralRuleSettingProblem(key, null)!);
+    final cloud = _cloud();
+    final region = await cloud.getRegion();
+    final school = schoolId == null ? null : await cloud.getForSchool(schoolId);
+    return (
+      region: region?.settings[key],
+      school: school?.settings[key],
+      effective: AralRuleSettings.fromMap({...?region?.settings, ...?school?.settings}).valueOf(key),
+      defaults: AralRuleSettings.defaults.valueOf(key),
+    );
+  }
+
+  /// Sets one ARAL rule ([AralRuleSettings.keys]) for the region ([schoolId]
+  /// null, superadmin) or a school (its admin/coordinator); [value] null
+  /// removes it from that row so the region value or the default applies.
+  /// The class minimum may not exceed the maximum that would apply. Online;
+  /// mirrored to this device.
+  Future<AralSetting> setRuleSetting(int? schoolId, String key, Object? value) async {
+    _requireSignIn();
+    _log('setRuleSetting($schoolId, $key, $value)');
+    if (!AralRuleSettings.keys.contains(key)) throw ViewModelException(aralRuleSettingProblem(key, null)!);
+    final cloud = _settingsWriter(schoolId);
+    if (value != null) {
+      final problem = aralRuleSettingProblem(key, value);
+      if (problem != null) throw ViewModelException(problem);
+    }
+    final region = await cloud.getRegion();
+    final current = schoolId == null ? region : await cloud.getForSchool(schoolId);
+    final next = {...?current?.settings}..remove(key);
+    if (value != null) next[key] = value;
+    _checkMinMax({...?(schoolId == null ? null : region?.settings), ...next});
+    final saved = await _cloudWrite(() => cloud.save(schoolId, next));
+    await _mirror(() => _localSettings.upsertWithId(saved));
+    return saved;
+  }
+
+  /// [text] typed for [key] as the value [setRuleSetting] takes (`10`, `on`,
+  /// `mosy`, `16,32`); text that doesn't parse comes back as it is and is
+  /// refused there with the key's range.
+  Object? ruleSettingValue(String key, String text) => aralRuleSettingFromText(key, text);
+
+  /// Refuses a class minimum above the class maximum in [merged] (the values
+  /// that would apply after the change).
+  static void _checkMinMax(Map<String, Object?> merged) {
+    num? read(String key, int fallback) {
+      final v = merged[key];
+      return aralRuleSettingProblem(key, v) == null ? v as num : fallback;
+    }
+
+    final max = read(AralRuleSettings.classMaxLearnersKey, AralRuleSettings.defaults.classMaxLearners)!;
+    final min = read(AralRuleSettings.classMinLearnersKey, AralRuleSettings.defaults.classMinLearners)!;
+    if (min > max) {
+      throw ViewModelException('The class minimum ($min) would be above the class maximum ($max). '
+          'Lower the minimum first, or raise the maximum.');
+    }
   }
 
   // ---- helpers ----

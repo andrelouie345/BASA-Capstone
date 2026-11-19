@@ -65,7 +65,7 @@ void main() {
     await LocalDatabase.close();
     db = await LocalDatabase.instance(dir);
 
-    expect((await db.rawQuery('PRAGMA user_version')).single.values.single, 45);
+    expect((await db.rawQuery('PRAGMA user_version')).single.values.single as int, greaterThanOrEqualTo(45));
     expect(await columns('enrollment_moves'),
         containsAll(['from_school_id', 'from_school_name', 'from_section_name', 'from_status', 'from_left_on']));
     final kept = await db.query('enrollment_moves');

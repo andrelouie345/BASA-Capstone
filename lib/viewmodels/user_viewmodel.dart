@@ -136,6 +136,30 @@ class UserViewModel {
     await _refreshIfLoaded();
   }
 
+  /// Sets a tutor's type for the ARAL daily limits (internal = a teacher of
+  /// the school, external = not; null = no type, no limit). Online, an admin
+  /// or coordinator of the user's school (superadmin any); never one's own
+  /// account (RLS refuses it too). Copied onto this device.
+  Future<User> setTutorType(String id, TutorType? type) async {
+    _log('setTutorType(id: $id, type: ${type?.value ?? '-'})');
+    final repo = _repo();
+    _requireAdminOrCoordinator();
+    if (id == _auth.currentUser?.id) throw const ViewModelException('You cannot change your own tutor type.');
+    final user = await repo.getById(id);
+    if (user == null || (!_isSuperadmin && user.schoolId != _auth.currentUser?.schoolId)) {
+      throw const ViewModelException("Not allowed: you can only set the tutor type of your own school's users.");
+    }
+    final User saved;
+    try {
+      saved = await repo.setTutorType(id, type);
+    } on PostgrestException catch (e) {
+      throw ViewModelException(e.message);
+    }
+    await _mirror(() => _local!.upsertMirror(saved));
+    await _refreshIfLoaded();
+    return saved;
+  }
+
   Future<void> _mirror(Future<void> Function() write) async {
     lastMirrorWarning = null;
     if (_local == null) return;

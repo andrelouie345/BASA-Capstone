@@ -10,11 +10,12 @@
 <ul>
   <li>DepEd Order 018 s. 2025 and the orientation decks;</li>
   <li><b>DepEd Memorandum 064 s. 2025</b> (Enclosures 1 and 2), which sets entry, Key Stage 1 rules and the 15-learner cap;</li>
+  <li><b>Division Memorandum 180 s. 2026</b> (Valencia City), which sets its own class size, session rules and ARAL Forms 1–6;</li>
   <li>the official IRIP and check-in forms;</li>
   <li>the reading coordinator's rules for programs and ranking.</li>
 </ul>
 <p>ARAL builds on CRLA and Phil-IRI: read those two documents first.</p>
-<p class="meta">Built from the code on 17 November 2026. Rules: <code>lib/core/services/aral_rules.dart</code>, <code>aral_checkin_rules.dart</code>, <code>aral_irip_rules.dart</code>. ViewModels: <code>aral_viewmodel.dart</code> (roster), <code>aral_class_viewmodel.dart</code>, <code>aral_session_viewmodel.dart</code>, <code>aral_irip_viewmodel.dart</code>, <code>aral_checkin_viewmodel.dart</code>, <code>aral_material_viewmodel.dart</code>, <code>aral_readability_viewmodel.dart</code>, <code>aral_report_viewmodel.dart</code>. Design: <code>docs/superpowers/specs/2026-10-23-aral-classes-design.md</code>.</p>
+<p class="meta">Built from the code on 19 November 2026. Rules: <code>lib/core/services/aral_rules.dart</code>, <code>aral_checkin_rules.dart</code>, <code>aral_irip_rules.dart</code>. ViewModels: <code>aral_viewmodel.dart</code> (roster), <code>aral_class_viewmodel.dart</code>, <code>aral_session_viewmodel.dart</code>, <code>aral_irip_viewmodel.dart</code>, <code>aral_checkin_viewmodel.dart</code>, <code>aral_material_viewmodel.dart</code>, <code>aral_readability_viewmodel.dart</code>, <code>aral_report_viewmodel.dart</code>, <code>aral_forms_viewmodel.dart</code>; settings <code>lib/core/services/aral_rule_settings.dart</code>. Design: <code>docs/superpowers/specs/2026-10-23-aral-classes-design.md</code>, <code>docs/superpowers/specs/2026-11-18-aral-division-memo-design.md</code> (Division Memorandum 180 s. 2026).</p>
 <ol class="toc">
   <li>What ARAL-Reading is</li><li>ARAL without BASA</li><li>Who gets in, and in which program</li><li>Classes, sessions and attendance</li><li>IRIP and check-ins</li><li>Updates, exits and moves</li><li>Materials, reports and reminders</li><li>What BASA improves</li><li>Defending the design: likely questions</li><li>Limits and known gaps</li>
 </ol>
@@ -99,17 +100,20 @@
     <ul>
       <li>same school and school year;</li>
       <li>in a one-program class, the same program;</li>
-      <li>fewer than <b>15 active learners</b> already in the class. This is a hard stop on the device and on the server.</li>
+      <li>fewer active learners than the school's <b>class maximum</b> (15 unless the school set another, 1–50). This is a hard stop on the device and on the server. Lowering the maximum never removes anyone: a class above it keeps working and shows in the coordinator's reminders;</li>
+      <li>when the school turned the <b>adviser rule</b> on: the class's tutor is not the adviser of the learner's section (and an adviser can't become the tutor of a class holding their own learners).</li>
     </ul>
     A learner of <b>another grade</b> than the class's home grade goes in only when the coordinator confirms it.</li>
-  <li><b>Sessions:</b> the class tutor logs each one (date, minutes, set-up, lesson, remarks). There is <b>one session per class per date</b>, numbered per class. No future dates, and no dates outside the school year.</li>
+  <li><b>Sessions:</b> the class tutor logs each one (date, minutes, set-up, lesson, remarks). There is <b>one session per class per date</b>, numbered per class. No future dates, and no dates outside the school year. A school may also set: weekdays only, a longest session (1–120 minutes), a minimum number of sessions a week (a reminder), and daily tutor limits by tutor type (an <i>internal</i> tutor's sessions a day, an <i>external</i> tutor's minutes a day).</li>
+  <li><b>School ARAL rules:</b> DepEd and the Division change ARAL's numbers from time to time, so each is a school setting with today's rule as the default: class maximum and minimum, session rules, the basis round (BoSY or MoSY), the check-in sessions, IRIP weeks, the adviser rule and the daily tutor limits. The same setting is read by the app, the device database and the server.</li>
+  <li><b>Advisers and tutor type:</b> each section can record its adviser (a name, a BASA account, or both); each tutor can be <i>internal</i> or <i>external</i>; each class can record its session type (pull-out or before/after class). A new class gets a suggested code such as <b>ARAL-R-G7-02</b>.</li>
   <li><b>Attendance:</b> present, absent or excused, only for that class's learners. Excused sessions don't count against the attendance rate.</li>
 </ul>
 
 <h2>5. IRIP and check-ins</h2>
 <h3>IRIP (KS2 and KS3 programs)</h3>
 <ul>
-  <li>An IRIP cycle is <b>8 weeks</b>. Each week the learner has one <b>target</b> (a reading skill) per <b>strand</b>. The targets come from the official per-program lists; Basic programs have a Filipino and an English strand, worked in parallel.</li>
+  <li>An IRIP cycle is <b>8 weeks</b> (or the school's <i>IRIP weeks</i> setting, 1–26). Each week the learner has one <b>target</b> (a reading skill) per <b>strand</b>. The targets come from the official per-program lists; Basic programs have a Filipino and an English strand, worked in parallel.</li>
   <li>Week 1 starts at the first target. After the tutor rates a week, BASA <b>suggests</b> the next target:
     <ul>
       <li><i>Observed</i>: the next target;</li>
@@ -146,6 +150,7 @@
   <li><b>Materials:</b> a catalogue of ARAL learning materials (title, file name, Google Drive link). BASA <b>recommends materials by program</b>, and a school may set its own link. BASA stores no files, which keeps the server cheap to run. The KS1–KS3 ARAL materials are for Grades 7–10.</li>
   <li><b>Readability log</b> (only when SHARP is on): the texts used with each learner, with their Flesch reading ease and grade level.</li>
   <li><b>ARAL implementation report:</b> per section and grade, the ARAL learners at BOSY and MOSY by level group (2-LD, 3-LD, or CRLA profile for Grades 1–3), and the exits (grade-level ready vs. other reasons). It is saved in the <b>DepEd template</b> or as CSV.</li>
+  <li><b>ARAL Forms 1, 2 and 4</b> (Division Memorandum 180 s. 2026): the class lists (one sheet per class), the classes (one row each, with the class's MoSY result) and the progress report per grade as of a date (identified at BoSY, served, reached grade level, improved, no improvement; classes, tutors, sessions and hours). Saved as Excel in BASA's own layout copying the forms' columns; what BASA doesn't hold is left blank and listed at the bottom. Forms 3, 5 and 6 stay in the separate tutor-management system; BASA's sessions give each tutor's hours for them.</li>
   <li><b>Division ARAL report:</b> the Division's own format, built from all Phil-IRI results (not only the roster), as required.</li>
   <li><b>Check-in report:</b> per section, who took the check-ins after sessions 16 and 32 and who met the cut-off.</li>
   <li><b>Reminders</b> (dashboard):
@@ -163,7 +168,7 @@
   <tr><td>Coordinator reads results and decides by hand who qualifies</td><td>Proposal computed from CRLA and Phil-IRI, weakest first, ties shown</td><td><code>aralPickSeats</code>, <code>AralRankKey</code></td></tr>
   <tr><td>Program chosen inconsistently</td><td>One placement table for everyone; the coordinator can still override</td><td><code>aralPhilIriPlacement</code></td></tr>
   <tr><td>Lists drift from new results</td><td>Programs and grade-level exits updated from the latest results, each with a reason</td><td><code>AralViewModel.applyResults</code></td></tr>
-  <tr><td>Classes over 15 or mixed by accident</td><td>Cap and program checked on the device and the server; grade mismatch needs confirmation</td><td><code>aralPlacementProblem</code>, <code>aral_enrollments_class_cap</code></td></tr>
+  <tr><td>Classes over the maximum (15, or the school's) or mixed by accident</td><td>Cap and program checked on the device and the server; grade mismatch needs confirmation</td><td><code>aralPlacementProblem</code>, <code>aral_enrollments_class_cap</code></td></tr>
   <tr><td>Paper attendance and lesson logs</td><td>Logged per class session; one session per class per day; attendance rate computed</td><td><code>AralSessionViewModel</code></td></tr>
   <tr><td>IRIP forms filled by hand</td><td>Weekly ratings with a suggested next target; cycles continue automatically</td><td><code>aralIripSuggest</code></td></tr>
   <tr><td>Check-ins scored by hand</td><td>Choice items auto-scored; Met / Not met per part; adjustable cut-off</td><td><code>aralCheckinScore</code></td></tr>
@@ -178,8 +183,10 @@
 <span class="w">Without BASA:</span> the workbook ranks by GST, then comprehension.<br>
 <span class="b">In BASA:</span> after the individual reading, almost every ARAL learner is Frustration by comprehension, so comprehension no longer separates them. Word recognition does. The reading coordinator agreed: word recognition, then comprehension, then speed. The GST is only a reference until the individual reading exists.</div>
 
-<div class="qa"><div class="q">Why is the 15-learner cap a hard stop, checked even on the server?</div>
-<span class="b">Answer:</span> DepEd Memorandum 064 s. 2025 (Enclosure 2, item 7) sets it. With offline devices, two coordinators could each add a learner to a class of 14. Only a server check, applied at the end of each upload, can stop the class from reaching 16.</div>
+<div class="qa"><div class="q">Why is the class cap a hard stop, checked even on the server?</div>
+<span class="b">Answer:</span> DepEd Memorandum 064 s. 2025 (Enclosure 2, item 7) sets 15; a Division may set less (Memorandum 180 s. 2026: 10), so the number is a school setting. With offline devices, two coordinators could each add a learner to a class one short of the cap. Only a server check, applied at the end of each upload, can stop the class from going over.</div>
+<div class="qa"><div class="q">Why are DepEd's numbers settings and not fixed in the code?</div>
+<span class="b">Answer:</span> DepEd and the Divisions change them from time to time (the 2026 Division memo changed the class size, session length, sessions a week and the basis round). As settings, a school follows a new memo the same day, without a new release; a rule a school never sets works as it always has.</div>
 
 <div class="qa"><div class="q">Then why is the grade check only a confirmation?</div>
 <span class="b">Answer:</span> a different grade is sometimes the right choice (e.g. a small school with one KS2 class). It is a judgement call, so the coordinator confirms it, and BASA flags it in reminders. Hard limits (cap, school, program) go on the server; judgement calls stay in the ViewModel.</div>

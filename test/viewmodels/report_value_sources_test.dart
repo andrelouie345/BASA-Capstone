@@ -45,13 +45,20 @@ void main() {
   late TutorVms t;
   late AdminVms adm;
 
+  /// The school's switches: [values] over carried for every list but the
+  /// ranking (the lists default to actual since 2026-11-18; these tests
+  /// compare each list's carried output with its actual one).
   Future<void> setValues(Map<PhilIriValueList, PhilIriValues> values) async {
     await ctx.localDb.delete('report_settings');
-    if (values.isEmpty) return;
+    final all = {
+      for (final l in PhilIriValueList.values)
+        if (l != PhilIriValueList.ranking) l: PhilIriValues.carried,
+      ...values,
+    };
     await ctx.localDb.insert('report_settings', {
       'id': 1,
       'school_id': 1,
-      'settings': jsonEncode({for (final e in values.entries) e.key.key: e.value.name}),
+      'settings': jsonEncode({for (final e in all.entries) e.key.key: e.value.name}),
     });
   }
 

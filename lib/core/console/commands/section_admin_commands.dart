@@ -53,6 +53,32 @@ void registerSectionAdminCommands(ConsoleRegistry registry, SectionViewModel vm)
   ));
 
   registry.register(ConsoleCommand(
+    name: 'section-adviser',
+    description: 'section-adviser <sectionId> <"name"|-> [userId|-] — the section\'s adviser (ARAL Form 2): a typed '
+        'name (an account is optional) and/or their BASA account of the school (left out = kept, - = removed; a '
+        'linked adviser without a name gets the account\'s name); "-" as the name clears it (admin/coordinator, own '
+        'school only; superadmin any)',
+    handler: (args) async {
+      const usage = 'Usage: section-adviser <sectionId> <"name"|-> [userId|-]';
+      if (args.length < 2 || args.length > 3) return usage;
+      final id = int.tryParse(args[0]);
+      if (id == null) return 'Invalid sectionId: "${args[0]}" (expected a number)';
+      try {
+        final s = await vm.setAdviser(id,
+            name: args[1] == '-' ? null : args[1],
+            userId: args.length == 3 && args[2] != '-' ? args[2] : null,
+            clearUser: args.length == 3 && args[2] == '-');
+        final warn = vm.lastMirrorWarning;
+        return 'Adviser of ${s.id} | $s: ${s.adviserName ?? '-'}'
+            '${s.adviserUserId == null ? ' (no BASA account)' : ' (account ${s.adviserUserId})'}'
+            '${warn == null ? '' : '\n$warn'}';
+      } catch (e) {
+        return 'Update failed: $e';
+      }
+    },
+  ));
+
+  registry.register(ConsoleCommand(
     name: 'section-delete',
     description: 'section-delete <id> — delete a section (admin/coordinator, own school only; superadmin any)',
     handler: (args) async {

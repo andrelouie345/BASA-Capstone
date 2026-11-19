@@ -92,14 +92,14 @@ void main() {
   });
 
   test('carried: 0% and blank stay out of every band (unchanged)', () async {
-    await values(null);
+    await values(PhilIriValues.carried);
     final row = (await t.nlaReportVm.report(schoolId: 1, schoolYear: _year, sectionIds: {_sec})).sections.single;
     expect(row.band(mosy1, NlaBand.ld3Frustration).total, 0);
     expect(row.assessed(mosy1).total, 1); // R only
   });
 
   test('BOSY reading without comprehension + GST: banded by the GST under both values (review I1)', () async {
-    for (final v in [PhilIriValues.actual, null]) {
+    for (final v in [PhilIriValues.actual, PhilIriValues.carried]) {
       await values(v);
       final row = (await t.nlaReportVm.report(schoolId: 1, schoolYear: _year, sectionIds: {_sec96})).sections.single;
       expect(row.band(PhilIriRound.bosy, NlaBand.glr).total, 1, reason: '$v');

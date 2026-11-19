@@ -5,3 +5,4 @@ export '../services/aral_checkin_rules.dart' show AralCheckinScore, AralCheckinS
 export '../services/aral_readability.dart' show AralReadability;
 export '../services/aral_rules.dart'
     show AralPlacement, AralProgramSettings, AralRankKey, AralSessionSettings;
+export '../services/aral_rule_settings.dart' show AralBasisRound, AralRuleSettings;

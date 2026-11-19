@@ -10,7 +10,8 @@
 //  * Week 1 is pre-assigned (the list's first target). After a week is rated
 //    BASA suggests the next target (aral_irip_rules.dart); the tutor may pick
 //    any target of the list instead.
-//  * A cycle is 8 weeks. When every strand's week 8 is rated (or the learner's
+//  * A cycle is 8 weeks (the school's irip_weeks; a strand already past a
+//    lowered length keeps its saved weeks). When every strand's last week is rated (or the learner's
 //    program changed) a new cycle starts, continuing from the target the
 //    learner reached (from the list's start after a program change).
 //  * The learner's ARAL tutor and the school's admins/coordinators write the
@@ -22,8 +23,10 @@ import '../core/models/user.dart';
 import '../core/models/user_role.dart';
 import '../core/repositories/aral_enrollment_repository.dart';
 import '../core/repositories/aral_irip_repository.dart';
+import '../core/repositories/aral_setting_repository.dart';
 import '../core/services/aral_irip_rules.dart';
 import '../core/services/sync_upload_rules.dart' show pendingLockMessage;
+import 'aral_class_viewmodel.dart' show aralLocalRuleSettings;
 import 'auth_viewmodel.dart';
 import '../core/services/auth_messages.dart';
 import 'viewmodel_exception.dart';
@@ -34,17 +37,22 @@ class AralIripStrandState {
   final AralIripWeek? latest;          // null before the cycle's week 1
   final AralIripTarget? latestTarget;
   /// The suggested target of the next week; null when the latest week isn't
-  /// rated yet, the cycle's week 8 is done, or the list is done (see
+  /// rated yet, the cycle's last week is done, or the list is done (see
   /// [listDone]).
   final AralIripTarget? suggestion;
   /// The latest target (the list's last) was observed: the tutor picks a
   /// target to review.
   final bool listDone;
+  /// The weeks of this strand's cycle: the school's irip_weeks (ARAL memo
+  /// settings, default 8), or the highest week already saved when the
+  /// school lowered it later (the cycle is never stranded).
+  final int cycleLength;
 
-  const AralIripStrandState(this.strand, this.latest, this.latestTarget, this.suggestion, {this.listDone = false});
+  const AralIripStrandState(this.strand, this.latest, this.latestTarget, this.suggestion,
+      {this.listDone = false, this.cycleLength = aralIripWeeks});
 
   bool get awaitingRating => latest != null && !latest!.isRated;
-  bool get cycleDone => latest != null && latest!.weekNo >= aralIripWeeks && latest!.isRated;
+  bool get cycleDone => latest != null && latest!.weekNo >= cycleLength && latest!.isRated;
 }
 
 /// A learner's IRIP: the program, every week, and the current cycle's state.
@@ -90,19 +98,23 @@ class AralIripViewModel {
     'A rated IRIP week keeps its target',
     'An IRIP week keeps its learner, cycle, week and strand; only the target, status and notes change',
   ];
+  static final _cycleLengthRefusal = RegExp(r'an IRIP cycle at this school has (\d+) weeks', caseSensitive: false);
 
   final ScopedLogger _log;
   final AuthViewModel _auth;
   final AralIripRepository _irip;
   final AralEnrollmentRepository _roster;
+  final AralSettingRepository _localSettings;
 
   AralIripViewModel({
     required AuthViewModel auth,
     required AralIripRepository irip,
     required AralEnrollmentRepository roster,
+    required AralSettingRepository localSettings,
     Logger? logger,
   })  : _auth = auth,
         _irip = irip,
+        _localSettings = localSettings,
         _roster = roster,
         _log = ScopedLogger(logger, 'AralIripViewModel');
 
@@ -141,19 +153,22 @@ class AralIripViewModel {
     final cycle = weeks.isEmpty ? 0 : weeks.map((w) => w.cycleNo).reduce((a, b) => a > b ? a : b);
     final cycleWeeks = weeks.where((w) => w.cycleNo == cycle).toList();
     final cycleProgram = cycleWeeks.isEmpty ? null : byId[cycleWeeks.first.targetId]?.program;
+    final schoolWeeks = (await aralLocalRuleSettings(_localSettings, e.schoolId)).iripWeeks;
 
     final strands = <AralIripStrandState>[];
     for (final strand in (cycleProgram ?? program)?.strands ?? const <AralIripStrand>[]) {
       final mine = cycleWeeks.where((w) => w.strand == strand).toList()..sort((a, b) => a.weekNo.compareTo(b.weekNo));
       final latest = mine.lastOrNull;
       final latestTarget = latest == null ? null : byId[latest.targetId];
+      final length = latest != null && latest.weekNo > schoolWeeks ? latest.weekNo : schoolWeeks;
       AralIripTarget? suggestion;
       var listDone = false;
-      if (latest != null && latest.isRated && latest.weekNo < aralIripWeeks && latestTarget != null) {
+      if (latest != null && latest.isRated && latest.weekNo < length && latestTarget != null) {
         suggestion = aralIripSuggest(list.where((t) => t.strand == strand).toList(), latestTarget, latest.status!);
         listDone = suggestion == null;
       }
-      strands.add(AralIripStrandState(strand, latest, latestTarget, suggestion, listDone: listDone));
+      strands.add(
+          AralIripStrandState(strand, latest, latestTarget, suggestion, listDone: listDone, cycleLength: length));
     }
     return AralIripPlan(
       enrollment: e,
@@ -182,7 +197,8 @@ class AralIripViewModel {
     }
     if (!e.isActive) throw const ViewModelException('The learner is not active in ARAL.');
     if (!p.canStartCycle) {
-      throw ViewModelException('Cycle ${p.currentCycle} is still running; rate week $aralIripWeeks of every strand '
+      final last = p.strands.map((s) => s.cycleLength).fold(0, (a, b) => a > b ? a : b);
+      throw ViewModelException('Cycle ${p.currentCycle} is still running; rate week $last of every strand '
           'before starting the next cycle.');
     }
     final continuing = p.started && !p.programChanged;
@@ -192,7 +208,7 @@ class AralIripViewModel {
       AralIripTarget? target;
       if (continuing) {
         final s = p.strands.firstWhere((s) => s.strand == strand);
-        // after week 8: the suggestion from its rating; a finished list restarts
+        // after the cycle's last week: the suggestion from its rating; a finished list restarts
         target = s.latestTarget == null ? null : aralIripSuggest(list, s.latestTarget!, s.latest!.status!);
       }
       target ??= aralIripFirst(list);
@@ -277,7 +293,7 @@ class AralIripViewModel {
         continue;
       }
       if (s.cycleDone) {
-        problems.add('${name}week $aralIripWeeks is done; start a new cycle');
+        problems.add('${name}week ${s.cycleLength} is done (the cycle has ${s.cycleLength} weeks); start a new cycle');
         continue;
       }
       final pick = targetId ?? s.suggestion?.id;
@@ -369,6 +385,8 @@ class AralIripViewModel {
       // statement's text happens to contain.
       if ('$e'.contains(pendingLockMessage)) throw const ViewModelException(pendingLockMessage);
       final text = e.toString().toLowerCase();
+      final length = _cycleLengthRefusal.firstMatch(text);
+      if (length != null) throw ViewModelException('An IRIP cycle at this school has ${length.group(1)} weeks.');
       for (final refusal in _dbRefusals) {
         if (text.contains(refusal.toLowerCase())) throw ViewModelException('$refusal.');
       }

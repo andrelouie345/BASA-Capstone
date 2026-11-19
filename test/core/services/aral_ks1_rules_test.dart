@@ -2,6 +2,7 @@
 // who qualifies, which CRLA counts, the school's "extended" switch.
 import 'package:basa_capstone/core/models/crla_assessment.dart' show CrlaRound;
 import 'package:basa_capstone/core/models/crla_result.dart';
+import 'package:basa_capstone/core/services/aral_rule_settings.dart' show AralBasisRound;
 import 'package:basa_capstone/core/services/aral_rules.dart';
 import 'package:basa_capstone/core/services/crla_rules.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -64,5 +65,13 @@ void main() {
     expect(AralProgramSettings.fromMap({'ks1_extended': true}).ks1Extended, isTrue);
     expect(AralProgramSettings.fromMap({'ks1_extended': 'yes'}).ks1Extended, isFalse);
     expect(AralProgramSettings.fromMap({'foundational_program': true}).foundationalProgram, isTrue);
+  });
+
+  test("the CRLA basis round: Grade 1 MoSY always; Grades 2-3 follow the school's basis_round (ARAL memo)", () {
+    expect(aralCrlaBasisRound(1, AralBasisRound.bosy), CrlaRound.mosy);
+    expect(aralCrlaBasisRound(1, AralBasisRound.mosy), CrlaRound.mosy);
+    expect(aralCrlaBasisRound(2, AralBasisRound.bosy), CrlaRound.bosy);
+    expect(aralCrlaBasisRound(2, AralBasisRound.mosy), CrlaRound.mosy);
+    expect(aralCrlaBasisRound(3, AralBasisRound.mosy), CrlaRound.mosy);
   });
 }

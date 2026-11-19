@@ -91,7 +91,20 @@ class LocalDatabase {
         // from_school_id / from_school_name / from_section_name /
         // from_status / from_left_on columns (upgradeEnrollmentMovesForV45,
         // right after v44, on create and every upgrade).
-        version: 45,
+        // v46: ARAL memo settings (cloud 20261118010000): the ARAL triggers
+        // read the school's settings from the aral_settings mirror (class
+        // maximum, weekdays only, longest session, IRIP cycle length;
+        // createAralLocalSchema) and aral_irip_weeks takes weeks 1-26
+        // (upgradeAralMemoForV46, before createAralLocalSchema on upgrade).
+        // v47: ARAL memo, people (cloud 20261118030000): sections.adviser_name
+        // / adviser_user_id, users.tutor_type, aral_classes.session_type
+        // (upgradeAralMemoForV47, every upgrade, before createAralLocalSchema,
+        // whose triggers read them: the adviser rule and the daily tutor limits).
+        // v48: no table change; the bump recreates the ARAL session triggers
+        // (createAralLocalSchema) so an edit on the same day checks only a
+        // longer session against the daily limits (review M1; cloud
+        // 20261119010000).
+        version: 48,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
@@ -228,6 +241,11 @@ class LocalDatabase {
           // v21. Must run before createAralLocalSchema, which recreates the
           // triggers and indexes this drops.
           if (oldVersion < 21) await rebuildAralEnrollmentsForV21(db);
+          // v46. Before createAralLocalSchema and createSyncLocalSchema, which
+          // recreate the triggers it drops. Skipped when weeks 1-26 already.
+          await upgradeAralMemoForV46(db);
+          // v47. Column adds, skipped when present; before the triggers that read them.
+          await upgradeAralMemoForV47(db);
           // v19. Same pattern: runs on every upgrade.
           await createAralLocalSchema(db);
           // v30. IF NOT EXISTS: runs on every upgrade.
@@ -403,6 +421,8 @@ class LocalDatabase {
       school_year TEXT NOT NULL,
       grade_level TEXT NOT NULL,
       section_name TEXT NOT NULL,
+      adviser_name TEXT,
+      adviser_user_id TEXT REFERENCES users(id),
       UNIQUE(school_id, school_year, grade_level, section_name)
       )
     ''');
@@ -478,7 +498,8 @@ class LocalDatabase {
         school_id INTEGER REFERENCES schools(id),
         is_active INTEGER NOT NULL DEFAULT 1,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        created_by TEXT REFERENCES users(id)
+        created_by TEXT REFERENCES users(id),
+        tutor_type TEXT CHECK (tutor_type IN ('internal', 'external'))
       )
     ''');
 

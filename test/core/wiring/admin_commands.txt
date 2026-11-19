@@ -30,6 +30,9 @@ aral-export-checkins
 aral-export-report
 aral-export-report-csv
 aral-export-roster
+aral-form1
+aral-form2
+aral-form4
 aral-idle-days
 aral-idle-days-set
 aral-import-roster
@@ -72,6 +75,8 @@ aral-roster
 aral-session-delete
 aral-session-edit
 aral-sessions
+aral-setting
+aral-setting-set
 aral-sharp
 aral-sharp-set
 aral-sheet
@@ -214,6 +219,7 @@ school-delete
 school-list
 school-list-local
 school-update
+section-adviser
 section-create
 section-delete
 section-list
@@ -265,6 +271,7 @@ unassign-section
 user-create
 user-list
 user-set-active
+user-tutor-type
 value-source-set
 value-sources
 version-app

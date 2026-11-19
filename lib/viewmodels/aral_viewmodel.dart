@@ -29,6 +29,7 @@
 import '../core/console/logger.dart';
 import '../core/models/aral_class.dart';
 import '../core/models/aral_enrollment.dart';
+import '../core/models/crla_assessment.dart' show CrlaRound;
 import '../core/models/crla_result.dart';
 import '../core/models/phil_iri_assessment.dart' show PhilIriRound;
 import '../core/models/report_setting.dart' show PhilIriValueList, PhilIriValues;
@@ -43,13 +44,15 @@ import '../core/repositories/crla_result_repository.dart';
 import '../core/repositories/section_repository.dart';
 import '../core/repositories/student_repository.dart';
 import '../core/repositories/user_repository.dart';
+import '../core/services/aral_rule_settings.dart';
 import '../core/services/aral_rules.dart';
 import '../core/services/csv.dart';
 import '../core/services/crla_rules.dart' show crlaAtGradeLevel;
 import '../core/services/phil_iri_results.dart' show PhilIriRoundResult, PhilIriRoundView, philIriNotAssessedResult, philIriRoundView;
 import '../core/services/normalizers.dart';
 import '../core/services/sync_upload_rules.dart' show pendingLockMessage;
-import 'aral_class_viewmodel.dart' show aralPlacementRefusal, aralPlacementDbRefusals;
+import 'aral_class_viewmodel.dart'
+    show aralClassFullDbRefusal, aralLocalRuleSettings, aralPlacementRefusal, aralPlacementDbRefusals;
 import 'auth_viewmodel.dart';
 import 'phil_iri_viewmodel.dart';
 import '../core/services/auth_messages.dart';
@@ -230,7 +233,11 @@ class AralViewModel {
   // ---- Proposal ----
 
   /// Every actively enrolled learner of the section with BASA's proposal:
-  /// learners below grade level are proposed, ranked weakest first.
+  /// learners below grade level are proposed, ranked weakest first. The
+  /// school's basis_round (ARAL memo settings) picks the round: bosy (default)
+  /// = BoSY (CRLA Grade 1 MoSY); mosy = the latest assessed round up to MoSY
+  /// (CRLA MoSY; Phil-IRI the latest of MOSY #3, #2, #1 that counts), else
+  /// BoSY. The candidate's basisRound records the round used.
   Future<List<AralCandidate>> propose({required int sectionId, required String schoolYear}) async {
     _requireSignIn();
     _log('propose(sectionId: $sectionId, year: $schoolYear)');
@@ -241,6 +248,7 @@ class AralViewModel {
     final enrolled = {for (final e in sectionRoster) e.studentId: e};
     final crla = grade <= 3 ? await _crlaResults.getBySection(section.id!, schoolYear: schoolYear) : const <CrlaResult>[];
     final program = await programSettings(section.schoolId);
+    final basis = (await ruleSettings(section.schoolId)).basisRound;
     final values = grade <= 3 ? PhilIriValues.carried : await _philIri.valueSource(section.schoolId, PhilIriValueList.aral);
     lastProposalValues = grade <= 3 ? null : values;
 
@@ -258,8 +266,8 @@ class AralViewModel {
         continue;
       }
       out.add(grade <= 3
-          ? _crlaCandidate(s, grade, crla.where((r) => r.studentId == s.id).toList(), program.ks1Extended)
-          : await _philIriCandidate(s, grade, section.id!, schoolYear, program.foundationalProgram, values));
+          ? _crlaCandidate(s, grade, crla.where((r) => r.studentId == s.id).toList(), program.ks1Extended, basis)
+          : await _philIriCandidate(s, grade, section.id!, schoolYear, program.foundationalProgram, values, basis));
     }
 
     // Every qualifying learner is proposed; the ranking says who is weakest.
@@ -274,11 +282,18 @@ class AralViewModel {
     return out;
   }
 
-  AralCandidate _crlaCandidate(Student s, int grade, List<CrlaResult> results, bool extended) {
-    final round = aralCrlaBasisRound(grade);
+  AralCandidate _crlaCandidate(Student s, int grade, List<CrlaResult> results, bool extended, AralBasisRound basisSetting) {
+    var round = aralCrlaBasisRound(grade, basisSetting);
     // The grade's CRLA language only (G1 MT else Filipino, G2 Filipino, G3
     // English), its latest attempt with a profile in the basis round.
-    final scored = results.where((r) => r.round == round && r.readingProfile != null).toList();
+    List<CrlaResult> scoredIn(CrlaRound r) => results.where((x) => x.round == r && x.readingProfile != null).toList();
+    var scored = scoredIn(round);
+    // Grades 2-3 under basis_round mosy: BoSY when there is no MoSY result.
+    // Grade 1 has no BoSY CRLA basis (DM 064).
+    if (scored.isEmpty && grade > 1 && round == CrlaRound.mosy) {
+      round = CrlaRound.bosy;
+      scored = scoredIn(round);
+    }
     final variant = aralCrlaBasisVariant(grade, scored.map((r) => r.subjectVariant).toSet());
     CrlaResult? basis;
     for (final r in scored.where((r) => r.subjectVariant == variant)) {
@@ -318,7 +333,7 @@ class AralViewModel {
   }
 
   Future<AralCandidate> _philIriCandidate(Student s, int grade, int sectionId, String schoolYear,
-      bool foundationalProgram, PhilIriValues values) async {
+      bool foundationalProgram, PhilIriValues values, AralBasisRound basis) async {
     // As reports count it: finished sessions only; the GST carries into BOSY.
     final results = await _philIri.reportResults(studentId: s.id!, sectionId: sectionId, schoolYear: schoolYear);
     if (results.notAssessed) {
@@ -341,9 +356,16 @@ class AralViewModel {
         basisLevel: aralNotAssessedLevel,
       );
     }
-    // The school's values (values_aral): carried = BOSY as computed; actual =
-    // the BOSY reading alone, or the stand-in without one (spec 2026-11-14 D5).
-    final bosy = results.view(PhilIriRound.bosy, values);
+    // The basis round: BOSY, or under basis_round mosy the latest of MOSY #3,
+    // #2, #1 that counts for the learner (ARAL memo settings), else BOSY.
+    final round = basis == AralBasisRound.mosy
+        ? [PhilIriRound.mosy3, PhilIriRound.mosy2, PhilIriRound.mosy1].where(results.counted.contains).firstOrNull ??
+            PhilIriRound.bosy
+        : PhilIriRound.bosy;
+    // The school's values (values_aral): carried = the round as computed;
+    // actual = its reading alone, or the stand-in without one (spec
+    // 2026-11-14 D5).
+    final bosy = results.view(round, values);
     if (bosy.notAssessedThisRound) {
       final placement = aralPhilIriPlacement(
           adjustedLevel: bosy.adjustedLevel!, grade: grade, foundationalProgram: foundationalProgram);
@@ -356,11 +378,11 @@ class AralViewModel {
         suggestion: placement,
         rankKey: const AralRankKey(0, 0, 0),
         basisSource: AralBasisSource.philIri,
-        basisRound: PhilIriRound.bosy.name,
+        basisRound: round.name,
         basisLevel: aralNotAssessedLevel,
       );
     }
-    if (!results.counted.contains(PhilIriRound.bosy) || bosy.profile == null || bosy.adjustedLevel == null) {
+    if (!results.counted.contains(round) || bosy.profile == null || bosy.adjustedLevel == null) {
       return AralCandidate(
         student: s,
         grade: grade,
@@ -368,7 +390,7 @@ class AralViewModel {
         reason: 'No finished Phil-IRI BOSY yet (only later rounds)',
       );
     }
-    final gstOnly = results.sessions[PhilIriRound.bosy] == null;
+    final gstOnly = round == PhilIriRound.bosy && results.sessions[PhilIriRound.bosy] == null;
     final adjusted = bosy.adjustedLevel!;
     final placement =
         aralPhilIriPlacement(adjustedLevel: adjusted, grade: grade, foundationalProgram: foundationalProgram);
@@ -379,14 +401,14 @@ class AralViewModel {
       student: s,
       grade: grade,
       status: placement != null ? AralCandidateStatus.proposed : AralCandidateStatus.notQualified,
-      reason: 'Phil-IRI BOSY${gstOnly ? ' (GST only)' : ''}: ${bosy.profile!.label}, $level'
+      reason: 'Phil-IRI ${round.label}${gstOnly ? ' (GST only)' : ''}: ${bosy.profile!.label}, $level'
           '${placement == null ? ' - ${aralNotAralLabel(adjusted, grade)}' : ''} ($scores)',
       suggestion: placement,
       rankKey: placement != null ? key : null,
       basisSource: AralBasisSource.philIri,
-      basisRound: PhilIriRound.bosy.name,
+      basisRound: round.name,
       basisLevel: bosy.profile!.name,
-      basisAssessmentId: results.sessions[PhilIriRound.bosy]?.id,
+      basisAssessmentId: results.sessions[round]?.id,
     );
   }
 
@@ -397,6 +419,14 @@ class AralViewModel {
     final region = await _localSettings.getRegion();
     final school = await _localSettings.getForSchool(schoolId);
     return AralProgramSettings.fromMap({...?region?.settings, ...?school?.settings});
+  }
+
+  /// The school's ARAL rule settings on this device (ARAL memo settings:
+  /// class size, session rules, basis round, check-in sessions, IRIP length):
+  /// defaults <- region <- school.
+  Future<AralRuleSettings> ruleSettings(int schoolId) async {
+    _requireSignIn();
+    return aralLocalRuleSettings(_localSettings, schoolId);
   }
 
   Future<void> _checkFoundational(AralKeyStage keyStage, int schoolId) async {
@@ -505,7 +535,10 @@ class AralViewModel {
       {required int grade, required String learner}) async {
     // Another grade is never placed here: only the coordinator's
     // aral-class-place ... other-grade does that (G3).
-    final refusal = cls == null ? null : await aralPlacementRefusal(_roster, cls, draft, grade: grade, learner: learner);
+    final refusal = cls == null
+        ? null
+        : await aralPlacementRefusal(_roster, _sections, cls, draft,
+            grade: grade, learner: learner, rules: await ruleSettings(cls.schoolId));
     final stored = await _write(() => _roster.insert(
         cls == null || refusal != null ? draft : draft.copyWith(classId: () => cls.id)));
     _log('enrolled ${stored.id} (${stored.programLabel}${stored.classId == null ? '' : ', class ${stored.classId}'})');
@@ -687,8 +720,11 @@ class AralViewModel {
     if (cls != null) {
       final section = await _sections.getById(e.sectionId);
       final grade = int.tryParse(section?.gradeLevel ?? '') ?? 0;
-      final refusal = await aralPlacementRefusal(_roster, cls, back,
-          grade: grade, learner: await _learnerName(e.studentId, e.sectionId), otherGradeOk: true);
+      final refusal = await aralPlacementRefusal(_roster, _sections, cls, back,
+          grade: grade,
+          learner: await _learnerName(e.studentId, e.sectionId),
+          rules: await ruleSettings(cls.schoolId),
+          otherGradeOk: true);
       if (refusal != null) {
         back = back.copyWith(classId: () => null);
         _warn(refusal.$1 == AralPlacementProblem.full
@@ -1118,6 +1154,8 @@ class AralViewModel {
           text.contains('aral_enrollments_one_per_year')) {
         throw const ViewModelException('This learner is already on the ARAL roster for that school year.');
       }
+      final full = aralClassFullDbRefusal(text);
+      if (full != null) throw ViewModelException(full);
       for (final refusal in _dbRefusals) {
         if (text.toLowerCase().contains(refusal.toLowerCase())) {
           throw ViewModelException(refusal.endsWith('.') ? refusal : '$refusal.');

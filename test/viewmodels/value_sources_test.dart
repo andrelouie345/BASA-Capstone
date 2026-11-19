@@ -1,6 +1,6 @@
 // The six Phil-IRI value switches (spec 2026-11-14 value sources D1-D3):
 // report_settings keys values_<list> = "carried" | "actual", read school ->
-// region -> default (ranking actual, the rest carried). Anything else stored
+// region -> default (all actual). Anything else stored
 // reads as the list's default.
 import 'package:basa_capstone/core/models/report_setting.dart';
 import 'package:basa_capstone/core/models/user_role.dart';
@@ -59,18 +59,18 @@ void main() {
 
   test('the six keys, their console names and defaults', () {
     expect({for (final l in PhilIriValueList.values) l.key: (l.cliName, l.defaultValue)}, {
-      'values_aral': ('aral', PhilIriValues.carried),
-      'values_bosy_masterlist': ('bosy-masterlist', PhilIriValues.carried),
-      'values_form2b': ('form2b', PhilIriValues.carried),
-      'values_srp': ('srp', PhilIriValues.carried),
-      'values_learner_pages': ('learner-pages', PhilIriValues.carried),
+      'values_aral': ('aral', PhilIriValues.actual),
+      'values_bosy_masterlist': ('bosy-masterlist', PhilIriValues.actual),
+      'values_form2b': ('form2b', PhilIriValues.actual),
+      'values_srp': ('srp', PhilIriValues.actual),
+      'values_learner_pages': ('learner-pages', PhilIriValues.actual),
       'values_ranking': ('ranking', PhilIriValues.actual),
     });
     expect(philIriValuesLabel(PhilIriValues.carried), 'Values: carried (best so far)');
     expect(philIriValuesLabel(PhilIriValues.actual), "Values: actual (each round's own reading)");
   });
 
-  test('defaults: no rows -> ranking actual, the rest carried', () async {
+  test('defaults: no rows -> every list actual', () async {
     for (final s in [ReportSettings.fromMap({}), const ReportSettings()]) {
       for (final l in PhilIriValueList.values) {
         expect(s.valueSource(l), l.defaultValue, reason: l.key);
@@ -101,15 +101,15 @@ void main() {
   });
 
   test('an unknown stored value reads as the default', () async {
-    for (final bad in <Object?>['Actual', true, 1, null, 'actual ']) {
-      expect(ReportSettings.fromMap({'values_aral': bad}).valueSource(PhilIriValueList.aral), PhilIriValues.carried,
-          reason: '$bad');
-      expect(ReportSettings.fromMap({'values_ranking': bad == 'Actual' ? 'Carried' : bad})
-          .valueSource(PhilIriValueList.ranking), PhilIriValues.actual, reason: '$bad');
+    for (final bad in <Object?>['Carried', true, 1, null, 'carried ']) {
+      for (final list in PhilIriValueList.values) {
+        expect(ReportSettings.fromMap({list.key: bad}).valueSource(list), PhilIriValues.actual,
+            reason: '${list.key} $bad');
+      }
     }
-    local.schools[1] = ReportSetting(id: 2, schoolId: 1, settings: {'values_aral': 'Actual'});
+    local.schools[1] = ReportSetting(id: 2, schoolId: 1, settings: {'values_aral': 'Carried'});
     final l = (await vmFor(FakeOnlineAuth(UserRole.coordinator)).valueSourceLayers(1))[PhilIriValueList.aral]!;
-    expect((l.school, l.effective), (null, PhilIriValues.carried));
+    expect((l.school, l.effective), (null, PhilIriValues.actual));
   });
 
   test('setValueSource saves the string, keeps the other keys and mirrors it', () async {
