@@ -81,7 +81,8 @@ void main() {
     _vms = appViewModels(ctx, shared, tutor);
     final db = ctx.localDb;
     await db.insert('schools', {'id': 1, 'school_id': 'ZZUI', 'school_name': 'ZZ UI School'});
-    await db.insert('sections', {'id': 1, 'school_id': 1, 'school_year': _year, 'grade_level': '2', 'section_name': 'Rose'});
+    await db.insert('sections', {'id': 1, 'school_id': 1, 'school_year': _year, 'grade_level': '2', 'section_name': 'Rose',
+        'adviser_name': 'Ms. Dela Cruz'});
     await db.insert('sections', {'id': 2, 'school_id': 1, 'school_year': _year, 'grade_level': '5', 'section_name': 'Lily'});
     for (final (id, section, last) in [(1, 1, 'Santos'), (2, 1, 'Reyes'), (3, 2, 'Cruz'), (4, 2, 'Bautista')]) {
       await db.insert('students', {'id': id, 'lrn': '12345678900$id', 'last_name': last, 'first_name': 'Ana', 'sex': 'F', 'school_id': 1});
@@ -121,6 +122,7 @@ void main() {
     await _show(tester, const SectionsScreen());
     expect(find.text('Rose'), findsOneWidget);
     expect(find.text('Lily'), findsOneWidget);
+    expect(find.textContaining('Adviser: Ms. Dela Cruz'), findsOneWidget); // only Rose has one
 
     await _show(tester, const LearnersScreen());
     await _pick(tester, 'Section', 'Grade 2 · Rose ($_year)');

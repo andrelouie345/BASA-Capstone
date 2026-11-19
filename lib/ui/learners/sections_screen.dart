@@ -15,6 +15,10 @@ abstract class SectionsEditor {
   Future<bool> add(BuildContext context);
   Future<bool> edit(BuildContext context, Section section);
   Future<bool> delete(BuildContext context, Section section);
+
+  /// The section's adviser (ARAL Form 1; the adviser rule): a name and/or
+  /// their BASA account.
+  Future<bool> adviser(BuildContext context, Section section);
 }
 
 class SectionsScreen extends StatefulWidget {
@@ -89,13 +93,19 @@ class _SectionsScreenState extends State<SectionsScreen> {
                       ListRow(
                         leading: LetterBadge(s.gradeLevel),
                         title: s.sectionName,
-                        subtitle: 'Grade ${s.gradeLevel} · ${schoolNameOf(schools, s.schoolId)}',
+                        subtitle: 'Grade ${s.gradeLevel} · ${schoolNameOf(schools, s.schoolId)}'
+                            '${s.adviserName == null ? '' : ' · Adviser: ${s.adviserName}'}',
                         trailing: [
                           if (canEdit)
                             PopupMenuButton<String>(
-                              onSelected: (v) => _after(v == 'edit' ? editor.edit(context, s) : editor.delete(context, s)),
+                              onSelected: (v) => _after(switch (v) {
+                                'edit' => editor.edit(context, s),
+                                'adviser' => editor.adviser(context, s),
+                                _ => editor.delete(context, s),
+                              }),
                               itemBuilder: (_) => const [
                                 PopupMenuItem(value: 'edit', child: Text('Edit')),
+                                PopupMenuItem(value: 'adviser', child: Text('Adviser')),
                                 PopupMenuItem(value: 'delete', child: Text('Delete')),
                               ],
                             ),

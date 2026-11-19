@@ -113,8 +113,17 @@ class _UsersScreenState extends State<UsersScreen> {
                       ListRow(
                         leading: UserAvatar(user: u),
                         title: u.fullName.isEmpty ? u.email : u.fullName,
-                        subtitle: '${roleLabel(u)} · ${u.email}${u.schoolId == null ? '' : ' · ${schoolNameOf(schools, u.schoolId!)}'}',
+                        subtitle: '${roleLabel(u)}${_tutorTypeText(u)} · ${u.email}'
+                            '${u.schoolId == null ? '' : ' · ${schoolNameOf(schools, u.schoolId!)}'}',
                         trailing: [
+                          if (u.role == UserRole.tutor)
+                            IconButton(
+                              tooltip: 'Tutor type',
+                              icon: const Icon(Icons.badge_outlined),
+                              onPressed: () async {
+                                if (await _setTutorType(context, u)) reload();
+                              },
+                            ),
                           StatusChip(u.isActive ? 'Active' : 'Off', tone: u.isActive ? StatusTone.good : StatusTone.neutral),
                           Switch(
                             value: u.isActive,
@@ -135,6 +144,30 @@ class _UsersScreenState extends State<UsersScreen> {
       ),
     );
   }
+}
+
+/// " (internal)" / " (external)" after a tutor's role; '' when not set.
+String _tutorTypeText(User u) => switch (u.tutorType) {
+      TutorType.internal => ' (internal)',
+      TutorType.external => ' (external)',
+      null => '',
+    };
+
+/// Asks for a tutor's type (ARAL memo: internal = a teacher of the school,
+/// external = from outside) and saves it. True when it changed.
+Future<bool> _setTutorType(BuildContext context, User u) async {
+  final users = AdminScope.of(context).users;
+  const notSet = 'Not set';
+  final pick = await pickOne<String>(context,
+      title: 'Tutor type of ${u.fullName.isEmpty ? u.email : u.fullName}',
+      options: const ['Internal', 'External', notSet],
+      label: (s) => s);
+  if (pick == null || !context.mounted) return false;
+  final type = switch (pick) { 'Internal' => TutorType.internal, 'External' => TutorType.external, _ => null };
+  final saved = await runAction(context, () => users.setTutorType(u.id, type), done: 'Tutor type saved.', where: 'UsersScreen');
+  final warn = users.lastMirrorWarning;
+  if (saved != null && warn != null && context.mounted) showNote(context, warn);
+  return saved != null;
 }
 
 String _roleName(UserRole r) => switch (r) {
