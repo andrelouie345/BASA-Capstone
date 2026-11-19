@@ -134,6 +134,7 @@ IconData _icon(TutorReminderKind k) => switch (k) {
   TutorReminderKind.noGst => Icons.assignment_late_outlined,
   TutorReminderKind.noIrip => Icons.flag_outlined,
   TutorReminderKind.noSessionLately => Icons.hourglass_empty,
+  TutorReminderKind.fewSessionsThisWeek => Icons.event_busy_outlined,
 };
 
 StatusTone _coordinatorTone(ReminderKind k) => switch (k) {

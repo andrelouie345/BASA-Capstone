@@ -96,11 +96,12 @@ void main() {
       expect(find.descendant(of: row, matching: find.text(layers)), findsOneWidget, reason: title);
     }
 
-    expectRow('ARAL (proposals, updates, implementation report)', 'Carried', 'Region: — · School: —');
-    expectRow('BOSY masterlist', 'Carried', 'Region: — · School: —');
+    // Nothing set: the default, actual since 2026-11-18.
+    expectRow('ARAL (proposals, updates, implementation report)', 'Actual', 'Region: — · School: —');
+    expectRow('BOSY masterlist', 'Actual', 'Region: — · School: —');
     expectRow('NLA report (Form 2b) and band trend', 'Actual', 'Region: actual · School: —');
     expectRow('SRP candidates', 'Actual', 'Region: — · School: actual');
-    expectRow('Learner pages (Phil-IRI results, history)', 'Carried', 'Region: — · School: —');
+    expectRow('Learner pages (Phil-IRI results, history)', 'Actual', 'Region: — · School: —');
     expectRow('Ranking list', 'Carried', 'Region: — · School: carried');
 
     // Saving needs an online sign-in: the refusal is shown and nothing changes.

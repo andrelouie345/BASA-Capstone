@@ -68,21 +68,23 @@ class _AralClassesScreenState extends State<AralClassesScreen> {
                   if (_year != null) SearchField(label: 'Search class name', onChanged: (v) => setState(() => _filter = v)),
                 ]),
                 if (_year != null)
-                  LoadView<List<AralClassSummary>>(
+                  LoadView<(List<AralClassSummary>, int)>(
                     where: 'AralClasses',
                     reloadKey: '$_year-$_reload',
                     load: (vms) async {
                       final classes = await vms.aralClass.classes(schoolId: schoolId, schoolYear: _year);
-                      return [for (final c in classes) await vms.aralSession.classSummary(c.id!)];
+                      // The school's class maximum (a school setting; 15 unless the school set another).
+                      final cap = await vms.aralClass.classMax(schoolId);
+                      return ([for (final c in classes) await vms.aralSession.classSummary(c.id!)], cap);
                     },
-                    builder: (context, list, _) {
+                    builder: (context, data, _) {
+                      final (list, cap) = data;
                       if (list.isEmpty) {
                         return EmptyNote(
                           'No ARAL classes this school year yet.${canEdit ? ' Add one with New class.' : ''}',
                           icon: Icons.class_outlined,
                         );
                       }
-                      final cap = vmsOf(context).aralClass.classCap;
                       final learners = list.fold<int>(0, (n, s) => n + s.activeLearners);
                       final sessions = list.fold<int>(0, (n, s) => n + s.sessions);
                       final present = list.fold<int>(0, (n, s) => n + s.attendance.present);
@@ -177,18 +179,17 @@ class _AralClassScreenState extends State<AralClassScreen> {
   Widget build(BuildContext context) {
     final editor = widget.editor;
     final wide = isWideScreen(context);
-    return LoadView<(AralClass, List<AralEnrollment>, Map<int, String>)>(
+    return LoadView<(AralClass, List<AralEnrollment>, Map<int, String>, int)>(
       where: 'AralClass',
       reloadKey: _reload,
       load: (vms) async {
         final c = await vms.aralClass.getClass(widget.classId);
         final roster = await vms.aralClass.classRoster(widget.classId);
-        return (c, roster, await vms.aralSession.learnerNames(roster));
+        return (c, roster, await vms.aralSession.learnerNames(roster), await vms.aralClass.classMax(c.schoolId));
       },
       builder: (context, data, _) {
-        final (c, roster, names) = data;
+        final (c, roster, names, cap) = data;
         final active = roster.where((e) => e.status == AralStatus.active).length;
-        final cap = vmsOf(context).aralClass.classCap;
         final shown = roster.where((e) => matchesSearch(_filter, [names[e.studentId]])).toList();
         void place() => _after(editor!.place(context, c));
         return Scaffold(
