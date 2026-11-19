@@ -29,6 +29,18 @@ Future<void> _settle(WidgetTester tester) async {
   }
 }
 
+/// Waits (real time, up to about 15 s) until [done] is true. A fixed settle
+/// was too short when the whole UI folder ran on a slow machine: the list
+/// after Remove was checked before its reload finished.
+Future<void> _waitUntil(WidgetTester tester, bool Function() done) async {
+  for (var i = 0; i < 150 && !done(); i++) {
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+}
+
+bool _shows(Finder f) => f.evaluate().isNotEmpty;
+
 void main() {
   late AppViewModels vms;
   var seeded = false;
@@ -86,12 +98,17 @@ void main() {
     await show(tester, CrlaEntryScreen(assessmentId: id));
     expect(find.text('Not uploaded yet'), findsOneWidget);
     await tester.tap(find.byIcon(Icons.delete_outline));
-    await _settle(tester);
+    await _waitUntil(tester, () => _shows(find.textContaining(removeUnsentWarning)));
     expect(find.textContaining(removeUnsentWarning), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, 'Remove'));
-    await _settle(tester);
-    late Object? gone;
-    await tester.runAsync(() async => gone = await vms.crla.getAssessment(id));
+    Object? gone = true;
+    for (var i = 0; i < 150 && gone != null; i++) {
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+        gone = await vms.crla.getAssessment(id);
+      });
+      await tester.pump(const Duration(milliseconds: 50));
+    }
     expect(gone, isNull);
     await tester.binding.setSurfaceSize(null);
   });
@@ -107,16 +124,17 @@ void main() {
     await tester.tap(find.text('Section').last);
     await _settle(tester);
     await tester.tap(find.text('Grade 5 · S9502 ($_year)').last);
-    await _settle(tester);
+    await _waitUntil(tester, () => _shows(find.byIcon(Icons.delete_outline)));
     expect(find.byIcon(Icons.delete_outline), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.delete_outline));
-    await _settle(tester);
+    await _waitUntil(tester, () => _shows(find.widgetWithText(FilledButton, 'Remove')));
     expect(find.textContaining('15/20'), findsWidgets);
     await tester.tap(find.widgetWithText(FilledButton, 'Remove'));
-    await _settle(tester);
+    await _waitUntil(tester, () => !_shows(find.textContaining('15/20')));
     // The 15 is gone; the 5 is now the latest and can go too.
     expect(find.textContaining('15/20'), findsNothing);
+    await _waitUntil(tester, () => _shows(find.byIcon(Icons.delete_outline)));
     expect(find.byIcon(Icons.delete_outline), findsOneWidget);
     await tester.binding.setSurfaceSize(null);
   });
