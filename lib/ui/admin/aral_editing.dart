@@ -402,6 +402,34 @@ class AdminAralSettingsEditor extends AralSettingsEditor {
   }
 
   @override
+  Future<bool> changeRule(BuildContext context, int? schoolId, String key, Object? current) async {
+    final vm = vmsOf(context).aralCheckin;
+    final label = aralRuleLabels[key] ?? key;
+    const useDefault = 'Use the region value / default';
+    Object? value;
+    if (current is bool || key == 'basis_round') {
+      final choices = current is bool ? const ['On', 'Off', useDefault] : const ['BoSY', 'MoSY', useDefault];
+      final pick = await pickOne<String>(context, title: label, options: choices, label: (c) => c);
+      if (pick == null || !context.mounted) return false;
+      value = switch (pick) { 'On' => true, 'Off' => false, 'BoSY' => 'bosy', 'MoSY' => 'mosy', _ => null };
+    } else {
+      final f = await askFields(context, title: label, fields: [
+        FieldSpec('v', 'Value',
+            initial: current is List ? current.join(',') : (current == null ? '' : '$current'),
+            optional: true,
+            hint: key == 'checkin_after_sessions' ? 'two sessions, e.g. 16,32' : null,
+            helper: 'Leave it empty to use the region value or the default.'),
+      ]);
+      if (f == null || !context.mounted) return false;
+      final text = f['v']!.trim();
+      value = text.isEmpty ? null : vm.ruleSettingValue(key, text);
+    }
+    return await runAction(context, () => vm.setRuleSetting(schoolId, key, value),
+            done: value == null ? 'School value removed.' : 'Saved.', where: 'AralRules') !=
+        null;
+  }
+
+  @override
   Future<bool> reset(BuildContext context, int schoolId) async {
     if (!await confirm(context, title: "Use the region's ARAL settings?", action: 'Reset') || !context.mounted) return false;
     final vm = vmsOf(context).aralCheckin;

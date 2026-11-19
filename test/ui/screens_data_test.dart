@@ -3,6 +3,7 @@
 // section with learners, and an ARAL class with two learners. Picks a
 // section (or opens a learner / class directly) and checks the lists show
 // what is saved, without exceptions or overflow, at phone size.
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:basa_capstone/core/wiring/app_context.dart';
@@ -11,6 +12,7 @@ import 'package:basa_capstone/core/wiring/wire_shared.dart';
 import 'package:basa_capstone/core/wiring/wire_tutor.dart';
 import 'package:basa_capstone/ui/admin/admin_scope.dart';
 import 'package:basa_capstone/ui/admin/aral_editing.dart';
+import 'package:basa_capstone/ui/aral/aral_settings_screen.dart';
 import 'package:basa_capstone/ui/aral/classes_screen.dart';
 import 'package:basa_capstone/ui/aral/learner_aral_screen.dart';
 import 'package:basa_capstone/ui/aral/roster_screen.dart';
@@ -96,8 +98,22 @@ void main() {
         'key_stage': 'ks2', 'track': 'basic', 'entered_on': '2026-10-01', 'basis_source': 'manual', 'class_id': _classId,
       });
     }
+    await db.insert('aral_settings', {'id': 1, 'school_id': 1, 'settings': jsonEncode({'class_max_learners': 10})});
     await seedOfflineOwner(db, userId: '00000000-0000-0000-0000-00000000ad03', email: 'coord@test', role: 'coordinator', schoolId: 1);
     expect(await ctx.authVm.signInOffline(email: 'coord@test', password: 'test-pw'), isNull);
+  });
+
+  testWidgets('ARAL settings offline: the school ARAL rules from the device copy', (tester) async {
+    await seed(tester);
+    await _show(tester, const AralSettingsScreen(editor: AdminAralSettingsEditor()));
+    expect(find.text('School ARAL rules'), findsOneWidget);
+    expect(find.textContaining("Showing this device's copy"), findsOneWidget);
+    expect(find.text('Class maximum'), findsOneWidget);
+    expect(find.text('10'), findsOneWidget); // the school's maximum, in force
+    expect(find.text('Default: 15'), findsOneWidget);
+    expect(find.text('Advisers tutor their own learners'), findsOneWidget);
+    expect(find.byTooltip('Change'), findsNothing); // offline: nothing to change
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('sections and learners', (tester) async {
