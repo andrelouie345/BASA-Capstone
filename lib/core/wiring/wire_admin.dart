@@ -22,6 +22,7 @@ import '../console/commands/aral_admin_commands.dart';
 import '../console/commands/aral_checkin_admin_commands.dart';
 import '../console/commands/aral_class_admin_commands.dart';
 import '../console/commands/aral_export_commands.dart';
+import '../console/commands/aral_forms_admin_commands.dart';
 import '../console/commands/aral_material_admin_commands.dart';
 import '../console/commands/aral_report_commands.dart';
 import '../console/commands/calendar_admin_commands.dart';
@@ -333,6 +334,7 @@ void registerAdminCommands(AppContext ctx, SharedVms s, TutorVms t, AdminVms a) 
   registerTrendAdminCommands(r, t.trendVm);
   registerSrpAdminCommands(r, t.srpVm);
   registerAralReportCommands(r, a.aralReportVm);
+  registerAralFormsAdminCommands(r, authVm, a.aralFormsVm);
   registerAralExportCommands(r, t.aralVm, a.aralReportVm, t.aralCheckinVm);
   registerAralRosterImportCommands(r, a.aralRosterImportVm);
   registerLearnerHistoryCommands(r, a.learnerHistoryVm);

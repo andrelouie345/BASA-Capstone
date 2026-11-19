@@ -30,6 +30,9 @@ aral-export-checkins
 aral-export-report
 aral-export-report-csv
 aral-export-roster
+aral-form1
+aral-form2
+aral-form4
 aral-idle-days
 aral-idle-days-set
 aral-import-roster

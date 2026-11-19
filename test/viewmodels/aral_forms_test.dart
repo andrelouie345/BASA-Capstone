@@ -33,6 +33,7 @@ import 'package:basa_capstone/core/models/phil_iri_assessment.dart' show PhilIri
 import 'package:basa_capstone/core/models/phil_iri_reading.dart' show PhilIriReadingMethod;
 import 'package:basa_capstone/core/models/user_role.dart';
 import 'package:basa_capstone/core/services/crla_rules.dart';
+import 'package:basa_capstone/core/services/xlsx_cells.dart';
 import 'package:basa_capstone/core/wiring/app_context.dart';
 import 'package:basa_capstone/core/wiring/wire_admin.dart';
 import 'package:basa_capstone/core/wiring/wire_shared.dart';
@@ -272,6 +273,24 @@ void main() {
     test('a date that is not a date is refused', () async {
       expect(() => forms().form4(schoolId: 1, schoolYear: _year, asOf: '14/11/2026'),
           throwsA(isA<ViewModelException>()));
+    });
+  });
+
+  group('.xlsx', () {
+    test('form1Xlsx: one sheet per class; form2Xlsx and form4Xlsx open', () async {
+      final wb = XlsxWorkbook.decode(await forms().form1Xlsx(schoolId: 1, schoolYear: _year));
+      expect(wb.sheetNames, ['ARAL-R-G2-01', 'ARAL-R-G7-01', 'ARAL-R-G7-02']);
+      expect(wb.read('ARAL-R-G2-01', 'C19'), 'Abad, Hugo');
+      expect(XlsxWorkbook.decode(await forms().form2Xlsx(schoolId: 1, schoolYear: _year)).read('Form 2', 'B8'),
+          'ARAL-R-G2-01');
+      final f4 = XlsxWorkbook.decode(await forms().form4Xlsx(schoolId: 1, schoolYear: _year, asOf: _asOf));
+      expect(f4.read('Form 4', 'B26'), 2.5);
+    });
+
+    test('form1Xlsx: a year with no classes is refused in plain words', () async {
+      expect(() => forms().form1Xlsx(schoolId: 1, schoolYear: '2027-2028'),
+          throwsA(isA<ViewModelException>().having((e) => e.message, 'message',
+              'This school has no ARAL classes for 2027-2028 yet.')));
     });
   });
 

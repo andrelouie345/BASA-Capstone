@@ -22,6 +22,7 @@
 //    ranked above BoSY; everything else still in ARAL = No improvement
 //    (learners without a MoSY result named in the notes).
 import '../core/console/logger.dart';
+import '../core/models/aral_forms.dart';
 import '../core/models/aral_class.dart';
 import '../core/models/aral_enrollment.dart';
 import '../core/models/aral_session.dart';
@@ -36,18 +37,15 @@ import '../core/repositories/school_repository.dart';
 import '../core/repositories/section_repository.dart';
 import '../core/repositories/student_repository.dart';
 import '../core/repositories/user_repository.dart';
+import '../core/services/aral_forms_xlsx.dart';
 import '../core/services/auth_messages.dart';
 import '../core/services/normalizers.dart';
+import '../core/services/xlsx_cells.dart' show XlsxException;
 import 'aral_report_viewmodel.dart';
 import 'auth_viewmodel.dart';
 import 'viewmodel_exception.dart';
 
-/// Form 1/2 Phil-IRI result at grade level (the report's 'GLR').
-const aralFormGradeLevel = 'Grade level';
-const aralFormFrustration = 'Frustration';
-const aralFormInstructional = 'Instructional';
-/// Form 2: the class's learners don't share one MoSY result.
-const aralFormMixed = 'mixed';
+export '../core/models/aral_forms.dart';
 
 /// The form's word for one learner's report result ('' = none).
 String aralFormResult(AralLearnerRounds x, String? result) {
@@ -58,150 +56,6 @@ String aralFormResult(AralLearnerRounds x, String? result) {
   final down = int.tryParse(RegExp(r'^(\d+)-LD$').firstMatch(result)?.group(1) ?? '');
   if (down == null) return '';
   return down >= 3 ? aralFormFrustration : aralFormInstructional;
-}
-
-class AralForm1Row {
-  final String lrn;
-  final String name;          // Last, First M.
-  final String sex;           // M / F / ''
-  final int? homeGrade;
-  final String section;
-  final String adviser;
-  final String mosyTool;      // CRLA / Phil-IRI / '' (no MoSY result of their own)
-  final String mosyResult;
-  final String workbookIssued = '';
-  final String remarks = '';
-
-  AralForm1Row({
-    required this.lrn,
-    required this.name,
-    required this.sex,
-    required this.homeGrade,
-    required this.section,
-    required this.adviser,
-    required this.mosyTool,
-    required this.mosyResult,
-  });
-}
-
-/// Form 1, one class.
-class AralForm1 {
-  final String schoolName;
-  final String schoolCode;    // DepEd school ID
-  final String classCode;     // the class name
-  final int grade;            // the class's home grade
-  final String learningArea = 'Reading';
-  final String tutorName;
-  final String tutorType;     // Internal / External / ''
-  final String sessionType;
-  final String schedule;      // days and time
-  final String venue;
-  final List<AralForm1Row> rows;
-  final List<String> blanks;
-
-  AralForm1({
-    required this.schoolName,
-    required this.schoolCode,
-    required this.classCode,
-    required this.grade,
-    required this.tutorName,
-    required this.tutorType,
-    required this.sessionType,
-    required this.schedule,
-    required this.venue,
-    required this.rows,
-    required this.blanks,
-  });
-
-  int get male => rows.where((r) => r.sex == 'M').length;
-  int get female => rows.where((r) => r.sex == 'F').length;
-  int get total => rows.length;
-}
-
-class AralForm2Row {
-  final String classCode;
-  final int grade;
-  final String area = 'R';
-  final int male, female, total;
-  final String mosyResult;    // the shared result, 'mixed' or ''
-  final String tutorName;
-  final String tutorType;     // I / E / ''
-  final String advisoryClass; // the tutor's advisory section(s)
-  final String schedule;
-  final String sessionType;
-  final String venue;
-
-  AralForm2Row({
-    required this.classCode,
-    required this.grade,
-    required this.male,
-    required this.female,
-    required this.total,
-    required this.mosyResult,
-    required this.tutorName,
-    required this.tutorType,
-    required this.advisoryClass,
-    required this.schedule,
-    required this.sessionType,
-    required this.venue,
-  });
-}
-
-class AralForm2 {
-  final String schoolName;
-  final String schoolCode;
-  final List<AralForm2Row> rows;
-  final int readingClasses, readingLearners, internalTutors, externalTutors;
-  final List<String> blanks;
-  final List<String> notes;
-
-  AralForm2({
-    required this.schoolName,
-    required this.schoolCode,
-    required this.rows,
-    required this.readingClasses,
-    required this.readingLearners,
-    required this.internalTutors,
-    required this.externalTutors,
-    required this.blanks,
-    required this.notes,
-  });
-}
-
-/// Form 4 Part I, one grade (Reading columns).
-class AralForm4Grade {
-  final int grade;
-  int identified = 0;
-  int served = 0;
-  int reachedGradeLevel = 0;
-  int improved = 0;
-  int noImprovement = 0;
-  int atMosy = 0;
-
-  AralForm4Grade(this.grade);
-}
-
-class AralForm4 {
-  final String schoolName;
-  final String schoolCode;
-  final String asOf;
-  final List<AralForm4Grade> grades; // 1..10
-  final int classes, internalTutors, externalTutors, sessions;
-  final double hours;                // sum of session minutes / 60
-  final List<String> notes;
-
-  AralForm4({
-    required this.schoolName,
-    required this.schoolCode,
-    required this.asOf,
-    required this.grades,
-    required this.classes,
-    required this.internalTutors,
-    required this.externalTutors,
-    required this.sessions,
-    required this.hours,
-    required this.notes,
-  });
 }
 
 class AralFormsViewModel {
@@ -425,6 +279,35 @@ class AralFormsViewModel {
         'Left blank for hand entry: ${form4Blanks.join(', ')}.',
       ],
     );
+  }
+
+  /// [form1] as an .xlsx file: one sheet per class.
+  Future<List<int>> form1Xlsx({required int schoolId, required String schoolYear, int? classId}) async {
+    final forms = await form1(schoolId: schoolId, schoolYear: schoolYear, classId: classId);
+    if (forms.isEmpty) {
+      throw ViewModelException('This school has no ARAL classes for ${normalizeSchoolYear(schoolYear)} yet.');
+    }
+    return _xlsx(() => aralForm1Xlsx(forms));
+  }
+
+  /// [form2] as an .xlsx file.
+  Future<List<int>> form2Xlsx({required int schoolId, required String schoolYear}) async {
+    final form = await form2(schoolId: schoolId, schoolYear: schoolYear);
+    return _xlsx(() => aralForm2Xlsx(form));
+  }
+
+  /// [form4] as an .xlsx file.
+  Future<List<int>> form4Xlsx({required int schoolId, required String schoolYear, required String asOf}) async {
+    final form = await form4(schoolId: schoolId, schoolYear: schoolYear, asOf: asOf);
+    return _xlsx(() => aralForm4Xlsx(form));
+  }
+
+  static List<int> _xlsx(List<int> Function() write) {
+    try {
+      return write();
+    } on XlsxException catch (e) {
+      throw ViewModelException(e.message);
+    }
   }
 
   // --- helpers ---
