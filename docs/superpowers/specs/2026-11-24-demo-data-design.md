@@ -72,10 +72,15 @@ regional view.
 | Night City High School | 7-10 | `NCHS-DEMO` | Night City Division |
 
 ### Sections
-One section per grade per school year (2 x 10 sections). 2025-2026 and 2026-2027 use the same section
+One section per grade per school year (2 x 10 sections), plus a second HS Grade 8 section in 2026-2027
+(`Grade 8 - Narra`) so the "moved to another section" story has a same-grade section to move to *(my
+call, 2026-11-24 plan)*. The leavers show through an August re-import (out: transferred, dropped out,
+moved, and the returning learner) and an October re-import (the returning learner is back). 2025-2026 and 2026-2027 use the same section
 names (e.g. Grade 4 - Sampaguita); a learner moves up one grade between the years. Every section has an
 adviser (`section-adviser`). Grade 6 (ES) and Grade 10 (HS) learners of 2025-2026 leave the world (they
-finish); Grade 1 and Grade 7 of 2026-2027 are new learners. *(My call: moving a Grade 6 learner to the
+finish); Grade 1 and Grade 7 of 2026-2027 are new learners. Grade 7 newcomers are reassessed at BOSY
+like everyone (owner: a learner still at Frustration in Grade 6 is reassessed, not carried), so some of
+them start in Frustration or below. *(My call: moving a Grade 6 learner to the
 HS is a cross-school transfer, and the same-server transfer (`sf1_transfer_in`, D15) keeps the grade,
 so it doesn't fit moving up a grade.)*
 
@@ -91,7 +96,7 @@ Passwords are set by the builder and written only to `D:\0_CAPSTONE\verify\demo\
 the repo), with the server config in `D:\0_CAPSTONE\verify\demo\supabase_config.json`.
 
 ### Learners
-About **12 per section** (about 120 a year), with readable fictional Filipino-style names from fixed
+About **40 per section** (owner: as realistic as possible; about 400 a year), with readable fictional Filipino-style names from fixed
 name lists (first name, middle initial, surname), sexes balanced, birth dates fitting the grade. LRNs use
 a demo prefix that no real LRN or command-pass LRN uses (`9991` + 8 digits). The same learners continue
 into 2026-2027 (one grade up), minus the leavers, plus a few new ones.
@@ -124,7 +129,8 @@ slips). The builder turns these into raw records the app scores itself:
 4. **Exits to grade level ready** at EOSY.
 5. **Leavers**: one transferred out (archived), one dropped out (archived), one moved to another section,
    one returning learner. Shown by a **same-year re-import**: the 2026-2027 SF1s are imported for June,
-   then re-imported for October without the leavers, so `sf1-missing` lists them. *(A new year's section
+   re-imported for August without the leavers (`sf1-missing` lists them), and for October with the
+   returning learner back. *(A new year's section
    has no earlier SF1, so leavers only show within one year.)*
 6. **Sync**: one tutor upload approved, one **left pending** (Review uploads and the coordinator's
    reminders show it), one rejected with a reason.
@@ -132,7 +138,7 @@ slips). The builder turns these into raw records the app scores itself:
 ## 6. Coverage list (the double check)
 
 Each line is a feature and the demo data that shows it. The builder's report ticks every line with a
-count read back from the device (e.g. "CRLA attempts 2025-2026: 72"); the owner then clicks through the
+count read back from the device (e.g. "CRLA attempts 2025-2026: 240"); the owner then clicks through the
 app with the same list (kit in `D:\0_CAPSTONE\verify\demo\`). A line that can't be shown is reported as
 a gap, not skipped.
 
@@ -189,10 +195,11 @@ a gap, not skipped.
 - Approach 1; dev cloud now, a fresh project later (before the defense).
 - Real years 2025-2026 and 2026-2027; Night City names.
 - The demo is led by the team with a Night City coordinator account.
+- About 40 learners per section (2026-11-24), as realistic as possible.
 
 ## 9. My calls (correct any)
 
-- Two schools (ES Grades 1-6, HS Grades 7-10), Region X, one section per grade, about 12 learners each.
+- Two schools (ES Grades 1-6, HS Grades 7-10), Region X, one section per grade.
 - Account emails on `nightcity.test`; passwords only in `D:\0_CAPSTONE\verify\demo\`.
 - Demo LRN prefix `9991`.
 - Demo materials link to `https://example.org/basa-demo/...` (clearly not real files).
