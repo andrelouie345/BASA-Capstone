@@ -82,6 +82,9 @@ void main() {
     await learner(8102, [(83, '2025-2026', 'active')]); // name corrected by the import
     await learner(8103, [(83, '2025-2026', 'active')]); // imported twice
     await learner(8104, [(83, '2025-2026', 'active')]); // name update refused
+    // Final review I1: a blank SF1 name cell never erases BASA's value.
+    await learner(8013, [(83, '2025-2026', 'active')], middle: 'Q'); // trial: blank middle on the file
+    await learner(8105, [(83, '2025-2026', 'active')], middle: 'Q'); // import: last corrected, middle blank
 
     final schools = SchoolRepositorySqlite(db);
     final sections = SectionRepositorySqlite(db);
@@ -204,6 +207,13 @@ void main() {
     expect(r.reason, endsWith('name corrected: Fixture8010, Zed -> Fixture8010, Zed Q'));
   });
 
+  test('blank middle name on the SF1 keeps BASA\'s', () async {
+    final r = await trialRow(_row(8013));
+    expect(r.outcome, 'continuing');
+    expect(r.updatesName, isFalse);
+    expect(r.reason, 'moving up from Grade 3 (2025-2026)');
+  });
+
   test('blank birth date filled, stored one kept', () async {
     expect((await trialRow(_row(8011, birth: '03-01-2016'))).fillsBirthDate, isTrue);
     expect((await trialRow(_row(8012, birth: '03-01-2016'))).fillsBirthDate, isFalse);
@@ -248,6 +258,13 @@ void main() {
     expect(again.alreadyEnrolled, 1);
     expect(again.conflicts, 0);
     expect((await enrollmentsOf(8103)).where((r) => r['school_year'] == _year), hasLength(1));
+  });
+
+  test('import keeps a stored middle name the SF1 leaves blank', () async {
+    final result = await importer.import(sf1([_row(8105, last: 'Fixtura8105')]));
+    expect(result.continuing, 1);
+    final s = (await db.query('students', where: 'id = 8105')).single;
+    expect((s['last_name'], s['first_name'], s['middle_name']), ('Fixtura8105', 'Zed', 'Q'));
   });
 
   test('refused name update: a warning, still enrolled', () async {

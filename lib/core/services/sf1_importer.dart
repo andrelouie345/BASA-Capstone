@@ -623,12 +623,10 @@ class Sf1Importer {
       label.write(', back after leaving (${before.status.replaceAll('_', ' ')}, ${before.schoolYear})');
     }
     if (before.schoolYear != previousYear) label.write(', last here in ${before.schoolYear}');
-    String? clean(String? v) => (v == null || v.trim().isEmpty) ? null : v.trim();
-    final updatesName = clean(existing.lastName) != clean(incoming.lastName) ||
-        clean(existing.firstName) != clean(incoming.firstName) ||
-        clean(existing.middleName) != clean(incoming.middleName);
+    final corrected = _continuingName(existing, incoming);
+    final updatesName = corrected != null;
     final previousName = _personName(existing);
-    if (updatesName) label.write(', name corrected: $previousName -> ${_personName(incoming)}');
+    if (corrected != null) label.write(', name corrected: $previousName -> ${_personName(corrected)}');
     final fills = existing.birthDate == null && existing.anonymizedAt == null && birthIso != null;
     return Sf1TrialRow(
       rowIndex: rowIndex,
@@ -641,6 +639,22 @@ class Sf1Importer {
       updatesName: updatesName,
       previousName: updatesName ? previousName : null,
     );
+  }
+
+  /// The learner with the file's name parts where the file has them, or null
+  /// when nothing changes. A blank cell on the file never erases BASA's value
+  /// (final review I1, 2026-11-24): a blank is not a correction.
+  static Student? _continuingName(Student existing, Student incoming) {
+    String? clean(String? v) => (v == null || v.trim().isEmpty) ? null : v.trim();
+    final last = clean(incoming.lastName) ?? existing.lastName;
+    final first = clean(incoming.firstName) ?? existing.firstName;
+    final middle = clean(incoming.middleName) ?? existing.middleName;
+    if (clean(last) == clean(existing.lastName) &&
+        clean(first) == clean(existing.firstName) &&
+        clean(middle) == clean(existing.middleName)) {
+      return null;
+    }
+    return Student.fromMap({...existing.toMap(), 'last_name': last, 'first_name': first, 'middle_name': middle});
   }
 
   /// "Last, First Middle" (trimmed; no middle -> "Last, First").
@@ -749,14 +763,11 @@ class Sf1Importer {
           final existing = await studentRepo.findByLrn(row.lrn!);
           try {
             if (existing == null) throw StateError('learner not readable');
-            final renamed = Student.fromMap({
-              ...existing.toMap(),
-              'last_name': incoming.lastName,
-              'first_name': incoming.firstName,
-              'middle_name': incoming.middleName,
-            });
-            await studentRepo.update(renamed);
-            await localStudentRepo.upsertWithId(renamed);
+            final renamed = _continuingName(existing, incoming);
+            if (renamed != null) {
+              await studentRepo.update(renamed);
+              await localStudentRepo.upsertWithId(renamed);
+            }
           } catch (e) {
             // Refused (RLS, or anonymized meanwhile): the learner is still
             // enrolled and the import goes on.
