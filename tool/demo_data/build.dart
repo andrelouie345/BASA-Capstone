@@ -8,6 +8,7 @@ import 'dart:io';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'build_args.dart';
+import 'phases/rosters.dart';
 import 'phases/setup.dart';
 import 'session.dart';
 import 'state.dart';
@@ -19,6 +20,7 @@ typedef DemoStep = ({String name, Future<void> Function(DemoSession s, DemoState
 /// The steps in order (filled by the phases, demo-data plan Tasks 6-12).
 final List<DemoStep> demoSteps = [
   for (final step in setupSteps) (name: step.name, run: (s, st, w, today) => step.run(s, st)),
+  (name: rostersStep(DemoYear.y2025), run: (s, st, w, today) => runRosters(s, st, w, DemoYear.y2025)),
 ];
 
 Future<void> main(List<String> args) async {
