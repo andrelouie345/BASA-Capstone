@@ -92,6 +92,30 @@ class StudentRepositorySqlite implements StudentRepository {
   }
 
   @override
+  Future<EnrollmentBefore?> latestEnrollmentBefore(int studentId, String schoolYear) async {
+    final rows = await db.rawQuery('''
+      SELECT e.id, e.section_id, e.school_year, e.status, e.left_on, sec.section_name, sec.grade_level, sec.school_id
+      FROM enrollments e
+      JOIN sections sec ON sec.id = e.section_id
+      WHERE e.student_id = ? AND e.school_year < ?
+      ORDER BY e.school_year DESC
+      LIMIT 1
+    ''', [studentId, schoolYear]);
+    if (rows.isEmpty) return null;
+    final r = rows.first;
+    return (
+      enrollmentId: r['id'] as int,
+      sectionId: r['section_id'] as int,
+      sectionName: r['section_name'] as String,
+      gradeLevel: r['grade_level'] as String,
+      schoolId: r['school_id'] as int,
+      schoolYear: r['school_year'] as String,
+      status: r['status'] as String,
+      leftOn: r['left_on'] as String?,
+    );
+  }
+
+  @override
   Future<int> enroll({required int studentId, required int sectionId, required String schoolYear, int? id}) async {
     return db.insert(
       'enrollments',
