@@ -8,6 +8,7 @@ import 'dart:io';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'build_args.dart';
+import 'phases/setup.dart';
 import 'session.dart';
 import 'state.dart';
 import 'world.dart';
@@ -16,7 +17,9 @@ import 'world.dart';
 typedef DemoStep = ({String name, Future<void> Function(DemoSession s, DemoState st, DemoWorld w, DateTime today) run});
 
 /// The steps in order (filled by the phases, demo-data plan Tasks 6-12).
-final List<DemoStep> demoSteps = [];
+final List<DemoStep> demoSteps = [
+  for (final step in setupSteps) (name: step.name, run: (s, st, w, today) => step.run(s, st)),
+];
 
 Future<void> main(List<String> args) async {
   final a = parseBuildArgs(args);
@@ -34,6 +37,7 @@ Future<void> main(List<String> args) async {
     ..writeln('Server:  ${url ?? '(no cloud url in the config)'}')
     ..writeln('Schools: ${demoSchools.map((s) => '${s.code} ${s.name}').join(', ')}')
     ..writeln('Folder:  ${a.dir}')
+    ..writeln('Steps:   ${a.only ?? 'all'}')
     ..write('Type yes to build the Night City demo world on this server: ');
   if (stdin.readLineSync()?.trim() != 'yes') {
     stdout.writeln('Nothing written.');
@@ -49,7 +53,9 @@ Future<void> main(List<String> args) async {
     final state = await DemoState.load(dir);
     final world = DemoWorld.build();
     final today = DateTime.now();
-    for (final step in demoSteps) {
+    final steps = [for (final step in demoSteps) if (stepSelected(step.name, a.only)) step];
+    if (steps.isEmpty) throw StateError('no step matches --only ${a.only}');
+    for (final step in steps) {
       if (state.done(step.name)) {
         stdout.writeln('= ${step.name} (done earlier)');
         continue;
@@ -58,7 +64,7 @@ Future<void> main(List<String> args) async {
       await step.run(session, state, world, today);
       await state.markDone(step.name);
     }
-    stdout.writeln('Done: ${demoSteps.length} steps.');
+    stdout.writeln('Done: ${steps.length} steps.');
   } catch (e, st) {
     stderr.writeln('Stopped: $e\n$st\nRun the same command again to continue.');
     code = 1;
