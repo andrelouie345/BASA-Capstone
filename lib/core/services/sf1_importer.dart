@@ -27,6 +27,10 @@ class Sf1ImportResult {
   /// file (counted in [alreadyEnrolled] too).
   int birthDatesFilled = 0;
 
+  /// Learners continuing at this school (SF1 continuing learners,
+  /// 2026-11-24): enrolled into the file's section, no conflict logged.
+  int continuing = 0;
+
   /// Moving and returning rows: not applied by the import, they wait for the
   /// coordinator's decision (sf1-move / sf1-restore).
   int waiting = 0;
@@ -714,6 +718,21 @@ class Sf1Importer {
       result.conflicts++;
     }
 
+    // A blank birth date filled from the file ('enrolled' and 'continuing').
+    Future<void> fillBirthDate(Sf1TrialRow row) async {
+      final iso = parsed.parsedStudents[row.rowIndex]!.birthDate!;
+      final filled = await studentRepo.fillBlankBirthDate(row.existingStudentId!, iso);
+      if (filled == null) {
+        // Filled meanwhile, or the server refused this learner: the import
+        // goes on.
+        result.rowWarnings.add('Row ${row.rowIndex + 1} ${row.name}: birth date not filled '
+            '(already set, or this learner can\'t be changed)');
+      } else {
+        await localStudentRepo.upsertWithId(filled);
+        result.birthDatesFilled++;
+      }
+    }
+
     for (final row in parsed.rows) {
       if (row.outcome == 'skip') {
         result.skippedBlankOrTotal++;
@@ -721,19 +740,43 @@ class Sf1Importer {
       }
       if (row.outcome == 'enrolled') {
         result.alreadyEnrolled++;
-        if (row.fillsBirthDate) {
-          final iso = parsed.parsedStudents[row.rowIndex]!.birthDate!;
-          final filled = await studentRepo.fillBlankBirthDate(row.existingStudentId!, iso);
-          if (filled == null) {
-            // Filled meanwhile, or the server refused this learner: the
-            // import goes on.
-            result.rowWarnings.add('Row ${row.rowIndex + 1} ${row.name}: birth date not filled '
-                '(already set, or this learner can\'t be changed)');
-          } else {
-            await localStudentRepo.upsertWithId(filled);
-            result.birthDatesFilled++;
+        if (row.fillsBirthDate) await fillBirthDate(row);
+        continue;
+      }
+      if (row.outcome == 'continuing') {
+        final incoming = parsed.parsedStudents[row.rowIndex]!;
+        if (row.updatesName) {
+          final existing = await studentRepo.findByLrn(row.lrn!);
+          try {
+            if (existing == null) throw StateError('learner not readable');
+            final renamed = Student.fromMap({
+              ...existing.toMap(),
+              'last_name': incoming.lastName,
+              'first_name': incoming.firstName,
+              'middle_name': incoming.middleName,
+            });
+            await studentRepo.update(renamed);
+            await localStudentRepo.upsertWithId(renamed);
+          } catch (e) {
+            // Refused (RLS, or anonymized meanwhile): the learner is still
+            // enrolled and the import goes on.
+            _log('name update refused for LRN ${row.lrn}: $e');
+            result.rowWarnings.add("Row ${row.rowIndex + 1} ${row.name}: name not updated (this learner can't be changed)");
           }
         }
+        if (row.fillsBirthDate) await fillBirthDate(row);
+        final enrollmentId = await studentRepo.enroll(
+          studentId: row.existingStudentId!,
+          sectionId: section.id!,
+          schoolYear: section.schoolYear,
+        );
+        await localStudentRepo.enroll(
+          studentId: row.existingStudentId!,
+          sectionId: section.id!,
+          schoolYear: section.schoolYear,
+          id: enrollmentId,
+        );
+        result.continuing++;
         continue;
       }
       if (row.outcome == 'moving' || row.outcome == 'returning') {
@@ -781,7 +824,7 @@ class Sf1Importer {
       }
     }
 
-    _log('done: ${result.inserted} inserted, ${result.conflicts} conflicts, '
+    _log('done: ${result.inserted} inserted, ${result.continuing} continuing, ${result.conflicts} conflicts, '
         '${result.alreadyEnrolled} already enrolled, ${result.waiting} waiting (moving/returning), '
         '${result.skippedBlankOrTotal} skipped');
     return result;

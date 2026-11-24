@@ -12,6 +12,8 @@ import 'package:basa_capstone/core/data/local/local_database.dart';
 import 'package:basa_capstone/core/data/local/school_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/section_repository_sqlite.dart';
 import 'package:basa_capstone/core/data/local/student_repository_sqlite.dart';
+import 'package:basa_capstone/core/models/student.dart';
+import 'package:basa_capstone/core/repositories/student_repository.dart';
 import 'package:basa_capstone/core/services/sf1_column_map.dart';
 import 'package:basa_capstone/core/services/sf1_importer.dart';
 import 'package:excel_plus/excel_plus.dart';
@@ -32,6 +34,7 @@ _Row _row(int id, {String? last, String first = 'Zed', String? middle, String? b
 void main() {
   late Database db;
   late Sf1Importer importer;
+  late Sf1Importer refusingImporter;
   final dir = Directory.systemTemp.createTempSync('basa_sf1_continuing_').path;
 
   setUpAll(() async {
@@ -74,6 +77,11 @@ void main() {
     await learner(8010, [(83, '2025-2026', 'active')]); // middle name added
     await learner(8011, [(83, '2025-2026', 'active')]); // blank birth date
     await learner(8012, [(83, '2025-2026', 'active')], birthDate: '2016-02-01'); // stored birth date
+    // import() tests (each its own learner: an import changes the next trial).
+    await learner(8101, [(83, '2025-2026', 'active')]); // enrolled by the import
+    await learner(8102, [(83, '2025-2026', 'active')]); // name corrected by the import
+    await learner(8103, [(83, '2025-2026', 'active')]); // imported twice
+    await learner(8104, [(83, '2025-2026', 'active')]); // name update refused
 
     final schools = SchoolRepositorySqlite(db);
     final sections = SectionRepositorySqlite(db);
@@ -84,6 +92,16 @@ void main() {
       sectionRepo: sections,
       localSectionRepo: sections,
       studentRepo: students,
+      localStudentRepo: students,
+      conflictRepo: ImportConflictRepositorySqlite(db),
+      columnMap: await Sf1ColumnMap.load(dir),
+    );
+    refusingImporter = Sf1Importer(
+      schoolRepo: schools,
+      localSchoolRepo: schools,
+      sectionRepo: sections,
+      localSectionRepo: sections,
+      studentRepo: _RefusesUpdate(students),
       localStudentRepo: students,
       conflictRepo: ImportConflictRepositorySqlite(db),
       columnMap: await Sf1ColumnMap.load(dir),
@@ -200,4 +218,72 @@ void main() {
     final stored = await db.query('students', where: 'id = 8009');
     expect(stored.single['last_name'], 'Fixture8009');
   });
+
+  Future<List<Map<String, Object?>>> enrollmentsOf(int studentId) =>
+      db.query('enrollments', where: 'student_id = ?', whereArgs: [studentId], orderBy: 'school_year');
+
+  test('import enrolls continuing learners and logs no conflict', () async {
+    final result = await importer.import(sf1([_row(8101)]));
+    expect(result.continuing, 1);
+    expect(result.conflicts, 0);
+    expect(result.inserted, 0);
+    final e = await enrollmentsOf(8101);
+    expect(e.map((r) => (r['school_year'], r['section_id'], r['status'])),
+        [('2025-2026', 83, 'active'), (_year, 86, 'active')]);
+    expect(await db.query('import_conflicts', where: 'lrn = ?', whereArgs: [_lrn(8101)]), isEmpty);
+  });
+
+  test('import updates a corrected name', () async {
+    final result = await importer.import(sf1([_row(8102, last: 'Fixtura8102', middle: 'Q')]));
+    expect(result.continuing, 1);
+    final s = (await db.query('students', where: 'id = 8102')).single;
+    expect((s['last_name'], s['first_name'], s['middle_name']), ('Fixtura8102', 'Zed', 'Q'));
+  });
+
+  test('re-import of the same file gives already enrolled', () async {
+    final path = sf1([_row(8103)]);
+    expect((await importer.import(path)).continuing, 1);
+    final again = await importer.import(path);
+    expect(again.continuing, 0);
+    expect(again.alreadyEnrolled, 1);
+    expect(again.conflicts, 0);
+    expect((await enrollmentsOf(8103)).where((r) => r['school_year'] == _year), hasLength(1));
+  });
+
+  test('refused name update: a warning, still enrolled', () async {
+    final result = await refusingImporter.import(sf1([_row(8104, last: 'Fixtura8104')]));
+    expect(result.continuing, 1);
+    expect(result.rowWarnings, [contains("name not updated (this learner can't be changed)")]);
+    expect((await db.query('students', where: 'id = 8104')).single['last_name'], 'Fixture8104');
+    expect((await enrollmentsOf(8104)).last['school_year'], _year);
+  });
+}
+
+/// The repository, except that the "server" refuses every learner update
+/// (RLS, or the learner was anonymized meanwhile).
+class _RefusesUpdate implements StudentRepository {
+  final StudentRepository inner;
+  _RefusesUpdate(this.inner);
+
+  @override
+  Future<void> update(Student student) async => throw Exception('refused by the server');
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => Function.apply(
+        switch (invocation.memberName) {
+          #findByLrn => inner.findByLrn,
+          #insert => inner.insert,
+          #fillBlankBirthDate => inner.fillBlankBirthDate,
+          #getAll => inner.getAll,
+          #getBySection => inner.getBySection,
+          #activeSectionId => inner.activeSectionId,
+          #enrollmentInYear => inner.enrollmentInYear,
+          #latestEnrollmentBefore => inner.latestEnrollmentBefore,
+          #enroll => inner.enroll,
+          #upsertWithId => inner.upsertWithId,
+          _ => throw UnimplementedError('${invocation.memberName}'),
+        },
+        invocation.positionalArguments,
+        invocation.namedArguments,
+      );
 }
