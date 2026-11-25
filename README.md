@@ -145,7 +145,10 @@ tutor's minutes), as school settings, off by default; app update required:
 and `20261119010000` (ARAL memo review: the adviser rule on placement is
 checked at the end of an upload, so an offline tutor change followed by
 placing the old tutor's advisees uploads; on the same day the daily tutor
-limits check only a longer session; app update required: no).
+limits check only a longer session; app update required: no) and
+`20261125010000` (faster reads of the CRLA and Phil-IRI assessments and their
+parts: the same rows for every user, checked once per query instead of once
+per row, so a pull no longer times out; app update required: no).
 Each is idempotent.
 Do **not** run
 `supabase/migrations_archive/`.
