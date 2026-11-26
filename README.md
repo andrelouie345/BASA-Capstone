@@ -145,7 +145,23 @@ tutor's minutes), as school settings, off by default; app update required:
 and `20261119010000` (ARAL memo review: the adviser rule on placement is
 checked at the end of an upload, so an offline tutor change followed by
 placing the old tutor's advisees uploads; on the same day the daily tutor
-limits check only a longer session; app update required: no).
+limits check only a longer session; app update required: no) and
+`20261125010000` (faster reads of the CRLA and Phil-IRI assessments and their
+parts: the same rows for every user, checked once per query instead of once
+per row, so a pull no longer times out; app update required: no) and
+`20261125020000` (the same reads, with each assessment part looking up its
+own session, so applying an upload no longer times out; app update required:
+no) and `20261125030000` (applying an upload may take up to 60 s instead of
+8 s, so a whole section's round can be approved at once; app update required:
+no) and `20261126010000` (a Phil-IRI reading can be timed in BASA: start, pause,
+resume, stop and restart are kept as the reading's timing log, and an upload
+whose time doesn't match its timer is refused; app update required: **yes**) and
+`20261126020000` (faster reads of ARAL, learners, sections, the assessment
+headers, content and settings: the same rows for every user, checked once per
+query instead of once per row, so a pull after a school year of ARAL no longer
+times out; app update required: no) and `20261126030000` (the reading timer can
+be restarted after the device clock jumped back, and taps need an in-progress
+session; app update required: no).
 Each is idempotent.
 Do **not** run
 `supabase/migrations_archive/`.
@@ -569,6 +585,20 @@ Recommendations (`aral-recommend <enrollmentId>`, `aral-recommend-section
 <sectionId> <schoolYear>`) show each document's title, file name and the link
 that applies to the learner's school, and work offline once the catalog is on
 the device (`pull-cloud`).
+
+## Demo data (Night City)
+
+`tool/demo_data/` builds a readable demo world on a BASA server: Night City Elementary School (Grades 1-6) and Night City High School (Grades 7-10) in Region X, 10 accounts on `nightcity.test`, about 40 learners per section, school year 2025-2026 complete (CRLA, Phil-IRI, ARAL, SRP) and 2026-2027 up to the run date (ARAL class tutors give MOSY, timed readings, SF1 leavers, deliberate gaps for the reminders). Every record goes through the app's ViewModels, so it passes the same rules a tutor's would.
+
+```
+dart run tool/demo_data/build.dart --config D:\0_CAPSTONE\verify\demo\supabase_config.json
+```
+
+- `--config` is required (no default server); it shows the server and waits for `yes`.
+- The first run signs in once as an existing superadmin (`D:\0_CAPSTONE\verify\pass\accounts.json`, see step 5) to create `demo.super`.
+- Passwords are generated and kept only in `<dir>\accounts.json` (default `D:\0_CAPSTONE\verify\demo`), never in the repo or the report.
+- Resumable: finished steps are recorded in `<dir>\state.json`; run the same command again after a stop. A full build takes 12-15 hours on a laptop.
+- `--only report` rewrites `<dir>\report.md` (coverage of every feature, profile mismatches, who administered what) and `<dir>\walkthrough.md` (what to open as which account).
 
 ## Keeping BASA up to date (hard requirement)
 

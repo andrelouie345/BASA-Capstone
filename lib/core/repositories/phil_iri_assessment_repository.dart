@@ -4,6 +4,7 @@ import '../models/phil_iri_assessment.dart';
 import '../models/phil_iri_miscue.dart';
 import '../models/phil_iri_reading.dart';
 import '../models/phil_iri_rubric_score.dart';
+import '../models/phil_iri_timer_event.dart';
 
 /// Phil-IRI assessment sessions and everything recorded under them: passage
 /// readings, miscues, comprehension answers and rubric scores.
@@ -57,13 +58,21 @@ abstract class PhilIriAssessmentRepository {
   /// Timing, words read and observations. A reading keeps its session and passage.
   Future<PhilIriReading> updateReading(PhilIriReading reading);
 
-  /// Deletes the reading with its miscues and answers.
+  /// Deletes the reading with its miscues, answers and timing log.
   Future<void> deleteReading(int readingId);
 
   /// Ordered by sequence_no.
   Future<List<PhilIriReading>> getReadings(int assessmentId);
 
   Future<PhilIriReading?> findReading(int readingId);
+
+  // ---- Timing log (v49, spec 2026-11-26 timed reading) ----
+
+  /// Adds one timer tap; the rows of a reading are never changed.
+  Future<PhilIriTimerEvent> insertTimerEvent(PhilIriTimerEvent event);
+
+  /// The reading's taps by seq.
+  Future<List<PhilIriTimerEvent>> timerEvents(int readingId);
 
   // ---- Miscues ----
 

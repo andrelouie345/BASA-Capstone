@@ -99,6 +99,7 @@ const syncRecordKinds = <String, String>{
   'phil_iri_readings': 'Phil-IRI reading',
   'phil_iri_miscues': 'miscue',
   'phil_iri_answers': 'comprehension answer',
+  'phil_iri_reading_timer_events': 'timer tap',
   'phil_iri_rubric_scores': 'rubric score',
   'phil_iri_workbook_imports': 'workbook import',
   'aral_classes': 'ARAL class',

@@ -104,7 +104,12 @@ class LocalDatabase {
         // (createAralLocalSchema) so an edit on the same day checks only a
         // longer session against the daily limits (review M1; cloud
         // 20261119010000).
-        version: 48,
+        // v49: phil_iri_reading_timer_events, a reading's timing log (cloud
+        // 20261126010000; createPhilIriLocalSchema, then the sync triggers).
+        // v50: no table change; the bump recreates the timer trigger (final
+        // review: restart after a clock jump, taps only in an in-progress
+        // session; cloud 20261126030000).
+        version: 50,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (

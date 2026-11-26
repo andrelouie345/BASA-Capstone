@@ -311,6 +311,7 @@ class _RefusesFill implements StudentRepository {
           #getBySection => inner.getBySection,
           #activeSectionId => inner.activeSectionId,
           #enrollmentInYear => inner.enrollmentInYear,
+          #latestEnrollmentBefore => inner.latestEnrollmentBefore,
           #enroll => inner.enroll,
           #upsertWithId => inner.upsertWithId,
           _ => throw UnimplementedError('${invocation.memberName}'),

@@ -10,6 +10,7 @@ import '../../models/phil_iri_assessment.dart';
 import '../../models/phil_iri_miscue.dart';
 import '../../models/phil_iri_reading.dart';
 import '../../models/phil_iri_rubric_score.dart';
+import '../../models/phil_iri_timer_event.dart';
 import '../../repositories/phil_iri_assessment_repository.dart';
 
 class PhilIriAssessmentRepositorySupabase implements PhilIriAssessmentRepository {
@@ -188,6 +189,16 @@ class PhilIriAssessmentRepositorySupabase implements PhilIriAssessmentRepository
   }
 
   // ---- Miscues ----
+
+  @override
+  Future<PhilIriTimerEvent> insertTimerEvent(PhilIriTimerEvent event) =>
+      throw UnimplementedError('timer taps are written on the device and uploaded');
+
+  @override
+  Future<List<PhilIriTimerEvent>> timerEvents(int readingId) async {
+    final rows = await client.from('phil_iri_reading_timer_events').select().eq('reading_id', readingId).order('seq');
+    return rows.map(PhilIriTimerEvent.fromMap).toList();
+  }
 
   @override
   Future<PhilIriMiscue> insertMiscue(PhilIriMiscue miscue) async {

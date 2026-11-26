@@ -13,6 +13,7 @@ import '../../models/phil_iri_assessment.dart';
 import '../../models/phil_iri_miscue.dart';
 import '../../models/phil_iri_passage.dart';
 import '../../models/phil_iri_reading.dart';
+import '../../models/phil_iri_timer_event.dart';
 import '../../models/phil_iri_types.dart';
 import '../../models/report_setting.dart' show PhilIriValues, philIriValuesLabel;
 import 'phil_iri_command_helpers.dart';
@@ -231,6 +232,48 @@ void registerPhilIriCommands(ConsoleRegistry registry, PhilIriViewModel vm) {
     return 'Reading ${r.id}: ${_timing(r)}.';
   });
 
+  // The timer (spec 2026-11-26 timed reading): one command per tap, so a
+  // pass or a tutor can time a reading; [at] is the tap's time (default now).
+  for (final (name, kind, help) in [
+    ('phil-iri-timer-start', 'start', 'start timing the reading'),
+    ('phil-iri-timer-pause', 'pause', 'pause the timer (the learner stopped)'),
+    ('phil-iri-timer-resume', 'resume', 'resume after a pause'),
+    ('phil-iri-timer-stop', 'stop', 'stop the timer and save the reading time (whole text, silent)'),
+    ('phil-iri-timer-reset', 'reset', 'restart after a mistake (the first timing stays in the record)'),
+  ]) {
+    add(name, '$name <readingId> [YYYY-MM-DDTHH:MM:SS[+HH:MM]] — $help', (args) async {
+      if (args.isEmpty || args.length > 2) throw PhilIriUsage('Usage: $name <readingId> [YYYY-MM-DDTHH:MM:SS[+HH:MM]]');
+      final id = philIriInt(args[0], 'readingId');
+      final at = args.length == 2 ? _timeArg(args[1]) : null;
+      final state = switch (kind) {
+        'start' => await vm.startTimer(id, at: at),
+        'pause' => await vm.pauseTimer(id, at: at),
+        'resume' => await vm.resumeTimer(id, at: at),
+        'stop' => await vm.stopTimer(id, at: at),
+        _ => await vm.resetTimer(id, at: at),
+      };
+      return 'Reading $id timer: ${_timerLine(state)}.';
+    });
+  }
+
+  add('phil-iri-timer', 'phil-iri-timer <readingId> — the reading\'s timer and its timing log', (args) async {
+    if (args.length != 1) throw const PhilIriUsage('Usage: phil-iri-timer <readingId>');
+    final id = philIriInt(args[0], 'readingId');
+    final state = await vm.timer(id);
+    return [
+      'Reading $id timer: ${_timerLine(state)}.',
+      for (final e in state.events) '  ${e.seq}. ${e.kind.value} ${isoWithOffset(e.at)}',
+    ].join('\n');
+  });
+
+  add('phil-iri-minute-end',
+      'phil-iri-minute-end <readingId> <wordIndex> — one minute: the word the learner reached (0 = the first word)',
+      (args) async {
+    if (args.length != 2) throw const PhilIriUsage('Usage: phil-iri-minute-end <readingId> <wordIndex>');
+    final r = await vm.setMinuteEnd(philIriInt(args[0], 'readingId'), philIriInt(args[1], 'wordIndex'));
+    return 'Reading ${r.id}: ${_timing(r)}.';
+  });
+
   add(
       'phil-iri-observe',
       'phil-iri-observe <readingId> [wordbyword] [noexpression] [inaudible] [punctuation] [pointing] [noanalysis] '
@@ -433,6 +476,30 @@ PhilIriMiscueType _miscueType(String raw) {
 const _observationFlags = ['wordbyword', 'noexpression', 'inaudible', 'punctuation', 'pointing', 'noanalysis'];
 
 String _observationText(PhilIriObservation o) => o.labels.join(', ');
+
+String _timerLine(PhilIriTimerState s) {
+  final secs = s.elapsed.inSeconds;
+  final read = '${(secs ~/ 60).toString().padLeft(2, '0')}:${(secs % 60).toString().padLeft(2, '0')} read';
+  final status = switch (s.status) {
+    PhilIriTimerStatus.none => 'not started',
+    PhilIriTimerStatus.running => 'running',
+    PhilIriTimerStatus.paused => 'paused',
+    PhilIriTimerStatus.stopped => 'stopped',
+  };
+  return '$status, $read${s.minuteEndNeeded ? ', tap the word reached (phil-iri-minute-end)' : ''} · ${s.label}';
+}
+
+/// A tap's time: YYYY-MM-DDTHH:MM:SS with an optional offset (local time when
+/// none). Out-of-range parts are refused instead of rolling over (F17).
+DateTime _timeArg(String raw) {
+  final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(\.\d+)?(Z|[+-]\d{2}:\d{2})?$').firstMatch(raw.trim());
+  final parsed = m == null ? null : DateTime.tryParse(raw.trim());
+  if (m == null || parsed == null || int.parse(m[4]!) > 23 || int.parse(m[5]!) > 59 || int.parse(m[6]!) > 59 ||
+      DateTime.tryParse('${m[1]}-${m[2]}-${m[3]}')?.day != int.parse(m[3]!)) {
+    throw PhilIriUsage('"${raw.trim()}" is not a real time (YYYY-MM-DDTHH:MM:SS, optionally +08:00)');
+  }
+  return parsed;
+}
 
 String _timing(PhilIriReading r) => switch (r.method) {
       PhilIriReadingMethod.wholeText =>

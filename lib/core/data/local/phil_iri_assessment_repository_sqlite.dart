@@ -13,6 +13,7 @@ import '../../models/phil_iri_assessment.dart';
 import '../../models/phil_iri_miscue.dart';
 import '../../models/phil_iri_reading.dart';
 import '../../models/phil_iri_rubric_score.dart';
+import '../../models/phil_iri_timer_event.dart';
 import '../../repositories/phil_iri_assessment_repository.dart';
 
 class PhilIriAssessmentRepositorySqlite implements PhilIriAssessmentRepository {
@@ -137,6 +138,10 @@ class PhilIriAssessmentRepositorySqlite implements PhilIriAssessmentRepository {
     }
     await db.transaction((txn) async {
       const readings = 'SELECT id FROM phil_iri_readings WHERE assessment_id = ?';
+      // The timing log goes with its readings (final review C1); unjournaled,
+      // as in deleteReading: the server keeps no delete for a tap.
+      await withSyncBypass(txn, () => txn.delete('phil_iri_reading_timer_events',
+          where: 'reading_id IN ($readings)', whereArgs: [assessmentId]));
       await txn.delete('phil_iri_answers', where: 'reading_id IN ($readings)', whereArgs: [assessmentId]);
       await txn.delete('phil_iri_miscues', where: 'reading_id IN ($readings)', whereArgs: [assessmentId]);
       await txn.delete('phil_iri_readings', where: 'assessment_id = ?', whereArgs: [assessmentId]);
@@ -179,6 +184,10 @@ class PhilIriAssessmentRepositorySqlite implements PhilIriAssessmentRepository {
       if (rows.first['status'] == PhilIriStatus.finalized.value) {
         throw StateError('This Phil-IRI assessment is finalized and cannot be changed');
       }
+      // The timing log goes with its reading, unjournaled: the server keeps
+      // no delete for a tap and removes them with the reading (cascade).
+      await withSyncBypass(txn, () => txn.delete('phil_iri_reading_timer_events',
+          where: 'reading_id = ?', whereArgs: [readingId]));
       await txn.delete('phil_iri_answers', where: 'reading_id = ?', whereArgs: [readingId]);
       await txn.delete('phil_iri_miscues', where: 'reading_id = ?', whereArgs: [readingId]);
       await txn.delete('phil_iri_readings', where: 'id = ?', whereArgs: [readingId]);
@@ -198,6 +207,25 @@ class PhilIriAssessmentRepositorySqlite implements PhilIriAssessmentRepository {
   Future<PhilIriReading?> _reading(int id) async {
     final rows = await db.query('phil_iri_readings', where: 'id = ?', whereArgs: [id], limit: 1);
     return rows.isEmpty ? null : PhilIriReading.fromMap(rows.first);
+  }
+
+  // ---- Timing log ----
+
+  @override
+  Future<PhilIriTimerEvent> insertTimerEvent(PhilIriTimerEvent event) async {
+    final id = await db.insert('phil_iri_reading_timer_events', {
+      ...event.toMap()..remove('id'),
+      'id': await nextLocalId(db),
+    });
+    final rows = await db.query('phil_iri_reading_timer_events', where: 'id = ?', whereArgs: [id]);
+    return PhilIriTimerEvent.fromMap(rows.first);
+  }
+
+  @override
+  Future<List<PhilIriTimerEvent>> timerEvents(int readingId) async {
+    final rows = await db.query('phil_iri_reading_timer_events',
+        where: 'reading_id = ?', whereArgs: [readingId], orderBy: 'seq');
+    return rows.map(PhilIriTimerEvent.fromMap).toList();
   }
 
   // ---- Miscues ----

@@ -7,8 +7,8 @@ import 'package:excel_plus/excel_plus.dart';
 
 class Sf1Learner {
   final String lrn, last, first, sex; // sex: M | F
-  final String? birthDate;
-  const Sf1Learner(this.lrn, this.last, this.first, this.sex, {this.birthDate});
+  final String? birthDate, middle;
+  const Sf1Learner(this.lrn, this.last, this.first, this.sex, {this.birthDate, this.middle});
 }
 
 /// Region 13 (Region X), the only region with CRLA stories.
@@ -72,6 +72,7 @@ void writeSf1(
     put(row, map.lrn, l.lrn);
     put(row, map.lastName, l.last);
     put(row, map.firstName, l.first);
+    put(row, map.middleName, l.middle);
     put(row, map.sex, l.sex);
     put(row, map.birthDate, l.birthDate);
   }

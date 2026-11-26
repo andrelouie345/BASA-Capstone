@@ -27,6 +27,10 @@ class Sf1ImportResult {
   /// file (counted in [alreadyEnrolled] too).
   int birthDatesFilled = 0;
 
+  /// Learners continuing at this school (SF1 continuing learners,
+  /// 2026-11-24): enrolled into the file's section, no conflict logged.
+  int continuing = 0;
+
   /// Moving and returning rows: not applied by the import, they wait for the
   /// coordinator's decision (sf1-move / sf1-restore).
   int waiting = 0;
@@ -80,10 +84,12 @@ class Sf1TrialRow {
   final String name;
   /// 'insert' | 'conflict' | 'enrolled' (already in this section) | 'skip'
   /// | 'moving' (active in another section of the school, same grade)
-  /// | 'returning' (archived this year at this school, same grade).
+  /// | 'returning' (archived this year at this school, same grade)
+  /// | 'continuing' (no enrollment this year; the latest earlier one is at
+  /// this school, one grade lower or the same grade: the import enrolls).
   final String outcome;
   final String? reason;
-  final int? existingStudentId; // set when outcome is 'conflict', 'moving' or 'returning'
+  final int? existingStudentId; // set when outcome is 'conflict', 'moving', 'returning' or 'continuing'
 
   /// 'moving': the section the learner is active in now; 'returning': the
   /// section they were archived in (it can differ from the file's section).
@@ -103,10 +109,16 @@ class Sf1TrialRow {
   /// date that can't be read ("birth date "x" can't be read: left blank").
   final String? warning;
 
-  /// 'enrolled' only: the learner's birth date is blank in BASA and the file
-  /// has a readable one, so the import fills it (owner 2026-11-16, option A;
-  /// a stored date is never changed).
+  /// 'enrolled' and 'continuing': the learner's birth date is blank in BASA
+  /// and the file has a readable one, so the import fills it (owner
+  /// 2026-11-16, option A; a stored date is never changed).
   final bool fillsBirthDate;
+
+  /// 'continuing' only: the file's name (last, first, middle) differs from
+  /// BASA's, so the import updates it (owner 2026-11-24: likely a
+  /// correction). [previousName] is BASA's name, "Last, First Middle".
+  final bool updatesName;
+  final String? previousName;
 
   Sf1TrialRow({
     required this.rowIndex,
@@ -122,6 +134,8 @@ class Sf1TrialRow {
     this.leftReason,
     this.warning,
     this.fillsBirthDate = false,
+    this.updatesName = false,
+    this.previousName,
   });
 
   /// "Row 7 GALT, JOHN: " + [warning] (1-based row), or null.
@@ -142,6 +156,8 @@ class Sf1TrialRow {
         leftReason: leftReason,
         warning: w,
         fillsBirthDate: fillsBirthDate,
+        updatesName: updatesName,
+        previousName: previousName,
       );
 }
 
@@ -195,6 +211,7 @@ class Sf1TrialResult {
   int get wouldFillBirthDate => rows.where((r) => r.fillsBirthDate).length;
   int get wouldMove => rows.where((r) => r.outcome == 'moving').length;
   int get wouldReturn => rows.where((r) => r.outcome == 'returning').length;
+  int get wouldContinue => rows.where((r) => r.outcome == 'continuing').length;
 }
 
 /// Reason recorded for a row whose LRN belongs to a learner in another school
@@ -459,6 +476,8 @@ class Sf1Importer {
           schoolId: existingSchool?.id,
           schoolYear: schoolYear,
           gradeLevel: gradeLevel,
+          incoming: parsed,
+          birthIso: birth.iso,
         );
       }
       rows.add(warning == null ? outcome : outcome.withWarning(warning));
@@ -507,8 +526,10 @@ class Sf1Importer {
   /// same grade -> 'moving'; archived, same grade -> 'returning'; another
   /// grade -> a conflict (moves and restores are same grade only, D7). Any
   /// other case (no enrollment this year, another school, the school not in
-  /// BASA yet) stays today's generic conflict. An anonymized learner never
-  /// gets here: their LRN is `ANON-<id>` (D2), so findByLrn doesn't find them.
+  /// BASA yet) stays today's generic conflict, except a learner who
+  /// continues at this school (no enrollment this year): see
+  /// [_continuingRow]. An anonymized learner never gets here: their LRN is
+  /// `ANON-<id>` (D2), so findByLrn doesn't find them.
   Future<Sf1TrialRow> _existingLearnerRow({
     required int rowIndex,
     required String lrn,
@@ -517,14 +538,22 @@ class Sf1Importer {
     required int? schoolId,
     required String schoolYear,
     required String gradeLevel,
+    required Student incoming,
+    required String? birthIso,
   }) async {
     Sf1TrialRow conflict(String reason) => Sf1TrialRow(
         rowIndex: rowIndex, lrn: lrn, name: name, outcome: 'conflict', reason: reason, existingStudentId: existing.id);
+    final generic = 'LRN already exists (existing student id ${existing.id})';
 
     final e = schoolId == null ? null : await studentRepo.enrollmentInYear(existing.id!, schoolYear);
-    if (e == null || e.schoolId != schoolId) {
-      return conflict('LRN already exists (existing student id ${existing.id})');
+    if (e == null && schoolId != null) {
+      final before = await studentRepo.latestEnrollmentBefore(existing.id!, schoolYear);
+      if (before == null || before.schoolId != schoolId) return conflict(generic);
+      return _continuingRow(
+          rowIndex: rowIndex, lrn: lrn, name: name, existing: existing, before: before,
+          schoolYear: schoolYear, gradeLevel: gradeLevel, incoming: incoming, birthIso: birthIso);
     }
+    if (e == null || e.schoolId != schoolId) return conflict(generic);
     final active = e.status == 'active';
     if (e.gradeLevel != gradeLevel) {
       return conflict(active
@@ -557,6 +586,81 @@ class Sf1Importer {
       leftOn: e.leftOn,
       leftReason: e.status,
     );
+  }
+
+  /// SF1 continuing learners (spec 2026-11-24): the learner's latest earlier
+  /// enrollment ([before]) is at this school. One grade lower or the same
+  /// grade -> 'continuing' (labelled); any other grade -> a conflict naming
+  /// both grades.
+  Sf1TrialRow _continuingRow({
+    required int rowIndex,
+    required String lrn,
+    required String name,
+    required Student existing,
+    required EnrollmentBefore before,
+    required String schoolYear,
+    required String gradeLevel,
+    required Student incoming,
+    required String? birthIso,
+  }) {
+    final was = int.tryParse(before.gradeLevel);
+    final now = int.tryParse(gradeLevel);
+    if (was == null || now == null || (now != was && now != was + 1)) {
+      return Sf1TrialRow(
+          rowIndex: rowIndex,
+          lrn: lrn,
+          name: name,
+          outcome: 'conflict',
+          reason: 'last enrolled here in Grade ${before.gradeLevel} (${before.schoolYear}): '
+              'Grade $gradeLevel is not the next grade',
+          existingStudentId: existing.id);
+    }
+    final start = int.parse(schoolYear.substring(0, 4));
+    final previousYear = '${start - 1}-$start';
+    final label = StringBuffer(
+        now == was ? 'repeating Grade $was' : 'moving up from Grade $was (${before.schoolYear})');
+    if (before.status != 'active') {
+      label.write(', back after leaving (${before.status.replaceAll('_', ' ')}, ${before.schoolYear})');
+    }
+    if (before.schoolYear != previousYear) label.write(', last here in ${before.schoolYear}');
+    final corrected = _continuingName(existing, incoming);
+    final updatesName = corrected != null;
+    final previousName = _personName(existing);
+    if (corrected != null) label.write(', name corrected: $previousName -> ${_personName(corrected)}');
+    final fills = existing.birthDate == null && existing.anonymizedAt == null && birthIso != null;
+    return Sf1TrialRow(
+      rowIndex: rowIndex,
+      lrn: lrn,
+      name: name,
+      outcome: 'continuing',
+      reason: label.toString(),
+      existingStudentId: existing.id,
+      fillsBirthDate: fills,
+      updatesName: updatesName,
+      previousName: updatesName ? previousName : null,
+    );
+  }
+
+  /// The learner with the file's name parts where the file has them, or null
+  /// when nothing changes. A blank cell on the file never erases BASA's value
+  /// (final review I1, 2026-11-24): a blank is not a correction.
+  static Student? _continuingName(Student existing, Student incoming) {
+    String? clean(String? v) => (v == null || v.trim().isEmpty) ? null : v.trim();
+    final last = clean(incoming.lastName) ?? existing.lastName;
+    final first = clean(incoming.firstName) ?? existing.firstName;
+    final middle = clean(incoming.middleName) ?? existing.middleName;
+    if (clean(last) == clean(existing.lastName) &&
+        clean(first) == clean(existing.firstName) &&
+        clean(middle) == clean(existing.middleName)) {
+      return null;
+    }
+    return Student.fromMap({...existing.toMap(), 'last_name': last, 'first_name': first, 'middle_name': middle});
+  }
+
+  /// "Last, First Middle" (trimmed; no middle -> "Last, First").
+  static String _personName(Student s) {
+    final middle = s.middleName?.trim();
+    return '${s.lastName.trim()}, ${s.firstName.trim()}${middle == null || middle.isEmpty ? '' : ' $middle'}';
   }
 
   /// Parses and reports what import() WOULD do, without writing anything
@@ -628,6 +732,21 @@ class Sf1Importer {
       result.conflicts++;
     }
 
+    // A blank birth date filled from the file ('enrolled' and 'continuing').
+    Future<void> fillBirthDate(Sf1TrialRow row) async {
+      final iso = parsed.parsedStudents[row.rowIndex]!.birthDate!;
+      final filled = await studentRepo.fillBlankBirthDate(row.existingStudentId!, iso);
+      if (filled == null) {
+        // Filled meanwhile, or the server refused this learner: the import
+        // goes on.
+        result.rowWarnings.add('Row ${row.rowIndex + 1} ${row.name}: birth date not filled '
+            '(already set, or this learner can\'t be changed)');
+      } else {
+        await localStudentRepo.upsertWithId(filled);
+        result.birthDatesFilled++;
+      }
+    }
+
     for (final row in parsed.rows) {
       if (row.outcome == 'skip') {
         result.skippedBlankOrTotal++;
@@ -635,19 +754,40 @@ class Sf1Importer {
       }
       if (row.outcome == 'enrolled') {
         result.alreadyEnrolled++;
-        if (row.fillsBirthDate) {
-          final iso = parsed.parsedStudents[row.rowIndex]!.birthDate!;
-          final filled = await studentRepo.fillBlankBirthDate(row.existingStudentId!, iso);
-          if (filled == null) {
-            // Filled meanwhile, or the server refused this learner: the
-            // import goes on.
-            result.rowWarnings.add('Row ${row.rowIndex + 1} ${row.name}: birth date not filled '
-                '(already set, or this learner can\'t be changed)');
-          } else {
-            await localStudentRepo.upsertWithId(filled);
-            result.birthDatesFilled++;
+        if (row.fillsBirthDate) await fillBirthDate(row);
+        continue;
+      }
+      if (row.outcome == 'continuing') {
+        final incoming = parsed.parsedStudents[row.rowIndex]!;
+        if (row.updatesName) {
+          final existing = await studentRepo.findByLrn(row.lrn!);
+          try {
+            if (existing == null) throw StateError('learner not readable');
+            final renamed = _continuingName(existing, incoming);
+            if (renamed != null) {
+              await studentRepo.update(renamed);
+              await localStudentRepo.upsertWithId(renamed);
+            }
+          } catch (e) {
+            // Refused (RLS, or anonymized meanwhile): the learner is still
+            // enrolled and the import goes on.
+            _log('name update refused for LRN ${row.lrn}: $e');
+            result.rowWarnings.add("Row ${row.rowIndex + 1} ${row.name}: name not updated (this learner can't be changed)");
           }
         }
+        if (row.fillsBirthDate) await fillBirthDate(row);
+        final enrollmentId = await studentRepo.enroll(
+          studentId: row.existingStudentId!,
+          sectionId: section.id!,
+          schoolYear: section.schoolYear,
+        );
+        await localStudentRepo.enroll(
+          studentId: row.existingStudentId!,
+          sectionId: section.id!,
+          schoolYear: section.schoolYear,
+          id: enrollmentId,
+        );
+        result.continuing++;
         continue;
       }
       if (row.outcome == 'moving' || row.outcome == 'returning') {
@@ -695,7 +835,7 @@ class Sf1Importer {
       }
     }
 
-    _log('done: ${result.inserted} inserted, ${result.conflicts} conflicts, '
+    _log('done: ${result.inserted} inserted, ${result.continuing} continuing, ${result.conflicts} conflicts, '
         '${result.alreadyEnrolled} already enrolled, ${result.waiting} waiting (moving/returning), '
         '${result.skippedBlankOrTotal} skipped');
     return result;

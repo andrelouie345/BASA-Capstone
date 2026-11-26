@@ -19,7 +19,14 @@ class Device {
   /// switches back to this device (sign-in lives in memory only).
   String? lastAccount;
 
-  Device(this.name, this.build, this.dir, this.ctx, {this.lastAccount});
+  /// The wired ViewModels (the demo builder calls them directly; the command
+  /// pass goes through [command]). [admin] is null on a tutor device.
+  final SharedVms shared;
+  final TutorVms tutor;
+  final AdminVms? admin;
+
+  Device(this.name, this.build, this.dir, this.ctx,
+      {this.lastAccount, required this.shared, required this.tutor, this.admin});
 
   ConsoleCommand? command(String name) {
     for (final c in ctx.registry.all) {
@@ -70,8 +77,9 @@ class DeviceManager {
     // Same order as lib/console/main_tutor.dart and lib/console/main.dart.
     final shared = wireShared(ctx);
     final tutor = wireTutor(ctx, shared);
+    AdminVms? admin;
     if (build == 'admin') {
-      final admin = await wireAdmin(ctx, shared, tutor);
+      admin = await wireAdmin(ctx, shared, tutor);
       registerSharedCommands(ctx, shared);
       registerTutorCommands(ctx, shared, tutor);
       registerAdminCommands(ctx, shared, tutor, admin);
@@ -81,7 +89,8 @@ class DeviceManager {
     }
     registerDevCommands(ctx, shared);
 
-    final device = Device(name, build, dir, ctx, lastAccount: _lastAccounts[name]);
+    final device =
+        Device(name, build, dir, ctx, lastAccount: _lastAccounts[name], shared: shared, tutor: tutor, admin: admin);
     _open = device;
     return device;
   }
