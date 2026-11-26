@@ -16,6 +16,7 @@ void main() {
 
   test('DepEd birth dates', () {
     expect(sf1BirthDate('2016-09-04'), '09-04-2016');
+    expect(sf1BirthDate(''), ''); // a learner with no birth date on the SF1 (gap 5)
   });
 
   test('a section file holds its school, year, grade and learners', () async {

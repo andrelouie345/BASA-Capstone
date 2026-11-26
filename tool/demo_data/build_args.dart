@@ -7,7 +7,7 @@ const demoDefaultDir = r'D:\0_CAPSTONE\verify\demo';
 const demoBuildUsage = 'Usage: dart run tool/demo_data/build.dart --config <supabase_config.json> [--dir <folder>] [--only <phase>]\n'
     '  --config  the server to build on (required; e.g. D:\\0_CAPSTONE\\verify\\demo\\supabase_config.json)\n'
     '  --dir     where devices, SF1 files, state, accounts and the report go (default $demoDefaultDir)\n'
-    '  --only    run one phase (e.g. setup, rosters-2025) or one step (setup.schools)';
+    '  --only    run one phase (e.g. setup, rosters-2025, next-year, leftovers, report) or one step (setup.schools)';
 
 /// The parsed arguments, or null (print [demoBuildUsage]).
 ({String configPath, String dir, String? only})? parseBuildArgs(List<String> args) {

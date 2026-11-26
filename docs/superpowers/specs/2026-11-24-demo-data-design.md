@@ -192,7 +192,7 @@ a gap, not skipped.
 
 ## 8. Decided by the owner
 
-- Approach 1; dev cloud now, a fresh project later (before the defense).
+- Approach 1; dev cloud now, a fresh project later (before the defense). **Changed 2026-11-27 (owner): the demo stays on the dev cloud for the defense** (a rebuild takes 12-15 hours, not worth it); the parked fresh-project item becomes a SQL clean-up of the command pass's ZZ test schools, run by the owner.
 - Real years 2025-2026 and 2026-2027; Night City names.
 - The demo is led by the team with a Night City coordinator account.
 - About 40 learners per section (2026-11-24), as realistic as possible.

@@ -72,12 +72,12 @@ final List<NextYearPart> nextYearParts = [
   (
     name: '$nextYearStep.crla-mosy',
     run: (s, st, w, today) async =>
-        runCrla(s, st, w, _y, today: today, plan: await _mosyPlan(s, st, w, round: 'mosy')),
+        runCrla(s, st, w, _y, today: today, plan: await mosyPlan(s, st, w, round: 'mosy')),
   ),
   (
     name: '$nextYearStep.phil-iri-mosy',
     run: (s, st, w, today) async =>
-        runPhilIri(s, st, w, _y, today: today, plan: await _mosyPlan(s, st, w, round: 'mosy1')),
+        runPhilIri(s, st, w, _y, today: today, plan: await mosyPlan(s, st, w, round: 'mosy1')),
   ),
   (name: '$nextYearStep.one-minute-ready', run: (s, st, w, today) => _oneMinuteReady(s, st, w, today)),
   (name: '$nextYearStep.anonymize-preview', run: (s, st, w, today) => _anonymizePreview(s, st)),
@@ -184,7 +184,7 @@ Future<void> _anonymizePreview(DemoSession s, DemoState st) async {
 /// an ARAL class: the class tutor), and who is done so far (the window is
 /// open: about 3 in 4 class learners, 3 in 5 of the others; gap 1 learners
 /// not at all).
-Future<DemoRoundPlan> _mosyPlan(DemoSession s, DemoState st, DemoWorld w, {required String round}) async {
+Future<DemoRoundPlan> mosyPlan(DemoSession s, DemoState st, DemoWorld w, {required String round}) async {
   final classTutor = <String, String>{}; // LRN -> tutor key
   for (final school in ['NCES-DEMO', 'NCHS-DEMO']) {
     final tutorKeys = [for (final a in demoAccounts) if (a.schoolCode == school && a.key.startsWith('tutor')) a.key];
@@ -232,7 +232,7 @@ Future<DemoRoundPlan> _mosyPlan(DemoSession s, DemoState st, DemoWorld w, {requi
 /// LRN of the learner of each Grade 5, 8, 9 and 10 section (2026-2027) the
 /// step prepares: not assessed in MOSY #1 so far, no gap, no ARAL class.
 Future<void> _oneMinuteReady(DemoSession s, DemoState st, DemoWorld w, DateTime today) async {
-  final plan = await _mosyPlan(s, st, w, round: 'mosy1');
+  final plan = await mosyPlan(s, st, w, round: 'mosy1');
   for (final grade in [5, 8, 9, 10]) {
     final section = w.sections
         .singleWhere((x) => x.year == _y && x.grade == grade && x.name == demoSectionName(grade));

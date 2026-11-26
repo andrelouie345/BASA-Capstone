@@ -10,8 +10,10 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'build_args.dart';
 import 'phases/aral.dart';
 import 'phases/crla.dart';
+import 'phases/leftovers.dart';
 import 'phases/next_year.dart';
 import 'phases/phil_iri.dart';
+import 'phases/report.dart';
 import 'phases/rosters.dart';
 import 'phases/setup.dart';
 import 'session.dart';
@@ -29,6 +31,7 @@ final List<DemoStep> demoSteps = [
   (name: philIriStep(DemoYear.y2025), run: (s, st, w, today) => runPhilIri(s, st, w, DemoYear.y2025, today: today)),
   (name: aralStep(DemoYear.y2025), run: (s, st, w, today) => runAral(s, st, w, DemoYear.y2025, today: today)),
   ...nextYearParts,
+  ...leftoverParts,
 ];
 
 Future<void> main(List<String> args) async {
@@ -64,7 +67,8 @@ Future<void> main(List<String> args) async {
     final world = DemoWorld.build();
     final today = DateTime.now();
     final steps = [for (final step in demoSteps) if (stepSelected(step.name, a.only)) step];
-    if (steps.isEmpty) throw StateError('no step matches --only ${a.only}');
+    final report = a.only == null || a.only == reportStep || a.only == leftoversStep;
+    if (steps.isEmpty && !report) throw StateError('no step matches --only ${a.only}');
     for (final step in steps) {
       if (state.done(step.name)) {
         stdout.writeln('= ${step.name} (done earlier)');
@@ -73,6 +77,10 @@ Future<void> main(List<String> args) async {
       stdout.writeln('> ${step.name}');
       await step.run(session, state, world, today);
       await state.markDone(step.name);
+    }
+    if (report) {
+      stdout.writeln('> $reportStep (written every run)');
+      await writeReport(session, state, world, today, server: '${url ?? '?'}');
     }
     stdout.writeln('Done: ${steps.length} steps.');
   } catch (e, st) {

@@ -54,6 +54,25 @@ class DemoSession {
     return dev;
   }
 
+  /// Signs [key] out and in again online (a new login log row).
+  Future<void> signInAgain(String key) async {
+    final dev = await as(key);
+    await dev.ctx.authVm.signOut();
+    await as(key);
+  }
+
+  /// Signs [key] out, then in offline on its device (the device owner's
+  /// offline sign-in, logged on the device only), then out again. Returns
+  /// the refusal, or null.
+  Future<String?> signInOffline(String key) async {
+    final dev = await as(key);
+    await dev.ctx.authVm.signOut();
+    final cred = _credential(key);
+    final error = await dev.ctx.authVm.signInOffline(email: cred.email, password: cred.password);
+    await dev.ctx.authVm.signOut();
+    return error;
+  }
+
   /// Whether [key] already has a password here (created by an earlier run).
   bool hasPassword(String key) => _accounts.containsKey(key);
 

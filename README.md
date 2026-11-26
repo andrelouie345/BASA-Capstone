@@ -586,6 +586,20 @@ Recommendations (`aral-recommend <enrollmentId>`, `aral-recommend-section
 that applies to the learner's school, and work offline once the catalog is on
 the device (`pull-cloud`).
 
+## Demo data (Night City)
+
+`tool/demo_data/` builds a readable demo world on a BASA server: Night City Elementary School (Grades 1-6) and Night City High School (Grades 7-10) in Region X, 10 accounts on `nightcity.test`, about 40 learners per section, school year 2025-2026 complete (CRLA, Phil-IRI, ARAL, SRP) and 2026-2027 up to the run date (ARAL class tutors give MOSY, timed readings, SF1 leavers, deliberate gaps for the reminders). Every record goes through the app's ViewModels, so it passes the same rules a tutor's would.
+
+```
+dart run tool/demo_data/build.dart --config D:\0_CAPSTONE\verify\demo\supabase_config.json
+```
+
+- `--config` is required (no default server); it shows the server and waits for `yes`.
+- The first run signs in once as an existing superadmin (`D:\0_CAPSTONE\verify\pass\accounts.json`, see step 5) to create `demo.super`.
+- Passwords are generated and kept only in `<dir>\accounts.json` (default `D:\0_CAPSTONE\verify\demo`), never in the repo or the report.
+- Resumable: finished steps are recorded in `<dir>\state.json`; run the same command again after a stop. A full build takes 12-15 hours on a laptop.
+- `--only report` rewrites `<dir>\report.md` (coverage of every feature, profile mismatches, who administered what) and `<dir>\walkthrough.md` (what to open as which account).
+
 ## Keeping BASA up to date (hard requirement)
 
 A BASA **release** is an app version plus the database migrations it needs.
