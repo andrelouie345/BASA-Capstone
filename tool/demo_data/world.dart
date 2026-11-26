@@ -119,6 +119,26 @@ const demoNarraSection = 'Grade 8 - Narra';
 
 String demoSectionName(int grade) => 'Grade $grade - ${_sectionNames[grade]}';
 
+/// The section's short key in step names, ids and SF1 file names: `G<grade>`
+/// for a grade's own section (the 2025-2026 keys), `G8N` for Grade 8 - Narra,
+/// the second Grade 8 section of 2026-2027.
+String demoSectionKey(DemoSection s) => s.name == demoNarraSection ? 'G${s.grade}N' : 'G${s.grade}';
+
+/// The state id key of [s]'s section id.
+String demoSectionIdKey(DemoSection s) => 'section.${s.year.label}.${s.schoolCode}.${demoSectionKey(s)}';
+
+/// Deliberate gaps of 2026-2027 (demo-data plan Task 12, owner 2026-11-26):
+/// learners the runs leave something out for, so the reminders and the
+/// carried values have something to show.
+enum DemoGap {
+  /// Read BOSY, not MOSY #1 while their section did (gap 1).
+  missedMosy,
+  /// No 2026-2027 GST (gap 2).
+  noGst,
+  /// Never read in the closed 2026-2027 BOSY (gap 3).
+  missedBosy,
+}
+
 /// Fixed bands per story learner: [year] -> [BOSY, MOSY, EOSY].
 const _storyBands = <DemoStory, Map<DemoYear, List<DemoBand>>>{
   DemoStory.movesUpThroughAral: {
@@ -142,7 +162,11 @@ const _storyBands = <DemoStory, Map<DemoYear, List<DemoBand>>>{
 class DemoWorld {
   final List<DemoSection> sections;
   final List<DemoLearner> learners;
-  DemoWorld._(this.sections, this.learners);
+  /// LRN -> the gap that learner shows (2026-2027 only; never a story learner).
+  final Map<String, DemoGap> gapLearners;
+  DemoWorld._(this.sections, this.learners, this.gapLearners);
+
+  DemoGap? gapOf(DemoLearner l) => gapLearners[l.lrn];
 
   factory DemoWorld.build({int seed = 2026}) {
     final rng = Random(seed);
@@ -295,7 +319,34 @@ class DemoWorld {
         for (var g = 1; g <= 10; g++) section(y, g, demoSectionName(g)),
       section(DemoYear.y2026, 8, demoNarraSection),
     ];
-    return DemoWorld._(sections, learners);
+
+    // Gap learners (2026-2027), from a separate seed so the world above is
+    // unchanged: not story learners, reading at grade level at BOSY (so not
+    // in ARAL, where their class tutor would assess them).
+    final gapRng = Random(seed + 12);
+    final gaps = <String, DemoGap>{};
+    final world = DemoWorld._(sections, learners, gaps);
+    List<DemoLearner> pool(int grade) {
+      final s = sections.singleWhere((x) => x.year == DemoYear.y2026 && x.name == demoSectionName(grade));
+      return [
+        for (final l in world.inSection(s))
+          if (l.story == null &&
+              !gaps.containsKey(l.lrn) &&
+              world.band(l, DemoYear.y2026, 'bosy').index >= DemoBand.instructional.index)
+            l,
+      ]..shuffle(gapRng);
+    }
+
+    for (final g in [8, 9, 10]) {
+      gaps[pool(g).first.lrn] = DemoGap.missedMosy;
+    }
+    for (final g in [5, 9]) {
+      gaps[pool(g).first.lrn] = DemoGap.noGst;
+    }
+    for (final l in pool(10).take(3)) {
+      gaps[l.lrn] = DemoGap.missedBosy;
+    }
+    return world;
   }
 
   List<DemoLearner> inSection(DemoSection s) => [

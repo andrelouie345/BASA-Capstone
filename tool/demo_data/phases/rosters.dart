@@ -23,7 +23,7 @@ String coordinatorOf(String schoolCode) => schoolCode == 'NCES-DEMO' ? 'coord.es
 Future<void> runRosters(DemoSession s, DemoState st, DemoWorld w, DemoYear y,
     {Set<String> exclude = const {}}) async {
   for (final section in w.sections.where((x) => x.year == y)) {
-    final step = '${rostersStep(y)}.${section.schoolCode}-G${section.grade}';
+    final step = '${rostersStep(y)}.${section.schoolCode}-${demoSectionKey(section)}';
     if (st.done(step)) continue;
     final learners = [for (final l in w.inSection(section)) if (!exclude.contains(l.lrn)) l];
     final dev = await s.as(coordinatorOf(section.schoolCode));
@@ -40,7 +40,7 @@ Future<void> runRosters(DemoSession s, DemoState st, DemoWorld w, DemoYear y,
       throw StateError('${section.name} (${y.label}): import gave ${r.conflicts} conflict(s), ${r.waiting} waiting');
     }
     final sectionId = r.sectionId!;
-    await st.putId('section.${y.label}.${section.schoolCode}.G${section.grade}', sectionId);
+    await st.putId(demoSectionIdKey(section), sectionId);
 
     final users = admin.userVm;
     Future<String> idOf(String key) async => (await users.findByEmail(demoAccount(key).email))!.id;

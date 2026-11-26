@@ -11,12 +11,15 @@ import 'world.dart';
 /// An ISO date (2016-09-04) as DepEd's SF1 writes it (09-04-2016).
 String sf1BirthDate(String iso) => '${iso.substring(5, 7)}-${iso.substring(8, 10)}-${iso.substring(0, 4)}';
 
-/// Writes [section]'s SF1 with [learners] and returns its path.
-String writeDemoSf1(Directory dir, DemoSection section, List<DemoLearner> learners, Sf1ColumnMap map) {
+/// Writes [section]'s SF1 with [learners] and returns its path; [tag] = a
+/// later re-import of the same section (its own subfolder, e.g. `2026-08`).
+String writeDemoSf1(Directory dir, DemoSection section, List<DemoLearner> learners, Sf1ColumnMap map,
+    {String? tag}) {
   final sep = Platform.pathSeparator;
-  final folder = Directory('${dir.path}${sep}sf1$sep${section.year.label}')..createSync(recursive: true);
+  final folder = Directory('${dir.path}${sep}sf1$sep${section.year.label}${tag == null ? '' : '$sep$tag'}')
+    ..createSync(recursive: true);
   final school = demoSchools.firstWhere((s) => s.code == section.schoolCode);
-  final path = '${folder.path}$sep${school.code}-G${section.grade}.xlsx';
+  final path = '${folder.path}$sep${school.code}-${demoSectionKey(section)}.xlsx';
   writeSf1(
     path,
     map: map,

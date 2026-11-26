@@ -26,6 +26,7 @@ import 'package:basa_capstone/viewmodels/phil_iri_viewmodel.dart';
 import '../../command_pass/device.dart';
 import '../dates.dart';
 import '../records.dart';
+import '../round_plan.dart';
 import '../session.dart';
 import '../state.dart';
 import '../sync_steps.dart';
@@ -39,104 +40,50 @@ const demoPhilIriRounds = [PhilIriRound.bosy, PhilIriRound.mosy1, PhilIriRound.e
 
 const _substitutes = ['the', 'a', 'then', 'they', 'was', 'went', 'is', 'and', 'come', 'see'];
 
-Future<void> runPhilIri(DemoSession s, DemoState st, DemoWorld w, DemoYear y, {required DateTime today}) async {
+Future<void> runPhilIri(DemoSession s, DemoState st, DemoWorld w, DemoYear y,
+    {required DateTime today, DemoRoundPlan plan = const DemoRoundPlan()}) async {
   final pulled = <String>{};
   for (final section in w.sections.where((x) => x.year == y && x.grade >= 4)) {
     for (final round in demoPhilIriRounds) {
-      final step = '${philIriStep(y)}.G${section.grade}.${round.name}';
+      if (!plan.runs(round.name)) continue;
+      final step = '${philIriStep(y)}.${demoSectionKey(section)}.${round.name}';
       if (st.done(step)) continue;
       final window = demoWindows(y).singleWhere((x) => x.instrument == 'phil_iri' && x.round == round.name);
       if (roundDate(y, 'phil_iri', round.name, today: today, rng: Random(0)) == null) {
         await st.markDone(step); // the run date hasn't reached this round
         continue;
       }
-      final tutorKey = section.tutorAccounts.first;
       final coordinator = coordinatorOf(section.schoolCode);
-      final sectionId = st.ids['section.${y.label}.${section.schoolCode}.G${section.grade}']!;
-      final dev = await s.as(tutorKey);
-      if (pulled.add(tutorKey)) await dev.shared.syncVm.pull();
-      final vm = dev.tutor.philIriVm;
-      final t = await vm.effectiveThresholds(st.ids['school.${section.schoolCode}']!);
+      final sectionId = st.ids[demoSectionIdKey(section)]!;
+      final schoolId = st.ids['school.${section.schoolCode}']!;
+      final timed = plan.timedRounds.contains(round.name);
 
-      var gst = 0, sessions = 0, silent = 0;
-      final latestReading = <int, ({int readingId, DemoBand band})>{};
-      final have = round == PhilIriRound.bosy
-          ? {for (final g in await vm.gstForSection(sectionId, schoolYear: y.label)) g.studentId}
-          : <int>{};
-      await vm.loadForSection(sectionId, schoolYear: y.label, round: round);
-      final existing = [...vm.assessments];
-
-      for (final l in w.inSection(section)) {
-        final student = await dev.shared.studentRepo.findByLrn(l.lrn);
-        if (student == null) throw StateError('${l.lrn} is not on $tutorKey\'s device');
-        final studentId = student.id!;
-        final rng = Random(int.parse(l.lrn.substring(4)) * 37 + round.index * 11 + y.index);
-        final band = w.band(l, y, round.name);
-        final date = roundDate(y, 'phil_iri', round.name, today: today, rng: rng)!;
-
-        if (round == PhilIriRound.bosy && !have.contains(studentId)) {
-          final total = gstScoreFor(target: band, grade: section.grade, rng: rng, t: t);
-          final split = gstSplitFor(total, rng);
-          await vm.recordGst(
-              studentId: studentId,
-              sectionId: sectionId,
-              schoolYear: y.label,
-              totalScore: total,
-              literalCorrect: split.literal,
-              inferentialCorrect: split.inferential,
-              criticalCorrect: split.critical,
-              takenAt: date);
-          gst++;
-        }
-
-        // What this learner already has in the round (a run that stopped).
-        final mine = existing.where((a) => a.studentId == studentId).toList()
-          ..sort((a, b) => (a.attemptNo ?? 0).compareTo(b.attemptNo ?? 0));
-        for (final a in mine.where((a) => a.status == PhilIriStatus.inProgress)) {
-          await vm.discard(a.id!);
-        }
-        final done = mine.where((a) => a.status != PhilIriStatus.inProgress).toList();
-        final readSilently = band != DemoBand.nonReader && rng.nextInt(5) == 0;
-        final needsFollowUp = readSilently && band.index <= DemoBand.frustration.index;
-
-        if (done.isEmpty) {
-          final first = await _session(vm, studentId, sectionId, y, round, date, band, rng, t,
-              method: readSilently ? PhilIriReadingMethod.silent : PhilIriReadingMethod.wholeText);
-          sessions++;
-          if (readSilently) silent++;
-          if (!needsFollowUp) {
-            latestReading[studentId] = (readingId: first.readingId, band: band);
-            continue;
-          }
-          final follow = await _session(vm, studentId, sectionId, y, round, date, band, rng, t,
-              method: PhilIriReadingMethod.wholeText, passageId: first.passageId);
-          sessions++;
-          if (await vm.silentReadingFollowedUp(follow.readingId) == null) {
-            throw StateError('the oral follow-up of ${l.lrn} (${round.label}) is not linked to its silent reading');
-          }
-          latestReading[studentId] = (readingId: follow.readingId, band: band);
-        } else {
-          final last = done.last;
-          final reading = (await vm.readings(last.id!)).first;
-          if (reading.method == PhilIriReadingMethod.silent && needsFollowUp) {
-            final follow = await _session(vm, studentId, sectionId, y, round, date, band, rng, t,
-                method: PhilIriReadingMethod.wholeText, passageId: reading.passageId);
-            sessions++;
-            latestReading[studentId] = (readingId: follow.readingId, band: band);
-          } else {
-            // Recorded by a run that stopped: still scored back below.
-            latestReading[studentId] = (readingId: reading.id!, band: band);
-          }
-        }
+      // The GST goes with BOSY, by the section's tutor; the readings by each
+      // learner's assessor (the section tutor, or their ARAL class tutor).
+      final learners = plan.learnersOf(w, section);
+      final byAssessor = <String, List<DemoLearner>>{section.tutorAccounts.first: []};
+      for (final l in learners) {
+        if (!plan.assesses(l, round.name)) continue;
+        byAssessor.putIfAbsent(plan.assessorOf(l, section, round.name), () => []).add(l);
       }
-
-      var mismatches = 0;
-      for (final r in latestReading.values) {
-        if ((await vm.scoreReading(r.readingId)).profile != demoPhilIriLevel(r.band)) mismatches++;
-      }
-      await settlePending(s, tutorKey, coordinator); // a run stopped before the decision
-      if ((await (await s.as(tutorKey)).shared.syncVm.preview()).package.isEmpty == false) {
-        await uploadAndDecide(s, tutorKey, coordinator);
+      var gst = 0, sessions = 0, silent = 0, mismatches = 0;
+      for (final MapEntry(key: tutorKey, value: readers) in byAssessor.entries) {
+        final sub = '$step.$tutorKey';
+        if (st.done(sub)) continue;
+        final gstFor = round == PhilIriRound.bosy && tutorKey == section.tutorAccounts.first
+            ? [for (final l in learners) if (plan.gst(l)) l]
+            : const <DemoLearner>[];
+        final r = await _philIriBy(s, w, y, section, sectionId, schoolId, round, tutorKey, readers, gstFor, pulled,
+            today, timed: timed);
+        gst += r.gst;
+        sessions += r.sessions;
+        silent += r.silent;
+        mismatches += r.mismatches;
+        await settlePending(s, tutorKey, coordinator); // a run stopped before the decision
+        if ((await (await s.as(tutorKey)).shared.syncVm.preview()).package.isEmpty == false) {
+          await uploadAndDecide(s, tutorKey, coordinator);
+        }
+        await st.markDone(sub);
       }
 
       var finalized = 0;
@@ -146,16 +93,112 @@ Future<void> runPhilIri(DemoSession s, DemoState st, DemoWorld w, DemoYear y, {r
       // Per step, overwritten, so a rerun counts the round once; the year's
       // total is the sum of its steps.
       final stepPrefix = 'mismatch.${philIriStep(y)}.';
-      await st.putId('$stepPrefix${section.grade}.${round.name}', mismatches);
+      await st.putId('$stepPrefix${demoSectionKey(section).substring(1)}.${round.name}', mismatches);
       await st.putId('mismatch.philiri.${y.label}', [
         for (final e in st.ids.entries)
           if (e.key.startsWith(stepPrefix)) e.value,
       ].fold<int>(0, (a, b) => a + b));
-      stdout.writeln('  ${section.name} ${round.label}: GST $gst, $sessions session(s) ($silent silent first), '
-          '$mismatches profile mismatch(es), $finalized finalized');
+      stdout.writeln('  ${section.name} ${round.label}: GST $gst, $sessions session(s) ($silent silent first'
+          '${timed ? ', timed in BASA' : ''}) by ${byAssessor.keys.join(', ')}, $mismatches profile mismatch(es), '
+          '$finalized finalized');
       await st.markDone(step);
     }
   }
+}
+
+/// [tutorKey] records [gstFor]'s GST and [readers]' sessions of [round] on
+/// their device (the upload is the caller's).
+Future<({int gst, int sessions, int silent, int mismatches})> _philIriBy(DemoSession s, DemoWorld w, DemoYear y,
+    DemoSection section, int sectionId, int schoolId, PhilIriRound round, String tutorKey,
+    List<DemoLearner> readers, List<DemoLearner> gstFor, Set<String> pulled, DateTime today,
+    {required bool timed}) async {
+  final dev = await s.as(tutorKey);
+  if (pulled.add(tutorKey)) await dev.shared.syncVm.pull();
+  final vm = dev.tutor.philIriVm;
+  final t = await vm.effectiveThresholds(schoolId);
+  // A timed reading is never dated today: its taps stay before the clock.
+  final dayCap = timed ? DateTime(today.year, today.month, today.day - 1) : today;
+
+  var gst = 0, sessions = 0, silent = 0;
+  final latestReading = <int, ({int readingId, DemoBand band})>{};
+  if (gstFor.isNotEmpty) {
+    final have = {for (final g in await vm.gstForSection(sectionId, schoolYear: y.label)) g.studentId};
+    for (final l in gstFor) {
+      final student = await dev.shared.studentRepo.findByLrn(l.lrn);
+      if (student == null) throw StateError('${l.lrn} is not on the device of $tutorKey');
+      if (have.contains(student.id)) continue;
+      final rng = Random(int.parse(l.lrn.substring(4)) * 41 + y.index);
+      final total = gstScoreFor(target: w.band(l, y, round.name), grade: section.grade, rng: rng, t: t);
+      final split = gstSplitFor(total, rng);
+      await vm.recordGst(
+          studentId: student.id!,
+          sectionId: sectionId,
+          schoolYear: y.label,
+          totalScore: total,
+          literalCorrect: split.literal,
+          inferentialCorrect: split.inferential,
+          criticalCorrect: split.critical,
+          takenAt: roundDate(y, 'phil_iri', round.name, today: today, rng: rng)!);
+      gst++;
+    }
+  }
+  await vm.loadForSection(sectionId, schoolYear: y.label, round: round);
+  final existing = [...vm.assessments];
+
+  for (final l in readers) {
+    final student = await dev.shared.studentRepo.findByLrn(l.lrn);
+    if (student == null) throw StateError('${l.lrn} is not on the device of $tutorKey');
+    final studentId = student.id!;
+    final rng = Random(int.parse(l.lrn.substring(4)) * 37 + round.index * 11 + y.index);
+    final band = w.band(l, y, round.name);
+    final date = roundDate(y, 'phil_iri', round.name, today: dayCap, rng: rng)!;
+
+    // What this learner already has in the round (a run that stopped).
+    final mine = existing.where((a) => a.studentId == studentId).toList()
+      ..sort((a, b) => (a.attemptNo ?? 0).compareTo(b.attemptNo ?? 0));
+    for (final a in mine.where((a) => a.status == PhilIriStatus.inProgress)) {
+      await vm.discard(a.id!);
+    }
+    final done = mine.where((a) => a.status != PhilIriStatus.inProgress).toList();
+    final readSilently = band != DemoBand.nonReader && rng.nextInt(5) == 0;
+    final needsFollowUp = readSilently && band.index <= DemoBand.frustration.index;
+
+    if (done.isEmpty) {
+      final first = await _session(vm, studentId, sectionId, y, round, date, band, rng, t,
+          method: readSilently ? PhilIriReadingMethod.silent : PhilIriReadingMethod.wholeText, timed: timed);
+      sessions++;
+      if (readSilently) silent++;
+      if (!needsFollowUp) {
+        latestReading[studentId] = (readingId: first.readingId, band: band);
+        continue;
+      }
+      final follow = await _session(vm, studentId, sectionId, y, round, date, band, rng, t,
+          method: PhilIriReadingMethod.wholeText, passageId: first.passageId, timed: timed);
+      sessions++;
+      if (await vm.silentReadingFollowedUp(follow.readingId) == null) {
+        throw StateError('the oral follow-up of ${l.lrn} (${round.label}) is not linked to its silent reading');
+      }
+      latestReading[studentId] = (readingId: follow.readingId, band: band);
+    } else {
+      final last = done.last;
+      final reading = (await vm.readings(last.id!)).first;
+      if (reading.method == PhilIriReadingMethod.silent && needsFollowUp) {
+        final follow = await _session(vm, studentId, sectionId, y, round, date, band, rng, t,
+            method: PhilIriReadingMethod.wholeText, passageId: reading.passageId, timed: timed);
+        sessions++;
+        latestReading[studentId] = (readingId: follow.readingId, band: band);
+      } else {
+        // Recorded by a run that stopped: still scored back below.
+        latestReading[studentId] = (readingId: reading.id!, band: band);
+      }
+    }
+  }
+
+  var mismatches = 0;
+  for (final r in latestReading.values) {
+    if ((await vm.scoreReading(r.readingId)).profile != demoPhilIriLevel(r.band)) mismatches++;
+  }
+  return (gst: gst, sessions: sessions, silent: silent, mismatches: mismatches);
 }
 
 /// One completed session with its reading; [passageId] = re-read that passage
@@ -163,7 +206,7 @@ Future<void> runPhilIri(DemoSession s, DemoState st, DemoWorld w, DemoYear y, {r
 /// hasn't read.
 Future<({int readingId, int passageId})> _session(PhilIriViewModel vm, int studentId, int sectionId, DemoYear y,
     PhilIriRound round, DateTime date, DemoBand band, Random rng, PhilIriThresholds t,
-    {required PhilIriReadingMethod method, int? passageId}) async {
+    {required PhilIriReadingMethod method, int? passageId, bool timed = false}) async {
   final a = await vm.startSession(
       studentId: studentId, sectionId: sectionId, schoolYear: y.label, round: round, assessedAt: date);
   final PhilIriPassage passage;
@@ -186,6 +229,23 @@ Future<({int readingId, int passageId})> _session(PhilIriViewModel vm, int stude
       silent: method == PhilIriReadingMethod.silent,
       t: t);
   final reading = await vm.startReading(assessmentId: a.id!, passageId: passage.id!, method: method);
+  if (timed) {
+    // Timed in BASA: start, sometimes a pause, stop; the log's seconds are
+    // the plan's (stop - start - pause).
+    final tr = Random(studentId * 7 + date.day * 31 + method.index);
+    final start = DateTime(date.year, date.month, date.day, 8 + tr.nextInt(7), tr.nextInt(60), tr.nextInt(60));
+    await vm.startTimer(reading.id!, at: start);
+    var stopAt = start.add(Duration(seconds: plan.readingSeconds));
+    if (plan.readingSeconds > 20 && tr.nextInt(8) == 0) {
+      final pauseAt = start.add(Duration(seconds: plan.readingSeconds ~/ 2));
+      final paused = Duration(seconds: 15 + tr.nextInt(60));
+      await vm.pauseTimer(reading.id!, at: pauseAt);
+      await vm.resumeTimer(reading.id!, at: pauseAt.add(paused));
+      stopAt = stopAt.add(paused);
+    }
+    final state = await vm.stopTimer(reading.id!, at: stopAt);
+    if (!state.timedInBasa) throw StateError('reading ${reading.id} is not timed in BASA after its stop tap');
+  }
   for (final m in plan.miscues) {
     final word = passage.words[m.wordIndex];
     await vm.markMiscue(
@@ -201,7 +261,7 @@ Future<({int readingId, int passageId})> _session(PhilIriViewModel vm, int stude
       selfCorrected: m.selfCorrected,
     );
   }
-  await vm.saveTiming(reading.id!, readingSeconds: plan.readingSeconds);
+  if (!timed) await vm.saveTiming(reading.id!, readingSeconds: plan.readingSeconds);
   final right = ([for (var i = 0; i < questions.length; i++) i < plan.correctAnswers]..shuffle(rng));
   for (final (i, q) in questions.indexed) {
     final key = q.answerKey.toLowerCase();

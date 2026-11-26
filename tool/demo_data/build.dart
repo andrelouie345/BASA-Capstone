@@ -10,6 +10,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'build_args.dart';
 import 'phases/aral.dart';
 import 'phases/crla.dart';
+import 'phases/next_year.dart';
 import 'phases/phil_iri.dart';
 import 'phases/rosters.dart';
 import 'phases/setup.dart';
@@ -27,6 +28,7 @@ final List<DemoStep> demoSteps = [
   (name: crlaStep(DemoYear.y2025), run: (s, st, w, today) => runCrla(s, st, w, DemoYear.y2025, today: today)),
   (name: philIriStep(DemoYear.y2025), run: (s, st, w, today) => runPhilIri(s, st, w, DemoYear.y2025, today: today)),
   (name: aralStep(DemoYear.y2025), run: (s, st, w, today) => runAral(s, st, w, DemoYear.y2025, today: today)),
+  ...nextYearParts,
 ];
 
 Future<void> main(List<String> args) async {

@@ -132,4 +132,30 @@ void main() {
       expect(tutors.map((t) => t.tutorType).toSet(), containsAll([TutorType.internal, TutorType.external]));
     }
   });
+
+  group('2026-2027 (plan Task 11)', () {
+    test('the two Grade 8 sections have different keys; 2025 keys are unchanged', () {
+      final g8 = w.sections.where((s) => s.year == DemoYear.y2026 && s.grade == 8).toList();
+      expect(g8.map(demoSectionKey), unorderedEquals(['G8', 'G8N']));
+      expect(g8.map(demoSectionIdKey).toSet(), hasLength(2));
+      final g3 = w.sections.singleWhere((s) => s.year == DemoYear.y2025 && s.grade == 3);
+      expect(demoSectionIdKey(g3), 'section.2025-2026.NCES-DEMO.G3');
+    });
+
+    test('gap learners: 3 missed MOSY (G8-10), 2 without GST, 3 HS never read in BOSY; no story learner', () {
+      List<int> grades(DemoGap g) => [
+            for (final e in w.gapLearners.entries)
+              if (e.value == g) w.learners.singleWhere((l) => l.lrn == e.key).years[DemoYear.y2026]!.grade,
+          ]..sort();
+      expect(grades(DemoGap.missedMosy), [8, 9, 10]);
+      expect(grades(DemoGap.noGst), [5, 9]);
+      expect(grades(DemoGap.missedBosy), [10, 10, 10]);
+      for (final lrn in w.gapLearners.keys) {
+        final l = w.learners.singleWhere((x) => x.lrn == lrn);
+        expect(l.story, isNull);
+        expect(w.band(l, DemoYear.y2026, 'bosy').index, greaterThanOrEqualTo(DemoBand.instructional.index));
+      }
+      expect(DemoWorld.build().gapLearners, w.gapLearners);
+    });
+  });
 }

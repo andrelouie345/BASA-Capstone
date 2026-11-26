@@ -53,20 +53,26 @@ List<String> _tutorsOf(String school) => [
 String _iso(DateTime d) =>
     '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
-Future<void> runAral(DemoSession s, DemoState st, DemoWorld w, DemoYear y, {required DateTime today}) async {
+/// [roster] / [sessions]: run only that part (2026-2027 has the August SF1
+/// leavers between them, demo-data plan Task 11).
+Future<void> runAral(DemoSession s, DemoState st, DemoWorld w, DemoYear y,
+    {required DateTime today, bool roster = true, bool sessions = true}) async {
   final base = aralStep(y);
-  // materials-school: the demo's materials belong to its schools (2026-11-26).
-  if (!st.done('$base.materials-school')) {
+  // materials-school: the demo's materials belong to its schools (2026-11-26);
+  // made once, with the first year.
+  if (roster && y == DemoYear.y2025 && !st.done('$base.materials-school')) {
     await _materials(s, st);
     await st.markDone('$base.materials-school');
   }
   for (final school in _schools) {
+    if (!roster) break;
     final step = '$base.$school.roster';
     if (st.done(step)) continue;
     await _roster(s, st, w, y, school);
     await st.markDone(step);
   }
 
+  if (!sessions) return;
   // Sessions month by month, every tutor of both schools.
   final windows = demoWindows(y);
   final eosyOpens = windows.firstWhere((x) => x.round == 'eosy').opens;
@@ -80,7 +86,8 @@ Future<void> runAral(DemoSession s, DemoState st, DemoWorld w, DemoYear y, {requ
         if (st.done(step)) continue;
         final dev = await s.as(tutor);
         if (pulled.add(tutor)) await dev.shared.syncVm.pull(); // the coordinator's classes
-        final n = await _month(s, st, w, y, school, tutor, [for (final d in days) if (_iso(d).startsWith(month)) d]);
+        final n = await _month(s, st, w, y, school, tutor, [for (final d in days) if (_iso(d).startsWith(month)) d],
+            today: today);
         await settlePending(s, tutor, coordinatorOf(school)); // may switch devices
         if ((await (await s.as(tutor)).shared.syncVm.preview()).package.isEmpty == false) {
           await uploadAndDecide(s, tutor, coordinatorOf(school));
@@ -91,6 +98,11 @@ Future<void> runAral(DemoSession s, DemoState st, DemoWorld w, DemoYear y, {requ
     }
   }
 
+  // Results and exits once the year's EOSY window has closed.
+  if (!windows.firstWhere((x) => x.round == 'eosy').closes.isBefore(DateTime(today.year, today.month, today.day))) {
+    stdout.writeln('  results not applied: the ${y.label} EOSY window has not closed');
+    return;
+  }
   for (final school in _schools) {
     final step = '$base.$school.exits';
     if (st.done(step)) continue;
@@ -191,7 +203,7 @@ Future<void> _roster(DemoSession s, DemoState st, DemoWorld w, DemoYear y, Strin
   var enrolled = 0, referred = 0;
 
   for (final section in w.sections.where((x) => x.year == y && x.schoolCode == school)) {
-    final sectionId = st.ids['section.${y.label}.$school.G${section.grade}']!;
+    final sectionId = st.ids[demoSectionIdKey(section)]!;
     final candidates = await aral.propose(sectionId: sectionId, schoolYear: y.label);
     for (final c in candidates.where((c) => c.status == AralCandidateStatus.proposed)) {
       await aral.enroll(
@@ -227,7 +239,7 @@ Future<void> _roster(DemoSession s, DemoState st, DemoWorld w, DemoYear y, Strin
     ..sort((a, b) => a.id!.compareTo(b.id!));
   final gradeOf = <int, int>{
     for (final section in w.sections.where((x) => x.year == y && x.schoolCode == school))
-      st.ids['section.${y.label}.$school.G${section.grade}']!: section.grade,
+      st.ids[demoSectionIdKey(section)]!: section.grade,
   };
   final groups = <(int, AralClassProgram?), List<AralEnrollment>>{};
   for (final e in roster) {
@@ -248,6 +260,15 @@ Future<void> _roster(DemoSession s, DemoState st, DemoWorld w, DemoYear y, Strin
   if (school == 'NCES-DEMO' && groups.isNotEmpty) {
     final largest = groups.values.reduce((a, b) => a.length >= b.length ? a : b);
     held.addAll(largest.skip(max(0, largest.length - 2)).map((e) => e.id!));
+  }
+
+  // 2026-2027 HS: four learners of the largest group get a class of their
+  // own, under the minimum (deliberate gap 6: the coordinator's notice).
+  final small = <AralEnrollment>[];
+  if (y == DemoYear.y2026 && school == 'NCHS-DEMO' && groups.isNotEmpty) {
+    final largest = groups.values.reduce((a, b) => a.length >= b.length ? a : b);
+    small.addAll(largest.skip(max(0, largest.length - 4)));
+    held.addAll(small.map((e) => e.id!));
   }
 
   final tutors = _tutorsOf(school);
@@ -287,6 +308,34 @@ Future<void> _roster(DemoSession s, DemoState st, DemoWorld w, DemoYear y, Strin
       placed++;
     }
   }
+  if (small.isNotEmpty) {
+    final grade = gradeOf[small.first.sectionId]!;
+    final program = AralClassProgram.of(small.first.keyStage, small.first.track);
+    final all = await classes.classes(schoolId: schoolId, schoolYear: y.label);
+    // Already made by a run that stopped: the class of this grade and program
+    // holding fewer than the minimum.
+    AralClass? room;
+    for (final c in all.where((c) => c.gradeLevel == grade && c.program == program)) {
+      if (await classes.activeCount(c.id!) < minSize) room = c;
+    }
+    room ??= await classes.createClass(
+      schoolId: schoolId,
+      schoolYear: y.label,
+      className: await classes.suggestClassName(schoolId: schoolId, schoolYear: y.label, grade: grade),
+      gradeLevel: grade,
+      program: program,
+      tutorId: tutorIds[tutors[turn++ % tutors.length]],
+      room: 'Reading Room 3',
+      schedule: 'Tue, Thu 3:00-4:00 PM',
+      sessionType: AralSessionType.beforeAfter,
+    );
+    for (final e in small.where((e) => e.classId == null)) {
+      await classes.place(e.id!, room.id!);
+      placed++;
+    }
+    held.removeAll(small.map((e) => e.id!));
+    made++;
+  }
   if ((await dev.shared.syncVm.preview()).package.isEmpty == false) {
     await uploadAndDecide(s, coordinator, coordinator);
   }
@@ -322,19 +371,22 @@ final _idCache = <String, Map<int, DemoLearner>>{};
 /// The school's learners of [y] on [tutor]'s device, by student id (ids are
 /// the server's), looked up once per run.
 Future<Map<int, DemoLearner>> _learnersById(Device dev, String tutor, DemoWorld w, DemoYear y, String school) async {
-  final cached = _idCache[tutor];
+  final cacheKey = '$tutor.${y.label}';
+  final cached = _idCache[cacheKey];
   if (cached != null) return cached;
   final out = <int, DemoLearner>{};
   for (final l in w.learners.where((l) => l.years[y]?.schoolCode == school)) {
     final student = await dev.shared.studentRepo.findByLrn(l.lrn);
     if (student != null) out[student.id!] = l;
   }
-  return _idCache[tutor] = out;
+  return _idCache[cacheKey] = out;
 }
 
 /// Records [days] for every class [tutor] teaches; returns a summary line.
+/// 2026-2027: the first class of tutor2.hs holds no session in the last 25
+/// days before [today] (the idle-class reminder).
 Future<String> _month(DemoSession s, DemoState st, DemoWorld w, DemoYear y, String school, String tutor,
-    List<DateTime> days) async {
+    List<DateTime> days, {required DateTime today}) async {
   final dev = await s.as(tutor);
   final t = dev.tutor;
   final schoolId = schoolIdOf(st, school);
@@ -342,7 +394,12 @@ Future<String> _month(DemoSession s, DemoState st, DemoWorld w, DemoYear y, Stri
   final sharp = school == 'NCHS-DEMO' && await t.aralReadabilityVm.available(schoolId);
   var sessions = 0, marks = 0, ratings = 0, checkins = 0, readability = 0;
 
-  for (final c in await t.aralClassVm.classes(schoolId: schoolId, schoolYear: y.label)) {
+  final myClasses = await t.aralClassVm.classes(schoolId: schoolId, schoolYear: y.label);
+  final me = dev.ctx.authVm.currentUser!.id;
+  final mine = myClasses.where((c) => c.tutorId == me).toList()..sort((a, b) => a.id!.compareTo(b.id!));
+  final idleClassId = y == DemoYear.y2026 && tutor == 'tutor2.hs' && mine.isNotEmpty ? mine.first.id : null;
+  final idleFrom = _iso(DateTime(today.year, today.month, today.day - 25));
+  for (final c in myClasses) {
     final roster = await t.aralClassVm.classRoster(c.id!);
     if (roster.isEmpty) continue;
     final learner = <int, DemoLearner?>{};
@@ -354,6 +411,7 @@ Future<String> _month(DemoSession s, DemoState st, DemoWorld w, DemoYear y, Stri
     for (final day in days) {
       final date = _iso(day);
       if (date.compareTo(start) < 0 || held.contains(date)) continue;
+      if (c.id == idleClassId && date.compareTo(idleFrom) > 0) continue;
       final rng = Random(c.id!.abs() * 1000 + day.difference(DateTime(2025)).inDays);
       final session = await t.aralSessionVm.logSession(
         classId: c.id!,
@@ -364,9 +422,12 @@ Future<String> _month(DemoSession s, DemoState st, DemoWorld w, DemoYear y, Stri
       );
       sessions++;
       final here = roster.where((e) => e.enteredOn.compareTo(date) <= 0).toList();
+      // IRIP, check-ins and readability are for learners still in ARAL (an SF1
+      // leaver's ARAL entry is exited with the archive, 2026-2027).
+      final active = here.where((e) => e.isActive).toList();
       if (here.isEmpty) continue;
       await t.aralSessionVm.markRest(session.id!, AralMark.present);
-      for (final e in here) {
+      for (final e in active) {
         final r = rng.nextDouble();
         if (r < 0.02) {
           await t.aralSessionVm.mark(session.id!, e.id!, AralMark.excused, note: 'Sick');
@@ -380,21 +441,21 @@ Future<String> _month(DemoSession s, DemoState st, DemoWorld w, DemoYear y, Stri
       // Check-ins after the class's 16th and 32nd session (KS2-3).
       final checkpoint = switch (session.sessionNo) { 16 => 16, 32 => 32, _ => null };
       if (checkpoint != null) {
-        for (final e in here.where((e) => e.track != null)) {
+        for (final e in active.where((e) => e.track != null)) {
           checkins += await _checkin(t.aralCheckinVm, e, checkpoint, day, learner[e.id], rng);
         }
       }
 
       // The IRIP on the week's last session (Friday): rate, then go on.
       if (day.weekday == DateTime.friday) {
-        for (final e in here) {
+        for (final e in active) {
           ratings += await _irip(t.aralIripVm, e.id!, day, learner[e.id], rng);
         }
       }
 
       // Readability at the HS: an entry for each learner about once a month.
       if (sharp && day.day <= 7 && day.weekday == DateTime.monday) {
-        for (final e in here) {
+        for (final e in active) {
           final words = 120 + rng.nextInt(180);
           final sentences = max(6, words ~/ (10 + rng.nextInt(8)));
           await t.aralReadabilityVm.add(
