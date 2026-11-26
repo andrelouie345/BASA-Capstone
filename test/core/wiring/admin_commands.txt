@@ -175,6 +175,7 @@ phil-iri-import-scoresheet-preview
 phil-iri-import-template
 phil-iri-import-workbook
 phil-iri-import-workbook-preview
+phil-iri-minute-end
 phil-iri-miscue
 phil-iri-miscue-remove
 phil-iri-miscue-update
@@ -204,6 +205,12 @@ phil-iri-threshold-reset
 phil-iri-threshold-set
 phil-iri-thresholds
 phil-iri-time
+phil-iri-timer
+phil-iri-timer-pause
+phil-iri-timer-reset
+phil-iri-timer-resume
+phil-iri-timer-start
+phil-iri-timer-stop
 progress-report
 progress-report-csv
 pull-cloud

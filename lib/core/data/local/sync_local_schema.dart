@@ -33,12 +33,15 @@ export '../../services/sync_upload_rules.dart' show pendingLockMessage;
 
 /// Server rows of these tables are never changed by the server's rules.
 /// (v40: the workbook import lock has no update or delete policy.)
-const _noServerUpdate = {'crla_assessments', 'phil_iri_gst_results', 'phil_iri_workbook_imports'};
+const _noServerUpdate = {
+  'crla_assessments', 'phil_iri_gst_results', 'phil_iri_workbook_imports',
+  'phil_iri_reading_timer_events', // v49: insert-only timing log
+};
 
 /// Server rows of these tables are never deleted by the server's rules.
 const _noServerDelete = {
   'crla_assessments', 'phil_iri_gst_results', 'crla_part1_standard', 'crla_part1_english', 'crla_part2_fluency',
-  'phil_iri_workbook_imports',
+  'phil_iri_workbook_imports', 'phil_iri_reading_timer_events',
 };
 
 /// The one local change to a server CRLA header: its reading profile, which

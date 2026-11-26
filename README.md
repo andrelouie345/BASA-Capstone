@@ -153,7 +153,15 @@ per row, so a pull no longer times out; app update required: no) and
 own session, so applying an upload no longer times out; app update required:
 no) and `20261125030000` (applying an upload may take up to 60 s instead of
 8 s, so a whole section's round can be approved at once; app update required:
-no).
+no) and `20261126010000` (a Phil-IRI reading can be timed in BASA: start, pause,
+resume, stop and restart are kept as the reading's timing log, and an upload
+whose time doesn't match its timer is refused; app update required: **yes**) and
+`20261126020000` (faster reads of ARAL, learners, sections, the assessment
+headers, content and settings: the same rows for every user, checked once per
+query instead of once per row, so a pull after a school year of ARAL no longer
+times out; app update required: no) and `20261126030000` (the reading timer can
+be restarted after the device clock jumped back, and taps need an in-progress
+session; app update required: no).
 Each is idempotent.
 Do **not** run
 `supabase/migrations_archive/`.

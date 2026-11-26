@@ -46,4 +46,7 @@ const Map<String, String> basaMigrations = {
   '20261125010000': 'rls_child_tables_fast_reads',
   '20261125020000': 'rls_child_reads_per_row',
   '20261125030000': 'sync_apply_timeout',
+  '20261126010000': 'phil_iri_timed_reading',
+  '20261126020000': 'rls_aral_child_reads',
+  '20261126030000': 'phil_iri_timer_review',
 };

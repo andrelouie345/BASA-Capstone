@@ -36,6 +36,7 @@ const _itemNouns = <String, (String, String)>{
   'phil_iri_readings': ('reading', 'readings'),
   'phil_iri_answers': ('answer', 'answers'),
   'phil_iri_miscues': ('miscue', 'miscues'),
+  'phil_iri_reading_timer_events': ('timer tap', 'timer taps'),
   'phil_iri_rubric_scores': ('rubric score', 'rubric scores'),
   'aral_attendance': ('attendance mark', 'attendance marks'),
   'aral_checkin_answers': ('answer', 'answers'),

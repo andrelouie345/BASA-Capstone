@@ -35,6 +35,49 @@ Live previews: `scoreReading` after each save (no extra call needed).
 Errors: locked by a pending upload, passage already used (no-repeat), round closed (ViewModelException).
 Console: `phil-iri-start`, `phil-iri-passages-for`, `phil-iri-read`, `phil-iri-time`, `phil-iri-observe`, `phil-iri-reading-delete`, `phil-iri-miscue`, `phil-iri-miscue-update`, `phil-iri-miscue-remove`, `phil-iri-answer`, `phil-iri-rubric`, `phil-iri-criteria`, `phil-iri-passage-show`, `phil-iri-complete`, `phil-iri-reopen`, `phil-iri-discard`, `phil-iri-score`
 
+### Timed reading: the digitized oral reading (2026-11-26, consultation item M1-01)
+Build: both    Roles: tutor / coordinator / admin
+Spec: `docs/superpowers/specs/2026-11-26-phil-iri-timed-reading-design.md` (owner's layout below).
+Purpose: the tutor times the reading in BASA and taps miscues on the passage while the learner reads aloud from the
+printed copy (the tutor keeps the screen). Every timer tap is kept as the reading's timing log (evidence the reading was
+given live); BASA works out the seconds from it.
+
+Layout (owner): mobile first; tap a word and a drawer slides up from the bottom with the miscue types.
+```
++-------------------------------+
+| Grade 7 . MOSY #1 . 02:14  ||  |  timer, Pause/Resume, Stop
+| The [boat] drifted slowly     |
+| toward the shore while the    |  passage as tappable words;
+| fishermen ~~pulled~~ their    |  marked words highlighted
++-------------------------------+
+|  "pulled"                     |  drawer on tap
+|  Mispronunciation  Omission   |  types from PhilIriMiscueType.values
+|  Substitution  Insertion ...  |
+|  [ ] Self-corrected  Said: __ |
+|  Remove miscue        Done    |
++-------------------------------+
+```
+Calls (`PhilIriViewModel`; each returns `PhilIriTimerState` from `core/models/phil_iri_timer_event.dart`):
+- `startTimer(readingId)`, `pauseTimer(readingId)`, `resumeTimer(readingId)`, `stopTimer(readingId)` (whole text /
+  silent: saves the reading time), `resetTimer(readingId)` (Restart: ask "Time this reading again? The first timing
+  stays in the record."; clears the time).
+- `timer(readingId)` when the screen opens or every second while running: `status` (none / running / paused /
+  stopped), `elapsed` (reading time, pauses left out; show as mm:ss), `label` ("Timed in BASA" / "Time typed in"),
+  `minuteEndNeeded`, `events` (the log, for a coordinator's detail view). The timer survives the app closing: just
+  call `timer` again.
+- One minute: the timer stops by itself at 60 s of reading (`timer` adds the stop when it is due; don't offer Stop).
+  When `minuteEndNeeded`, ask "Tap the last word the learner read" and call `setMinuteEnd(readingId, wordIndex)`
+  (`wordIndex` = position in `PhilIriPassage.words`, 0 = the first word).
+- Miscues as before: `markMiscue(readingId:, wordIndex:, type:, spokenText:, selfCorrected:)`; an insertion goes
+  BEFORE the tapped word; tapping a marked word opens the same drawer (`updateMiscue` / `removeMiscue`).
+Errors (show `ViewModelException.message` as is): "The timer is already stopped.", "This time is earlier than the
+timer's last tap; check the device clock.", "This reading is timed in BASA; restart the timer to time it again." (the
+typed time field is refused once timed), "Stop the reading timer before completing the session.", "The one-minute
+timer stops by itself at 60 seconds.".
+Typed timing (`saveTiming`) stays for readings without a timer (schools that test on paper).
+Console: `phil-iri-timer-start|pause|resume|stop|reset <readingId> [time]`, `phil-iri-timer <readingId>`,
+`phil-iri-minute-end <readingId> <wordIndex>`.
+
 ### Learner results
 Build: both    Roles: tutor / coordinator / admin
 Calls:

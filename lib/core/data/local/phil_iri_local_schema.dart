@@ -677,6 +677,66 @@ Future<void> createPhilIriLocalSchema(Database db) async {
     ''');
   }
 
+  // ---- Timing log (v49/v50, cloud 20261126010000 + 20261126030000; spec 2026-11-26 timed reading) ----
+  // v50 (final review I3, I5): a restart is allowed whatever the clock says,
+  // other taps are compared only with the current timing, and taps need an
+  // in-progress session.
+  // One row per timer tap, only ever added. Taps made on this device
+  // (row_version NULL) follow the same order and time rules as
+  // services/phil_iri_timer.dart and the server's check_phil_iri_timer_event:
+  // change the three together. Pulled taps (row_version set) are the
+  // server's and are not re-checked; sync_local_schema keeps them unchanged.
+  await db.execute('''
+    CREATE TABLE IF NOT EXISTS phil_iri_reading_timer_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      reading_id INTEGER NOT NULL REFERENCES phil_iri_readings(id),
+      seq INTEGER NOT NULL CHECK (seq >= 1),
+      kind TEXT NOT NULL CHECK (kind IN ('start', 'pause', 'resume', 'stop', 'reset')),
+      at TEXT NOT NULL,
+      created_by TEXT REFERENCES users(id),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE (reading_id, seq)
+    )
+  ''');
+  await db.execute('CREATE INDEX IF NOT EXISTS phil_iri_reading_timer_events_reading '
+      'ON phil_iri_reading_timer_events (reading_id, seq)');
+  const lastKind = '''(SELECT kind FROM phil_iri_reading_timer_events
+      WHERE reading_id = NEW.reading_id ORDER BY seq DESC LIMIT 1)''';
+  await db.execute('DROP TRIGGER IF EXISTS check_phil_iri_timer_event');
+  await db.execute('''
+    CREATE TRIGGER check_phil_iri_timer_event
+    BEFORE INSERT ON phil_iri_reading_timer_events
+    WHEN NEW.row_version IS NULL
+    BEGIN
+      SELECT RAISE(ABORT, 'This reading was imported without a passage (Untitled) and cannot be timed.')
+      WHERE (SELECT passage_id FROM phil_iri_readings WHERE id = NEW.reading_id) IS NULL;
+      SELECT RAISE(ABORT, 'Reopen the session to time it again.')
+      WHERE (SELECT a.status FROM phil_iri_readings r JOIN phil_iri_assessments a ON a.id = r.assessment_id
+             WHERE r.id = NEW.reading_id) IS NOT 'in_progress';
+      SELECT RAISE(ABORT, 'This time is earlier than the timer''s last tap; check the device clock.')
+      WHERE NEW.kind <> 'reset'
+        AND julianday(NEW.at) < (SELECT max(julianday(at)) FROM phil_iri_reading_timer_events
+                                 WHERE reading_id = NEW.reading_id
+                                   AND seq > coalesce((SELECT max(seq) FROM phil_iri_reading_timer_events
+                                                       WHERE reading_id = NEW.reading_id AND kind = 'reset'), 0));
+      SELECT RAISE(ABORT, 'The timer is already started.')
+      WHERE NEW.kind = 'start' AND $lastKind IS NOT NULL AND $lastKind <> 'reset';
+      SELECT RAISE(ABORT, 'Start the timer first.')
+      WHERE NEW.kind IN ('pause', 'stop') AND ($lastKind IS NULL OR $lastKind = 'reset');
+      SELECT RAISE(ABORT, 'The timer is already paused.')
+      WHERE NEW.kind = 'pause' AND $lastKind = 'pause';
+      SELECT RAISE(ABORT, 'The timer is already stopped.')
+      WHERE NEW.kind IN ('pause', 'stop') AND $lastKind = 'stop';
+      SELECT RAISE(ABORT, 'The timer is not paused.')
+      WHERE NEW.kind = 'resume' AND $lastKind IS NOT 'pause';
+      SELECT RAISE(ABORT, 'Start the timer before restarting it.')
+      WHERE NEW.kind = 'reset' AND ($lastKind IS NULL OR $lastKind = 'reset');
+      SELECT RAISE(ABORT, 'A timer tap must follow the reading''s last tap (seq)')
+      WHERE NEW.seq <> coalesce((SELECT max(seq) FROM phil_iri_reading_timer_events
+                                 WHERE reading_id = NEW.reading_id), 0) + 1;
+    END
+  ''');
+
   // ---- Answers ----
   await db.execute('''
     CREATE TABLE IF NOT EXISTS phil_iri_answers (

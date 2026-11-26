@@ -83,6 +83,7 @@ phil-iri-discard
 phil-iri-gst
 phil-iri-gst-list
 phil-iri-gst-remove
+phil-iri-minute-end
 phil-iri-miscue
 phil-iri-miscue-remove
 phil-iri-miscue-update
@@ -101,6 +102,12 @@ phil-iri-sessions
 phil-iri-start
 phil-iri-thresholds
 phil-iri-time
+phil-iri-timer
+phil-iri-timer-pause
+phil-iri-timer-reset
+phil-iri-timer-resume
+phil-iri-timer-start
+phil-iri-timer-stop
 pull-cloud
 reminders-tutor
 school-list
