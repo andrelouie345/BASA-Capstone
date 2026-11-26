@@ -8,6 +8,7 @@ import 'dart:io';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'build_args.dart';
+import 'phases/aral.dart';
 import 'phases/crla.dart';
 import 'phases/phil_iri.dart';
 import 'phases/rosters.dart';
@@ -25,6 +26,7 @@ final List<DemoStep> demoSteps = [
   (name: rostersStep(DemoYear.y2025), run: (s, st, w, today) => runRosters(s, st, w, DemoYear.y2025)),
   (name: crlaStep(DemoYear.y2025), run: (s, st, w, today) => runCrla(s, st, w, DemoYear.y2025, today: today)),
   (name: philIriStep(DemoYear.y2025), run: (s, st, w, today) => runPhilIri(s, st, w, DemoYear.y2025, today: today)),
+  (name: aralStep(DemoYear.y2025), run: (s, st, w, today) => runAral(s, st, w, DemoYear.y2025, today: today)),
 ];
 
 Future<void> main(List<String> args) async {
