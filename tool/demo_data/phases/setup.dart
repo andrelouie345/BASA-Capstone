@@ -101,7 +101,8 @@ Future<void> _calendar(DemoSession s, DemoState st) async {
 
 /// ES: auto-approve on, the ARAL memo keys + KS1 extended, the ARAL list on
 /// carried values. HS: auto-approve off (uploads wait for the coordinator),
-/// the FLT switch and SHARP on. Both: offline days, check-in cut-off, idle days.
+/// the FLT switch and SHARP on. Both: offline days, ARAL classes of at most 10,
+/// check-in cut-off, idle days.
 Future<void> _settings(DemoSession s, DemoState st) async {
   for (final (coordinator, code) in [('coord.es', _es), ('coord.hs', _hs)]) {
     final vms = (await s.as(coordinator)).tutor;
@@ -113,7 +114,6 @@ Future<void> _settings(DemoSession s, DemoState st) async {
     await report.setOfflineDays(id, 14);
     if (es) {
       await report.setValueSource(id, PhilIriValueList.aral, PhilIriValues.carried);
-      await aral.setRuleSetting(id, AralRuleSettings.classMaxLearnersKey, 15);
       await aral.setRuleSetting(id, AralRuleSettings.sessionMaxMinutesKey, 60);
       await aral.setRuleSetting(id, AralRuleSettings.sessionsWeekdaysOnlyKey, true);
       await aral.setRuleSetting(id, AralRuleSettings.basisRoundKey, 'bosy');
@@ -122,6 +122,9 @@ Future<void> _settings(DemoSession s, DemoState st) async {
       await report.setFltCounts(id, true);
       await aral.setFoundationalProgram(id, true);
     }
+    // ARAL classes of at most 10 (Division Memorandum 180 s. 2026; owner
+    // 2026-11-26: both demo schools).
+    await aral.setRuleSetting(id, AralRuleSettings.classMaxLearnersKey, 10);
     await aral.setPassPct(id, 75);
     await aral.setIdleSessionDays(id, 14);
     stdout.writeln('  $code: settings set');
