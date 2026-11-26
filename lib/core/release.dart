@@ -44,4 +44,6 @@ const Map<String, String> basaMigrations = {
   '20261118030000': 'aral_memo_people',
   '20261119010000': 'aral_memo_review',
   '20261125010000': 'rls_child_tables_fast_reads',
+  '20261125020000': 'rls_child_reads_per_row',
+  '20261125030000': 'sync_apply_timeout',
 };

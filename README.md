@@ -148,7 +148,12 @@ placing the old tutor's advisees uploads; on the same day the daily tutor
 limits check only a longer session; app update required: no) and
 `20261125010000` (faster reads of the CRLA and Phil-IRI assessments and their
 parts: the same rows for every user, checked once per query instead of once
-per row, so a pull no longer times out; app update required: no).
+per row, so a pull no longer times out; app update required: no) and
+`20261125020000` (the same reads, with each assessment part looking up its
+own session, so applying an upload no longer times out; app update required:
+no) and `20261125030000` (applying an upload may take up to 60 s instead of
+8 s, so a whole section's round can be approved at once; app update required:
+no).
 Each is idempotent.
 Do **not** run
 `supabase/migrations_archive/`.
