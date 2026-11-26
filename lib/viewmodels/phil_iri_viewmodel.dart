@@ -13,6 +13,7 @@
 // thresholds; a finalized one keeps the thresholds it was finalized with
 // (its snapshot). learnerResults(useCurrentThresholds: true) regenerates every
 // round with today's thresholds without changing anything stored.
+import 'dart:async';
 import 'dart:convert';
 
 import '../core/console/logger.dart';
@@ -25,6 +26,7 @@ import '../core/models/phil_iri_passage.dart';
 import '../core/models/phil_iri_question.dart';
 import '../core/models/phil_iri_reading.dart';
 import '../core/models/phil_iri_rubric_score.dart';
+import '../core/models/phil_iri_timer_event.dart';
 import '../core/models/report_setting.dart';
 import '../core/models/section.dart';
 import '../core/models/user_role.dart';
@@ -203,6 +205,17 @@ class PhilIriViewModel {
     "That question is not a question of this reading's passage",
     'Score is outside the rubric scale',
     'Only an in-progress Phil-IRI assessment can be discarded',
+    // The timing log's trigger (v50; the same texts as phil_iri_timer.dart).
+    'This reading was imported without a passage (Untitled) and cannot be timed.',
+    'Reopen the session to time it again.',
+    "This time is earlier than the timer's last tap; check the device clock.",
+    'The timer is already started.',
+    'Start the timer first.',
+    'The timer is already paused.',
+    'The timer is already stopped.',
+    'The timer is not paused.',
+    'Start the timer before restarting it.',
+    "A timer tap must follow the reading's last tap (seq)",
   ];
 
   final ScopedLogger _log;
@@ -472,6 +485,7 @@ class PhilIriViewModel {
     _requireSignIn();
     _log('saveTiming(readingId: $readingId, seconds: $readingSeconds, wordsRead: $wordsRead)');
     final r = await _requireOpenReading(readingId);
+    if ((await _sessions.timerEvents(readingId)).isNotEmpty) throw const ViewModelException(_timedRefusal);
     _checkTiming(r.reading.method, readingSeconds, wordsRead, required: true);
     return _write(() => _sessions.updateReading(PhilIriReading(
           id: readingId,
@@ -484,6 +498,166 @@ class PhilIriViewModel {
           observation: r.reading.observation,
         )));
   }
+
+  // ---- Timer (spec 2026-11-26 timed reading) ----
+
+  static const _timedRefusal = 'This reading is timed in BASA; restart the timer to time it again.';
+
+  /// Starts timing the reading at [at] (default now).
+  Future<PhilIriTimerState> startTimer(int readingId, {DateTime? at}) =>
+      _tap(readingId, PhilIriTimerKind.start, at);
+
+  Future<PhilIriTimerState> pauseTimer(int readingId, {DateTime? at}) =>
+      _tap(readingId, PhilIriTimerKind.pause, at);
+
+  Future<PhilIriTimerState> resumeTimer(int readingId, {DateTime? at}) =>
+      _tap(readingId, PhilIriTimerKind.resume, at);
+
+  /// Stops the timer (whole text / silent) and saves the reading time from the
+  /// log. A one-minute timer stops by itself at 60 seconds.
+  Future<PhilIriTimerState> stopTimer(int readingId, {DateTime? at}) =>
+      _tap(readingId, PhilIriTimerKind.stop, at);
+
+  /// Restarts the timing after a mistake: the earlier taps stay in the log,
+  /// the reading's time is cleared, and the reading is timed again.
+  Future<PhilIriTimerState> resetTimer(int readingId, {DateTime? at}) =>
+      _tap(readingId, PhilIriTimerKind.reset, at);
+
+  /// The reading's timer as of [now] (default now). A one-minute timer past
+  /// its 60 seconds is stopped here, dated at the 60-second mark (the app may
+  /// have been closed when the minute ended).
+  Future<PhilIriTimerState> timer(int readingId, {DateTime? now}) async {
+    _requireSignIn();
+    final when = now ?? DateTime.now();
+    final reading = await _findReading(readingId);
+    var events = await _sessions.timerEvents(readingId);
+    if (reading.method == PhilIriReadingMethod.oneMinute && events.isNotEmpty) {
+      final session = await _sessions.findAssessment(reading.assessmentId);
+      if (session != null && session.status == PhilIriStatus.inProgress) {
+        events = await _closeMinute(reading, events, when);
+      }
+    }
+    return _timerState(reading, events, when);
+  }
+
+  /// One minute: the word the learner reached when the minute ended (a
+  /// position in PhilIriPassage.words); saves words read = position + 1.
+  Future<PhilIriReading> setMinuteEnd(int readingId, int wordIndex) async {
+    _requireSignIn();
+    _log('setMinuteEnd($readingId, $wordIndex)');
+    final r = await _requireOpenReading(readingId);
+    _requireInProgress(r.session);
+    if (r.reading.method != PhilIriReadingMethod.oneMinute) {
+      throw const ViewModelException('The minute end applies to a one-minute reading only.');
+    }
+    final events = await _closeMinute(r.reading, await _sessions.timerEvents(readingId), DateTime.now());
+    if (philIriTimerStatus(events) != PhilIriTimerStatus.stopped) {
+      throw const ViewModelException('Wait for the one-minute timer: it stops by itself at 60 seconds.');
+    }
+    final n = r.passage.words.length;
+    if (wordIndex < 0 || wordIndex >= n) {
+      throw ViewModelException('Word position is outside the passage ($n words).');
+    }
+    return _saveTimes(r.reading, seconds: null, wordsRead: wordIndex + 1);
+  }
+
+  /// One timer write at a time per reading, so two quick taps (or a tap and
+  /// the one-minute stop) can't both pass the checks (final review I2).
+  final _timerChains = <int, Future<void>>{};
+
+  Future<T> _oneAtATime<T>(int readingId, Future<T> Function() body) {
+    final done = Completer<void>();
+    final before = _timerChains[readingId] ?? Future<void>.value();
+    _timerChains[readingId] = done.future;
+    return before.then((_) => body()).whenComplete(() {
+      done.complete();
+      if (identical(_timerChains[readingId], done.future)) _timerChains.remove(readingId);
+    });
+  }
+
+  /// Timer taps and the minute end need an in-progress session (review I5).
+  void _requireInProgress(PhilIriAssessment session) {
+    if (session.status != PhilIriStatus.inProgress) {
+      throw const ViewModelException('Reopen the session to time it again.');
+    }
+  }
+
+  Future<PhilIriTimerState> _tap(int readingId, PhilIriTimerKind kind, DateTime? at) async {
+    _requireSignIn(); // async: a refusal is a failed Future, as every other call
+    return _oneAtATime(readingId, () => _tapNow(readingId, kind, at));
+  }
+
+  Future<PhilIriTimerState> _tapNow(int readingId, PhilIriTimerKind kind, DateTime? at) async {
+    final when = at ?? DateTime.now();
+    _log('timer ${kind.value}($readingId)');
+    final r = await _requireOpenReading(readingId);
+    _requireInProgress(r.session);
+    final oneMinute = r.reading.method == PhilIriReadingMethod.oneMinute;
+    var events = await _sessions.timerEvents(readingId);
+    if (oneMinute) events = await _closeMinute(r.reading, events, when);
+    final status = philIriTimerStatus(events);
+    if (oneMinute && kind == PhilIriTimerKind.stop &&
+        (status == PhilIriTimerStatus.running || status == PhilIriTimerStatus.paused)) {
+      throw const ViewModelException('The one-minute timer stops by itself at 60 seconds.');
+    }
+    final problem = philIriTimerProblem(events, kind, when);
+    if (problem != null) throw ViewModelException(problem);
+    // A restart clears the time; a start clears a time typed before (the
+    // reading is then timed only by its log, review I4).
+    if (kind == PhilIriTimerKind.reset || kind == PhilIriTimerKind.start) {
+      await _saveTimes(r.reading, seconds: null, wordsRead: null);
+    }
+    events = [...events, await _addTap(readingId, events, kind, when)];
+    var reading = r.reading;
+    if (kind == PhilIriTimerKind.stop && !oneMinute) {
+      final seconds = philIriTimedSeconds(events);
+      reading = await _saveTimes(r.reading, seconds: seconds != null && seconds >= 1 ? seconds : null, wordsRead: null);
+    }
+    return _timerState(reading, events, when);
+  }
+
+  Future<PhilIriTimerEvent> _addTap(int readingId, List<PhilIriTimerEvent> events, PhilIriTimerKind kind, DateTime at) =>
+      _write(() => _sessions.insertTimerEvent(PhilIriTimerEvent(
+            readingId: readingId,
+            seq: events.length + 1,
+            kind: kind,
+            at: at,
+            createdBy: _auth.currentUser?.id,
+          )));
+
+  /// A running one-minute timer past 60 s of reading gets its stop, dated at
+  /// the 60-second mark.
+  Future<List<PhilIriTimerEvent>> _closeMinute(PhilIriReading reading, List<PhilIriTimerEvent> events, DateTime now) async {
+    if (philIriTimerStatus(events) != PhilIriTimerStatus.running) return events;
+    if (philIriElapsed(events, now) < const Duration(seconds: 60)) return events;
+    final mark = philIriMinuteMark(events);
+    return [...events, await _addTap(reading.id!, events, PhilIriTimerKind.stop, mark)];
+  }
+
+  PhilIriTimerState _timerState(PhilIriReading reading, List<PhilIriTimerEvent> events, DateTime now) {
+    final status = philIriTimerStatus(events);
+    return PhilIriTimerState(
+      events: events,
+      status: status,
+      elapsed: philIriElapsed(events, now),
+      timedInBasa: philIriIsTimed(events),
+      minuteEndNeeded: reading.method == PhilIriReadingMethod.oneMinute &&
+          status == PhilIriTimerStatus.stopped && reading.wordsRead == null,
+    );
+  }
+
+  /// The reading with its time or words read replaced (null clears).
+  Future<PhilIriReading> _saveTimes(PhilIriReading reading, {required int? seconds, required int? wordsRead}) =>
+      _write(() => _sessions.updateReading(PhilIriReading(
+            id: reading.id,
+            assessmentId: reading.assessmentId,
+            sequenceNo: reading.sequenceNo,
+            passageId: reading.passageId,
+            method: reading.method,
+            readingSeconds: seconds,
+            wordsRead: wordsRead,
+            observation: reading.observation,
+          )));
 
   /// Form 4 Oral Reading Observation Checklist for the reading.
   Future<PhilIriReading> saveObservation(int readingId, PhilIriObservation observation) async {
@@ -667,6 +841,12 @@ class PhilIriViewModel {
     final session = await _requireOpenSession(assessmentId);
     final readings = await _sessions.getReadings(assessmentId);
     if (readings.isEmpty) throw const ViewModelException('Record the passage reading before completing the session.');
+    for (final reading in readings) {
+      final status = philIriTimerStatus(await _sessions.timerEvents(reading.id!));
+      if (status == PhilIriTimerStatus.running || status == PhilIriTimerStatus.paused) {
+        throw const ViewModelException('Stop the reading timer before completing the session.');
+      }
+    }
     final r = readings.first;
     // An imported reading may have comprehension only (spec 2026-11-10 D6).
     if (session.importSource == null) {

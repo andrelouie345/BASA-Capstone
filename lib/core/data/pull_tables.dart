@@ -38,6 +38,7 @@ const pullOrder = <String, String>{
   'phil_iri_readings': 'id',
   'phil_iri_miscues': 'id',
   'phil_iri_answers': 'id',
+  'phil_iri_reading_timer_events': 'id', // v49: the reading's timing log
   'phil_iri_rubric_scores': 'id',
   'phil_iri_workbook_imports': 'id',
   'aral_classes': 'id',
@@ -81,6 +82,7 @@ const pullClearOrder = [
   'aral_classes',
   'phil_iri_workbook_imports',
   'phil_iri_rubric_scores',
+  'phil_iri_reading_timer_events',
   'phil_iri_answers',
   'phil_iri_miscues',
   'phil_iri_readings',
@@ -121,6 +123,7 @@ const syncedTables = <String, String>{
   'phil_iri_readings': 'id',
   'phil_iri_miscues': 'id',
   'phil_iri_answers': 'id',
+  'phil_iri_reading_timer_events': 'id', // v49: the reading's timing log
   'phil_iri_rubric_scores': 'id',
   'phil_iri_workbook_imports': 'id', // v40: after the sessions it locks (one upload)
   'aral_classes': 'id', // v36: before the roster and sessions that point at it
@@ -143,6 +146,7 @@ const syncedParents = <String, (String, String)>{
   'phil_iri_rubric_scores': ('phil_iri_assessments', 'assessment_id'),
   'phil_iri_miscues': ('phil_iri_readings', 'reading_id'),
   'phil_iri_answers': ('phil_iri_readings', 'reading_id'),
+  'phil_iri_reading_timer_events': ('phil_iri_readings', 'reading_id'),
   'aral_attendance': ('aral_sessions', 'session_id'),
   'aral_checkin_answers': ('aral_checkins', 'checkin_id'),
 };

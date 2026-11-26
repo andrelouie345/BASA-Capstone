@@ -25,6 +25,20 @@ typedef EnrollmentInYear = ({
   String? leftOn,
 });
 
+/// A learner's latest enrollment in a school year before another one, any
+/// school, any status (SF1 continuing learners, 2026-11-24): [schoolYear] is
+/// that enrollment's year.
+typedef EnrollmentBefore = ({
+  int enrollmentId,
+  int sectionId,
+  String sectionName,
+  String gradeLevel,
+  int schoolId,
+  String schoolYear,
+  String status,
+  String? leftOn,
+});
+
 abstract class StudentRepository {
   Future<Student?> findByLrn(String lrn);
   /// Throws [DuplicateLrnException] when the LRN is already taken.
@@ -43,6 +57,10 @@ abstract class StudentRepository {
   /// The learner's enrollment for [schoolYear] (one per learner per year),
   /// active or archived, or null when there is none the caller can read.
   Future<EnrollmentInYear?> enrollmentInYear(int studentId, String schoolYear);
+  /// The learner's enrollment with the greatest school year strictly before
+  /// [schoolYear] (school years compare as text), any school, any status, or
+  /// null when there is none the caller can read.
+  Future<EnrollmentBefore?> latestEnrollmentBefore(int studentId, String schoolYear);
   /// One enrollment per student per school year (re-enrolling moves it).
   /// Returns the enrollment id. [id] is for local mirroring only: it keeps
   /// the cloud's id so pull-cloud's INSERT OR REPLACE lines up; Supabase

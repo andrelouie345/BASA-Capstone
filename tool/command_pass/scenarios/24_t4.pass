@@ -212,6 +212,45 @@ expect Discarded session {pi_c}.
 run phil-iri-discard {pi_a}
 refuse Only an in-progress session can be discarded (this one is completed).
 
+# --- Timed in BASA (spec 2026-11-26 timed reading) -------------------------------
+# start 09:00:00, pause 09:01:08, resume 09:01:39, stop 09:02:18 = 138 s - 31 s paused = 107 s.
+run phil-iri-start {s_g7_3} {sec_g7} {year} bosy
+capture pi_d = Started session (-?\d+)
+run phil-iri-read {pi_d} 110 whole
+expect whole text, not timed yet
+capture rd_d = reading (-?\d+)
+run phil-iri-timer {rd_d}
+expect not started, 00:00 read · Time typed in
+run phil-iri-timer-start {rd_d} 2026-07-01T09:00:00+08:00
+expect Reading {rd_d} timer: running
+run phil-iri-timer-pause {rd_d} 2026-07-01T09:01:08+08:00
+expect paused, 01:08 read · Timed in BASA
+run phil-iri-timer-resume {rd_d} 2026-07-01T09:01:39+08:00
+expect running
+run phil-iri-timer-stop {rd_d} 2026-07-01T09:02:18+08:00
+expect stopped, 01:47 read · Timed in BASA
+run phil-iri-timer-stop {rd_d} 2026-07-01T09:02:30+08:00
+refuse The timer is already stopped.
+run phil-iri-timer-pause {rd_d} 2026-07-01T09:01:00+08:00
+refuse This time is earlier than the timer's last tap; check the device clock.
+run phil-iri-timer-start {rd_d} 2026-07-01T25:00:00+08:00
+refuse "2026-07-01T25:00:00+08:00" is not a real time
+run phil-iri-time {rd_d} seconds 100
+refuse This reading is timed in BASA; restart the timer to time it again.
+run phil-iri-minute-end {rd_d} 5
+refuse The minute end applies to a one-minute reading only.
+run phil-iri-timer {rd_d}
+expect 4. stop
+run phil-iri-session {pi_d}
+expect 107 s
+# Restart: the time is cleared, the first timing stays in the log.
+run phil-iri-timer-reset {rd_d} 2026-07-01T09:03:00+08:00
+expect not started, 00:00 read · Timed in BASA
+run phil-iri-session {pi_d}
+expect whole text, not timed yet
+run phil-iri-timer {rd_d}
+expect 5. reset
+
 # --- Grade rules ---------------------------------------------------------------
 run phil-iri-start {s_g2_1} {sec_g2} {year} bosy
 refuse Phil-IRI is for Grades 4 to 10 only. This section is Grade 2.

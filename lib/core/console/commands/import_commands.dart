@@ -77,7 +77,7 @@ void registerImportCommands(ConsoleRegistry registry, ImportViewModel vm) {
             '${t.sectionId == null ? ' - new, the import creates it' : ' - section ${t.sectionId}'}');
         buf.writeln('Would insert: ${t.wouldInsert}, would conflict: ${t.wouldConflict}, '
             'already enrolled: ${t.alreadyEnrolled}, would skip: ${t.wouldSkip}, '
-            'moving from another section: ${t.wouldMove}, returning: ${t.wouldReturn}');
+            'moving from another section: ${t.wouldMove}, returning: ${t.wouldReturn}, continuing: ${t.wouldContinue}');
         if (t.wouldFillBirthDate > 0) {
           buf.writeln('Blank birth dates the import fills from this file: ${t.wouldFillBirthDate}');
         }
@@ -146,7 +146,7 @@ void registerImportCommands(ConsoleRegistry registry, ImportViewModel vm) {
                 '${result.rowWarnings.map((w) => '  $w').join('\n')}';
         return 'Inserted: ${result.inserted}, Conflicts: ${result.conflicts}, '
             'Already enrolled: ${result.alreadyEnrolled}, Skipped: ${result.skippedBlankOrTotal}, '
-            'Waiting: ${result.waiting}$filled$waiting$warning$rows';
+            'Waiting: ${result.waiting}, Continuing: ${result.continuing}$filled$waiting$warning$rows';
       } catch (e) {
         return 'Import failed: $e';
       }
