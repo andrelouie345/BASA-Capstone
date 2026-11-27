@@ -1,0 +1,6024 @@
+{
+ "region_id": 13,
+ "forms": [
+  {
+   "language": "Sinugbuanong Binisaya",
+   "grade": 1,
+   "variant": "mt",
+   "tasks": {
+    "task1": {
+     "max": 10,
+     "items": [
+      {
+       "text": "a"
+      },
+      {
+       "text": "W"
+      },
+      {
+       "text": "U"
+      },
+      {
+       "text": "m"
+      },
+      {
+       "text": "O"
+      },
+      {
+       "text": "P"
+      },
+      {
+       "text": "ng"
+      },
+      {
+       "text": "b"
+      },
+      {
+       "text": "t"
+      },
+      {
+       "text": "Y"
+      }
+     ]
+    },
+    "task2_low": {
+     "max": 10,
+     "items": [
+      {
+       "text": "bulsa, tasa",
+       "answer": "Rhyme"
+      },
+      {
+       "text": "asul, usa",
+       "answer": "No"
+      },
+      {
+       "text": "manga, bunyag",
+       "answer": "No"
+      },
+      {
+       "text": "kalye, baye",
+       "answer": "Rhyme"
+      },
+      {
+       "text": "talong, ilong",
+       "answer": "Rhyme"
+      },
+      {
+       "text": "pareho, espiho",
+       "answer": "Rhyme"
+      },
+      {
+       "text": "duha, pating",
+       "answer": "No"
+      },
+      {
+       "text": "embudo, kandado",
+       "answer": "Rhyme"
+      },
+      {
+       "text": "kalaha, repolyo",
+       "answer": "No"
+      },
+      {
+       "text": "rambutan, bituon",
+       "answer": "No"
+      }
+     ]
+    },
+    "task2_high": {
+     "max": 10,
+     "items": [
+      {
+       "text": "Napulo",
+       "sentence_no": 1
+      },
+      {
+       "text": "ang",
+       "sentence_no": 1
+      },
+      {
+       "text": "bola",
+       "sentence_no": 1
+      },
+      {
+       "text": "ni",
+       "sentence_no": 1
+      },
+      {
+       "text": "Lito.",
+       "sentence_no": 1
+      },
+      {
+       "text": "Nibatog",
+       "sentence_no": 2
+      },
+      {
+       "text": "sa",
+       "sentence_no": 2
+      },
+      {
+       "text": "sanga",
+       "sentence_no": 2
+      },
+      {
+       "text": "ang",
+       "sentence_no": 2
+      },
+      {
+       "text": "langgam.",
+       "sentence_no": 2
+      }
+     ]
+    }
+   },
+   "stories": [
+    {
+     "story_no": 1,
+     "title": "Ang Pagbisita ni Lola Neneng",
+     "word_count": 49,
+     "sentences": [
+      {
+       "text": "Ang akong lola gwapa.",
+       "words": 4
+      },
+      {
+       "text": "Siya si Lola Neneng.",
+       "words": 4
+      },
+      {
+       "text": "Buotan ug mahinatagon siya.",
+       "words": 4
+      },
+      {
+       "text": "Mibisita si Lola sa balay.",
+       "words": 5
+      },
+      {
+       "text": "Kada Sabado siya gabisita.",
+       "words": 4
+      },
+      {
+       "text": "May dala si Lola.",
+       "words": 4
+      },
+      {
+       "text": "Unsa kaha ang iyang dala?",
+       "words": 5
+      },
+      {
+       "text": "Kamote ang dala ni Lola.",
+       "words": 4,
+       "form_miscount": true
+      },
+      {
+       "text": "Giluto kini sa akong papa.",
+       "words": 5
+      },
+      {
+       "text": "Lami ang kamote ni Lola.",
+       "words": 5
+      },
+      {
+       "text": "Nalipay ako sa iyang pagbisita.",
+       "words": 5
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 4,
+       "question": "Asa nibisita si Lola Neneng?",
+       "accepted_answers": "Sa balay"
+      },
+      {
+       "after_sentence": 5,
+       "question": "Kanus-a nibisita si Lola Neneng?",
+       "accepted_answers": "Sabado"
+      },
+      {
+       "after_sentence": 6,
+       "question": "Kinsa ang nagdala og kamote?",
+       "accepted_answers": "Si Lola Neneng"
+      },
+      {
+       "after_sentence": 8,
+       "question": "Unsa ang dala ni Lola Neneng?",
+       "accepted_answers": "Kamote"
+      },
+      {
+       "after_sentence": 11,
+       "question": "Sa istorya nga imong gibasa, nganong ikalipay ang pagbisita ni Lola?",
+       "accepted_answers": "Any of the ff: Kay buotan ug mahinatagon si Lola. Naay dalang lami nga kamote si Lola."
+      }
+     ]
+    },
+    {
+     "story_no": 2,
+     "title": "Ang Batang Buotan",
+     "word_count": 49,
+     "sentences": [
+      {
+       "text": "Bata nga buotan si Mon.",
+       "words": 5
+      },
+      {
+       "text": "Gatabang siya sa mga buluhaton.",
+       "words": 5
+      },
+      {
+       "text": "Paghugas sa kinan-an iyang nabatasan.",
+       "words": 5
+      },
+      {
+       "text": "Paglimpyo, ug paghipos iyang ginaobra.",
+       "words": 5
+      },
+      {
+       "text": "Gatabang usab siya sa paglaba.",
+       "words": 5
+      },
+      {
+       "text": "Adlaw nga Sabado siya gatuon.",
+       "words": 5
+      },
+      {
+       "text": "Para maandam ang sunod tun-anan.",
+       "words": 5
+      },
+      {
+       "text": "Kada Dominggo gakuyog siya pagsimba.",
+       "words": 5
+      },
+      {
+       "text": "Malipayon ang iyang pamilya.",
+       "words": 4
+      },
+      {
+       "text": "Maayong batasan ang gipakita niya.",
+       "words": 5
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Kinsa ang bata nga buotan?",
+       "accepted_answers": "Mon"
+      },
+      {
+       "after_sentence": 6,
+       "question": "Sa unsa nga adlaw si Mon gatuon?",
+       "accepted_answers": "Sabado"
+      },
+      {
+       "after_sentence": 8,
+       "question": "Unsa ang ginahimo ni Mon kada Dominggo?",
+       "accepted_answers": "Gasimba, namimba, gakuyog sa pagsimba"
+      },
+      {
+       "after_sentence": 9,
+       "question": "Unsa ang nabatyagan sa iyang pamilya?",
+       "accepted_answers": "nalipay, malipay, malipayon"
+      },
+      {
+       "after_sentence": 10,
+       "question": "Giunsa pagpakita ni Mon na maayo ang iyahang Batasan?",
+       "accepted_answers": "Any of the ff: Gatabang siya sa mga buluhaton, Paghugas sa kinan-an, manlaba, gatuon sa iyahang leksyon, mosimba kada Domingo"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "language": "Sinugbuanong Binisaya",
+   "grade": 2,
+   "variant": "mt",
+   "tasks": {
+    "task1": {
+     "max": 10,
+     "form_miscount": true,
+     "items": [
+      {
+       "text": "Nagkaon",
+       "sentence_no": 1
+      },
+      {
+       "text": "og",
+       "sentence_no": 1
+      },
+      {
+       "text": "bayabas",
+       "sentence_no": 1
+      },
+      {
+       "text": "ang",
+       "sentence_no": 1
+      },
+      {
+       "text": "bata.",
+       "sentence_no": 1
+      },
+      {
+       "text": "Nipalit",
+       "sentence_no": 2
+      },
+      {
+       "text": "si",
+       "sentence_no": 2
+      },
+      {
+       "text": "Nanay",
+       "sentence_no": 2
+      },
+      {
+       "text": "og",
+       "sentence_no": 2
+      },
+      {
+       "text": "mga",
+       "sentence_no": 2
+      },
+      {
+       "text": "utanon.",
+       "sentence_no": 2
+      }
+     ]
+    },
+    "task2_low": {
+     "max": 10,
+     "items": [
+      {
+       "text": "diri"
+      },
+      {
+       "text": "unsa"
+      },
+      {
+       "text": "kahil"
+      },
+      {
+       "text": "siyam"
+      },
+      {
+       "text": "luya"
+      },
+      {
+       "text": "iring"
+      },
+      {
+       "text": "lunhaw"
+      },
+      {
+       "text": "buhok"
+      },
+      {
+       "text": "tulog"
+      },
+      {
+       "text": "langgam"
+      }
+     ]
+    },
+    "task2_high": {
+     "max": 10,
+     "items": [
+      {
+       "text": "Nagpatambal",
+       "sentence_no": 1
+      },
+      {
+       "text": "sa",
+       "sentence_no": 1
+      },
+      {
+       "text": "klinik",
+       "sentence_no": 1
+      },
+      {
+       "text": "ang",
+       "sentence_no": 1
+      },
+      {
+       "text": "estudyante.",
+       "sentence_no": 1
+      },
+      {
+       "text": "Nagpalit",
+       "sentence_no": 2
+      },
+      {
+       "text": "si",
+       "sentence_no": 2
+      },
+      {
+       "text": "Tatay",
+       "sentence_no": 2
+      },
+      {
+       "text": "og",
+       "sentence_no": 2
+      },
+      {
+       "text": "tsokolate.",
+       "sentence_no": 2
+      }
+     ]
+    }
+   },
+   "stories": [
+    {
+     "story_no": 1,
+     "title": "Palda ni Perla",
+     "word_count": 96,
+     "sentences": [
+      {
+       "text": "Si Perla mahilig mosul-ob og taas nga palda.",
+       "words": 8
+      },
+      {
+       "text": "Pula nga palda ang paborito niya.",
+       "words": 6
+      },
+      {
+       "text": "Ginasul-ob niya kini sa pagsimba kuyog sa iyang pamilya.",
+       "words": 9
+      },
+      {
+       "text": "Usa ka Sabado, gipangita niya ang iyang pula nga palda.",
+       "words": 10
+      },
+      {
+       "text": "\"Hala! Asa naman ang palda?\" pangutana ni Perla.",
+       "words": 8
+      },
+      {
+       "text": "Nadunggan kini sa iyang Papa nga nangita siya.",
+       "words": 8
+      },
+      {
+       "text": "\"Anak, akoang gilabhan ug gihalay sa likod-balay kay bulingon na.\"",
+       "words": 10
+      },
+      {
+       "text": "Migakos ug nagpasalamat siya sa iyahang Papa.",
+       "words": 7
+      },
+      {
+       "text": "\"Salamat Papa, abi nako nawala akoang palda.\"",
+       "words": 7
+      },
+      {
+       "text": "Gikuha ni Perla ang pulang palda ug giplantsa.",
+       "words": 8
+      },
+      {
+       "text": "Gisul-ob niya kini ug nananghid sa iyang Papa.",
+       "words": 8
+      },
+      {
+       "text": "\"Papa, moadto ko sa simbahan aron mosimba.\"",
+       "words": 7
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Kinsa ang mahilig mosul-ob og taas nga palda?",
+       "accepted_answers": "Si Perla"
+      },
+      {
+       "after_sentence": 2,
+       "question": "Unsa ang kolor sa paborito nga palda ni Perla?",
+       "accepted_answers": "Pula"
+      },
+      {
+       "after_sentence": 3,
+       "question": "Asa ginasul-ob ni Perla ang iyahang palda?",
+       "accepted_answers": "sa pagsimba"
+      },
+      {
+       "after_sentence": 4,
+       "question": "Kanus-a nangita si Perla sa iyang palda?",
+       "accepted_answers": "Usa ka Sabado"
+      },
+      {
+       "after_sentence": 7,
+       "question": "Nganong gilabhan sa iyang Papa ang palda?",
+       "accepted_answers": "Kay bulingon na"
+      },
+      {
+       "after_sentence": 9,
+       "question": "Nganong nagpasalamat si Perla sa iyahang papa?",
+       "accepted_answers": "Kay gilabhan ang iyahang bulingon nga palda."
+      }
+     ]
+    },
+    {
+     "story_no": 2,
+     "title": "Si Ana, Ang Batang Matinahuron",
+     "word_count": 94,
+     "sentences": [
+      {
+       "text": "Si Ana usa ka bata nga matinahuron.",
+       "words": 7
+      },
+      {
+       "text": "Siya malipayon ug buotan sa tanang panahon.",
+       "words": 7
+      },
+      {
+       "text": "Kutob sa masugat-an iya kining tagdon.",
+       "words": 6
+      },
+      {
+       "text": "Modelo siya sa klase o eskwelahan angay sa iyahang batasan.",
+       "words": 10
+      },
+      {
+       "text": "Gapakita siya og maayong pamatasan.",
+       "words": 5
+      },
+      {
+       "text": "Ga-amen si Ana kada kita ug mga tigulang sa dalan.",
+       "words": 10
+      },
+      {
+       "text": "\"Nay, Tay, maayong buntag diha kaninyong tanan!\"",
+       "words": 7
+      },
+      {
+       "text": "\"Kaluy-an ka sa Ginoo, Anak,\" ang tubag sa tigulang.",
+       "words": 9
+      },
+      {
+       "text": "Nalipay ug ganahan ang tanan sa iyang batasan.",
+       "words": 8
+      },
+      {
+       "text": "Daghan usab si Ana ug mga higala nga nalingawan.",
+       "words": 9
+      },
+      {
+       "text": "Gidayeg sa tanan ug sa iyang mga ginikanan.",
+       "words": 8
+      },
+      {
+       "text": "Angay sundon ang iyang pamatasan sa tanang kabataan.",
+       "words": 8
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Kinsa ang bata nga matinahuron sa estorya?",
+       "accepted_answers": "Si Ana"
+      },
+      {
+       "after_sentence": 3,
+       "question": "Unsa ang gibuhat ni Ana sa mga tawo nga iyang masugat-an?",
+       "accepted_answers": "Iyahang ginatagad"
+      },
+      {
+       "after_sentence": 6,
+       "question": "Unsa ang ginabuhat ni Ana sa dihang makakita og tigulang sa dalan?",
+       "accepted_answers": "Ga-amen"
+      },
+      {
+       "after_sentence": 8,
+       "question": "Unsa ang tubag sa mga tigulang kung mo-amen si Ana?",
+       "accepted_answers": "Kaluy-an ka sa Ginoo, Anak"
+      },
+      {
+       "after_sentence": 9,
+       "question": "Sa estorya nga imo gibasa, nganong daghan ang ganahan sa pamatasan ni Ana?",
+       "accepted_answers": "Kay matinahuron si Ana."
+      },
+      {
+       "after_sentence": 12,
+       "question": "Nganong angay sundon sa tanang kabataan ang iyahang pamatasan?",
+       "accepted_answers": "Any of ff: Kay matinahuron siya, malipayon ug buotan, matinagdanon sa mga tawo"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "language": "Sinugbuanong Binisaya",
+   "grade": 3,
+   "variant": "mt",
+   "tasks": {
+    "task1": {
+     "max": 10,
+     "items": [
+      {
+       "text": "Presko",
+       "sentence_no": 1
+      },
+      {
+       "text": "ang",
+       "sentence_no": 1
+      },
+      {
+       "text": "hangin",
+       "sentence_no": 1
+      },
+      {
+       "text": "sa",
+       "sentence_no": 1
+      },
+      {
+       "text": "bukid",
+       "sentence_no": 1
+      },
+      {
+       "text": "Lisod",
+       "sentence_no": 2
+      },
+      {
+       "text": "ang",
+       "sentence_no": 2
+      },
+      {
+       "text": "trabaho",
+       "sentence_no": 2
+      },
+      {
+       "text": "sa",
+       "sentence_no": 2
+      },
+      {
+       "text": "drayber.",
+       "sentence_no": 2
+      }
+     ]
+    },
+    "task2_low": {
+     "max": 10,
+     "items": [
+      {
+       "text": "hawla"
+      },
+      {
+       "text": "gwapa"
+      },
+      {
+       "text": "preska"
+      },
+      {
+       "text": "trapo"
+      },
+      {
+       "text": "ngitngit"
+      },
+      {
+       "text": "ginikanan"
+      },
+      {
+       "text": "naglupad"
+      },
+      {
+       "text": "kamiseta"
+      },
+      {
+       "text": "kada-adlaw"
+      },
+      {
+       "text": "nagkanta"
+      }
+     ]
+    },
+    "task2_high": {
+     "max": 10,
+     "items": [
+      {
+       "text": "Nabugto",
+       "sentence_no": 1
+      },
+      {
+       "text": "ang",
+       "sentence_no": 1
+      },
+      {
+       "text": "tsinelas",
+       "sentence_no": 1
+      },
+      {
+       "text": "ni",
+       "sentence_no": 1
+      },
+      {
+       "text": "Bruno.",
+       "sentence_no": 1
+      },
+      {
+       "text": "Inggrande",
+       "sentence_no": 2
+      },
+      {
+       "text": "ang",
+       "sentence_no": 2
+      },
+      {
+       "text": "programa",
+       "sentence_no": 2
+      },
+      {
+       "text": "sa",
+       "sentence_no": 2
+      },
+      {
+       "text": "gradwasyon",
+       "sentence_no": 2
+      }
+     ]
+    }
+   },
+   "stories": [
+    {
+     "story_no": 1,
+     "title": "Ang Talaman ni Florabel",
+     "word_count": 120,
+     "sentences": [
+      {
+       "text": "Ganahan mananom si Florabel ug mga utanon sa ilahang balay.",
+       "words": 10
+      },
+      {
+       "text": "May mga talong, okra, kamunggay, ug kalabasa.",
+       "words": 7
+      },
+      {
+       "text": "Ang pagtanom maoy silbing pamaagi nga sila magkuyogay.",
+       "words": 8
+      },
+      {
+       "text": "Adlaw-adlaw nilang giduaw ang ilang mga tanom.",
+       "words": 7
+      },
+      {
+       "text": "Ila kining gibisbisan, gilimpyohan, ug giabunohan.",
+       "words": 6
+      },
+      {
+       "text": "Kini nitubo, nanambok, nadaghan, ug nilabong.",
+       "words": 6
+      },
+      {
+       "text": "Kini ilang gipupo ug gipanghatag sa mga silingan.",
+       "words": 8
+      },
+      {
+       "text": "Nalipay ang mga silingan ug ilang gisugdan ang pagpananom.",
+       "words": 9
+      },
+      {
+       "text": "Ang mga sobra ilang gidala ug gibaligya sa gustong mopalit.",
+       "words": 10
+      },
+      {
+       "text": "Nalipay si Florabel ug iyang pamilya kay nakahatag kag nakakwarta.",
+       "words": 10
+      },
+      {
+       "text": "Gitigum niya ang kwarta para sa iyang pag-eskwela.",
+       "words": 8
+      },
+      {
+       "text": "Ang uban nga kwarta gipalit ug mga kinahanglanon sa balay.",
+       "words": 10
+      },
+      {
+       "text": "Ang uban iyang gibutang sa iyang alkansiya ug gideposito sa bangko.",
+       "words": 11
+      },
+      {
+       "text": "Maayo gyud ang magpananom.",
+       "words": 4
+      },
+      {
+       "text": "May pagkaon na, may kwarta pa.",
+       "words": 6
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Kinsa ang ganahan mananom?",
+       "accepted_answers": "Florabel"
+      },
+      {
+       "after_sentence": 2,
+       "question": "Unsa ang iyang mga gipangtanom?",
+       "accepted_answers": "Talong, okra, kamunggay ug kalabasa."
+      },
+      {
+       "after_sentence": 4,
+       "question": "Kanus-a nila giduaw ang ilang mga tanom.",
+       "accepted_answers": "Adlaw-adlaw"
+      },
+      {
+       "after_sentence": 5,
+       "question": "Ngano gikinahanglan bisbisan, limpyohan, ug abunohan ni Florable ang mga tanom?",
+       "accepted_answers": "Kini motubo, motambok ug molabong."
+      },
+      {
+       "after_sentence": 9,
+       "question": "Unsa ang ila ginahimu sa sobra nga mga tanom",
+       "accepted_answers": "Ilang gidala ug gibaligya sa gustong mopalit"
+      },
+      {
+       "after_sentence": 10,
+       "question": "Ngano nahimong malipayon si Florabel ug iyang pamilya?",
+       "accepted_answers": "Sila nakahatag sa uban ug nakakwarta pa."
+      },
+      {
+       "after_sentence": 11,
+       "question": "Unsay gihimu ni Florabel sa iyang kinitaan gikan sa papananom?",
+       "accepted_answers": "Gitigum para sa iyang pag-eskwela; Gipalot ug mga kinahanglan sa balay; Bibutang sa iyang alkansiya ug gideposito sa bangko"
+      }
+     ]
+    },
+    {
+     "story_no": 2,
+     "title": "Si Gabriel",
+     "word_count": 119,
+     "sentences": [
+      {
+       "text": "Si Gabriel usa ka batang lalaki nga kanunay abtik moeskwela.",
+       "words": 10
+      },
+      {
+       "text": "\"Bansay na akong mobasa, moihap ug mosulat sa mga numero.\"",
+       "words": 10
+      },
+      {
+       "text": "\"Tinuod, anak? Ihatag ko ang mga regalo nga akong giandam.\"",
+       "words": 10
+      },
+      {
+       "text": "\"Wow! Salamat kaayo, Ma,\" giabrehan dayun ni Gabriel ang regalo.",
+       "words": 10
+      },
+      {
+       "text": "\"Kadaghan! Usa, duha, tulo, upat, lima, unom... Unom ka lapis!\"",
+       "words": 10
+      },
+      {
+       "text": "\"Wow! May papel, krayon, ug gunting! Salamat!\" sulti ni Gabriel",
+       "words": 10
+      },
+      {
+       "text": "Niduol ang iyang amahan ug gihatag ang dako nga regalo.",
+       "words": 10
+      },
+      {
+       "text": "\"Dawata ang akong pahalipay kanimo, abrehi,\" sulti sa iyang Papa.",
+       "words": 10
+      },
+      {
+       "text": "Giabrehan niya ang regalo ug nakita ang nindot nga sapatos.",
+       "words": 10
+      },
+      {
+       "text": "\"Salamat kaninyo Ma ug Pa, aduna na akoy mga bag-ong gamit.\"",
+       "words": 11
+      },
+      {
+       "text": "Malipayon kaayo si Gabriel samtang nagsayaw-sayaw sa ilahang balay.",
+       "words": 9
+      },
+      {
+       "text": "\"Kanunay magpalambo ako sa akoa pagtuon,\" miingon si Gabriel.",
+       "words": 9
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Kinsa ang bata sa istorya?",
+       "accepted_answers": "Si Gabriel"
+      },
+      {
+       "after_sentence": 2,
+       "question": "Unsa ang nakat-onan ni Gabriel sa eskuylahan?",
+       "accepted_answers": "Mobasa, moihap og mosulat sa mga numero"
+      },
+      {
+       "after_sentence": 3,
+       "question": "Unsay gihatag kay Gabriel gikan sa iyaha nga Mama?",
+       "accepted_answers": "regalo"
+      },
+      {
+       "after_sentence": 5,
+       "question": "Pila kabuok lapis ang nadawat ni Gabriel?",
+       "accepted_answers": "Unom"
+      },
+      {
+       "after_sentence": 6,
+       "question": "Unsa ang regalo nga nadawat ni Gabriel gikan sa iya Papa?",
+       "accepted_answers": "sapatos"
+      },
+      {
+       "after_sentence": 7,
+       "question": "Ngano gihatagan si Gabriel ug regalo sa iyahang Papa?",
+       "accepted_answers": "Kay nalipay ang iyahang amahan sa iyahang pagkat-on sa"
+      },
+      {
+       "after_sentence": 10,
+       "question": "Ngan-o nagpasalamat si Gabriel sa iyang Mama ug Papa?",
+       "accepted_answers": "Nagpasalamat si Gabriel sa nadawat na regalo gikan sa iyahang Mama ug Papa"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "language": "Chavacano",
+   "grade": 1,
+   "variant": "mt",
+   "tasks": {
+    "task1": {
+     "max": 10,
+     "items": [
+      {
+       "text": "O"
+      },
+      {
+       "text": "e"
+      },
+      {
+       "text": "d"
+      },
+      {
+       "text": "k"
+      },
+      {
+       "text": "H"
+      },
+      {
+       "text": "V"
+      },
+      {
+       "text": "q"
+      },
+      {
+       "text": "n"
+      },
+      {
+       "text": "J"
+      },
+      {
+       "text": "r"
+      }
+     ]
+    },
+    "task2_low": {
+     "max": 10,
+     "items": [
+      {
+       "text": "dormi - sumi",
+       "answer": "Y"
+      },
+      {
+       "text": "pisu - hombre",
+       "answer": "N"
+      },
+      {
+       "text": "jabon - namuk",
+       "answer": "N"
+      },
+      {
+       "text": "gato - pito",
+       "answer": "Y"
+      },
+      {
+       "text": "estrella - botella",
+       "answer": "Y"
+      },
+      {
+       "text": "chocolate - semejante",
+       "answer": "Y"
+      },
+      {
+       "text": "pajaro - escuela",
+       "answer": "N"
+      },
+      {
+       "text": "encantada - capituda",
+       "answer": "Y"
+      },
+      {
+       "text": "culebra - escribi",
+       "answer": "N"
+      },
+      {
+       "text": "alboroto - admirable",
+       "answer": "N"
+      }
+     ]
+    },
+    "task2_high": {
+     "max": 10,
+     "items": [
+      {
+       "text": "El",
+       "sentence_no": 1
+      },
+      {
+       "text": "tabo",
+       "sentence_no": 1
+      },
+      {
+       "text": "abajo",
+       "sentence_no": 1
+      },
+      {
+       "text": "na",
+       "sentence_no": 1
+      },
+      {
+       "text": "mesa.",
+       "sentence_no": 1
+      },
+      {
+       "text": "El",
+       "sentence_no": 2
+      },
+      {
+       "text": "ropa",
+       "sentence_no": 2
+      },
+      {
+       "text": "seco",
+       "sentence_no": 2
+      },
+      {
+       "text": "na",
+       "sentence_no": 2
+      },
+      {
+       "text": "cama.",
+       "sentence_no": 2
+      }
+     ]
+    }
+   },
+   "stories": [
+    {
+     "story_no": 1,
+     "title": "No Demora Hora",
+     "word_count": 50,
+     "sentences": [
+      {
+       "text": "Tik! Tak!",
+       "words": 2
+      },
+      {
+       "text": "El reloj ya sona.",
+       "words": 4
+      },
+      {
+       "text": "Necesita ya yo desperta.",
+       "words": 4
+      },
+      {
+       "text": "Yo ay come y muda.",
+       "words": 5
+      },
+      {
+       "text": "Tik! Tak!",
+       "words": 2
+      },
+      {
+       "text": "Necesita ya yo camina.",
+       "words": 4
+      },
+      {
+       "text": "Ay anda yo na escuela.",
+       "words": 5
+      },
+      {
+       "text": "Para yo le y escribi.",
+       "words": 5
+      },
+      {
+       "text": "Man hunto yo mio amiga.",
+       "words": 5
+      },
+      {
+       "text": "Tik! Tak!",
+       "words": 2
+      },
+      {
+       "text": "Hora ya de volvida.",
+       "words": 4
+      },
+      {
+       "text": "Mañana otro ya dia.",
+       "words": 4
+      },
+      {
+       "text": "Yo alegre anda na escuela.",
+       "words": 5
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Base na cuento ya le tu, cosa el ya sona?",
+       "accepted_answers": "Reloj"
+      },
+      {
+       "after_sentence": 2,
+       "question": "Base na cuento ya le tu, que modo el reloj ya sona?",
+       "accepted_answers": "Tik!, tak!, tik!, tak!"
+      },
+      {
+       "after_sentence": 3,
+       "question": "Base na cuento ya le tu, cosa el bata ya hace acabar desperta? (any or all)",
+       "accepted_answers": "ya come y muda"
+      },
+      {
+       "after_sentence": 6,
+       "question": "Donde ele ay anda?",
+       "accepted_answers": "Ay anda le na escuela"
+      },
+      {
+       "after_sentence": 13,
+       "question": "Base na cuento ya le tu, por que el bata alegre anda na escuela? (Any or all)",
+       "accepted_answers": "Para ele le, escribi y man hunto suyu amiga"
+      }
+     ],
+     "form_total_differs": true
+    },
+    {
+     "story_no": 2,
+     "title": "Mi Gato",
+     "word_count": 49,
+     "sentences": [
+      {
+       "text": "Mi gato negro.",
+       "words": 3
+      },
+      {
+       "text": "Ele firme ta camina.",
+       "words": 4
+      },
+      {
+       "text": "Ele ta rodar lata.",
+       "words": 4
+      },
+      {
+       "text": "Ta apas ele su bola.",
+       "words": 5
+      },
+      {
+       "text": "Ele ya cansa acabar camina.",
+       "words": 5
+      },
+      {
+       "text": "Firme ele ta manda carga.",
+       "words": 5
+      },
+      {
+       "text": "Ta gusta le come carne.",
+       "words": 5
+      },
+      {
+       "text": "Y toma tambien firme leche.",
+       "words": 5
+      },
+      {
+       "text": "Por eso ele gordo.",
+       "words": 4
+      },
+      {
+       "text": "Ahora, ele como dol bola.",
+       "words": 5
+      },
+      {
+       "text": "Mio negro gato bonito.",
+       "words": 4
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Base na cuento ya le tu, cosa el color del gato?",
+       "accepted_answers": "Negro"
+      },
+      {
+       "after_sentence": 3,
+       "question": "Cosa le ya gusta rodar?",
+       "accepted_answers": "lata"
+      },
+      {
+       "after_sentence": 5,
+       "question": "Base na cuento ya le tu, cosa el bata ya sinti acabar le camina?",
+       "accepted_answers": "Ele ya cansa"
+      },
+      {
+       "after_sentence": 7,
+       "question": "Cosa ta gusta come el gato na cuento ya le tu?",
+       "accepted_answers": "Any: leche y carne"
+      },
+      {
+       "after_sentence": 11,
+       "question": "Base na cuento ya le tu, por que ya queda gordo el negro gato?",
+       "accepted_answers": "Any or both: Firme le ta toma leche; Firme le ta come carne"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "language": "Chavacano",
+   "grade": 2,
+   "variant": "mt",
+   "tasks": {
+    "task1": {
+     "max": 10,
+     "items": [
+      {
+       "text": "Encajona",
+       "sentence_no": 1
+      },
+      {
+       "text": "el",
+       "sentence_no": 1
+      },
+      {
+       "text": "maga",
+       "sentence_no": 1
+      },
+      {
+       "text": "cosas",
+       "sentence_no": 1
+      },
+      {
+       "text": "amarillo.",
+       "sentence_no": 1
+      },
+      {
+       "text": "Si",
+       "sentence_no": 2
+      },
+      {
+       "text": "Nena",
+       "sentence_no": 2
+      },
+      {
+       "text": "tiene",
+       "sentence_no": 2
+      },
+      {
+       "text": "nuevo",
+       "sentence_no": 2
+      },
+      {
+       "text": "carajay.",
+       "sentence_no": 2
+      }
+     ]
+    },
+    "task2_low": {
+     "max": 10,
+     "items": [
+      {
+       "text": "cree"
+      },
+      {
+       "text": "ulan"
+      },
+      {
+       "text": "iglesia"
+      },
+      {
+       "text": "dulce"
+      },
+      {
+       "text": "bien"
+      },
+      {
+       "text": "oficina"
+      },
+      {
+       "text": "sintura"
+      },
+      {
+       "text": "parque"
+      },
+      {
+       "text": "direccion"
+      },
+      {
+       "text": "estudiante"
+      }
+     ]
+    },
+    "task2_high": {
+     "max": 10,
+     "items": [
+      {
+       "text": "Ta",
+       "sentence_no": 1
+      },
+      {
+       "text": "prepara",
+       "sentence_no": 1
+      },
+      {
+       "text": "semilla",
+       "sentence_no": 1
+      },
+      {
+       "text": "el",
+       "sentence_no": 1
+      },
+      {
+       "text": "jardinero.",
+       "sentence_no": 1
+      },
+      {
+       "text": "Tiene",
+       "sentence_no": 2
+      },
+      {
+       "text": "cuantos",
+       "sentence_no": 2
+      },
+      {
+       "text": "diamante",
+       "sentence_no": 2
+      },
+      {
+       "text": "el",
+       "sentence_no": 2
+      },
+      {
+       "text": "reloj.",
+       "sentence_no": 2
+      }
+     ]
+    }
+   },
+   "stories": [
+    {
+     "story_no": 1,
+     "title": "Mi Jardin",
+     "word_count": 96,
+     "sentences": [
+      {
+       "text": "Mi jardin lleno de maga siembra.",
+       "words": 6
+      },
+      {
+       "text": "Tiene este bonito maga flores y maga herbal.",
+       "words": 8
+      },
+      {
+       "text": "Tiene tambien este maga gulay.",
+       "words": 5
+      },
+      {
+       "text": "El maga siembra tiene diferente grandor y color.",
+       "words": 8
+      },
+      {
+       "text": "Alegre yo visita mi jardin todo'l dia.",
+       "words": 7
+      },
+      {
+       "text": "El maga siembra dol ta baila na viento.",
+       "words": 8
+      },
+      {
+       "text": "El maga siembra ta dale fresco aire.",
+       "words": 7
+      },
+      {
+       "text": "Ta cosecha yo diferente clase de gulay.",
+       "words": 7
+      },
+      {
+       "text": "Bien quiere yo esta na mi jardin.",
+       "words": 7
+      },
+      {
+       "text": "\"Mamang! Mamang! Volve ya!\" ya llama mi hijo.",
+       "words": 8
+      },
+      {
+       "text": "\"Hijo! No hay yo senti el hora!\"",
+       "words": 7
+      },
+      {
+       "text": "\"Hora ya para coci comida!\" yo ya contesta.",
+       "words": 8
+      },
+      {
+       "text": "Gracias mi maga siembra!",
+       "words": 4
+      },
+      {
+       "text": "Tiene ya comida para na familia.",
+       "words": 6
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Cosa-cosa siembra tiene na jardin?",
+       "accepted_answers": "Any two or all of the following: flores, gulay, herbal"
+      },
+      {
+       "after_sentence": 3,
+       "question": "Cuando ta visita el nana na su jardin? (When does mother visit the garden?)",
+       "accepted_answers": "Todo'l dia"
+      },
+      {
+       "after_sentence": 4,
+       "question": "Cosa ta senti el nana si ta visita na su jardin? (What does mother feel when she visits the garden?)",
+       "accepted_answers": "alegre"
+      },
+      {
+       "after_sentence": 5,
+       "question": "Quien ya llama con el nana cuando talla na jardin?",
+       "accepted_answers": "su hijo"
+      },
+      {
+       "after_sentence": 7,
+       "question": "Base na cuento, por que necesita volve el nana na casa?",
+       "accepted_answers": "para coci"
+      },
+      {
+       "after_sentence": 12,
+       "question": "Por que el nana ya rendi gracias con el siembra?",
+       "accepted_answers": "kay tiene gulay para coci"
+      }
+     ]
+    },
+    {
+     "story_no": 2,
+     "title": "Experiencia Del Un Bata",
+     "word_count": 96,
+     "sentences": [
+      {
+       "text": "El bata ta esta na monte lugar.",
+       "words": 7
+      },
+      {
+       "text": "Monte el un lugar lejos na ciudad.",
+       "words": 7
+      },
+      {
+       "text": "El bata ya segui con su abuela.",
+       "words": 7
+      },
+      {
+       "text": "\"Abuela, este el ciudad?\", el nieto ya pregunta.",
+       "words": 8
+      },
+      {
+       "text": "\"Si, ya gusta tu?\" ya contesta su abuela.",
+       "words": 8
+      },
+      {
+       "text": "\"Si, bien alegre yo!\", ya habla el bata.",
+       "words": 8
+      },
+      {
+       "text": "Manada maga alto edificio y grande restaurante.",
+       "words": 7
+      },
+      {
+       "text": "Ancho el parque donde puede juga.",
+       "words": 6
+      },
+      {
+       "text": "Manada clase de vehiculo, el bata ya observa.",
+       "words": 8
+      },
+      {
+       "text": "\"Alegre tambien na monte,\" comento del bata.",
+       "words": 7
+      },
+      {
+       "text": "Manada lugar donde puede pasea.",
+       "words": 5
+      },
+      {
+       "text": "El rio ancho para baña.",
+       "words": 5
+      },
+      {
+       "text": "El alto gulod claro mira maga caserias.",
+       "words": 7
+      },
+      {
+       "text": "Ciudad y monte igual bonito esta.",
+       "words": 6
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Donde ta esta el bata?",
+       "accepted_answers": "monte"
+      },
+      {
+       "after_sentence": 3,
+       "question": "Cosa el bata ya senti cuando ya segui le na ciudad?",
+       "accepted_answers": "alegre"
+      },
+      {
+       "after_sentence": 5,
+       "question": "Base na cuento, cosa-cosa el bata ya puede observa na ciudad?",
+       "accepted_answers": "any two or all of the following: manada alto edificio, ancho restaurante, ancho parque"
+      },
+      {
+       "after_sentence": 8,
+       "question": "Base na cuento, cosa-cosa lugar puede pasea o anda na monte?",
+       "accepted_answers": "tiene rio, gulod"
+      },
+      {
+       "after_sentence": 11,
+       "question": "Por que el bata alegre na cuento ya le tu?",
+       "accepted_answers": "kay ya lleva con ele na ciudad"
+      },
+      {
+       "after_sentence": 14,
+       "question": "Por que bonito queda na ciudad y na monte?",
+       "accepted_answers": "Any two or all of the following: manada alto edificio, ancho restaurante, ancho parque, para baña/gulod, mira maga caserias"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "language": "Chavacano",
+   "grade": 3,
+   "variant": "mt",
+   "tasks": {
+    "task1": {
+     "max": 10,
+     "items": [
+      {
+       "text": "Celebrao",
+       "sentence_no": 1
+      },
+      {
+       "text": "el",
+       "sentence_no": 1
+      },
+      {
+       "text": "dia",
+       "sentence_no": 1
+      },
+      {
+       "text": "del",
+       "sentence_no": 1
+      },
+      {
+       "text": "independencia.",
+       "sentence_no": 1
+      },
+      {
+       "text": "Beneficiario",
+       "sentence_no": 2
+      },
+      {
+       "text": "el",
+       "sentence_no": 2
+      },
+      {
+       "text": "mananguete",
+       "sentence_no": 2
+      },
+      {
+       "text": "na",
+       "sentence_no": 2
+      },
+      {
+       "text": "ayuda.",
+       "sentence_no": 2
+      }
+     ]
+    },
+    "task2_low": {
+     "max": 10,
+     "items": [
+      {
+       "text": "obligao"
+      },
+      {
+       "text": "flojonadas"
+      },
+      {
+       "text": "glorioso"
+      },
+      {
+       "text": "microbio"
+      },
+      {
+       "text": "dramatiza"
+      },
+      {
+       "text": "zapatilla"
+      },
+      {
+       "text": "agredecideo"
+      },
+      {
+       "text": "contestacion"
+      },
+      {
+       "text": "proclamacion"
+      },
+      {
+       "text": "replandeciente"
+      }
+     ]
+    },
+    "task2_high": {
+     "max": 10,
+     "items": [
+      {
+       "text": "Bonito",
+       "sentence_no": 1
+      },
+      {
+       "text": "el",
+       "sentence_no": 1
+      },
+      {
+       "text": "dramatizacion",
+       "sentence_no": 1
+      },
+      {
+       "text": "del",
+       "sentence_no": 1
+      },
+      {
+       "text": "pillastrona.",
+       "sentence_no": 1
+      },
+      {
+       "text": "Claro",
+       "sentence_no": 2
+      },
+      {
+       "text": "el",
+       "sentence_no": 2
+      },
+      {
+       "text": "contestacion",
+       "sentence_no": 2
+      },
+      {
+       "text": "de",
+       "sentence_no": 2
+      },
+      {
+       "text": "Laura.",
+       "sentence_no": 2
+      }
+     ]
+    }
+   },
+   "stories": [
+    {
+     "story_no": 1,
+     "title": "De Amon Escuela",
+     "word_count": 119,
+     "sentences": [
+      {
+       "text": "De amon escuela rodeao de mucho pono y flores.",
+       "words": 9
+      },
+      {
+       "text": "Fresco el aire aqui y bonito para aprende.",
+       "words": 8
+      },
+      {
+       "text": "Vene y aprende junto con el maga condiscipulo!",
+       "words": 8
+      },
+      {
+       "text": "Conta kita numero y le bonito maga historia!",
+       "words": 8
+      },
+      {
+       "text": "Canta y baila kita junto con el maestra y maestro.",
+       "words": 10
+      },
+      {
+       "text": "Si tu con hambre, donde tu anda?",
+       "words": 7
+      },
+      {
+       "text": "Siempre na cantina!",
+       "words": 3
+      },
+      {
+       "text": "Si tu enfermo, donde tu anda?",
+       "words": 6
+      },
+      {
+       "text": "Siempre na clinica!",
+       "words": 3
+      },
+      {
+       "text": "Si tu quiere le maga libro, donde tu anda?",
+       "words": 9
+      },
+      {
+       "text": "Siempre na libreria!",
+       "words": 3
+      },
+      {
+       "text": "Mucho cosas que puede encontra na de amon escuela.",
+       "words": 9
+      },
+      {
+       "text": "Todo este ta contribui na de mio salud y aprendida.",
+       "words": 10
+      },
+      {
+       "text": "Que bonito anda na escuela!",
+       "words": 5
+      },
+      {
+       "text": "De amon maestra y maestro con amor ta ensea.",
+       "words": 9
+      },
+      {
+       "text": "Mucho cosa kame ay aprende.",
+       "words": 5
+      },
+      {
+       "text": "Vene y visita na de amon escuela!",
+       "words": 7
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Cosa rodeao na de amon escuela?",
+       "accepted_answers": "Maga pono y flores."
+      },
+      {
+       "after_sentence": 3,
+       "question": "Base na cuento ya le, cosa maga actividad que puede hace na escuela?",
+       "accepted_answers": "Conta numero y le maga bonito historia."
+      },
+      {
+       "after_sentence": 6,
+       "question": "Base na cuento ya le, donde lugar na escuela tu anda para compra comida si tu ta senti con hambre?",
+       "accepted_answers": "Na cantina"
+      },
+      {
+       "after_sentence": 9,
+       "question": "Donde tu anda si etu enfermo?",
+       "accepted_answers": "Na clinica"
+      },
+      {
+       "after_sentence": 10,
+       "question": "Donde tu anda si tu quiere le maga libro?",
+       "accepted_answers": "Na libreria"
+      },
+      {
+       "after_sentence": 14,
+       "question": "Porque bonito anda na de ila escuela?",
+       "accepted_answers": "Any or all the following: mucho cosa kame ay aprende; Mucho cosas que puede encontra na de amon escuela; ta rodea este de mucho pono y flores; de amon maga maestra y maestro ta ensea con amor"
+      },
+      {
+       "after_sentence": 15,
+       "question": "Que modo ta ensea maga maestra y maestro na escuela?",
+       "accepted_answers": "Ta ensea con amor"
+      }
+     ]
+    },
+    {
+     "story_no": 2,
+     "title": "El Adventuroso Pato",
+     "word_count": 121,
+     "sentences": [
+      {
+       "text": "Un pato blanco ta baña na grande pantano.",
+       "words": 8
+      },
+      {
+       "text": "Donde junto le ta nada con su maga amiga.",
+       "words": 9
+      },
+      {
+       "text": "Un dia, ya mira sila grupada de pajaro ta vola.",
+       "words": 10
+      },
+      {
+       "text": "\"Maga amiga, donde ustedes anda?\" ya pregunta el pato.",
+       "words": 9
+      },
+      {
+       "text": "\"Para na oeste\", ya grita maga pajaro.",
+       "words": 7
+      },
+      {
+       "text": "\"Tiene bonito lugar alla,\" ya habla sila.",
+       "words": 7
+      },
+      {
+       "text": "\"Puede yo segui?\" Ya pregunta el pato.",
+       "words": 7
+      },
+      {
+       "text": "\"Si, Vene ya!\" habla maga pajaro.",
+       "words": 6
+      },
+      {
+       "text": "Ya vola sila junto pa arriba.",
+       "words": 6
+      },
+      {
+       "text": "Ya mira sila el pato junto na grupada de pajaro.",
+       "words": 10
+      },
+      {
+       "text": "Ya entretene maga gente.",
+       "words": 4
+      },
+      {
+       "text": "Ya saca sila retrato con el grupada de pajaro.",
+       "words": 8,
+       "form_miscount": true
+      },
+      {
+       "text": "Ya descansa sila na puente.",
+       "words": 5
+      },
+      {
+       "text": "Ya dale kanila comida el maga gente.",
+       "words": 7
+      },
+      {
+       "text": "Pero necesita ya despedi el pato para volve.",
+       "words": 8
+      },
+      {
+       "text": "Su casa amo junto na mga pato igual con ele.",
+       "words": 10
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Quien ta baña na pantano?",
+       "accepted_answers": "maga pato"
+      },
+      {
+       "after_sentence": 3,
+       "question": "Cosa sila ya mira un dia?",
+       "accepted_answers": "grupada de pajaro ta vola"
+      },
+      {
+       "after_sentence": 5,
+       "question": "Base na cuento donde ay anda el maga pajaro?",
+       "accepted_answers": "Para na oeste o na oeste"
+      },
+      {
+       "after_sentence": 7,
+       "question": "Quien quiere segui con el maga pajaro?",
+       "accepted_answers": "Quiere le mira bonito lugar"
+      },
+      {
+       "after_sentence": 9,
+       "question": "Con quien segui el pato base na cuento?",
+       "accepted_answers": "Para puede tambien le mira el bonito lugar."
+      },
+      {
+       "after_sentence": 11,
+       "question": "Cosa ya hace entretene con el maga gente cuando ya mira con el pato junto con el maga pajaro?",
+       "accepted_answers": "(Any of the two answers) 1. Hende kita ta puede mira el pato y pajaro ta vola junto o ta man junto. 2. Ralo lang kita ta puede mira el pajaro y pato ta man junto"
+      },
+      {
+       "after_sentence": 13,
+       "question": "Por que necesita ya despedi el pato para volve kanila?",
+       "accepted_answers": "Ta espera ya con ele de suyo maga uban pato o familia."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "language": "English",
+   "grade": 3,
+   "variant": "eng",
+   "tasks": {
+    "task1": {
+     "max": 10,
+     "items": [
+      {
+       "text": "bed"
+      },
+      {
+       "text": "map"
+      },
+      {
+       "text": "hit"
+      },
+      {
+       "text": "cup"
+      },
+      {
+       "text": "dog"
+      },
+      {
+       "text": "net"
+      },
+      {
+       "text": "can"
+      },
+      {
+       "text": "fin"
+      },
+      {
+       "text": "sun"
+      },
+      {
+       "text": "box"
+      }
+     ]
+    },
+    "task2": {
+     "max": 10,
+     "items": [
+      {
+       "text": "clap"
+      },
+      {
+       "text": "jump"
+      },
+      {
+       "text": "eat"
+      },
+      {
+       "text": "drink"
+      },
+      {
+       "text": "stand"
+      },
+      {
+       "text": "dance"
+      },
+      {
+       "text": "fly"
+      },
+      {
+       "text": "pencil"
+      },
+      {
+       "text": "basket"
+      },
+      {
+       "text": "helmet"
+      }
+     ]
+    }
+   },
+   "stories": [
+    {
+     "story_no": 1,
+     "title": "Para the Parrot",
+     "word_count": 100,
+     "sentences": [
+      {
+       "text": "Para flies away from the houses and into the market.",
+       "words": 10
+      },
+      {
+       "text": "She must look for some fruits and food she can eat.",
+       "words": 11
+      },
+      {
+       "text": "She is having fun, but wants to go home.",
+       "words": 9
+      },
+      {
+       "text": "It is getting dark.",
+       "words": 4
+      },
+      {
+       "text": "There are many cars on the road because it is the end of the work day.",
+       "words": 16
+      },
+      {
+       "text": "Then, she sees something!",
+       "words": 4
+      },
+      {
+       "text": "Para stops flying and lands on top of a parked car.",
+       "words": 11
+      },
+      {
+       "text": "She sees a police officer and he is directing traffic.",
+       "words": 10
+      },
+      {
+       "text": "He is also dancing!",
+       "words": 4
+      },
+      {
+       "text": "Para has never seen a police officer dance.",
+       "words": 8
+      },
+      {
+       "text": "The police officer is smiling.",
+       "words": 5
+      },
+      {
+       "text": "Para wants to learn more about this man.",
+       "words": 8
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 2,
+       "question": "What must Para look for?",
+       "accepted_answers": "Any of these – fruits, food, what she can eat"
+      },
+      {
+       "after_sentence": 4,
+       "question": "In the story, what time or part of the day is it?",
+       "accepted_answers": "Any of these - late afternoon, early evening, evening, sunset, end of work day"
+      },
+      {
+       "after_sentence": 7,
+       "question": "What does Para land on?",
+       "accepted_answers": "Any of these – car, parked car"
+      },
+      {
+       "after_sentence": 8,
+       "question": "Who or what does Para see?",
+       "accepted_answers": "Any of these – police officer, police officer directing traffic, policeman, policeman directing traffic"
+      },
+      {
+       "after_sentence": 9,
+       "question": "In addition to directing traffic, what else does Para see the police officer doing?",
+       "accepted_answers": "Dancing"
+      },
+      {
+       "after_sentence": 11,
+       "question": "What could the police officer be feeling?",
+       "accepted_answers": "Any of these – happy, happy because he is smiling"
+      }
+     ]
+    },
+    {
+     "story_no": 2,
+     "title": "A Day in the Fields",
+     "word_count": 100,
+     "sentences": [
+      {
+       "text": "Dulnuwan is a farmer.",
+       "words": 4
+      },
+      {
+       "text": "He works in the fields everyday.",
+       "words": 6
+      },
+      {
+       "text": "His wife Bugan helps him.",
+       "words": 5
+      },
+      {
+       "text": "Ali and Dina help too when they are not in school.",
+       "words": 11
+      },
+      {
+       "text": "Today, Dulnuwan drains the water from the field and prepares the seedbed.",
+       "words": 12
+      },
+      {
+       "text": "Bugan, Ali, and Dina pull the weeds.",
+       "words": 7
+      },
+      {
+       "text": "They work all morning.",
+       "words": 4
+      },
+      {
+       "text": "They rest under the shade of a tree and eat lunch.",
+       "words": 11
+      },
+      {
+       "text": "They eat boiled rice and beans. They are proud of their work.",
+       "words": 12
+      },
+      {
+       "text": "Dulnuwan looks at the clear blue sky.",
+       "words": 7
+      },
+      {
+       "text": "There is not a cloud in sight.",
+       "words": 7
+      },
+      {
+       "text": "He looks at the terraces below.",
+       "words": 6
+      },
+      {
+       "text": "He bends to pick a handful of soil.",
+       "words": 8
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "What is the job of Dulnuwan?",
+       "accepted_answers": "Any of these – farmer, works in the fields"
+      },
+      {
+       "after_sentence": 4,
+       "question": "When do Ali and Dina help Dulnawan and Bugan?",
+       "accepted_answers": "When they are not in school"
+      },
+      {
+       "after_sentence": 8,
+       "question": "Where do they rest?",
+       "accepted_answers": "Any of these - under a tree, in the shade"
+      },
+      {
+       "after_sentence": 9,
+       "question": "Why do they rest?",
+       "accepted_answers": "Any of these - they work all morning, they need to eat lunch, they eat rice and beans, they eat boiled rice and beans"
+      },
+      {
+       "after_sentence": 11,
+       "question": "What kind of weather or day is it?",
+       "accepted_answers": "Any of these – sunny, clear"
+      },
+      {
+       "after_sentence": 13,
+       "question": "What does Dulnawan pick up?",
+       "accepted_answers": "Any of these – soil, handful of soil"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "language": "Hiligaynon",
+   "grade": 1,
+   "variant": "mt",
+   "tasks": {
+    "task1": {
+     "max": 10,
+     "items": [
+      {
+       "text": "A"
+      },
+      {
+       "text": "w"
+      },
+      {
+       "text": "U"
+      },
+      {
+       "text": "M"
+      },
+      {
+       "text": "o"
+      },
+      {
+       "text": "P"
+      },
+      {
+       "text": "ng"
+      },
+      {
+       "text": "b"
+      },
+      {
+       "text": "t"
+      },
+      {
+       "text": "Y"
+      }
+     ]
+    },
+    "task2_low": {
+     "max": 10,
+     "items": [
+      {
+       "text": "basa, tisa",
+       "answer": "Rhyme"
+      },
+      {
+       "text": "dulse, bata",
+       "answer": "No"
+      },
+      {
+       "text": "bugas, dahon",
+       "answer": "No"
+      },
+      {
+       "text": "basi, gisi",
+       "answer": "Rhyme"
+      },
+      {
+       "text": "lubid, tabid",
+       "answer": "Rhyme"
+      },
+      {
+       "text": "balay, humay",
+       "answer": "Rhyme"
+      },
+      {
+       "text": "repolyo, kalaha",
+       "answer": "No"
+      },
+      {
+       "text": "espiho, pareho",
+       "answer": "Rhyme"
+      },
+      {
+       "text": "rambutan, bituon",
+       "answer": "No"
+      },
+      {
+       "text": "munyika, litrato",
+       "answer": "No"
+      }
+     ]
+    },
+    "task2_high": {
+     "max": 10,
+     "items": [
+      {
+       "text": "Ang",
+       "sentence_no": 1
+      },
+      {
+       "text": "husay",
+       "sentence_no": 1
+      },
+      {
+       "text": "ni",
+       "sentence_no": 1
+      },
+      {
+       "text": "Tatay",
+       "sentence_no": 1
+      },
+      {
+       "text": "gamay.",
+       "sentence_no": 1
+      },
+      {
+       "text": "Nagsaka",
+       "sentence_no": 2
+      },
+      {
+       "text": "sa",
+       "sentence_no": 2
+      },
+      {
+       "text": "hagdan",
+       "sentence_no": 2
+      },
+      {
+       "text": "ang",
+       "sentence_no": 2
+      },
+      {
+       "text": "bata.",
+       "sentence_no": 2
+      }
+     ]
+    }
+   },
+   "stories": [
+    {
+     "story_no": 1,
+     "title": "Ang Pulseras ni Nika",
+     "word_count": 50,
+     "sentences": [
+      {
+       "text": "Matahum ang pulseras ni Nika.",
+       "words": 5
+      },
+      {
+       "text": "Ginhimo ini ni Lolo Oka.",
+       "words": 5
+      },
+      {
+       "text": "Bagay ini sa iya kamot.",
+       "words": 5
+      },
+      {
+       "text": "Adlaw-adlaw gid niya ini ginasuksok.",
+       "words": 5
+      },
+      {
+       "text": "Ugaling, nadula ang iya pulseras.",
+       "words": 5
+      },
+      {
+       "text": "Gani, nasubuan gid si Nika.",
+       "words": 5
+      },
+      {
+       "text": "Ginpangita niya ini sing maayo.",
+       "words": 5
+      },
+      {
+       "text": "Nakita niya ini sa banyo.",
+       "words": 5
+      },
+      {
+       "text": "Gani, nalipay gid si Nika.",
+       "words": 5
+      },
+      {
+       "text": "Nakit-an na ang pulseras niya.",
+       "words": 5
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Sin-o ang bata sa istorya?",
+       "accepted_answers": "Si Nika"
+      },
+      {
+       "after_sentence": 5,
+       "question": "Ano ang natabo sa pulseras?",
+       "accepted_answers": "Nadula"
+      },
+      {
+       "after_sentence": 6,
+       "question": "Ano ang nabatyagan ni Nika sang nadula ang pulseras?",
+       "accepted_answers": "Nasubuan"
+      },
+      {
+       "after_sentence": 8,
+       "question": "Sa diin nakit-an ang pulseras?",
+       "accepted_answers": "Sa banyo"
+      },
+      {
+       "after_sentence": 10,
+       "question": "Ano ayhan ang himuon ni Nika sa pulseras sang nakit-an niya ini?",
+       "accepted_answers": "Isuksok ini liwat/halungan na niya nga indi madula/taguon/gamiton/tinluan kay nakit-an sa banyo (answer may vary)"
+      }
+     ]
+    },
+    {
+     "story_no": 2,
+     "title": "Ang Regalo",
+     "word_count": 49,
+     "sentences": [
+      {
+       "text": "Nakabaton ako sang regalo.",
+       "words": 4
+      },
+      {
+       "text": "Malaba ini nga may pangpanas.",
+       "words": 5
+      },
+      {
+       "text": "Ginagamit ko ini sa pagsulat.",
+       "words": 5
+      },
+      {
+       "text": "Nanamian ako sini nga regalo.",
+       "words": 5
+      },
+      {
+       "text": "Ginagamit ko ini sa eskwelahan.",
+       "words": 5
+      },
+      {
+       "text": "Ginadala ko gid ini pirme.",
+       "words": 5
+      },
+      {
+       "text": "Ginahulam ini sang akon abyan.",
+       "words": 5
+      },
+      {
+       "text": "Mapuslanon gid ini nga butang.",
+       "words": 5
+      },
+      {
+       "text": "Halungan ko ini sing maayo.",
+       "words": 5
+      },
+      {
+       "text": "Agud magdugay ini nga regalo.",
+       "words": 5
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Ano ang nabaton sang bata sa istorya?",
+       "accepted_answers": "Regalo"
+      },
+      {
+       "after_sentence": 2,
+       "question": "Ano ang mahambal mo sa nabaton niya nga regalo?",
+       "accepted_answers": "Malaba/ May pangpanas"
+      },
+      {
+       "after_sentence": 5,
+       "question": "Sa diin niya ini ginagamit?",
+       "accepted_answers": "Sa eskwelahan/sa pagsulat"
+      },
+      {
+       "after_sentence": 7,
+       "question": "Sin-o ang naghulam sang iya regalo?",
+       "accepted_answers": "Abyan"
+      },
+      {
+       "after_sentence": 10,
+       "question": "Ano ayhan ang regalo? Paano mo nahambal nga amo ina ang regalo?",
+       "accepted_answers": "Lapis. Malaba kag may pangpanas. Ginagamit sa pagsulat."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "language": "Hiligaynon",
+   "grade": 2,
+   "variant": "mt",
+   "tasks": {
+    "task1": {
+     "max": 10,
+     "items": [
+      {
+       "text": "Duha",
+       "sentence_no": 1
+      },
+      {
+       "text": "ang",
+       "sentence_no": 1
+      },
+      {
+       "text": "uga",
+       "sentence_no": 1
+      },
+      {
+       "text": "ni",
+       "sentence_no": 1
+      },
+      {
+       "text": "Aga.",
+       "sentence_no": 1
+      },
+      {
+       "text": "Nagmala",
+       "sentence_no": 2
+      },
+      {
+       "text": "ang",
+       "sentence_no": 2
+      },
+      {
+       "text": "tubig",
+       "sentence_no": 2
+      },
+      {
+       "text": "sa",
+       "sentence_no": 2
+      },
+      {
+       "text": "lata.",
+       "sentence_no": 2
+      }
+     ]
+    },
+    "task2_low": {
+     "max": 10,
+     "items": [
+      {
+       "text": "lapis"
+      },
+      {
+       "text": "pula"
+      },
+      {
+       "text": "berde"
+      },
+      {
+       "text": "panday"
+      },
+      {
+       "text": "kaon"
+      },
+      {
+       "text": "kahel"
+      },
+      {
+       "text": "amu"
+      },
+      {
+       "text": "okra"
+      },
+      {
+       "text": "tulog"
+      },
+      {
+       "text": "uga"
+      }
+     ]
+    },
+    "task2_high": {
+     "max": 10,
+     "items": [
+      {
+       "text": "Nagbakal",
+       "sentence_no": 1
+      },
+      {
+       "text": "si",
+       "sentence_no": 1
+      },
+      {
+       "text": "Tatay",
+       "sentence_no": 1
+      },
+      {
+       "text": "sang",
+       "sentence_no": 1
+      },
+      {
+       "text": "tsokolate.",
+       "sentence_no": 1
+      },
+      {
+       "text": "Madamo",
+       "sentence_no": 2
+      },
+      {
+       "text": "ang",
+       "sentence_no": 2
+      },
+      {
+       "text": "akon",
+       "sentence_no": 2
+      },
+      {
+       "text": "hilikuton",
+       "sentence_no": 2
+      },
+      {
+       "text": "adlaw-adlaw.",
+       "sentence_no": 2
+      }
+     ]
+    }
+   },
+   "stories": [
+    {
+     "story_no": 1,
+     "title": "Ang Damgo ni Marko",
+     "word_count": 94,
+     "sentences": [
+      {
+       "text": "Si Marko ang bata nga nagapanglapta sang basura.",
+       "words": 8
+      },
+      {
+       "text": "Bisan diin lang niya ginahaboy ang mga basura.",
+       "words": 8
+      },
+      {
+       "text": "Ang putos sang tinapay kag dulse ginapangwigit niya.",
+       "words": 8
+      },
+      {
+       "text": "Ginapanglapta niya ang panit sang prutas kag iban pa.",
+       "words": 9
+      },
+      {
+       "text": "Isa ka gab-i, tuman kadasig ang iya dalagan.",
+       "words": 8
+      },
+      {
+       "text": "Ginalagas siya sang mabaho nga grupo sang basura.",
+       "words": 8
+      },
+      {
+       "text": "Nadumduman niya ang mga basura nga iya ginpanglapta.",
+       "words": 8
+      },
+      {
+       "text": "\"Aha! Ikaw gali si Marko,\" singgit sang basura.",
+       "words": 8
+      },
+      {
+       "text": "Ginhigop sang mabaho nga baba si Marko.",
+       "words": 7
+      },
+      {
+       "text": "\"Indi na ako magliwat!\", singgit ni Marko",
+       "words": 7
+      },
+      {
+       "text": "Nakabugtaw si Marko nga nagasinggit kag ginakulbaan.",
+       "words": 7
+      },
+      {
+       "text": "Damgo gali! Umpisa subong hindi na ako manglapta.",
+       "words": 8
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Sin-o ang nagapanglapta sang basura?",
+       "accepted_answers": "Si Marko"
+      },
+      {
+       "after_sentence": 3,
+       "question": "Ano ang mga basura nga ginapangwigit niya?",
+       "accepted_answers": "Putos sang tinapay kag dulse"
+      },
+      {
+       "after_sentence": 5,
+       "question": "Base sa damgo ni Marko, ano ang iya ginhimo?",
+       "accepted_answers": "Nagdalagan sia sing madasig."
+      },
+      {
+       "after_sentence": 6,
+       "question": "Ngaa nagdalagan sia sing madasig?",
+       "accepted_answers": "Kay ginalagas sia sang mabaho nga grupo sang basura."
+      },
+      {
+       "after_sentence": 11,
+       "question": "Ngaa nagasinggit kag ginakulbaan si Marko?",
+       "accepted_answers": "Kay ginhigop sia; Kay ginlagas sia; Kay nagdamgo sia"
+      },
+      {
+       "after_sentence": 12,
+       "question": "Ngaa naghambal si Marko nga indi na sia manglapta sang basura?",
+       "accepted_answers": "Kay nahadlok sia sa basura; Kay nahadlok sia nga higupon/ magdamgo parte sa basura."
+      }
+     ]
+    },
+    {
+     "story_no": 2,
+     "title": "Ang Sorpresa",
+     "word_count": 94,
+     "sentences": [
+      {
+       "text": "Malipayon nga bata si Ramon.",
+       "words": 5
+      },
+      {
+       "text": "Kada adlaw ginahulat niya ang iya Nanay.",
+       "words": 7
+      },
+      {
+       "text": "Nasadyahan si Ramon kada mag-abot ang iya Nanay.",
+       "words": 8
+      },
+      {
+       "text": "\"Nanay, may dala ka nga sorpresa sa akon?\"",
+       "words": 8
+      },
+      {
+       "text": "\"Huo Ramon, buksi ang plastik.\"",
+       "words": 5
+      },
+      {
+       "text": "Madasig niya nga ginbuksan ang plastik.",
+       "words": 6
+      },
+      {
+       "text": "\"Abaw itlog, may unod nga hampanganan!\" singgit niya.",
+       "words": 8
+      },
+      {
+       "text": "Isa ka adlaw, nag-abot si Nanay nga kapoy.",
+       "words": 8
+      },
+      {
+       "text": "Nasubuan siya tungod wala sia dala nga sorpresa.",
+       "words": 8
+      },
+      {
+       "text": "Pero si Nanay nasorpresa sang ginhimo ni Ramon.",
+       "words": 8
+      },
+      {
+       "text": "Ginhakos gid sing hugot ni Ramon si Nanay.",
+       "words": 8
+      },
+      {
+       "text": "\"Nanay, ikaw ang akon sorpresa,\" hambal niya.",
+       "words": 7
+      },
+      {
+       "text": "Ginhalukan siya ni Nanay nga tuman ang kalipay.",
+       "words": 8
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Sin-o ang malipayon nga bata?",
+       "accepted_answers": "Si Ramon"
+      },
+      {
+       "after_sentence": 2,
+       "question": "Sin-o ang ginahulat ni Ramon kada adlaw?",
+       "accepted_answers": "Si Nanay/Mama/Iloy/Mommy"
+      },
+      {
+       "after_sentence": 3,
+       "question": "Ano ang nabatyagan ni Ramon kada mag-abot ang iya Nanay?",
+       "accepted_answers": "Nasadyahan/nalipay/excited"
+      },
+      {
+       "after_sentence": 7,
+       "question": "Ano ang unod sang itlog nga dala ni Nanay?",
+       "accepted_answers": "Hampanganan/toys/halampangan/kinder joy"
+      },
+      {
+       "after_sentence": 12,
+       "question": "Ngaa para kay Ramon, isa ka sorpresa si Nanay?",
+       "accepted_answers": "Kay si Nanay ang ginahulat ni Ramon magpauli sa balay. Kay nalipay sia nga nagaabot/nagapuli si Nanay sa balay. Kay palangga ni Ramon si Nanay. Tungod nagadala si Nanay sang hampanganan/pasalubong/sorpresa para kay Ramon. Tungod kay palangga ni Ramon si Nanay."
+      },
+      {
+       "after_sentence": 13,
+       "question": "Ngaa tuman ang kalipay ni Nanay sa ginhimo ni Ramon?",
+       "accepted_answers": "Kay wala nasubuan si Ramon bisan wala sia dala nga hampanganan/sorpresa. Kay naintindihan ni Ramon kon ngaa wala si Nanay dala nga sorpresa. Kay wala naghibi si Ramon nga wala dala si Nanay sang hampanganan/toys/kinder joy/sorpresa. Kay ginhakus ni Ramon si Nanay. Kay nakita ni Nanay nga maayo ang sitwasyon/kahimtangan ni Ramon. Kay nakita ni Nanay nga nalipay gihapon si Ramon biskan wala sia dala nga hampanganan/sorpresa."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "language": "Hiligaynon",
+   "grade": 3,
+   "variant": "mt",
+   "tasks": {
+    "task1": {
+     "max": 10,
+     "items": [
+      {
+       "text": "Ginatatap",
+       "sentence_no": 1
+      },
+      {
+       "text": "niya",
+       "sentence_no": 1
+      },
+      {
+       "text": "ang",
+       "sentence_no": 1
+      },
+      {
+       "text": "iya",
+       "sentence_no": 1
+      },
+      {
+       "text": "kaugalingon.",
+       "sentence_no": 1
+      },
+      {
+       "text": "Manggaranon",
+       "sentence_no": 2
+      },
+      {
+       "text": "ang",
+       "sentence_no": 2
+      },
+      {
+       "text": "amon",
+       "sentence_no": 2
+      },
+      {
+       "text": "mga",
+       "sentence_no": 2
+      },
+      {
+       "text": "tupad-balay.",
+       "sentence_no": 2
+      }
+     ]
+    },
+    "task2_low": {
+     "max": 10,
+     "items": [
+      {
+       "text": "preska"
+      },
+      {
+       "text": "trapo"
+      },
+      {
+       "text": "magal-um"
+      },
+      {
+       "text": "tsinelas"
+      },
+      {
+       "text": "pangduag"
+      },
+      {
+       "text": "pungsod"
+      },
+      {
+       "text": "kamiseta"
+      },
+      {
+       "text": "manunudlo"
+      },
+      {
+       "text": "ginikanan"
+      },
+      {
+       "text": "hinablos"
+      }
+     ]
+    },
+    "task2_high": {
+     "max": 10,
+     "items": [
+      {
+       "text": "Bag-o",
+       "sentence_no": 1
+      },
+      {
+       "text": "ang",
+       "sentence_no": 1
+      },
+      {
+       "text": "tsinelas",
+       "sentence_no": 1
+      },
+      {
+       "text": "ni",
+       "sentence_no": 1
+      },
+      {
+       "text": "Nanay.",
+       "sentence_no": 1
+      },
+      {
+       "text": "Manami",
+       "sentence_no": 2
+      },
+      {
+       "text": "ang",
+       "sentence_no": 2
+      },
+      {
+       "text": "dyaket",
+       "sentence_no": 2
+      },
+      {
+       "text": "ni",
+       "sentence_no": 2
+      },
+      {
+       "text": "Karlo.",
+       "sentence_no": 2
+      }
+     ]
+    }
+   },
+   "stories": [
+    {
+     "story_no": 1,
+     "title": "Ang Bata nga Palabasa",
+     "word_count": 120,
+     "sentences": [
+      {
+       "text": "Mabuot, maalwan, matipig, masinadyahon, kag palabasa nga bata si Danilo.",
+       "words": 10
+      },
+      {
+       "text": "Tungod sini, masami sia ginabaklan sang iya ginikanan sang libro.",
+       "words": 10
+      },
+      {
+       "text": "Sa ila lugar, kilala sia nga may madamo nga balasahon.",
+       "words": 10
+      },
+      {
+       "text": "Ang pinakapaborito niya nga basahon nahanungod sa prinsipe kag prinsesa.",
+       "words": 10
+      },
+      {
+       "text": "Isa ka adlaw nadumduman niya nga basahon liwat ang libro.",
+       "words": 10
+      },
+      {
+       "text": "\"Nay, nakita mo sa kwarto ang paborito ko nga libro?",
+       "words": 10
+      },
+      {
+       "text": "\"Ara dira, natungtong sa ibabaw sang gamay nga lamesa.",
+       "words": 9
+      },
+      {
+       "text": "\"Gintan-aw ko na sing makaduha, pero wala gid diri Nay\"",
+       "words": 10
+      },
+      {
+       "text": "\"Ay! nalipat gid ako. Ginhulam gali ni Prima sang Domingo.\"",
+       "words": 10
+      },
+      {
+       "text": "\"Gusto man gali nila magbasa, sige pahulamon ko pa sila.\"",
+       "words": 10
+      },
+      {
+       "text": "Nagyuhum si Danilo kag nagkuha sang iban pa nga libro.",
+       "words": 10
+      },
+      {
+       "text": "Nalipay gid siya nga ang iya tupad-balay mahilig man magbasa.",
+       "words": 11,
+       "form_miscount": true
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Sin-o ang masinadyahon kag palabasa nga bata sa istorya?",
+       "accepted_answers": "Danilo"
+      },
+      {
+       "after_sentence": 2,
+       "question": "Ano ang masami nga ginabakal sang ginikanan ni Danilo sa iya?",
+       "accepted_answers": "libro"
+      },
+      {
+       "after_sentence": 4,
+       "question": "Ano ang pinakapaborito niya nga balasahon?",
+       "accepted_answers": "Nahanungod / parte sa prinsipe kag prinsesa"
+      },
+      {
+       "after_sentence": 7,
+       "question": "Diin nabutang ang libro hambal ni nanay?",
+       "accepted_answers": "lamesa"
+      },
+      {
+       "after_sentence": 9,
+       "question": "Sin-o ang naghulam sang libro ni Danilo?",
+       "accepted_answers": "Si Prima / tupad-balay"
+      },
+      {
+       "after_sentence": 11,
+       "question": "Ngaa nagkuha sang iban pa nga mga libro si Danilo?",
+       "accepted_answers": "Para ipahulam / ipabasa / ipakita."
+      },
+      {
+       "after_sentence": 12,
+       "question": "Ngaa nalipay gid si Danilo?",
+       "accepted_answers": "Kay madamo na sang iya tupad-balay ang nanamian man magbasa; Tungod makapahulam sia sang mga balasahon / libro."
+      }
+     ]
+    },
+    {
+     "story_no": 2,
+     "title": "Ang Tsinelas",
+     "word_count": 120,
+     "sentences": [
+      {
+       "text": "Mag-abyan kag tupad-balay sanday Lino kag Trina.",
+       "words": 7
+      },
+      {
+       "text": "Dungan sila magsakay sa traysikol pakadto sa eskwelahan.",
+       "words": 8
+      },
+      {
+       "text": "Pirme ginalibre ni Trina sang plete ang iya abyan.",
+       "words": 9
+      },
+      {
+       "text": "Isa ka adlaw, nagapungko si Lino sa idalum sang lumboy.",
+       "words": 10
+      },
+      {
+       "text": "Ginatulok niya sing masinulub-on ang iya tsinelas samtang nagapahuway.",
+       "words": 9
+      },
+      {
+       "text": "\"Lino, ano ang natabo sa imo tsinelas?,\" pamangkot ni Trina.",
+       "words": 10
+      },
+      {
+       "text": "\"A, wala ini Trina!\", sabat ni Lino.",
+       "words": 7
+      },
+      {
+       "text": "Nakita ni Trina nga nabitas ang tsinelas ni Lino.",
+       "words": 9
+      },
+      {
+       "text": "Nadumduman niya nga may ara gali sia bag-o nga tsinelas.",
+       "words": 10
+      },
+      {
+       "text": "Pagpauli, ginhagad niya si Lino sa ila sulod balay.",
+       "words": 9
+      },
+      {
+       "text": "\"Ano ini Trina?\", pamangkot ni Lino.",
+       "words": 6
+      },
+      {
+       "text": "Ginbuksan niya ang plastik.",
+       "words": 4
+      },
+      {
+       "text": "\"Abaw! kanami sang tsinelas,\" hambal ni Lino.",
+       "words": 7
+      },
+      {
+       "text": "\"Para ina sa imo Lino,\" sabat ni Trina.",
+       "words": 8
+      },
+      {
+       "text": "Nagpasalamat sing daku si Lino kay Trina.",
+       "words": 7
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Sin-o ang mag-abyan?",
+       "accepted_answers": "Sanday Lino kag Trina / Si Lino kag si Trina/ Lino kag Trina"
+      },
+      {
+       "after_sentence": 5,
+       "question": "Ano ang nabatyagan ni Lino sang nabitas ang iya tsinelas?",
+       "accepted_answers": "Nasubuan / Masinulob-on"
+      },
+      {
+       "after_sentence": 8,
+       "question": "Ano ang natabo sa tsinelas ni Lino?",
+       "accepted_answers": "Nabitas / Nabugto / Naguba"
+      },
+      {
+       "after_sentence": 10,
+       "question": "Sa diin ginhagad ni Trina si Lino?",
+       "accepted_answers": "Balay / Sulod balay"
+      },
+      {
+       "after_sentence": 13,
+       "question": "Ano ang ginhatag ni Trina kay Lino?",
+       "accepted_answers": "Tsinelas"
+      },
+      {
+       "after_sentence": 14,
+       "question": "Ngaa ayhan nabitas ang tsinelas ni Lino?",
+       "accepted_answers": "Daan na / Nadanlog sia / Nakadusmo /Natapakan sang iban / Naghampang sia"
+      },
+      {
+       "after_sentence": 15,
+       "question": "Ano ang maayo nga Batasan ni Trina?",
+       "accepted_answers": "Mabinuligon/ Maalwan / Maluluy-on / Mabuot / Mapinalanggaon"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "language": "Ilokano",
+   "grade": 1,
+   "variant": "mt",
+   "tasks": {
+    "task1": {
+     "max": 10,
+     "items": [
+      {
+       "text": "a"
+      },
+      {
+       "text": "u"
+      },
+      {
+       "text": "W"
+      },
+      {
+       "text": "r"
+      },
+      {
+       "text": "G"
+      },
+      {
+       "text": "D"
+      },
+      {
+       "text": "E"
+      },
+      {
+       "text": "h"
+      },
+      {
+       "text": "Y"
+      },
+      {
+       "text": "B"
+      }
+     ]
+    },
+    "task2_low": {
+     "max": 10,
+     "items": [
+      {
+       "text": "bara - wara",
+       "answer": "Y"
+      },
+      {
+       "text": "tarong - kuton",
+       "answer": "N"
+      },
+      {
+       "text": "puto - luto",
+       "answer": "Y"
+      },
+      {
+       "text": "nabulong - katulong",
+       "answer": "Y"
+      },
+      {
+       "text": "nagaget - narugit",
+       "answer": "N"
+      },
+      {
+       "text": "ginasut - nakapsut",
+       "answer": "Y"
+      },
+      {
+       "text": "hamba - bulsa",
+       "answer": "N"
+      },
+      {
+       "text": "Nasarangsang - nakerkersang",
+       "answer": "Y"
+      },
+      {
+       "text": "dila - ala",
+       "answer": "Y"
+      },
+      {
+       "text": "nagpakada - nagparada",
+       "answer": "Y"
+      }
+     ]
+    },
+    "task2_high": {
+     "max": 10,
+     "items": [
+      {
+       "text": "Narangrang",
+       "sentence_no": 1
+      },
+      {
+       "text": "ti",
+       "sentence_no": 1
+      },
+      {
+       "text": "kortina",
+       "sentence_no": 1
+      },
+      {
+       "text": "ti",
+       "sentence_no": 1
+      },
+      {
+       "text": "kuartomi.",
+       "sentence_no": 1
+      },
+      {
+       "text": "Naginnaw",
+       "sentence_no": 2
+      },
+      {
+       "text": "iti",
+       "sentence_no": 2
+      },
+      {
+       "text": "dadakkel",
+       "sentence_no": 2
+      },
+      {
+       "text": "a",
+       "sentence_no": 2
+      },
+      {
+       "text": "plato",
+       "sentence_no": 2
+      },
+      {
+       "text": "ni",
+       "sentence_no": 2
+      },
+      {
+       "text": "Kerina",
+       "sentence_no": 2
+      }
+     ],
+     "form_miscount": true
+    }
+   },
+   "stories": [
+    {
+     "story_no": 1,
+     "title": "Naragsak ti Aldawko",
+     "word_count": 50,
+     "sentences": [
+      {
+       "text": "Naragsak a nakariing ti ubing.",
+       "words": 5
+      },
+      {
+       "text": "Ita ti kasangayna.",
+       "words": 3
+      },
+      {
+       "text": "Inarakup da nanang ken tatangna.",
+       "words": 5
+      },
+      {
+       "text": "Inyawatda iti regalo.",
+       "words": 3
+      },
+      {
+       "text": "Napalagto iti ragsakna.",
+       "words": 3
+      },
+      {
+       "text": "Dinagusna a linuktan ti regalo.",
+       "words": 5
+      },
+      {
+       "text": "Bassit a lugan-lugan ti linaonna.",
+       "words": 5
+      },
+      {
+       "text": "Kinayatna unay ti regaloda.",
+       "words": 4
+      },
+      {
+       "text": "Managayat ti ubing kadagiti nagannakna.",
+       "words": 5
+      },
+      {
+       "text": "Kalpasanna, nagturongda iti kosina.",
+       "words": 4
+      },
+      {
+       "text": "Nakadasar dagiti taraon iti lamisaan.",
+       "words": 5
+      },
+      {
+       "text": "Nakaragragsakda a nangan.",
+       "words": 3
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Siasinno ti nagriing a naragsak?",
+       "accepted_answers": "Ti ubing"
+      },
+      {
+       "after_sentence": 3,
+       "question": "Ania iti inaramid da nanang ken tatangna?",
+       "accepted_answers": "Inarakupda iti ubing."
+      },
+      {
+       "after_sentence": 4,
+       "question": "Ania ti inikkanda iti ubing?",
+       "accepted_answers": "Inikkanda iti regalo"
+      },
+      {
+       "after_sentence": 7,
+       "question": "Ania ti inregaloda ti ubing?",
+       "accepted_answers": "bassit a lugan-lugan"
+      },
+      {
+       "after_sentence": 9,
+       "question": "Apay a naragsak iti pamiliada?",
+       "accepted_answers": "Managayat ti ubing kadagiti nagannakna"
+      }
+     ]
+    },
+    {
+     "story_no": 2,
+     "title": "Ti Ubing a Napudno",
+     "word_count": 49,
+     "sentences": [
+      {
+       "text": "Nasapa a simrek ti ubing.",
+       "words": 5
+      },
+      {
+       "text": "Nagwalis iti klasrumda.",
+       "words": 3
+      },
+      {
+       "text": "Nakakita iti petaka.",
+       "words": 3
+      },
+      {
+       "text": "Linukatanna ti bassit a petaka.",
+       "words": 5
+      },
+      {
+       "text": "Nabasana ti nagan ti kaklasena.",
+       "words": 5
+      },
+      {
+       "text": "Insublina iti nakapukaw ti petaka.",
+       "words": 5
+      },
+      {
+       "text": "Naragsakan unay ti kaklasena.",
+       "words": 4
+      },
+      {
+       "text": "Nagyaman isuna iti ubing.",
+       "words": 4
+      },
+      {
+       "text": "Dinayaw ti mannursuro ti ubing.",
+       "words": 5
+      },
+      {
+       "text": "Nagpalakpak iti napigsa dagiti kaklasena.",
+       "words": 5
+      },
+      {
+       "text": "Naragsakanda iti inaramid ti kaklaseda.",
+       "words": 5
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Siasino iti napan nagiskuela a nasapa?",
+       "accepted_answers": "Ti ubing"
+      },
+      {
+       "after_sentence": 3,
+       "question": "Iti panagwalisna, ania ti nakitana?",
+       "accepted_answers": "petaka"
+      },
+      {
+       "after_sentence": 6,
+       "question": "Ania ti inaramid ti ubing iti pitaka?",
+       "accepted_answers": "Imbirokna iti makinkukua."
+      },
+      {
+       "after_sentence": 7,
+       "question": "Ania ti narikna dagiti kaeskuelaan ti ubing?",
+       "accepted_answers": "Naragsak dagiti kaeskuelaan iti ubing"
+      },
+      {
+       "after_sentence": 10,
+       "question": "Kasano a naamuan ti ubing no asino iti akinkukua iti petaka?",
+       "accepted_answers": "Nabasa na iti petaka ti nagan iti akinkukua."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "language": "Ilokano",
+   "grade": 2,
+   "variant": "mt",
+   "tasks": {
+    "task1": {
+     "max": 10,
+     "items": [
+      {
+       "text": "Nalawa",
+       "sentence_no": 1
+      },
+      {
+       "text": "ti",
+       "sentence_no": 1
+      },
+      {
+       "text": "arubayan",
+       "sentence_no": 1
+      },
+      {
+       "text": "da",
+       "sentence_no": 1
+      },
+      {
+       "text": "Aiko.",
+       "sentence_no": 1
+      },
+      {
+       "text": "Naanus",
+       "sentence_no": 2
+      },
+      {
+       "text": "ti",
+       "sentence_no": 2
+      },
+      {
+       "text": "nuwang",
+       "sentence_no": 2
+      },
+      {
+       "text": "a",
+       "sentence_no": 2
+      },
+      {
+       "text": "nagguyod",
+       "sentence_no": 2
+      },
+      {
+       "text": "iti",
+       "sentence_no": 2
+      },
+      {
+       "text": "karison.",
+       "sentence_no": 2
+      }
+     ],
+     "form_miscount": true
+    },
+    "task2_low": {
+     "max": 10,
+     "items": [
+      {
+       "text": "nalabbaga"
+      },
+      {
+       "text": "trabaho"
+      },
+      {
+       "text": "pasagad"
+      },
+      {
+       "text": "naparabur"
+      },
+      {
+       "text": "nars"
+      },
+      {
+       "text": "kakawayan"
+      },
+      {
+       "text": "bibingka"
+      },
+      {
+       "text": "mangngalap"
+      },
+      {
+       "text": "tagtagainep"
+      },
+      {
+       "text": "kataltalonan"
+      }
+     ]
+    },
+    "task2_high": {
+     "max": 10,
+     "items": [
+      {
+       "text": "Nangisit",
+       "sentence_no": 1
+      },
+      {
+       "text": "dagiti",
+       "sentence_no": 1
+      },
+      {
+       "text": "ulep",
+       "sentence_no": 1
+      },
+      {
+       "text": "iti",
+       "sentence_no": 1
+      },
+      {
+       "text": "tangatang.",
+       "sentence_no": 1
+      },
+      {
+       "text": "Nagriaw",
+       "sentence_no": 2
+      },
+      {
+       "text": "iti",
+       "sentence_no": 2
+      },
+      {
+       "text": "kigtotna",
+       "sentence_no": 2
+      },
+      {
+       "text": "ni",
+       "sentence_no": 2
+      },
+      {
+       "text": "adingko.",
+       "sentence_no": 2
+      }
+     ]
+    }
+   },
+   "stories": [
+    {
+     "story_no": 1,
+     "title": "Ti Kankanen ni Kara",
+     "word_count": 96,
+     "sentences": [
+      {
+       "text": "Ur-urayen ni Kara ti panagbatingting ti kampana.",
+       "words": 7
+      },
+      {
+       "text": "Nasiputanna ni Rona nga immisem.",
+       "words": 5
+      },
+      {
+       "text": "Tang-tang! Daytan ti ur-urayenna.",
+       "words": 4
+      },
+      {
+       "text": "Timmakder dagiti kaklaseda.",
+       "words": 3
+      },
+      {
+       "text": "Nagpilada iti ridaw.",
+       "words": 3
+      },
+      {
+       "text": "Linukatan ni Kara ti balonna.",
+       "words": 5
+      },
+      {
+       "text": "\"Mmmm, nagimas!\" intanamitimna.",
+       "words": 3
+      },
+      {
+       "text": "Dinayaw ni Rona ti naangotna.",
+       "words": 6,
+       "form_miscount": true
+      },
+      {
+       "text": "Nagmulagat iti dakkel ni Kara.",
+       "words": 5
+      },
+      {
+       "text": "Intangadna ti ulona kabayatan nga ang-angotenna ti balonna.",
+       "words": 8
+      },
+      {
+       "text": "\"Ha, ha!, paboritok daytoy,\" inkatawana.",
+       "words": 5
+      },
+      {
+       "text": "Kinita laeng ni Kara ti kaklasena.",
+       "words": 6
+      },
+      {
+       "text": "Nagpanunot.",
+       "words": 1
+      },
+      {
+       "text": "Apagkapat ti naipan iti balonna.",
+       "words": 5
+      },
+      {
+       "text": "Kinagatna ti natagapulotan a lingnga.",
+       "words": 5
+      },
+      {
+       "text": "Intedna ti kagudua ken Rona.",
+       "words": 5
+      },
+      {
+       "text": "\"Ania kadi daytoy?\" sinaludsod ni Rona.",
+       "words": 6
+      },
+      {
+       "text": "\"Natagapulotan a lingnga!\" insungbat ni Kara.",
+       "words": 6
+      },
+      {
+       "text": "Immisem sa nagyaman ni Rona.",
+       "words": 5
+      },
+      {
+       "text": "Naggiddanda a nangkagat iti bingayda.",
+       "words": 5
+      },
+      {
+       "text": "\"Nagnanam!\" kinunada.",
+       "words": 2
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Asino ti agur-uray iti panagbatingting ti kampana?",
+       "accepted_answers": "Kara"
+      },
+      {
+       "after_sentence": 2,
+       "question": "Asino ti nasiputan ni Kara nga immisem?",
+       "accepted_answers": "Rona"
+      },
+      {
+       "after_sentence": 5,
+       "question": "Ania ti inaramid dagiti ubbing kalpasan a timmaderda?",
+       "accepted_answers": "Nagpilada iti ridaw."
+      },
+      {
+       "after_sentence": 10,
+       "question": "Ania iti inaramidna ni Kara kabayatan nga itangtangadna ti ulona?",
+       "accepted_answers": "Ang-angotenna ti balonna."
+      },
+      {
+       "after_sentence": 19,
+       "question": "Apay nga immisem sa nagyaman ni Rona?",
+       "accepted_answers": "Inikkan ni Kara iti natagapulotan a lingnga/makan."
+      },
+      {
+       "after_sentence": 21,
+       "question": "Kasano a maipakita a kayatda ti kankanen?",
+       "accepted_answers": "Imbaga da Kara ken Rona a nananam ti kankanen."
+      }
+     ],
+     "form_total_differs": true
+    },
+    {
+     "story_no": 2,
+     "title": "Sadinno ti Napanan Ni Nina?",
+     "word_count": 94,
+     "sentences": [
+      {
+       "text": "Bigat ti Sabado.",
+       "words": 3
+      },
+      {
+       "text": "Nalamiis pay laeng ti aglawlaw.",
+       "words": 5
+      },
+      {
+       "text": "Awanen ni Andrea iti siledda.",
+       "words": 5
+      },
+      {
+       "text": "Birok a birok ni manangna a Flora.",
+       "words": 7
+      },
+      {
+       "text": "Nagap-apura a rimmuar iti balayda.",
+       "words": 5
+      },
+      {
+       "text": "Madanagan, sadinno ngatan ti napanan ni adingna?",
+       "words": 7
+      },
+      {
+       "text": "Napanna kinita iti hardinda bareng adda idiay.",
+       "words": 7
+      },
+      {
+       "text": "Anian a nagpipintas dagiti sabsabong iti hardinda!",
+       "words": 7
+      },
+      {
+       "text": "Adda kulibangbang iti gumamela, rosal, santan, ken orkidia.",
+       "words": 8
+      },
+      {
+       "text": "Birok ditoy, dita, masapul a makitana ni adingna!",
+       "words": 8
+      },
+      {
+       "text": "\"Andrea ayanmo kadi aya?\" impukkawna.",
+       "words": 5
+      },
+      {
+       "text": "\"Ditoyak ayan ti gumamela, Manang Flora!",
+       "words": 6
+      },
+      {
+       "text": "Buybuyaek daytoy kappessa a kulibangbang.",
+       "words": 5
+      },
+      {
+       "text": "Dina pay maikuti dagiti payakna!\"",
+       "words": 5
+      },
+      {
+       "text": "\"Bay-am ta madamdama, tumayabto a bukbukodna.\"",
+       "words": 6
+      },
+      {
+       "text": "Naragsakda a dua a nangbuybuya.",
+       "words": 5
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 4,
+       "question": "Asino ti birbiroken ni Flora?",
+       "accepted_answers": "Ni Andrea ti birbiroken ni Flora."
+      },
+      {
+       "after_sentence": 6,
+       "question": "Ania narikna ni Flora idi saanna mabirokan ni adingna?",
+       "accepted_answers": "Madanagan isuna"
+      },
+      {
+       "after_sentence": 7,
+       "question": "Sadino ti nangsapulanna ken adingna?",
+       "accepted_answers": "Napanna kinita iti hardinda"
+      },
+      {
+       "after_sentence": 9,
+       "question": "Ania dagiti makita iti hardin?",
+       "accepted_answers": "Adda kulibangbang, gumamela, rosal, santan ken orkidia iti hardin."
+      },
+      {
+       "after_sentence": 13,
+       "question": "Apay a saan a mabirokan ni Flora ni adingna a Andrea?",
+       "accepted_answers": "Buybuyaenna ti kappessa a kulibangbang"
+      },
+      {
+       "after_sentence": 15,
+       "question": "Apay saanda a mabalin a sagiden ti kulibangbang?",
+       "accepted_answers": "Tumayabto a bukbukodna"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "language": "Ilokano",
+   "grade": 3,
+   "variant": "mt",
+   "tasks": {
+    "task1": {
+     "max": 10,
+     "items": [
+      {
+       "text": "Nagin-indayon",
+       "sentence_no": 1
+      },
+      {
+       "text": "dagiti",
+       "sentence_no": 1
+      },
+      {
+       "text": "babbalasitang",
+       "sentence_no": 1
+      },
+      {
+       "text": "iti",
+       "sentence_no": 1
+      },
+      {
+       "text": "parke.",
+       "sentence_no": 1
+      },
+      {
+       "text": "Nagsurat",
+       "sentence_no": 2
+      },
+      {
+       "text": "iti",
+       "sentence_no": 2
+      },
+      {
+       "text": "daniw",
+       "sentence_no": 2
+      },
+      {
+       "text": "dagiti",
+       "sentence_no": 2
+      },
+      {
+       "text": "ububbing.",
+       "sentence_no": 2
+      }
+     ]
+    },
+    "task2_low": {
+     "max": 10,
+     "items": [
+      {
+       "text": "panioda"
+      },
+      {
+       "text": "pampanteon"
+      },
+      {
+       "text": "aggrugrupo"
+      },
+      {
+       "text": "agplamplantsa"
+      },
+      {
+       "text": "agtramtrampoling"
+      },
+      {
+       "text": "nagpakeyk"
+      },
+      {
+       "text": "naprepresko"
+      },
+      {
+       "text": "agpapaskua"
+      },
+      {
+       "text": "pabpabaruen"
+      },
+      {
+       "text": "pagkakuartaan"
+      }
+     ]
+    },
+    "task2_high": {
+     "max": 10,
+     "items": [
+      {
+       "text": "Simsimiag",
+       "sentence_no": 1
+      },
+      {
+       "text": "a",
+       "sentence_no": 1
+      },
+      {
+       "text": "timmaray",
+       "sentence_no": 1
+      },
+      {
+       "text": "dagiti",
+       "sentence_no": 1
+      },
+      {
+       "text": "agkakabbalay.",
+       "sentence_no": 1
+      },
+      {
+       "text": "Gumilapgilap",
+       "sentence_no": 2
+      },
+      {
+       "text": "dagiti",
+       "sentence_no": 2
+      },
+      {
+       "text": "briliante",
+       "sentence_no": 2
+      },
+      {
+       "text": "iti",
+       "sentence_no": 2
+      },
+      {
+       "text": "tengngedna.",
+       "sentence_no": 2
+      }
+     ]
+    }
+   },
+   "stories": [
+    {
+     "story_no": 1,
+     "title": "Ni Kibol",
+     "word_count": 119,
+     "sentences": [
+      {
+       "text": "Inayaban ti Tata Kandro ni Kibol nga asona.",
+       "words": 8
+      },
+      {
+       "text": "Binilin ti lakay a bantayan ti aso ti irikda.",
+       "words": 9
+      },
+      {
+       "text": "\"Saanka nga agim-imut,\" kinuna ti lakay.",
+       "words": 6
+      },
+      {
+       "text": "\"No umay ni Manok, maminlima a tumuktok, bugawenton,\" imbilinna.",
+       "words": 9
+      },
+      {
+       "text": "\"Maminlima laeng met a palubosam nga umay, wen?\"",
+       "words": 8
+      },
+      {
+       "text": "\"Aw-aw-aw!\" insungbat ni Kibol.",
+       "words": 4
+      },
+      {
+       "text": "\"Gunggundawayannan ti kinasayaatmo kenkuana no awan patinggana.\"",
+       "words": 7
+      },
+      {
+       "text": "Di nagbayag, immasideg ni Manok. Timmuktok iti irik iti naminlima.",
+       "words": 10
+      },
+      {
+       "text": "\"Aw-aw! Maysa!\" intaul ni Kibol.",
+       "words": 5
+      },
+      {
+       "text": "Binugawna ni Manok.",
+       "words": 3
+      },
+      {
+       "text": "Idi kuan, immay manen ni Manok.",
+       "words": 6
+      },
+      {
+       "text": "Timmuktok iti naminlima.",
+       "words": 3
+      },
+      {
+       "text": "Tinaulan manen ni Kibol sa binugawna ni Manok.",
+       "words": 8
+      },
+      {
+       "text": "Naminlima nga immay ni Manok.",
+       "words": 5
+      },
+      {
+       "text": "Naminlima met a binugaw ni Kibol.",
+       "words": 6
+      },
+      {
+       "text": "Ammo ni Kibol ti agbilang iti lima a saglilima.",
+       "words": 9
+      },
+      {
+       "text": "Saan a naimut, ngem adda met patinggana.",
+       "words": 7
+      },
+      {
+       "text": "Maay-ayatan ni Tata Kandro kenkuana.",
+       "words": 5
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Ania ti nagan ti aso ni Tata Kandro?",
+       "accepted_answers": "Ni Kibol"
+      },
+      {
+       "after_sentence": 2,
+       "question": "Ania ti bilin ti lakay?",
+       "accepted_answers": "bantayan ti aso ti irikda."
+      },
+      {
+       "after_sentence": 4,
+       "question": "Mamin-ano a tumuktok ti Manok sa bugawen ni Kibol?",
+       "accepted_answers": "Maminlima a tumuktok. Maminlima a mapan ni Manok."
+      },
+      {
+       "after_sentence": 7,
+       "question": "Ania ti aramiden ni Kibol no agdamag kenkuana ni Tata Kandro?",
+       "accepted_answers": "Kaipapananna ti gungundawayan ni Manok ti kinasayaat ni Kibol."
+      },
+      {
+       "after_sentence": 12,
+       "question": "Asino ti napan nagtuktok iti pagay?",
+       "accepted_answers": "Manok"
+      },
+      {
+       "after_sentence": 14,
+       "question": "Apay a binugaw ni Kibol ti Manok iti naminlima?",
+       "accepted_answers": "Gapu ta naminlima nga immay ni Manok."
+      },
+      {
+       "after_sentence": 17,
+       "question": "Apay a magusgustuan ni Tata Kandro ni Kibol?",
+       "accepted_answers": "Gapu ta saan a naimut ni Kibol."
+      }
+     ],
+     "form_total_differs": true
+    },
+    {
+     "story_no": 2,
+     "title": "Idi Naganak ni Ugsa",
+     "word_count": 121,
+     "sentences": [
+      {
+       "text": "Adda damag a nangparagsak iti isla.",
+       "words": 6
+      },
+      {
+       "text": "\"Naganak kanon ni Ugsa!\" impadamag ni Mannaep ken ni Salaksak.",
+       "words": 10
+      },
+      {
+       "text": "\"Naganak kanon!\" impadamag ni Banias ken ni Uleg.",
+       "words": 8
+      },
+      {
+       "text": "\"Nalukmeg kano ti urbonna!\" impadamag met ni Kulibangbang.",
+       "words": 8
+      },
+      {
+       "text": "Nagkaykaysaanda a mapan kano kitaen da Ugsa.",
+       "words": 7
+      },
+      {
+       "text": "Nagrubbuatda amin a sangsangkamaysa.",
+       "words": 4
+      },
+      {
+       "text": "Nagtayab dagiti adda payakna a da Mannaep ken Perroka.",
+       "words": 9
+      },
+      {
+       "text": "Uray da Dudon ken Kulibangbang.",
+       "words": 5
+      },
+      {
+       "text": "Naguyas dagiti awan sakana a da Banias ken Uleg.",
+       "words": 9
+      },
+      {
+       "text": "Naglagtolagto da Tukak ken Battog.",
+       "words": 5
+      },
+      {
+       "text": "Nagnagna dagiti uppat ti sakana a da Kalding ken Karnero.",
+       "words": 10
+      },
+      {
+       "text": "Naglangoy dagiti lames a da Paltat ken Dalag.",
+       "words": 8
+      },
+      {
+       "text": "Dimmanonda iti igid ti karayan.",
+       "words": 5
+      },
+      {
+       "text": "\"Agyamanak kadakayo amin,\" kinuna ni Ugsa.",
+       "words": 6
+      },
+      {
+       "text": "\"Napimpintas daytoy nga isla no addakayo a kakadua,\" innayon ni Ugsa.",
+       "words": 11
+      },
+      {
+       "text": "Nagkakanta ken nagsasala dagiti simmarungkar.",
+       "words": 5
+      },
+      {
+       "text": "Maay-ayatanda ta adda manen nayonda.",
+       "words": 5
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Asino ti naganak iti isla?",
+       "accepted_answers": "Ni Ugsa ti naganak."
+      },
+      {
+       "after_sentence": 4,
+       "question": "Ania ti langa ti urbon ni ugsa?",
+       "accepted_answers": "Nalungpo ti urbon ni Ugsa."
+      },
+      {
+       "after_sentence": 5,
+       "question": "Ania ti nagtutulagan dagiti ayup idi maamuanda a naganak ni Ugsa?",
+       "accepted_answers": "Mapanda kitaen da Ugsa; Nagtutulaganda a mapan kano kitaen da Ugsa."
+      },
+      {
+       "after_sentence": 12,
+       "question": "Kasano ti panagdaliasat dagiti ayup a mapan ken ni Ugsa ken ti urbonna?",
+       "accepted_answers": "Nagtayab, naglagtolagto, naglangoy, ken naguyasda."
+      },
+      {
+       "after_sentence": 12,
+       "question": "Sadino ti nakasarakanda ken ni Ugsa ken ti urbonna?",
+       "accepted_answers": "Iti igid ti karayan."
+      },
+      {
+       "after_sentence": 15,
+       "question": "Apay a nagyaman ni Ugsa kadagiti ayup?",
+       "accepted_answers": "Gapu ti isasarungkarda, gapu ti ibibisitada"
+      },
+      {
+       "after_sentence": 16,
+       "question": "Apay a nagsasala ken nagkakanta dagiti ayup?",
+       "accepted_answers": "Gapu ta naragsakda. Gapu ta naganak ni Ugsa. Gapu ta nakitadan ti urbon ni Ugsa."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "language": "Maguindanawn",
+   "grade": 1,
+   "variant": "mt",
+   "tasks": {
+    "task1": {
+     "max": 10,
+     "items": [
+      {
+       "text": "i"
+      },
+      {
+       "text": "K"
+      },
+      {
+       "text": "T"
+      },
+      {
+       "text": "B"
+      },
+      {
+       "text": "y"
+      },
+      {
+       "text": "a"
+      },
+      {
+       "text": "p"
+      },
+      {
+       "text": "s"
+      },
+      {
+       "text": "L"
+      },
+      {
+       "text": "M"
+      }
+     ]
+    },
+    "task2_low": {
+     "max": 10,
+     "items": [
+      {
+       "text": "kuda, duda",
+       "answer": "Rhyme"
+      },
+      {
+       "text": "aleb, lesu",
+       "answer": "No"
+      },
+      {
+       "text": "lugu, walay",
+       "answer": "No"
+      },
+      {
+       "text": "gadung, bedung",
+       "answer": "Rhyme"
+      },
+      {
+       "text": "ngali, pali",
+       "answer": "Rhyme"
+      },
+      {
+       "text": "manisan, punasan",
+       "answer": "Rhyme"
+      },
+      {
+       "text": "ginata, namipi",
+       "answer": "No"
+      },
+      {
+       "text": "namangagi, namasagi",
+       "answer": "Rhyme"
+      },
+      {
+       "text": "kanduli, tinapa",
+       "answer": "No"
+      },
+      {
+       "text": "galugadi, nakikamu",
+       "answer": "No"
+      }
+     ]
+    },
+    "task2_high": {
+     "max": 10,
+     "items": [
+      {
+       "text": "Limpiyu",
+       "sentence_no": 1
+      },
+      {
+       "text": "su",
+       "sentence_no": 1
+      },
+      {
+       "text": "kanuku",
+       "sentence_no": 1
+      },
+      {
+       "text": "nu",
+       "sentence_no": 1
+      },
+      {
+       "text": "wata.",
+       "sentence_no": 1
+      },
+      {
+       "text": "Minenggay",
+       "sentence_no": 2
+      },
+      {
+       "text": "sa",
+       "sentence_no": 2
+      },
+      {
+       "text": "seda",
+       "sentence_no": 2
+      },
+      {
+       "text": "su",
+       "sentence_no": 2
+      },
+      {
+       "text": "matuwa.",
+       "sentence_no": 2
+      }
+     ]
+    }
+   },
+   "stories": [
+    {
+     "story_no": 1,
+     "title": "Si Alim a Matulanged",
+     "word_count": 49,
+     "sentences": [
+      {
+       "text": "Matulanged a wata si Alim.",
+       "words": 5
+      },
+      {
+       "text": "Pedtabang ebpamalimpiyu sa walay.",
+       "words": 4
+      },
+      {
+       "text": "Ebpamayupasan nin su lama-lama nilan.",
+       "words": 5
+      },
+      {
+       "text": "Ebpangagasan nin su manga lampay.",
+       "words": 5
+      },
+      {
+       "text": "Ebpamubuan nin su manga pamumulan.",
+       "words": 5
+      },
+      {
+       "text": "Papegkanen nin su manga ayam",
+       "words": 5
+      },
+      {
+       "text": "Pedtiakapan nin su ali nin",
+       "words": 5
+      },
+      {
+       "text": "Ipegkalimu nin su lukes nin.",
+       "words": 5
+      },
+      {
+       "text": "Balaamal sekanin a wata.",
+       "words": 4
+      },
+      {
+       "text": "Kalini-lini a wata si Alim.",
+       "words": 5
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Entain i wata a matulanged?",
+       "accepted_answers": "Si Alim"
+      },
+      {
+       "after_sentence": 3,
+       "question": "Endaw ebpamayupas si Alim?",
+       "accepted_answers": "lama-lama"
+      },
+      {
+       "after_sentence": 4,
+       "question": "Ngin i ebpangagasanen?",
+       "accepted_answers": "lampay"
+      },
+      {
+       "after_sentence": 6,
+       "question": "Ngin i papegkanen ni Alim?",
+       "accepted_answers": "ayam"
+      },
+      {
+       "after_sentence": 10,
+       "question": "Enduken ka kalini-lini a wata si Alim?",
+       "accepted_answers": "Any of the ff: matulanged; matiakap sa kadsuled; balaamal; malimu sa kandulukes; malimpiyu sa walay"
+      }
+     ],
+     "form_total_differs": true
+    },
+    {
+     "story_no": 2,
+     "title": "Su Manga Ulak",
+     "word_count": 50,
+     "sentences": [
+      {
+       "text": "Mapita-pita na mindadalakaw si Kasim.",
+       "words": 5
+      },
+      {
+       "text": "Nakailay sekanin sa manga ulak.",
+       "words": 5
+      },
+      {
+       "text": "Duwa ka walena su ulak.",
+       "words": 5
+      },
+      {
+       "text": "Binaning, maliga su manga ulak.",
+       "words": 5
+      },
+      {
+       "text": "Mapya i manga palas nin.",
+       "words": 5
+      },
+      {
+       "text": "Mamut pan su manga ulak.",
+       "words": 5
+      },
+      {
+       "text": "Egkalinian nin pedtupu su ulak.",
+       "words": 5
+      },
+      {
+       "text": "Nabatya nin su manga nakasulat.",
+       "words": 5
+      },
+      {
+       "text": "\"Dili egkapakay pedtupun su ulak\"",
+       "words": 5
+      },
+      {
+       "text": "Dala nin tupuwa su ulak.",
+       "words": 5
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Entain i mindadalakaw sa mapitapita?",
+       "accepted_answers": "Si Kasim"
+      },
+      {
+       "after_sentence": 2,
+       "question": "Ngin i nailay nin kanu kinandadalakaw nin?",
+       "accepted_answers": "Manga ulak"
+      },
+      {
+       "after_sentence": 3,
+       "question": "Pila ka walena i nailay ni Kasim a ulak?",
+       "accepted_answers": "Duwa/ Duwa ka walena"
+      },
+      {
+       "after_sentence": 4,
+       "question": "Ngin i walena nu manga ulak a nalabit kanu tudtulan?",
+       "accepted_answers": "Binaning, maliga"
+      },
+      {
+       "after_sentence": 9,
+       "question": "Enduken ka dala nin tupuwa su ulak?",
+       "accepted_answers": "Nabatya nin su nakasulat a dili egkapakay pedtupun su ulak."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "language": "Maguindanawn",
+   "grade": 2,
+   "variant": "mt",
+   "tasks": {
+    "task1": {
+     "max": 10,
+     "items": [
+      {
+       "text": "Nagalugan",
+       "sentence_no": 1
+      },
+      {
+       "text": "si",
+       "sentence_no": 1
+      },
+      {
+       "text": "Ina",
+       "sentence_no": 1
+      },
+      {
+       "text": "sa",
+       "sentence_no": 1
+      },
+      {
+       "text": "emay.",
+       "sentence_no": 1
+      },
+      {
+       "text": "Midtatawa",
+       "sentence_no": 2
+      },
+      {
+       "text": "su",
+       "sentence_no": 2
+      },
+      {
+       "text": "wata",
+       "sentence_no": 2
+      },
+      {
+       "text": "a",
+       "sentence_no": 2
+      },
+      {
+       "text": "mama.",
+       "sentence_no": 2
+      }
+     ]
+    },
+    "task2_low": {
+     "max": 10,
+     "items": [
+      {
+       "text": "ila"
+      },
+      {
+       "text": "nanas"
+      },
+      {
+       "text": "walena"
+      },
+      {
+       "text": "kaletas"
+      },
+      {
+       "text": "metegel"
+      },
+      {
+       "text": "dapulan"
+      },
+      {
+       "text": "lamisan"
+      },
+      {
+       "text": "salidut"
+      },
+      {
+       "text": "kalilinian"
+      },
+      {
+       "text": "taliawid"
+      }
+     ]
+    },
+    "task2_high": {
+     "max": 10,
+     "items": [
+      {
+       "text": "Magalaw",
+       "sentence_no": 1
+      },
+      {
+       "text": "a",
+       "sentence_no": 1
+      },
+      {
+       "text": "pembitiala",
+       "sentence_no": 1
+      },
+      {
+       "text": "su",
+       "sentence_no": 1
+      },
+      {
+       "text": "ebpakat.",
+       "sentence_no": 1
+      },
+      {
+       "text": "Ebpangungumpian",
+       "sentence_no": 2
+      },
+      {
+       "text": "nu",
+       "sentence_no": 2
+      },
+      {
+       "text": "mulit",
+       "sentence_no": 2
+      },
+      {
+       "text": "su",
+       "sentence_no": 2
+      },
+      {
+       "text": "ebpamandu.",
+       "sentence_no": 2
+      }
+     ]
+    }
+   },
+   "stories": [
+    {
+     "story_no": 1,
+     "title": "Su Pansum ni Hamsa",
+     "word_count": 95,
+     "sentences": [
+      {
+       "text": "Egkabulungan ebpangilay ni Hamsa su pansum nin.",
+       "words": 7
+      },
+      {
+       "text": "Pinangilay nin sya kanu aung nu bangku nin.",
+       "words": 8
+      },
+      {
+       "text": "Dala nin bun matun su pansum nin.",
+       "words": 7
+      },
+      {
+       "text": "Sia menem pinangilay ni Hamsa sa lamisan nin.",
+       "words": 8
+      },
+      {
+       "text": "Dala nin bun matun sya kanu lamisan nin.",
+       "words": 8
+      },
+      {
+       "text": "Inidsan nin su manga pakat nin.",
+       "words": 6
+      },
+      {
+       "text": "\"Nailay nengka su pansum ku Abdul?\"",
+       "words": 6
+      },
+      {
+       "text": "Dala sumpat si Abdul ugaid na pakadtatawa.",
+       "words": 7
+      },
+      {
+       "text": "Pakadtatawa bun su kaped a pakat nin.",
+       "words": 7
+      },
+      {
+       "text": "\"Nginan ka pedtatawa kanu? pakaidsa ni Hamsa.",
+       "words": 7
+      },
+      {
+       "text": "\"Nan bun sa tangila nengka i pansum nengka.\"",
+       "words": 8
+      },
+      {
+       "text": "Apeg na inabpel ni Hamsa su tangila nin.",
+       "words": 8
+      },
+      {
+       "text": "Apya sekanin na nakadtatawa bun sa ginawa nin.",
+       "words": 8
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Ngin i ebpangilain ni Hamsa?",
+       "accepted_answers": "Su pansum nin."
+      },
+      {
+       "after_sentence": 2,
+       "question": "Endaw pinangilay ni Hamsa su pansum nin?",
+       "accepted_answers": "both or any: Sya kanu bangku; Sya kanu lamisan"
+      },
+      {
+       "after_sentence": 6,
+       "question": "Ngin i pinggula ni Hamsa guna su di nin egkatun su pansum nin sia kanu bangku endu lamisan nin?",
+       "accepted_answers": "both or any: Inidsan nin si Abdul; Inidsan nin su manga pakat nin."
+      },
+      {
+       "after_sentence": 8,
+       "question": "Enduken ka dala sumpat si Abdul kani Hamsa?",
+       "accepted_answers": "Sabap sa pakadtatawa sekanin."
+      },
+      {
+       "after_sentence": 12,
+       "question": "Endaw natun ni Hamsa su pansum nin?",
+       "accepted_answers": "Sya kanu tangila nin."
+      },
+      {
+       "after_sentence": 13,
+       "question": "Enduken ka nakadtatawa su manga pakat ni Hamsa?",
+       "accepted_answers": "Sabap sa sia bun besen kanu tangila nin su pansum nin."
+      }
+     ]
+    },
+    {
+     "story_no": 2,
+     "title": "Su Kinadsakit ni Nadia",
+     "word_count": 95,
+     "sentences": [
+      {
+       "text": "Si Nadia na malugkug.",
+       "words": 4
+      },
+      {
+       "text": "Dili egkapia i ginawa nin.",
+       "words": 5
+      },
+      {
+       "text": "Ebpelumasan endu pembatuken sekanin.",
+       "words": 4
+      },
+      {
+       "text": "Da muna sekanin ebpangagi lu sa iskuwila.",
+       "words": 7
+      },
+      {
+       "text": "Atutu na kalatan su manga tagapeda nin.",
+       "words": 7
+      },
+      {
+       "text": "Sya muna sekanin pendegka sa walay nilan.",
+       "words": 7
+      },
+      {
+       "text": "Mininem sekanin sa madakel a ig.",
+       "words": 5,
+       "form_miscount": true
+      },
+      {
+       "text": "Mininem bun sekanin sa gamut ka endu pegkapya sekanin.",
+       "words": 9
+      },
+      {
+       "text": "Si Nadia na migkapya kanu temundug a gay.",
+       "words": 8
+      },
+      {
+       "text": "Inidsan sekanin ni ina nin.",
+       "words": 5
+      },
+      {
+       "text": "\"Ngin i betad nengka Nadia?\"",
+       "words": 5
+      },
+      {
+       "text": "\"Alhamdulillah, mapya aku den ina\".",
+       "words": 5
+      },
+      {
+       "text": "Dikena den malugkug si Nadia ka migkapya den sekanin.",
+       "words": 9
+      },
+      {
+       "text": "Nangagi sekanin sa mapia endu midtutulanged sekanin.",
+       "words": 7
+      },
+      {
+       "text": "Natademan nin su manga pakat nin sa iskuwila.",
+       "words": 8
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Entain i malugkug?",
+       "accepted_answers": "Si Nadia"
+      },
+      {
+       "after_sentence": 3,
+       "question": "Ngin i pidsakit ni Nadia?",
+       "accepted_answers": "both or any: Ebpelumasan endu pembatuken"
+      },
+      {
+       "after_sentence": 6,
+       "question": "Endaw sekanin dinemegka?",
+       "accepted_answers": "Sa walay."
+      },
+      {
+       "after_sentence": 8,
+       "question": "Ngin i ininem nin ka endu sekanin pegkapya?",
+       "accepted_answers": "both or any: Ig endu gamut"
+      },
+      {
+       "after_sentence": 13,
+       "question": "Enduken ka dikena den malugkug si Nadia?",
+       "accepted_answers": "Migkapia den sekanin."
+      },
+      {
+       "after_sentence": 14,
+       "question": "Enduken ka dili egkapakay ebpangagi amaika dili egkapya i ginawa tanu?",
+       "accepted_answers": "both or any: 1. Ka endu dili makapangalat 2. Ka endu magan egkapya"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "language": "Maguindanawn",
+   "grade": 3,
+   "variant": "mt",
+   "tasks": {
+    "task1": {
+     "max": 10,
+     "items": [
+      {
+       "text": "Namedtalaguy",
+       "sentence_no": 1
+      },
+      {
+       "text": "silan",
+       "sentence_no": 1
+      },
+      {
+       "text": "guna",
+       "sentence_no": 1
+      },
+      {
+       "text": "su",
+       "sentence_no": 1
+      },
+      {
+       "text": "ebpanalitik.",
+       "sentence_no": 1
+      },
+      {
+       "text": "Namakadsibay",
+       "sentence_no": 2
+      },
+      {
+       "text": "su",
+       "sentence_no": 2
+      },
+      {
+       "text": "manga",
+       "sentence_no": 2
+      },
+      {
+       "text": "malemu",
+       "sentence_no": 2
+      },
+      {
+       "text": "maingel.",
+       "sentence_no": 2
+      }
+     ]
+    },
+    "task2_low": {
+     "max": 10,
+     "items": [
+      {
+       "text": "waluy"
+      },
+      {
+       "text": "nabelay"
+      },
+      {
+       "text": "pedsenang"
+      },
+      {
+       "text": "nagaip"
+      },
+      {
+       "text": "ngilung"
+      },
+      {
+       "text": "kawawatai"
+      },
+      {
+       "text": "edsukilep"
+      },
+      {
+       "text": "saledain"
+      },
+      {
+       "text": "linggay"
+      },
+      {
+       "text": "ebpamandu"
+      }
+     ]
+    },
+    "task2_high": {
+     "max": 10,
+     "items": [
+      {
+       "text": "Pegkakalimuwa",
+       "sentence_no": 1
+      },
+      {
+       "text": "su",
+       "sentence_no": 1
+      },
+      {
+       "text": "manga",
+       "sentence_no": 1
+      },
+      {
+       "text": "lukes",
+       "sentence_no": 1
+      },
+      {
+       "text": "tanu.",
+       "sentence_no": 1
+      },
+      {
+       "text": "Pedtatalaguy",
+       "sentence_no": 2
+      },
+      {
+       "text": "su",
+       "sentence_no": 2
+      },
+      {
+       "text": "mawalaw",
+       "sentence_no": 2
+      },
+      {
+       "text": "a",
+       "sentence_no": 2
+      },
+      {
+       "text": "kuda.",
+       "sentence_no": 2
+      }
+     ]
+    }
+   },
+   "stories": [
+    {
+     "story_no": 1,
+     "title": "Sa Benday",
+     "word_count": 121,
+     "sentences": [
+      {
+       "text": "Kagagabian na penggalebek den sa benday si Ama.",
+       "words": 8
+      },
+      {
+       "text": "Apya maudtu na dili den ebpaguli sa walay.",
+       "words": 8
+      },
+      {
+       "text": "Pembalutu den sa emay a makan nin.",
+       "words": 7
+      },
+      {
+       "text": "Maitu bun i sagiadan nin sa kapedsambayang.",
+       "words": 7
+      },
+      {
+       "text": "Isa a gay na tig ku, \"paunut aku pan Ama?\"",
+       "words": 10
+      },
+      {
+       "text": "\"Uway sya ka den\", tig ni Ama.",
+       "words": 7
+      },
+      {
+       "text": "Kinauma nami sa benday na embalang-balang i nailay ku.",
+       "words": 9
+      },
+      {
+       "text": "Matiyugkay i kinaunga nu palay.",
+       "words": 5
+      },
+      {
+       "text": "Magatinindan den su manga kamais a pulut.",
+       "words": 7
+      },
+      {
+       "text": "\"Namula ku pan sa manga kamu\", tig ni ama.",
+       "words": 9
+      },
+      {
+       "text": "Apya dala seda na makakan den I taw amaika aden kamu.",
+       "words": 11
+      },
+      {
+       "text": "\"Madakel pan i ayam ku\", kadtalu ni Ama.",
+       "words": 8
+      },
+      {
+       "text": "Masebud su manga ayam ni Ama.",
+       "words": 6
+      },
+      {
+       "text": "Matenggaw su sambel a pakadsanggiyup-sanggiyup.",
+       "words": 5
+      },
+      {
+       "text": "Mananaw i uni nu manga papanuk.",
+       "words": 6
+      },
+      {
+       "text": "\"Ama, mapiya gaid besen siya sa benday!\"",
+       "words": 7
+      },
+      {
+       "text": "Minggemen-gemen si ama.",
+       "words": 3
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Endaw penggalebek si Ama?",
+       "accepted_answers": "lu sa benday"
+      },
+      {
+       "after_sentence": 3,
+       "question": "Ngin i pembalutun ni Ama?",
+       "accepted_answers": "Both or any: Emay endu sagiadan"
+      },
+      {
+       "after_sentence": 4,
+       "question": "Ngin i pedtapiken ni Ama sa benday a ebpagusalen nin sa kapedsambayang?",
+       "accepted_answers": "sagiadan"
+      },
+      {
+       "after_sentence": 9,
+       "question": "Ngin i manga pinamula ni Ama lu sa benday?",
+       "accepted_answers": "All or any: Palay, kamais, endu kamu"
+      },
+      {
+       "after_sentence": 11,
+       "question": "Lyu sa seda na ngin pan i mapakay a idseda sa emay?",
+       "accepted_answers": "kamu"
+      },
+      {
+       "after_sentence": 16,
+       "question": "Enduken ka nadtalu nu wata i mapya gaid lu sa benday?",
+       "accepted_answers": "Any of the following: Madakel i pamumulan, Aden manga pangangayamen, Matenggaw i sambel, Madakel i papanuk"
+      },
+      {
+       "after_sentence": 17,
+       "question": "Enduken ka penggemen-gemen si Ama?",
+       "accepted_answers": "egkapiya i ginawa nin"
+      }
+     ],
+     "form_total_differs": true
+    },
+    {
+     "story_no": 2,
+     "title": "Su Inisugu ni Ina",
+     "word_count": 121,
+     "sentences": [
+      {
+       "text": "Isa a mapita, sinugu ni Ina nin si Miya.",
+       "words": 9
+      },
+      {
+       "text": "\"Miya angay ka sa dagangan ni Babu.\"",
+       "words": 7
+      },
+      {
+       "text": "\"Pamasa ka sa leman endu lana ka ebpangilutu aku.\"",
+       "words": 9
+      },
+      {
+       "text": "\"Katanudan nengka bun su ipedsugu sa leka?\" Inidsa ni Ina.",
+       "words": 10
+      },
+      {
+       "text": "\"Uway Ina\", tig ni Miya.",
+       "words": 5
+      },
+      {
+       "text": "\"Edsasalumanan ku bu edtalu ka endu dili ku kalipatanan.\"",
+       "words": 9
+      },
+      {
+       "text": "\"Mapya ka napagitung nengka inan.\" Tig ni Ina nin.",
+       "words": 9
+      },
+      {
+       "text": "Gay nin ebpelalakaw na pedsasalumanan nin pedtalu su inisugu lun.",
+       "words": 10
+      },
+      {
+       "text": "Nakauma si Miya sa dagangan ni Babu.",
+       "words": 7
+      },
+      {
+       "text": "\"Aden ebpamasan nengka?\" Idsa ni Babu.",
+       "words": 6
+      },
+      {
+       "text": "\"Uway, leman endu lana a inisugu ni Ina.\"",
+       "words": 8
+      },
+      {
+       "text": "Iniduwal ni Babu su pinamasa ni Miya.",
+       "words": 7
+      },
+      {
+       "text": "Minuli si Miya a penggemen-gemen.",
+       "words": 5
+      },
+      {
+       "text": "\"Nakauma ka den besen, napamasa nengka bun su inisugu ku?\"",
+       "words": 10
+      },
+      {
+       "text": "\"Uway, nakuwa ku bun Ina su inisugu nengka.\"",
+       "words": 8
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Entain i sinugu ni Ina?",
+       "accepted_answers": "Si Miya"
+      },
+      {
+       "after_sentence": 2,
+       "question": "Endaw sinigu ni Ina si Miya?",
+       "accepted_answers": "Sa dagangan"
+      },
+      {
+       "after_sentence": 3,
+       "question": "Ngin i manga ebpamasan ni Miya?",
+       "accepted_answers": "All or any: leman endu lana"
+      },
+      {
+       "after_sentence": 8,
+       "question": "Ngin i pinggula ni Miya ka endu dili nin kalipatanan su inisugu ni Ina nin?",
+       "accepted_answers": "Pidsasalumanan nin edtalu"
+      },
+      {
+       "after_sentence": 12,
+       "question": "Entain i dinemuwal kanu pinamasa ni Miya?",
+       "accepted_answers": "Si Babu"
+      },
+      {
+       "after_sentence": 13,
+       "question": "Enduken ka nakanggemen-gemen si Miya kanu kabpaguli nin?",
+       "accepted_answers": "Both or any: Natademan nin su inisugu lun; Napamasa nin su inisugu lun"
+      },
+      {
+       "after_sentence": 15,
+       "question": "Enduken ka pidsasalumanan ni Miya edtalu su inisugu lun?",
+       "accepted_answers": "Ka endu dili nin kalipatanan"
+      }
+     ],
+     "form_total_differs": true
+    }
+   ]
+  },
+  {
+   "language": "Tagalog",
+   "grade": 1,
+   "variant": "mt",
+   "tasks": {
+    "task1": {
+     "max": 10,
+     "items": [
+      {
+       "text": "b"
+      },
+      {
+       "text": "ng"
+      },
+      {
+       "text": "T"
+      },
+      {
+       "text": "e"
+      },
+      {
+       "text": "p"
+      },
+      {
+       "text": "s"
+      },
+      {
+       "text": "H"
+      },
+      {
+       "text": "G"
+      },
+      {
+       "text": "u"
+      },
+      {
+       "text": "L"
+      }
+     ]
+    },
+    "task2_low": {
+     "max": 10,
+     "items": [
+      {
+       "text": "sanay, tunay",
+       "answer": "Yes"
+      },
+      {
+       "text": "ulam, anim",
+       "answer": "No"
+      },
+      {
+       "text": "hinog, lamig",
+       "answer": "No"
+      },
+      {
+       "text": "kamatis, mabilis",
+       "answer": "Yes"
+      },
+      {
+       "text": "bulok, usok",
+       "answer": "Yes"
+      },
+      {
+       "text": "init, anit",
+       "answer": "Yes"
+      },
+      {
+       "text": "saging, talong",
+       "answer": "No"
+      },
+      {
+       "text": "bolo, lolo",
+       "answer": "Yes"
+      },
+      {
+       "text": "pagod, lipad",
+       "answer": "No"
+      },
+      {
+       "text": "aso, isa",
+       "answer": "No"
+      }
+     ]
+    },
+    "task2_high": {
+     "max": 10,
+     "items": [
+      {
+       "text": "Nagpapabili",
+       "sentence_no": 1
+      },
+      {
+       "text": "si",
+       "sentence_no": 1
+      },
+      {
+       "text": "Nanay",
+       "sentence_no": 1
+      },
+      {
+       "text": "ng",
+       "sentence_no": 1
+      },
+      {
+       "text": "suka.",
+       "sentence_no": 1
+      },
+      {
+       "text": "Nakakita",
+       "sentence_no": 2
+      },
+      {
+       "text": "sila",
+       "sentence_no": 2
+      },
+      {
+       "text": "ng",
+       "sentence_no": 2
+      },
+      {
+       "text": "isang",
+       "sentence_no": 2
+      },
+      {
+       "text": "bahaghari.",
+       "sentence_no": 2
+      }
+     ]
+    }
+   },
+   "stories": [
+    {
+     "story_no": 1,
+     "title": "Hindi na Ako Natatakot",
+     "word_count": 51,
+     "sentences": [
+      {
+       "text": "Malaki na ako.",
+       "words": 3
+      },
+      {
+       "text": "Lalabas ako ng bahay nang mag-isa.",
+       "words": 6
+      },
+      {
+       "text": "Ang dilim naman!",
+       "words": 3
+      },
+      {
+       "text": "May nakikita akong malaki at madilim na bagay doon!",
+       "words": 9
+      },
+      {
+       "text": "Ano kaya iyon?",
+       "words": 3
+      },
+      {
+       "text": "Ay, balon lang pala.",
+       "words": 4
+      },
+      {
+       "text": "Hindi ako natatakot.",
+       "words": 3
+      },
+      {
+       "text": "At ang ingay na iyon?",
+       "words": 5
+      },
+      {
+       "text": "Krak, krak, krak!",
+       "words": 3
+      },
+      {
+       "text": "Ano ba iyon?",
+       "words": 3
+      },
+      {
+       "text": "Kapatid ko lang pala!",
+       "words": 4
+      },
+      {
+       "text": "Nag-iigib siya mula sa balon.",
+       "words": 5
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Sino ang kasama ng tauhan lumabas ng bahay?",
+       "accepted_answers": "Any of these – wala, mag-isa lang siya"
+      },
+      {
+       "after_sentence": 6,
+       "question": "Ano ang nakita ng tauhan na malaki at madilim na bagay?",
+       "accepted_answers": "Balon"
+      },
+      {
+       "after_sentence": 9,
+       "question": "Anong ingay ang narinig niya?",
+       "accepted_answers": "Any of these – krak krak krak, tunog mula sa kapatid, tunog mula sa kapatid na nag-iibig sa balon, kapatid"
+      },
+      {
+       "after_sentence": 12,
+       "question": "Ano ang ginagawa ng kanyang kapatid?",
+       "accepted_answers": "Nag-iigib sa balon"
+      },
+      {
+       "after_sentence": 12,
+       "question": "Bakit hindi na natatakot lumabas mag-isa ang tauhan sa kuwento?",
+       "accepted_answers": "Dahil siya ay malaki na"
+      }
+     ]
+    },
+    {
+     "story_no": 2,
+     "title": "Kaarawan ni Ate",
+     "word_count": 51,
+     "sentences": [
+      {
+       "text": "Masaya ang aming pamilya.",
+       "words": 4
+      },
+      {
+       "text": "Lalo na ngayong araw!",
+       "words": 4
+      },
+      {
+       "text": "Ngayong araw, marami kaming gagawin.",
+       "words": 5
+      },
+      {
+       "text": "Bawat isa sa amin ay tutulong!",
+       "words": 6
+      },
+      {
+       "text": "Si Nanay ay nagpapalamuti.",
+       "words": 4
+      },
+      {
+       "text": "Tinutulungan siya ni Kuya.",
+       "words": 4
+      },
+      {
+       "text": "Si Tatay ay nagluluto.",
+       "words": 4
+      },
+      {
+       "text": "Tinutulungan siya ni Lola.",
+       "words": 4
+      },
+      {
+       "text": "Si Lolo ay humihihip ng lobo.",
+       "words": 6
+      },
+      {
+       "text": "At tinutulungan ko siya!",
+       "words": 4
+      },
+      {
+       "text": "Ngayong araw ay kaarawan ni Ate!",
+       "words": 6
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 3,
+       "question": "Ano ang ginagawa ng pamilya ngayong araw?",
+       "accepted_answers": "Any of these – marami, nagtutulungan, naghahanda para sa kaarawan ni Ate, nagpapalamuti, nagluluto, naglilinis, humihihip ng lobo"
+      },
+      {
+       "after_sentence": 5,
+       "question": "Sino ang nagpapalamuti?",
+       "accepted_answers": "Any of these – Nanay, Nanay at Kuya"
+      },
+      {
+       "after_sentence": 7,
+       "question": "Ano ang ginagawa ni Tatay?",
+       "accepted_answers": "Any of these – nagluluto, nagluluto kasama ni Lola"
+      },
+      {
+       "after_sentence": 10,
+       "question": "Sino ang tumutulong kay Lolo na humihip ng lobo?",
+       "accepted_answers": "Any of these – ang nagkukuwento, tauhan na nagkukuwento, anak, kapatid ni Ate"
+      },
+      {
+       "after_sentence": 11,
+       "question": "Bakit masaya ang pamilya, lalo na ngayong araw?",
+       "accepted_answers": "Kaarawan ni Ate"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "language": "Tagalog",
+   "grade": 2,
+   "variant": "fil",
+   "tasks": {
+    "task1": {
+     "max": 10,
+     "items": [
+      {
+       "text": "Naglalaba",
+       "sentence_no": 1
+      },
+      {
+       "text": "si",
+       "sentence_no": 1
+      },
+      {
+       "text": "Tatay",
+       "sentence_no": 1
+      },
+      {
+       "text": "sa",
+       "sentence_no": 1
+      },
+      {
+       "text": "palanggana.",
+       "sentence_no": 1
+      },
+      {
+       "text": "Magpapalit",
+       "sentence_no": 2
+      },
+      {
+       "text": "ako",
+       "sentence_no": 2
+      },
+      {
+       "text": "ng",
+       "sentence_no": 2
+      },
+      {
+       "text": "kamiseta",
+       "sentence_no": 2
+      },
+      {
+       "text": "mamaya.",
+       "sentence_no": 2
+      }
+     ]
+    },
+    "task2_low": {
+     "max": 10,
+     "items": [
+      {
+       "text": "binti"
+      },
+      {
+       "text": "pito"
+      },
+      {
+       "text": "tubig"
+      },
+      {
+       "text": "pagod"
+      },
+      {
+       "text": "kanta"
+      },
+      {
+       "text": "regalo"
+      },
+      {
+       "text": "butiki"
+      },
+      {
+       "text": "halaman"
+      },
+      {
+       "text": "malapot"
+      },
+      {
+       "text": "gagamba"
+      }
+     ]
+    },
+    "task2_high": {
+     "max": 10,
+     "items": [
+      {
+       "text": "Nilinis",
+       "sentence_no": 1
+      },
+      {
+       "text": "nila",
+       "sentence_no": 1
+      },
+      {
+       "text": "ang",
+       "sentence_no": 1
+      },
+      {
+       "text": "agiw",
+       "sentence_no": 1
+      },
+      {
+       "text": "rito.",
+       "sentence_no": 1
+      },
+      {
+       "text": "Bumili",
+       "sentence_no": 2
+      },
+      {
+       "text": "kami",
+       "sentence_no": 2
+      },
+      {
+       "text": "ng",
+       "sentence_no": 2
+      },
+      {
+       "text": "bagong",
+       "sentence_no": 2
+      },
+      {
+       "text": "suklay.",
+       "sentence_no": 2
+      }
+     ]
+    }
+   },
+   "stories": [
+    {
+     "story_no": 1,
+     "title": "Isang Kakaibang Araw",
+     "word_count": 96,
+     "sentences": [
+      {
+       "text": "Iba't ibang tao ang sumasakay sa jeepney ni Tatay.",
+       "words": 9
+      },
+      {
+       "text": "May mga estudyanteng papasok ng eskuwela.",
+       "words": 6
+      },
+      {
+       "text": "May aleng mamamalengke.",
+       "words": 3
+      },
+      {
+       "text": "May nanay na may kasamang anak.",
+       "words": 6
+      },
+      {
+       "text": "Pero may isang taong sumakay na bukod-tangi.",
+       "words": 7
+      },
+      {
+       "text": "Ang suot niya'y makulay at maluwang na damit.",
+       "words": 8
+      },
+      {
+       "text": "Napakalaki ng sapatos niyang pula!",
+       "words": 5
+      },
+      {
+       "text": "Pula rin ang ilong niya.",
+       "words": 5
+      },
+      {
+       "text": "Puting-puti ang mukha niya at asul ang kulot niyang buhok.",
+       "words": 10
+      },
+      {
+       "text": "Hindi ko siya mapigilang tingnan.",
+       "words": 5
+      },
+      {
+       "text": "Tinititigan din siya ng katabi niya.",
+       "words": 6
+      },
+      {
+       "text": "Ngumiti siya sabay-labas ng limang bola mula sa kaniyang bulsa.",
+       "words": 10
+      },
+      {
+       "text": "Isa-isa niyang itinapon ang mga bola pataas at sinalo.",
+       "words": 9
+      },
+      {
+       "text": "Paulit-ulit niya itong ginawa.",
+       "words": 4
+      },
+      {
+       "text": "Napapalakpak kaming lahat!",
+       "words": 3
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Sino ang may-ari ng jeepney?",
+       "accepted_answers": "Tatay"
+      },
+      {
+       "after_sentence": 3,
+       "question": "Ano ang gagawin ng Ale?",
+       "accepted_answers": "Any of these – mamamalengke, pupunta sa palengke"
+      },
+      {
+       "after_sentence": 7,
+       "question": "Ano ang kulay ng kaniyang sapatos at ilong?",
+       "accepted_answers": "Pula"
+      },
+      {
+       "after_sentence": 13,
+       "question": "Ano ang ginawa ng bukod-tanging tao sa limang bola?",
+       "accepted_answers": "Any of these - itinapon pataas at sinalo"
+      },
+      {
+       "after_sentence": 15,
+       "question": "Bakit kaya nagpalakpakan ang mga tao sa ginawa ng bukod-tanging tao?",
+       "accepted_answers": "Any of these - dahil naaliw o natuwa sila sa ginawa ng bukod-tanging tao, dahil nakakatawa ang bukod-tanging tao"
+      },
+      {
+       "after_sentence": 15,
+       "question": "Sino kaya ang bukod-tanging tao?",
+       "accepted_answers": "Payaso"
+      }
+     ]
+    },
+    {
+     "story_no": 2,
+     "title": "Ang Pagong at ang Kuneho",
+     "word_count": 95,
+     "sentences": [
+      {
+       "text": "\"Ako ang pinakamabilis tumakbo,\" sabi ni Kuneho.",
+       "words": 7
+      },
+      {
+       "text": "\"Wala nang bibilis pa sa akin!\"",
+       "words": 6
+      },
+      {
+       "text": "\"Naku, Kuneho, wala ka nang ibang sinabi kung hindi gaano ka kabilis tumakbo,\" sabi ni Pagong.",
+       "words": 16
+      },
+      {
+       "text": "\"Hinahamon kita sa isang paligsahan.\"",
+       "words": 5
+      },
+      {
+       "text": "\"Hindi mo ako matatalo!\" sabi ni Kuneho.",
+       "words": 7
+      },
+      {
+       "text": "\"Dahil mas mabilis akong tumakbo!\"",
+       "words": 5
+      },
+      {
+       "text": "\"Malalaman natin ‘yan bukas ng umaga,\" sabi naman ni Pagong.",
+       "words": 10
+      },
+      {
+       "text": "\"Kapana-panabik ito!\" sabi ni Buwaya.",
+       "words": 5
+      },
+      {
+       "text": "\"Kawawa naman si Pagong kasi ang bagal niyang gumalaw,\" sabi naman ni Elepante.",
+       "words": 13
+      },
+      {
+       "text": "\"Kahit mabagal siya ay hindi naman siya tumitigil,\" sabi ni Unggoy.",
+       "words": 11
+      },
+      {
+       "text": "Kinabukasan, dumating ang lahat ng hayop upang manood ng paligsahan.",
+       "words": 10
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Sino ang nagsabing siya ang pinakamabilis tumakbo?",
+       "accepted_answers": "Kuneho"
+      },
+      {
+       "after_sentence": 4,
+       "question": "Ano ang hamon ni Pagong kay Kuneho?",
+       "accepted_answers": "Any of these – paligsahan, paligsahan sa pagtakbo, pagtakbo"
+      },
+      {
+       "after_sentence": 6,
+       "question": "Bakit nasabi ni Kuneho na hindi siya matatalo ni Pagong?",
+       "accepted_answers": "Any of these - dahil siya ay mas mabilis, dahil siya ay mas mabilis tumakbo"
+      },
+      {
+       "after_sentence": 8,
+       "question": "Ano ang naramdaman ni Buwaya?",
+       "accepted_answers": "Any of these – nasabik sa paligsahan, eksayted sa paligsahan"
+      },
+      {
+       "after_sentence": 9,
+       "question": "Ayon kay Elepante, bakit kawawa si Pagong sa bagal niyang gumalaw?",
+       "accepted_answers": "Any of these – dahil baka matalo si Pagong ni Kuneho, dahil mas mabilis si Kuneho sa kaniya"
+      },
+      {
+       "after_sentence": 11,
+       "question": "Sino ang dumating para panoorin ang paligsahan?",
+       "accepted_answers": "Lahat ng hayop"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "language": "Tagalog",
+   "grade": 3,
+   "variant": "fil",
+   "tasks": {
+    "task1": {
+     "max": 10,
+     "items": [
+      {
+       "text": "Nagluto",
+       "sentence_no": 1
+      },
+      {
+       "text": "at",
+       "sentence_no": 1
+      },
+      {
+       "text": "nagplantsa",
+       "sentence_no": 1
+      },
+      {
+       "text": "ako",
+       "sentence_no": 1
+      },
+      {
+       "text": "kanina.",
+       "sentence_no": 1
+      },
+      {
+       "text": "Masarap",
+       "sentence_no": 2
+      },
+      {
+       "text": "inumin",
+       "sentence_no": 2
+      },
+      {
+       "text": "ang",
+       "sentence_no": 2
+      },
+      {
+       "text": "tsokolateng",
+       "sentence_no": 2
+      },
+      {
+       "text": "mainit.",
+       "sentence_no": 2
+      }
+     ]
+    },
+    "task2_low": {
+     "max": 10,
+     "items": [
+      {
+       "text": "giliw"
+      },
+      {
+       "text": "gripo"
+      },
+      {
+       "text": "blusa"
+      },
+      {
+       "text": "prutas"
+      },
+      {
+       "text": "klase"
+      },
+      {
+       "text": "kahoy"
+      },
+      {
+       "text": "planta"
+      },
+      {
+       "text": "kalabaw"
+      },
+      {
+       "text": "trumpeta"
+      },
+      {
+       "text": "basurahan"
+      }
+     ]
+    },
+    "task2_high": {
+     "max": 10,
+     "items": [
+      {
+       "text": "Nag-ihaw",
+       "sentence_no": 1
+      },
+      {
+       "text": "kami",
+       "sentence_no": 1
+      },
+      {
+       "text": "ng",
+       "sentence_no": 1
+      },
+      {
+       "text": "tatlong",
+       "sentence_no": 1
+      },
+      {
+       "text": "hito.",
+       "sentence_no": 1
+      },
+      {
+       "text": "Mabango",
+       "sentence_no": 2
+      },
+      {
+       "text": "ang",
+       "sentence_no": 2
+      },
+      {
+       "text": "bulaklak",
+       "sentence_no": 2
+      },
+      {
+       "text": "sa",
+       "sentence_no": 2
+      },
+      {
+       "text": "plorera.",
+       "sentence_no": 2
+      }
+     ]
+    }
+   },
+   "stories": [
+    {
+     "story_no": 1,
+     "title": "Bagyo sa Baryo",
+     "word_count": 121,
+     "sentences": [
+      {
+       "text": "Kinuha ni Gregorio ang walis.",
+       "words": 5
+      },
+      {
+       "text": "Iniisip niya kung ano ang unang lilinisin.",
+       "words": 7
+      },
+      {
+       "text": "Nagkalat ang mga sanga, dahon, at iba pang basura.",
+       "words": 9
+      },
+      {
+       "text": "Hindi niya napigilang mapangiwi.",
+       "words": 4
+      },
+      {
+       "text": "Bumagyo sa baryo nina Gregorio.",
+       "words": 5
+      },
+      {
+       "text": "Sa sobrang lakas ng bagyo, may mga natumbang puno sa paligid.",
+       "words": 11
+      },
+      {
+       "text": "\"Tsk!\" Hindi malaman ni Gregorio kung ano ang uunahin.",
+       "words": 9
+      },
+      {
+       "text": "\"Dito natin simulan sa kusina, Gregorio,\" bungad ng kaniyang asawang si Trining.",
+       "words": 12
+      },
+      {
+       "text": "Binuksan ni Trining ang bawat lalagyan ng pagkain.",
+       "words": 8
+      },
+      {
+       "text": "Napabuntong-hininga siya sa nakita. Lahat ay nabasa.",
+       "words": 7
+      },
+      {
+       "text": "\"Hahanap ako ng bunga sa kagubatan,\" sabi ni Gregorio.",
+       "words": 9
+      },
+      {
+       "text": "Tuwing Linggo, umaakyat siya sa Bundok Makiling upang humanap ng makakain.",
+       "words": 11
+      },
+      {
+       "text": "Ibinebenta nila ang sobra sa bayan.",
+       "words": 6
+      },
+      {
+       "text": "Isa ito sa kanilang pinagkakakitaan.",
+       "words": 5
+      },
+      {
+       "text": "Ngunit alam na ni Gregorio na baka wala siyang maiuwi mula sa kagubatan.",
+       "words": 13
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Ano ang kinuha ni Gregorio sa simula ng kuwento?",
+       "accepted_answers": "Walis"
+      },
+      {
+       "after_sentence": 4,
+       "question": "Bakit hindi napigilan ni Gregorio na ngumiwi?",
+       "accepted_answers": "Any of these - dahil nagkalat ang mga sanga, dahon, at iba pang basura sa sala, dahil madumi, dahil maraming nasira dulot ng bagyo"
+      },
+      {
+       "after_sentence": 5,
+       "question": "Ano ang nangyari sa baryo nina Gregorio?",
+       "accepted_answers": "Any of these – bumagyo, binagyo"
+      },
+      {
+       "after_sentence": 8,
+       "question": "Ano ang sinabi ni Trining na unang linisin?",
+       "accepted_answers": "Kusina"
+      },
+      {
+       "after_sentence": 10,
+       "question": "Ano ang nangyari sa pagkain nina Gregorio at Trining?",
+       "accepted_answers": "Nabasa"
+      },
+      {
+       "after_sentence": 13,
+       "question": "Bakit umakyat si Gregorio sa Bundok Makiling?",
+       "accepted_answers": "Any of these - upang humanap ng bunga na makakain, upang humanap ng bunga na maibebenta"
+      },
+      {
+       "after_sentence": 15,
+       "question": "Bakit alam na ni Gregorio na baka wala siyang maiuwi mula sa kagubatan?",
+       "accepted_answers": "Any of these – dahil nasira ng bagyo ang kagubatan, dahil nasira ng bagyo ang mga pananim"
+      }
+     ]
+    },
+    {
+     "story_no": 2,
+     "title": "Mga Bayaning Pilipino",
+     "word_count": 121,
+     "sentences": [
+      {
+       "text": "Reporter ang tawag kina Alex at Cristina, at sa lahat ng miyembro ng Bantay Balita.",
+       "words": 15
+      },
+      {
+       "text": "Masayang-masaya ang magkaibigan tuwing naririnig ang tawag na 'yon sa kanila.",
+       "words": 11
+      },
+      {
+       "text": "Pangarap kasi nilang maging mamamahayag paglaki nila.",
+       "words": 7
+      },
+      {
+       "text": "Tuwing Biyernes, mayroong miting ang Bantay Balita.",
+       "words": 7
+      },
+      {
+       "text": "Doon nila pinag-uusapan ang kanilang mga gagawin para sa isyung ilalabas ng kanilang grupo.",
+       "words": 14
+      },
+      {
+       "text": "\"Paano ba 'yan? Ano'ng isusulat natin?\" tanong ni Cristina kay Alex.",
+       "words": 11
+      },
+      {
+       "text": "Pinasusulat sila ng kanilang gurong-tagapayo na si Ginang Serna ng artikulo tungkol sa mga bayaning Pilipino.",
+       "words": 16
+      },
+      {
+       "text": "\"Ayokong magsulat tungkol kay Rizal o Bonifacio kasi 'yun ang inaasahan ng lahat,\" sabi ni Cristina.",
+       "words": 16
+      },
+      {
+       "text": "\"Tungkol na lang sa magsasaka ang isulat natin,\" biro ni Alex na hindi matigil sa kakatawa.",
+       "words": 16
+      },
+      {
+       "text": "Sandaling nag-isip si Cristina at pagkatapos sinabing, \"Tama!\"",
+       "words": 8
+      }
+     ],
+     "questions": [
+      {
+       "after_sentence": 1,
+       "question": "Ano ang tawag kina Alex at Cristina?",
+       "accepted_answers": "Reporter"
+      },
+      {
+       "after_sentence": 3,
+       "question": "Bakit masaya sina Alex at Cristina kapag tinatawag silang reporter?",
+       "accepted_answers": "Dahil pangarap nila ang maging mamamahayag paglaki nila"
+      },
+      {
+       "after_sentence": 5,
+       "question": "Ano ang pinag-uusapan ng Bantay Balita tuwing may miting sila?",
+       "accepted_answers": "Ang mga gagawin nila para sa isyung ilalabas ng kanilang grupo"
+      },
+      {
+       "after_sentence": 7,
+       "question": "Tungkol kanino ang artikulo na pinasusulat sa kanila ng kanilang gurong-tagapayo na si Ginang Serna?",
+       "accepted_answers": "Mga bayaning Pilipino"
+      },
+      {
+       "after_sentence": 8,
+       "question": "Bakit ayaw ni Cristina na magsulat tungkol kay Rizal at Bonifacio?",
+       "accepted_answers": "Kasi 'yun ang inaasahan ng lahat"
+      },
+      {
+       "after_sentence": 9,
+       "question": "Sinong bayani ang iminungkahi ni Alex na isulat?",
+       "accepted_answers": "Magsasaka"
+      },
+      {
+       "after_sentence": 10,
+       "question": "Paano nagkaiba ang reaksyon nina Alex at Cristina sa mungkahi na magsulat sila tungkol sa magsasaka bilang mga bayani?",
+       "accepted_answers": "Biro para kay Alex kaya siya natawa, samantalang sineryoso o gusto naman ni Cristina ang ideyang ito"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
