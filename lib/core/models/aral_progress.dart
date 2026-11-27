@@ -53,6 +53,9 @@ class AralLearnerProgress {
   final String? latestRound;
   final String? latestProfile;
   final AralProgressNumbers? latestNumbers;
+
+  /// The latest round's assessment date (YYYY-MM-DD); null without a latest round.
+  final String? latestAssessedOn;
   final AralProgressChange change;
 
   const AralLearnerProgress({
@@ -66,6 +69,7 @@ class AralLearnerProgress {
     this.latestRound,
     this.latestProfile,
     this.latestNumbers,
+    this.latestAssessedOn,
     required this.change,
   });
 
@@ -82,4 +86,33 @@ class AralLearnerProgress {
   @override
   String toString() => '$learnerName | Grade $grade $instrument | $startRound ${startProfile ?? '-'} -> '
       '${latestRound ?? '-'} ${latestProfile ?? '-'} | ${change.label}${exited ? ' | exited' : ''}';
+}
+
+/// Why a learner is flagged as not improving (spec
+/// docs/superpowers/specs/2026-11-27-aral-effectiveness-design.md D2):
+/// [round] = same or down since the ARAL start after enough sessions
+/// attended; [checkin] = the latest complete check-in below the pass mark.
+enum AralNoImprovementKind { round, checkin }
+
+class AralNoImprovementReason {
+  final AralNoImprovementKind kind;
+
+  /// Plain words, e.g. "Same since BOSY: Frustration -> Frustration (MOSY #1)".
+  final String message;
+
+  const AralNoImprovementReason(this.kind, this.message);
+
+  @override
+  String toString() => message;
+}
+
+/// One ARAL class learner who is not improving, with their reasons (one or two).
+class AralNoImprovement {
+  final AralLearnerProgress progress;
+  final List<AralNoImprovementReason> reasons;
+
+  const AralNoImprovement(this.progress, this.reasons);
+
+  @override
+  String toString() => '${progress.learnerName} | Grade ${progress.grade} ${progress.instrument} | ${reasons.join('; ')}';
 }
