@@ -24,6 +24,7 @@
 // and a class with no session for more than idle_session_days. Nothing dated
 // after today counts.
 import '../core/console/logger.dart';
+import '../core/models/crla_result.dart';
 import '../core/models/assessment_calendar.dart';
 import '../core/models/crla_assessment.dart' show CrlaRound;
 import '../core/models/phil_iri_assessment.dart' show PhilIriRound;
@@ -523,6 +524,43 @@ class ReminderViewModel {
 
     final out = <TutorReminder>[];
 
+    // MOSY and EOSY of a learner active in an ARAL class with a tutor are the
+    // class tutor's (spec 2026-11-27 ARAL class tutor D1; the reading
+    // coordinator's rule): they leave the section lines (1) and go on the class
+    // lines (1b). BOSY stays with the section's tutors.
+    bool classTutorsRound(String round) => round != 'bosy';
+    // One Phil-IRI result per learner and section, and one CRLA list per
+    // section, for the whole call: the section and class lines share them
+    // (final review I4; a tutor's phone reads these per dashboard load).
+    final philIriOf = <(int, int), PhilIriReportResults>{};
+    Future<PhilIriReportResults> philIriResults(int studentId, int sectionId) async =>
+        philIriOf[(studentId, sectionId)] ??=
+            await _reports.learnerResults(studentId: studentId, sectionId: sectionId, schoolYear: year, asOf: day);
+    final crlaOf = <int, List<CrlaResult>>{};
+    Future<List<CrlaResult>> crlaResults(int sectionId) async =>
+        crlaOf[sectionId] ??= await _crlaResults.getBySection(sectionId, schoolYear: year);
+    Future<bool> assessedIn(CalendarInstrument instrument, int studentId, int sectionId, String round) async {
+      if (instrument == CalendarInstrument.philIri) {
+        return NlaReportViewModel.assessedIn(await philIriResults(studentId, sectionId))
+            .contains(PhilIriRound.values.byName(round));
+      }
+      return (await crlaResults(sectionId))
+          .any((r) => r.studentId == studentId && r.round.name == round && _day(r.assessedAt).compareTo(day) <= 0);
+    }
+    final classById = <int, AralClass?>{};
+    Future<Set<int>> handedOver(int sectionId) async {
+      final ids = <int>{};
+      for (final e in await _roster.getBySection(sectionId, schoolYear: year)) {
+        if (e.classId == null || !aralActiveOn(e, day)) continue;
+        final c = classById.containsKey(e.classId) ? classById[e.classId] : (classById[e.classId!] = await _classes.findById(e.classId!));
+        // A class not on this device is another tutor's (a tutor's device
+        // holds only their own classes); a class without a tutor keeps its
+        // learners with the section's tutors.
+        if (c == null || c.tutorId != null) ids.add(e.studentId);
+      }
+      return ids;
+    }
+
     // 1. Learners not assessed, per assigned section of the year and per
     // scheduled round that is open or closed.
     for (final s in sections) {
@@ -535,18 +573,22 @@ class ReminderViewModel {
       } else {
         continue;
       }
-      final learners = await sectionLearners(s.id!);
-      if (learners.isEmpty) continue;
+      final all = await sectionLearners(s.id!);
+      if (all.isEmpty) continue;
+      final handed = await handedOver(s.id!);
       Map<int, PhilIriReportResults>? philIri; // per learner, computed once per section
       for (final entry in await _calendar.scheduledRounds(s.schoolId, year, instrument)) {
         final w = entry.window;
         final status = _calendar.status(w, today: today);
         if (status == RoundStatus.upcoming) continue;
+        final learners = classTutorsRound(w.round)
+            ? {for (final e in all.entries) if (!handed.contains(e.key)) e.key: e.value}
+            : all;
+        if (learners.isEmpty) continue;
         final Set<int> assessed;
         if (instrument == CalendarInstrument.philIri) {
           philIri ??= {
-            for (final id in learners.keys)
-              id: await _reports.learnerResults(studentId: id, sectionId: s.id!, schoolYear: year, asOf: day),
+            for (final id in all.keys) id: await philIriResults(id, s.id!),
           };
           final round = PhilIriRound.values.byName(w.round);
           assessed = {
@@ -597,6 +639,47 @@ class ReminderViewModel {
           window: w,
           days: days,
         ));
+      }
+    }
+
+    // 1b. Per class of the tutor: its active learners not assessed in a MOSY
+    // or EOSY round that is open or closed, per instrument (by each learner's
+    // section grade; a mixed-grade class can get both); assessed as on their
+    // section's line.
+    for (final cls in classes) {
+      final byInstrument = <CalendarInstrument, List<AralEnrollment>>{};
+      for (final e in roster.where((e) => e.classId == cls.id)) {
+        final sec = await _sections.getById(e.sectionId);
+        final instrument = sec == null ? null : _instrumentOf(sec.gradeLevel);
+        if (instrument != null) (byInstrument[instrument] ??= []).add(e);
+      }
+      for (final MapEntry(key: instrument, value: members) in byInstrument.entries) {
+        for (final entry in await _calendar.scheduledRounds(cls.schoolId, year, instrument)) {
+          final w = entry.window;
+          if (!classTutorsRound(w.round)) continue;
+          final status = _calendar.status(w, today: today);
+          if (status == RoundStatus.upcoming) continue;
+          final missing = <ReminderLearner>[
+            for (final e in members)
+              if (!await assessedIn(instrument, e.studentId, e.sectionId, w.round)) await rosterLearner(e),
+          ]..sort(_byName);
+          if (missing.isEmpty) continue;
+          final closed = status == RoundStatus.closed;
+          final days = closed ? _daysBetween(w.closesOn!, day) : _daysBetween(day, w.closesOn!);
+          final when = closed
+              ? 'closed ${_n(days)} ago'
+              : (days == 0 ? 'closes today' : 'closes in ${_n(days)}');
+          out.add(TutorReminder(
+            closed ? TutorReminderKind.overdueAssessment : TutorReminderKind.openAssessment,
+            '${instrument.label} ${roundLabel(w.round)} $when: ${missing.length} of ${members.length} '
+            'learner${members.length == 1 ? '' : 's'} of ARAL class ${cls.className} not assessed.',
+            missing,
+            instrument: instrument,
+            window: w,
+            days: days,
+            aralClass: cls,
+          ));
+        }
       }
     }
 
@@ -767,6 +850,14 @@ class ReminderViewModel {
   /// crla_results row of [round] in that section dated on or before [asOf]
   /// (several attempts count once). The one CRLA "assessed" test of the
   /// coordinator and tutor reminders.
+  /// The instrument of a section's grade: Phil-IRI (Grades 4-10), CRLA
+  /// (Grades 1-3), else none.
+  static CalendarInstrument? _instrumentOf(String gradeLevel) {
+    if (philIriGradeOf(gradeLevel) != null) return CalendarInstrument.philIri;
+    final grade = int.tryParse(gradeLevel);
+    return grade != null && grade >= 1 && grade <= 3 ? CalendarInstrument.crla : null;
+  }
+
   Future<Set<int>> _crlaAssessed(int sectionId, String year, CrlaRound round, String asOf, Set<int> learners) async => {
         for (final r in await _crlaResults.getBySection(sectionId, schoolYear: year))
           if (r.round == round && learners.contains(r.studentId) && _day(r.assessedAt).compareTo(asOf) <= 0)
