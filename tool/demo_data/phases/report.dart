@@ -57,6 +57,7 @@ Future<Map<String, int>> readCounts(DemoSession s, DemoState st, DemoWorld w, Da
          WHERE (EXISTS (SELECT 1 FROM crla_part1_standard p WHERE p.assessment_id = a.id)
              OR EXISTS (SELECT 1 FROM crla_part1_english p WHERE p.assessment_id = a.id))
            AND NOT EXISTS (SELECT 1 FROM crla_part2_fluency f WHERE f.assessment_id = a.id)'''));
+    add('crla.digitized', await _n(db, 'SELECT count(DISTINCT assessment_id) FROM crla_timer_events'));
     add('philiri.gst', await _n(db, 'SELECT count(*) FROM phil_iri_gst_results'));
     add('philiri.sessions', await _n(db, "SELECT count(*) FROM phil_iri_assessments WHERE status <> 'in_progress'"));
     add('philiri.miscues', await _n(db, 'SELECT count(*) FROM phil_iri_miscues'));
@@ -180,7 +181,7 @@ Future<void> writeReport(DemoSession s, DemoState st, DemoWorld w, DateTime toda
 
   String learner(DemoLearner l) {
     final e = l.years[DemoYear.y2026];
-    return '${l.last}, ${l.first} (LRN ${l.lrn}${e == null ? '' : ', ${e.sectionName}'})';
+    return '${l.last}, ${l.first} (LRN ${l.lrn}${e == null ? '' : ', Grade ${e.grade} ${e.sectionName}'})';
   }
 
   final gaps = <String>[
@@ -248,33 +249,77 @@ String demoWalkthrough({
         '(`dart run lib/console/main.dart`) for demo.super, coord.es, coord.hs, admin.es; tutor app / tutor console '
         '(`dart run lib/console/main_tutor.dart`) for the tutors. Sign in, then download (pull-cloud yes). Tick each line.')
     ..writeln()
+    ..writeln('How to read a click path: the app\'s sections are in the left rail (wide screens) or the bottom bar / menu '
+        '(phones). Admin app: Home, Learners, Assess, ARAL, Sync, Manage, Reports. Tutor app: Home, Learners, Assess, '
+        'ARAL, Sync. Each section lists its screens as cards under a group heading: "ARAL > Program > Roster" = ARAL '
+        'section, Program group, Roster card. Console commands are the fallback. "Console only" = no screen yet. '
+        'Paths read from lib/ui on 2026-11-27: refresh them after a frontend revamp.')
+    ..writeln()
     ..writeln('School ids: NCES-DEMO $es, NCHS-DEMO $hs. 2026-2027 section ids: '
         '${[for (final e in sectionIds.entries) '${e.key} ${e.value}'].join(', ')}.')
     ..writeln()
-    ..writeln('| # | Area | Account | Open (screen, or console) | Expect |')
+    ..writeln('| # | Area | Account | Click path (or console) | Expect |')
     ..writeln('|---|---|---|---|---|');
   var i = 0;
   void row(String area, String account, String open, String expect) =>
       b.writeln('| ${++i} | $area | $account | $open | $expect |');
-  row('Accounts', 'demo.super', 'Users (`user-list`), login logs (`login-recent`)', '10 Night City accounts, tutor types, sign-ins');
-  row('Admin', 'coord.hs', 'Sections (`list-sections`), assignments', 'HS sections of both years with advisers and tutors');
-  row('Admin', 'coord.hs', 'Import conflicts (`list-conflicts`)', 'one open conflict: LRN of a Grade 9 learner as Ramos, Kevin');
-  row('Admin', 'coord.hs', 'Learner history (`learner-history-lrn <LRN>`)', 'story learners: both years');
-  row('Leavers', 'coord.hs', 'SF1 leavers (`sf1-missing`, history of the four Grade 8 learners)', 'transferred out, dropped out, moved to Narra, restored');
-  row('CRLA', 'tutor1.es', 'CRLA, Grade 2 (`crla-results ...`)', 'BOSY + MOSY profiles; one MOSY attempt with Part 1 only');
-  row('Phil-IRI', 'tutor2.hs', 'Phil-IRI Grade 9 MOSY #1 (`phil-iri-sessions ${sectionIds['NCHS-DEMO.G9']} 2026-2027 mosy1`)', 'timed readings (`phil-iri-timer <readingId>`)');
-  row('Phil-IRI', 'a one-minute learner\'s tutor', 'the session in progress', 'time it live: start, stops at 60 s, tap the word reached, complete');
-  row('Phil-IRI', 'coord.hs', 'Value sources / ranking (`phil-iri-rank`)', 'carried vs actual for the MOSY gap learners');
-  row('ARAL', 'coord.es', 'ARAL roster and classes (`aral-roster`, `aral-classes`)', 'enrolled, placed, 2 waiting, exits (2025)');
-  row('ARAL', 'tutor2.hs', 'My classes, sessions (`reminders-tutor me 2026-2027`)', 'the idle class reminder');
-  row('ARAL', 'coord.hs', 'Coordinator notices (`reminders-coordinator $hs 2026-2027`)', 'a class under the minimum; overdue BOSY; MOSY open');
-  row('ARAL', 'tutor1.hs', 'IRIP, check-ins, readability', 'weekly ratings, check-ins 16/32, readability entries');
-  row('ARAL', 'coord.hs', 'Forms 1, 2, 4, implementation report (`aral-form2 ...`)', 'both years');
-  row('Reports', 'coord.hs', 'NLA Form 2b, progress, BOSY masterlist, SRP (`srp-classes $hs 2025-2026`)', '14 SRP classes with room, schedule, tutor');
-  row('Dashboard', 'coord.hs / tutor2.hs', 'Dashboard (`dashboard 2026-2027`), trends', 'both years; reminders as above');
-  row('Sync', 'coord.hs', 'Uploads to review (`sync-pending`)', "tutor2.hs's pending upload; the rejected one with its reason");
-  row('Sync', 'tutor3.hs (builder device, console only)', '`sync-status`', 'rejected: "$demoRejectReason"');
-  row('Settings', 'coord.es', 'Report settings (`report-settings-show`)', 'done threshold, offline days, FLT switch');
+  final g9 = sectionIds['NCHS-DEMO.G9'], g8 = sectionIds['NCHS-DEMO.G8'];
+  row('Accounts', 'demo.super', 'Manage > People > Users; Manage > People > Login logs (`user-list`, `login-recent`)',
+      '10 Night City accounts, tutor types, sign-ins');
+  row('Admin', 'coord.hs',
+      'Learners > Schools and sections > Sections (2026-2027); Manage > People > Tutor assignments (`list-sections`)',
+      'HS sections of both years with advisers and tutors');
+  row('Admin', 'coord.hs', 'Manage > Learners > SF1 import > Conflicts (`list-conflicts`)',
+      'one open conflict: LRN of a Grade 9 learner as Ramos, Kevin');
+  row('Admin', 'coord.hs',
+      'Manage > Learners > Learner history > type the LRN > Find, or Learners > Learners > tap a learner (`learner-history-lrn <LRN>`)',
+      'story learners: both years');
+  row('Leavers', 'coord.hs',
+      'Manage > Learners > Undecided learners (empty for Grade 8 Acacia), then Learner history of the four Grade 8 learners (`sf1-missing $g8`)',
+      'transferred out, dropped out, moved to Narra, restored');
+  row('CRLA', 'tutor1.es', 'Assess > CRLA (Grades 1-3) > CRLA by section > Grade 2 Gumamela, MOSY (`crla-results ...`)',
+      'BOSY + MOSY profiles; one MOSY attempt with Part 1 only');
+  row('CRLA', "a Grade 1-3 learner's class or section tutor",
+      'Console only (marking screen not built): `crla-results section <sectionId> 2026-2027`, then '
+          '`crla-digitized <assessmentId>` and `crla-form <assessmentId>` on a MOSY attempt marked in BASA',
+      'Part 1 items, miscue words, the timer and the answers behind the totals');
+  row('Phil-IRI', 'tutor2.hs',
+      'Assess > Phil-IRI (Grades 4-10) > Phil-IRI by section > Grade 9 Mahogany, MOSY #1 > a session; the timer taps: console only '
+          '(`phil-iri-sessions $g9 2026-2027 mosy1`, then `phil-iri-timer <readingId>`)',
+      'readings timed in BASA');
+  row('Phil-IRI', "a one-minute learner's tutor",
+      'Console only (timer screen not built): `phil-iri-timer-start <readingId>`, wait > 60 s, `phil-iri-timer`, '
+          '`phil-iri-minute-end`, `phil-iri-complete`',
+      'stops at 60 s, tap the word reached, complete');
+  row('Phil-IRI', 'coord.hs',
+      'Reports > Reports > Phil-IRI ranking; Assess > Phil-IRI (Grades 4-10) > Learner results (`phil-iri-rank`)',
+      'carried vs actual for the MOSY gap learners');
+  row('ARAL', 'coord.es',
+      'ARAL > Program > Roster > School (2025-2026, then 2026-2027); ARAL > Classes > Classes (`aral-roster`, `aral-classes`)',
+      '2025: exits (Exited tile); 2026: placed, 2 waiting');
+  row('ARAL', 'tutor2.hs', 'Home > This school year > Reminders > ARAL class notices (`reminders-tutor me 2026-2027`)',
+      'the idle class (no session in 25 days)');
+  row('ARAL', 'coord.hs',
+      'Home > This school year > Reminders > Round reminders and ARAL class notices (`reminders-coordinator $hs 2026-2027`)',
+      'classes under the minimum; Grade 10 BOSY overdue; MOSY #1 open');
+  row('ARAL', 'tutor1.hs',
+      'ARAL > Classes > IRIP / Check-ins > search a learner; ARAL > Program > Readability log > search a learner',
+      'weekly ratings, check-ins 16/32, readability entries');
+  row('ARAL', 'coord.hs',
+      'Reports > Reports > ARAL Forms 1, 2 and 4; Reports > Reports > ARAL implementation report (Fill the template, Roster CSV, Check-in report CSV)',
+      'both years');
+  row('Reports', 'coord.hs',
+      'Reports > Reports > NLA portal report / Progress monitoring / BOSY masterlist; ARAL > Program > Summer Remediation > 2025-2026 (`srp-classes $hs 2025-2026`)',
+      '14 SRP classes with room, schedule, tutor');
+  row('Dashboard', 'coord.hs / tutor2.hs',
+      'Home > This school year > Dashboard; Home > This school year > Trends > My school (`dashboard 2026-2027`)',
+      'both years; the ARAL activity bars are tutors');
+  row('Sync', 'coord.hs', 'Sync > Approvals > Review uploads (`sync-pending`)',
+      "tutor2.hs's upload waiting (rejected uploads aren't listed there)");
+  row('Sync', 'tutor3.hs (builder device, console only)', "`sync-status` against the builder's tutor3.hs device",
+      'rejected: "$demoRejectReason"');
+  row('Settings', 'coord.es', 'Manage > Settings > Report settings (`report-settings-show`)',
+      'done threshold, offline days, FLT switch');
   b
     ..writeln()
     ..writeln('## Story learners')

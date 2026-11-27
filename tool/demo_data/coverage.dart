@@ -58,6 +58,7 @@ const coverageRows = <CoverageRow>[
     CoverageCheck('crla.attempts2025', 'attempts with a profile, 2025-2026', 300),
     CoverageCheck('crla.attempts2026', 'attempts with a profile, 2026-2027', 150),
     CoverageCheck('crla.part1Only', 'attempts with Part 1 only (gap 4)', 1),
+    CoverageCheck('crla.digitized', 'attempts marked in BASA (items, words, timer), 2026-2027 MOSY', 10),
   ]),
   CoverageRow('Phil-IRI', 'GST, sessions, miscues on words, answers, rubric, learner results, finalize round, thresholds',
       'Grades 4-10', [
