@@ -259,6 +259,15 @@ refuse Phil-IRI is for Grades 4 to 10 only. This section is Grade 2.
 run phil-iri-start {s_g7_4} {sec_g7} {year} mosy9
 refuse Round is bosy, mosy1, mosy2, mosy3 or eosy (got "mosy9")
 
+# --- ARAL class progress (spec 2026-11-27 ARAL class tutor D2) -----------------
+# tutor1 teaches ZZ 7-Rose; Learner001 (session A, BOSY Independent) has no
+# reading after BOSY yet.
+run aral-class-progress {class_1}
+expect ZZ 7-Rose: 3 learners
+expect ZZTESTA, Learner001 | Grade 7 Phil-IRI | BOSY Independent -> - | Not assessed yet
+run aral-class-progress {class_1} asof=2026-02-30
+refuse asof must be a real YYYY-MM-DD date (got "2026-02-30")
+
 # --- Signed out, on a device holding learners --------------------------------
 # Every Phil-IRI and CRLA command a tutor has must refuse (F5).
 run sign-out

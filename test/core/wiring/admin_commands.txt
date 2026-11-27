@@ -18,6 +18,7 @@ aral-class-add
 aral-class-delete
 aral-class-edit
 aral-class-place
+aral-class-progress
 aral-class-sessions
 aral-class-show
 aral-class-summary

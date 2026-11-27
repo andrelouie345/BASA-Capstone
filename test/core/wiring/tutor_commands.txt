@@ -11,6 +11,7 @@ aral-checkin-mark
 aral-checkin-start
 aral-checkin-tools
 aral-checkins
+aral-class-progress
 aral-class-sessions
 aral-class-show
 aral-class-summary

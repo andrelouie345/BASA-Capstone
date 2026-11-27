@@ -24,6 +24,11 @@ Console: `calendar-show`, `calendar-set`, `calendar-skip`, `calendar-clear`
 Build: tutor reminders both; coordinator reminders admin    Roles: tutor / coordinator / admin
 Calls:
 - `ReminderViewModel.tutorReminders(tutorId, year, today:)` → `TutorReminders` (a tutor passes `currentUser.id`)
+- Since 2026-11-27 (the reading coordinator's rule: ARAL class tutors give MOSY and EOSY): "not assessed" lines come
+  per section (`section` set) and per ARAL class (`aralClass` set, `section` null). At MOSY/EOSY a learner in a class
+  with a tutor is on the class tutor's class line only; BOSY stays on the section line. Group the class lines under
+  the class name. Known limit: while an ARAL class has no tutor, its learners get no MOSY/EOSY line on tutors' phones
+  (the phone can't see a class that isn't the tutor's); the coordinator's "class has no tutor" notice covers it.
 - `coordinatorReminders(schoolId, year, ...)` → `List<SchoolReminders>`; `crlaCompletion(...)` → `List<SectionCompletion>`
 - reminder text functions (`tutorRemindersText` etc.) are in the command helpers; a screen builds its own list from the models.
 Console: `reminders-tutor`, `reminders-coordinator`

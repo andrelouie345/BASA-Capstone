@@ -297,6 +297,10 @@ String demoWalkthrough({
   row('ARAL', 'coord.es',
       'ARAL > Program > Roster > School (2025-2026, then 2026-2027); ARAL > Classes > Classes (`aral-roster`, `aral-classes`)',
       '2025: exits (Exited tile); 2026: placed, 2 waiting');
+  row('ARAL', 'an ARAL class tutor (e.g. tutor1.es)',
+      'Console only (screen not built): `aral-classes <schoolId> 2026-2027`, then `aral-class-progress <classId>`; '
+          'Home > This school year > Reminders shows MOSY lines per ARAL class (`reminders-tutor me 2026-2027`)',
+      'each learner BOSY -> MOSY: up / same / down with the numbers');
   row('ARAL', 'tutor2.hs', 'Home > This school year > Reminders > ARAL class notices (`reminders-tutor me 2026-2027`)',
       'the idle class (no session in 25 days)');
   row('ARAL', 'coord.hs',

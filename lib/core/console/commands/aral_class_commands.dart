@@ -7,6 +7,8 @@ library;
 
 import '../console_command.dart';
 import '../console_registry.dart';
+import '../date_args.dart';
+import '../../models/aral_progress.dart';
 import '../../../viewmodels/aral_class_viewmodel.dart';
 import '../../../viewmodels/aral_viewmodel.dart';
 import 'aral_command_helpers.dart';
@@ -52,4 +54,52 @@ void registerAralClassCommands(ConsoleRegistry registry, AralClassViewModel vm, 
       if (learners.isEmpty) '  (no learners yet)',
     ].join('\n');
   });
+
+  add('aral-class-progress',
+      'aral-class-progress <classId> [asof=YYYY-MM-DD] — each learner\'s change since their ARAL starting round '
+          '(up / same / down by reading profile, with the numbers)', (args) async {
+    const usage = 'Usage: aral-class-progress <classId> [asof=YYYY-MM-DD]';
+    if (args.isEmpty || args.length > 2 || (args.length == 2 && !args[1].startsWith('asof='))) {
+      throw const AralUsage(usage);
+    }
+    String? asOf;
+    if (args.length == 2) {
+      final raw = args[1].substring(5);
+      if (strictDateArg(raw) == null) throw AralUsage(asofDateMessage(raw));
+      asOf = raw.trim();
+    }
+    final id = aralInt(args[0], 'classId');
+    final c = await vm.getClass(id);
+    final rows = await vm.classProgress(id, asOf: asOf);
+    return [
+      '${c.className}: ${rows.length} learner${rows.length == 1 ? '' : 's'}',
+      for (final p in rows) _progressLine(p),
+    ].join('\n');
+  });
+}
+
+/// "CRUZ, Ana | Grade 2 CRLA | BOSY Low Emerging Reader -> MOSY Developing Reader | Up | wpm 40 -> 62".
+String _progressLine(AralLearnerProgress p) {
+  final latest = p.latestRound == null ? '-' : '${p.latestRoundLabel} ${p.latestProfile ?? '-'}';
+  final pct = p.instrument == AralLearnerProgress.philIri;
+  String? pair(String what, double? a, double? b, {bool percent = false}) {
+    if (a == null && b == null) return null;
+    String f(double? v) => v == null ? '-' : '${v.round()}${percent ? '%' : ''}';
+    return '$what ${f(a)} -> ${f(b)}';
+  }
+
+  final numbers = [
+    pair(pct ? 'word recognition' : 'correct words', p.startNumbers?.correctWordsPct, p.latestNumbers?.correctWordsPct,
+        percent: true),
+    pair('wpm', p.startNumbers?.wpm, p.latestNumbers?.wpm),
+    pair('comprehension', p.startNumbers?.comprehension, p.latestNumbers?.comprehension, percent: pct),
+  ].whereType<String>();
+  return [
+    p.learnerName,
+    'Grade ${p.grade} ${p.instrument}',
+    '${p.startRoundLabel} ${p.startProfile ?? '-'} -> $latest',
+    p.change.label,
+    if (p.exited) 'left ARAL ${p.enrollment.exitedOn}',
+    if (numbers.isNotEmpty) numbers.join(', '),
+  ].join(' | ');
 }
