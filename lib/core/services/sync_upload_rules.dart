@@ -20,6 +20,7 @@ const serverBoolColumns = <String, Set<String>>{
     'obs_points_to_words', 'obs_little_analysis',
   },
   'phil_iri_miscues': {'self_corrected'},
+  'crla_part1_marks': {'correct', 'self_corrected'}, // v51
   'phil_iri_answers': {'is_correct', 'looked_back'},
   'aral_checkin_answers': {'is_correct'},
 };

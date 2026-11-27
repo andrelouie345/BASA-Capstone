@@ -4,6 +4,7 @@ import 'package:sqflite_common/sqflite.dart';
 import 'package:path/path.dart' as p;
 
 import 'phil_iri_local_schema.dart';
+import 'crla_local_schema.dart';
 import 'aral_local_schema.dart';
 import 'srp_local_schema.dart';
 import 'calendar_local_schema.dart';
@@ -109,7 +110,10 @@ class LocalDatabase {
         // v50: no table change; the bump recreates the timer trigger (final
         // review: restart after a clock jump, taps only in an in-progress
         // session; cloud 20261126030000).
-        version: 50,
+        // v51: digitized CRLA (cloud 20261127010000): crla_stories.body,
+        // crla_part1_items, crla_story_questions, the four evidence tables and
+        // crla_part2_fluency.last_word_reached (createCrlaDigitizedLocalSchema).
+        version: 51,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE testTable (
@@ -126,6 +130,7 @@ class LocalDatabase {
           await _createCrlaScoreTables(db);
           await _createCrlaViews(db);
           await _createSyncTables(db);
+          await createCrlaDigitizedLocalSchema(db);
           await createPhilIriLocalSchema(db);
           await createAralLocalSchema(db);
           await createSrpLocalSchema(db);
@@ -240,6 +245,8 @@ class LocalDatabase {
           if (oldVersion >= 26 && oldVersion < 42) await rebuildPhilIriReadingsForV42(db);
           // v40. Same place: createPhilIriLocalSchema recreates its triggers.
           if (oldVersion < 40) await rebuildPhilIriMiscuesForV40(db);
+          // v51. IF NOT EXISTS, column adds skipped when present, triggers recreated.
+          await createCrlaDigitizedLocalSchema(db);
           // v13. IF NOT EXISTS + trigger recreate, so it runs on every upgrade.
           await createPhilIriLocalSchema(db);
           if (oldVersion < 39) await stripSavedNonReaderMaxForV39(db);

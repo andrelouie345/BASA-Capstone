@@ -112,7 +112,9 @@ class CrlaAssessmentRepositorySqlite implements CrlaAssessmentRepository {
   Future<void> deleteNew(int assessmentId) async {
     if (assessmentId >= 0) throw ArgumentError('Only a device-only attempt (negative id) can be deleted');
     await db.transaction((txn) async {
-      for (final part in ['crla_part1_standard', 'crla_part1_english', 'crla_part2_fluency']) {
+      // v51: the attempt's digitized evidence goes with it.
+      for (final part in ['crla_part1_standard', 'crla_part1_english', 'crla_part2_fluency', 'crla_part1_marks',
+        'crla_part2_word_marks', 'crla_part2_answers', 'crla_timer_events']) {
         await txn.delete(part, where: 'assessment_id = ?', whereArgs: [assessmentId]);
       }
       final n = await txn.delete('crla_assessments', where: 'id = ?', whereArgs: [assessmentId]);
