@@ -128,16 +128,18 @@ const aralCrlaProfileOrder = [
 /// given. Null = no profile in that language and round. Shared by the ARAL
 /// implementation report and the dashboard CRLA trend.
 String? aralCrlaLearnerProfile(Iterable<CrlaResult> results, CrlaRound round, String asOf,
+        {required int grade, String? variant}) =>
+    aralCrlaLearnerResult(results, round, asOf, grade: grade, variant: variant)?.readingProfile;
+
+/// The attempt behind [aralCrlaLearnerProfile] (its numbers too; ARAL class
+/// progress), or null.
+CrlaResult? aralCrlaLearnerResult(Iterable<CrlaResult> results, CrlaRound round, String asOf,
     {required int grade, String? variant}) {
   final scored = results
       .where((r) => r.round == round && r.readingProfile != null && r.assessedAt.substring(0, 10).compareTo(asOf) <= 0)
       .toList();
   final v = variant ?? aralCrlaBasisVariant(grade, scored.map((r) => r.subjectVariant).toSet());
-  CrlaResult? latest;
-  for (final r in scored.where((r) => r.subjectVariant == v)) {
-    if (latest == null || r.attemptNo > latest.attemptNo) latest = r;
-  }
-  return latest?.readingProfile;
+  return crlaLatestAttempt(scored.where((r) => r.subjectVariant == v));
 }
 
 /// Whether [e] is on the ARAL roster on [day] (YYYY-MM-DD): entered by then

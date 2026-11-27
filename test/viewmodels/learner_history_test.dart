@@ -317,6 +317,27 @@ void main() {
     expect(row.after16!.checkin.id, 9907);
   });
 
+  // Spec 2026-11-27 ARAL class tutor D3: attempt numbers restart per section.
+  test('CRLA: a learner moved mid-year shows the new section\'s attempt, not the old one\'s higher number', () async {
+    await signInAs(_coord, 'coord@lh', 'coordinator', _school);
+    final db = ctx.localDb;
+    await db.insert('sections', {'id': 9911, 'school_id': _school, 'school_year': '2025-2026', 'grade_level': '3',
+        'section_name': 'G3-Moved'});
+    for (final (id, section, attempt, day, profile) in [
+      // The old section's attempt 3 (numbers count across rounds there: BOSY used 1 and 2)
+      (9911, 9901, 3, '2025-11-03', 'Low Emerging Reader'),
+      (9913, 9911, 1, '2025-11-20', 'Developing Reader'), // the new section, later
+    ]) {
+      await db.insert('crla_assessments', {
+        'id': id, 'student_id': 9901, 'school_id': _school, 'section_id': section, 'school_year': '2025-2026',
+        'subject_variant': 'fil', 'language': 'Tagalog', 'round': 'mosy', 'attempt_no': attempt,
+        'assessed_at': day, 'origin': 'cloud', 'row_version': 1, 'reading_profile': profile,
+      });
+    }
+    final g3 = (await vm.history(9901)).years[1];
+    expect(g3.crla[CrlaRound.mosy]!['Filipino'], 'Developing Reader');
+  });
+
   test('an archived year shows the status and date; a move shows its sections', () async {
     await signInAs(_coord, 'coord@lh', 'coordinator', _school);
     final h = await vm.history(9907);
