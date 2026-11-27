@@ -161,7 +161,11 @@ headers, content and settings: the same rows for every user, checked once per
 query instead of once per row, so a pull after a school year of ARAL no longer
 times out; app update required: no) and `20261126030000` (the reading timer can
 be restarted after the device clock jumped back, and taps need an in-progress
-session; app update required: no).
+session; app update required: no) and `20261127010000` (digitized CRLA: the
+forms' Part 1 items, story texts and questions, and an attempt marked in BASA
+item by item and word by word with its timer, an upload whose totals don't
+match its marks is refused; app update required: **yes**; then load
+`supabase/seeds/crla_content_region10.sql`).
 Each is idempotent.
 Do **not** run
 `supabase/migrations_archive/`.
