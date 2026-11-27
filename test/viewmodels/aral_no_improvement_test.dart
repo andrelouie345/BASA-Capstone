@@ -131,9 +131,15 @@ void main() {
     for (final item in [1, 2]) {
       await db.insert('aral_checkin_items', {'id': item, 'tool_id': 1, 'item_no': item, 'kind': 'open', 'prompt': 'Read.'});
     }
-    for (final (cid, enrollment, answers) in [(1, 9, [1, 2]), (2, 10, [1])]) {
-      await db.insert('aral_checkins', {'id': cid, 'enrollment_id': enrollment, 'tool_id': 1, 'attempt_no': 1,
-          'taken_on': '2026-10-01', 'origin': 'cloud', 'row_version': 1});
+    // 9 also has a newer retake, started and not finished: it must not hide
+    // the failed complete one (final review I1).
+    for (final (cid, enrollment, answers, attempt, on) in [
+      (1, 9, [1, 2], 1, '2026-10-01'),
+      (2, 10, [1], 1, '2026-10-01'),
+      (3, 9, [1], 2, '2026-10-15'),
+    ]) {
+      await db.insert('aral_checkins', {'id': cid, 'enrollment_id': enrollment, 'tool_id': 1, 'attempt_no': attempt,
+          'taken_on': on, 'origin': 'cloud', 'row_version': 1});
       for (final item in answers) {
         await db.insert('aral_checkin_answers',
             {'id': cid * 10 + item, 'checkin_id': cid, 'item_id': item, 'is_correct': 0, 'row_version': 1});
@@ -169,7 +175,7 @@ void main() {
     expect(rows.where((p) => p.enrollment.studentId == 8).length, 1);
   });
 
-  test('failed complete check-in flags; incomplete is ignored', () async {
+  test('failed complete check-in flags, also behind a newer unfinished retake; incomplete is ignored', () async {
     final f = await flagged();
     expect(f[9]!.reasons.map((r) => (r.kind, r.message)),
         [(AralNoImprovementKind.checkin, 'Check-in after session 16: 0%, pass mark 75%')]);

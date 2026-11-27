@@ -572,7 +572,9 @@ class AralClassViewModel {
     final c = await _readable(classId);
     final day = asOf ?? calendarDate(DateTime.now());
     final after = (await aralLocalRuleSettings(_localSettings, c.schoolId)).checkinAfterSessions;
-    final heldOn = <int, String?>{};
+    // The class's own sessions in one read; a session of an earlier class (a
+    // moved learner) is looked up once when met (final review I2: speed).
+    final heldOn = <int, String?>{for (final s in await _sessions.getByClass(classId)) s.id!: s.heldOn};
     final out = <AralNoImprovement>[];
     for (final p in await classProgress(classId, asOf: day)) {
       if (!aralActiveOn(p.enrollment, day)) continue;
@@ -588,7 +590,10 @@ class AralClassViewModel {
         }
       }
       final checkins = await _checkins.learnerCheckins(p.enrollment.id!);
-      final latest = aralLatestCheckin(checkins.results.where((r) => r.checkin.takenOn.compareTo(day) <= 0));
+      // The latest of the complete ones: an unfinished retake doesn't hide a
+      // failed check-in (final review I1).
+      final latest = aralLatestCheckin(
+          checkins.results.where((r) => r.complete && r.checkin.takenOn.compareTo(day) <= 0));
       final reasons = aralNoImprovementReasons(p,
           attendedBeforeLatest: attended,
           minAttended: after.first,
