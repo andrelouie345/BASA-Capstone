@@ -268,6 +268,17 @@ expect ZZTESTA, Learner001 | Grade 7 Phil-IRI | BOSY Independent -> - | Not asse
 run aral-class-progress {class_1} asof=2026-02-30
 refuse asof must be a real YYYY-MM-DD date (got "2026-02-30")
 
+# --- ARAL no-improvement alerts (spec 2026-11-27 ARAL effectiveness D2) ------
+# Learner001 has no reading after BOSY, so the round signal can't flag them;
+# the count depends on the other two learners' check-ins, so only the header
+# is pinned.
+run aral-no-improvement {class_1}
+expect~ ZZ 7-Rose: \d+ learners? with no improvement
+run aral-no-improvement {class_1} asof=2026-02-30
+refuse asof must be a real YYYY-MM-DD date (got "2026-02-30")
+run aral-no-improvement
+refuse Usage: aral-no-improvement <classId> [asof=YYYY-MM-DD]
+
 # --- Signed out, on a device holding learners --------------------------------
 # Every Phil-IRI and CRLA command a tutor has must refuse (F5).
 run sign-out

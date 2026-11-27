@@ -253,6 +253,18 @@ run trend-aral-exits section:{sec_g7} {year}
 expect~ Exited \(grade level\) +2
 run trend-aral-exits region {year}
 refuse Not allowed: only the superadmin sees the region.
+# ARAL progress since the start (spec 2026-11-27 ARAL effectiveness D5): the
+# title always; the rows depend on the classes left on the server.
+run trend-aral-progress school:{school} {year} phil-iri
+expect ARAL progress since the start (Phil-IRI) — ZZTEST PASS r{run} — {year}
+run trend-aral-progress school:{school} {year} crla
+expect ARAL progress since the start (CRLA) — ZZTEST PASS r{run} — {year}
+run trend-aral-progress school:{school} {year} gst
+refuse Usage: trend-aral-progress <section:ID|school:ID|region> <year> crla|phil-iri [asof=YYYY-MM-DD]
+run trend-aral-progress tutor:me {year} phil-iri
+refuse Not allowed: tutor scope is only for ARAL activity.
+run trend-aral-progress region {year} crla
+refuse Not allowed: only the superadmin sees the region.
 # No session is left on the server (T5's stayed on the phone, T6/A4 deleted theirs).
 run trend-aral-activity school:{school} {year}
 expect ARAL sessions per month — ZZTEST PASS r{run} — {year}

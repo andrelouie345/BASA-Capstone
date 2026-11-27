@@ -29,6 +29,11 @@ Calls:
   with a tutor is on the class tutor's class line only; BOSY stays on the section line. Group the class lines under
   the class name. Known limit: while an ARAL class has no tutor, its learners get no MOSY/EOSY line on tutors' phones
   (the phone can't see a class that isn't the tutor's); the coordinator's "class has no tutor" notice covers it.
+- No improvement (2026-11-28): a tutor gets one `TutorReminderKind.noImprovement` line per own ARAL class with flagged
+  learners (`Class "<name>": 2 learners show no improvement.`, right after the check-ins due); each
+  `ReminderLearner.reasons` holds the reasons to show under the name (other reminders' learners have none). The
+  coordinator gets one `AralClassNoticeKind.noImprovement` notice per class, also for a class without a tutor. Tapping
+  it opens the class's no-improvement list (`aral.md`).
 - `coordinatorReminders(schoolId, year, ...)` → `List<SchoolReminders>`; `crlaCompletion(...)` → `List<SectionCompletion>`
 - reminder text functions (`tutorRemindersText` etc.) are in the command helpers; a screen builds its own list from the models.
 Console: `reminders-tutor`, `reminders-coordinator`
@@ -36,6 +41,11 @@ Console: `reminders-tutor`, `reminders-coordinator`
 ### Trends
 Build: tutor activity both; the others admin    Roles: tutor (own activity) / admin / coordinator
 Calls:
-- `TrendViewModel.bandDistribution(scope, year, ...)`, `completion(...)`, `crlaProfiles(...)`, `aralExits(...)` → `TrendChart`; `aralActivity(...)` → `({TrendChart sessions, TrendChart attendance})`
+- `TrendViewModel.bandDistribution(scope, year, ...)`, `completion(...)`, `crlaProfiles(...)`, `aralExits(...)`, `aralProgress(scope, year, instrument:, asOf:)` → `TrendChart`; `aralActivity(...)` → `({TrendChart sessions, TrendChart attendance})`
 - `TrendScope`, `TrendChart` (model `core/models/trend_chart.dart`); sexes `NlaSex`
-Console: `trend-bands`, `trend-completion`, `trend-crla-profiles`, `trend-aral-exits`, `trend-aral-activity`
+- ARAL progress (2026-11-28): per round after BOSY, the % of ARAL class learners Up / Same / Down since their ARAL
+  start (series `Up`, `Same`, `Down`, one decimal; x label `MOSY #1 (n = 5)`: show n, the shares are small numbers).
+  `instrument` is `AralLearnerProgress.crla` or `.philIri` (one chart each; a mixed class splits). Scopes school,
+  section (learners of that section), region (superadmin); tutor scope refused. A round nobody has is left out; no rows
+  = "No ARAL class learner has a result after their start yet."
+Console: `trend-bands`, `trend-completion`, `trend-crla-profiles`, `trend-aral-exits`, `trend-aral-activity`, `trend-aral-progress`
