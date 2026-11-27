@@ -76,6 +76,29 @@ void registerAralClassCommands(ConsoleRegistry registry, AralClassViewModel vm, 
       for (final p in rows) _progressLine(p),
     ].join('\n');
   });
+
+  add('aral-no-improvement',
+      'aral-no-improvement <classId> [asof=YYYY-MM-DD] — the class\'s learners with no improvement '
+          '(same or down since their ARAL start after enough sessions, or a failed check-in), with the reasons',
+      (args) async {
+    const usage = 'Usage: aral-no-improvement <classId> [asof=YYYY-MM-DD]';
+    if (args.isEmpty || args.length > 2 || (args.length == 2 && !args[1].startsWith('asof='))) {
+      throw const AralUsage(usage);
+    }
+    String? asOf;
+    if (args.length == 2) {
+      final raw = args[1].substring(5);
+      if (strictDateArg(raw) == null) throw AralUsage(asofDateMessage(raw));
+      asOf = raw.trim();
+    }
+    final id = aralInt(args[0], 'classId');
+    final c = await vm.getClass(id);
+    final rows = await vm.noImprovement(id, asOf: asOf);
+    return [
+      '${c.className}: ${rows.length} learner${rows.length == 1 ? '' : 's'} with no improvement',
+      for (final f in rows) f.toString(),
+    ].join('\n');
+  });
 }
 
 /// "CRUZ, Ana | Grade 2 CRLA | BOSY Low Emerging Reader -> MOSY Developing Reader | Up | wpm 40 -> 62".

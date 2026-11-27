@@ -59,6 +59,7 @@ aral-material-school-link
 aral-material-set
 aral-materials
 aral-move
+aral-no-improvement
 aral-notes
 aral-placement
 aral-propose
@@ -287,6 +288,7 @@ theme-show
 transfer-conflicts
 trend-aral-activity
 trend-aral-exits
+trend-aral-progress
 trend-bands
 trend-completion
 trend-crla-profiles

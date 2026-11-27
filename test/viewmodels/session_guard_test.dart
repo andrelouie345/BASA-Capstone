@@ -114,6 +114,7 @@ void main() {
       'class.classes': () => cls.classes(schoolId: 1),
       'class.getClass': () => cls.getClass(1),
       'class.classProgress': () => cls.classProgress(1),
+      'class.noImprovement': () => cls.noImprovement(1),
       'class.createClass': () => cls.createClass(
           schoolId: 1, schoolYear: y, className: 'x', gradeLevel: 1, program: AralClassProgram.ks1),
       'class.editClass': () => cls.editClass(const AralClass(

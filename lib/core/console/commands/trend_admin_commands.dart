@@ -5,6 +5,7 @@ import '../console_command.dart';
 import '../console_registry.dart';
 import '../../../viewmodels/nla_report_viewmodel.dart' show NlaSex;
 import '../../../viewmodels/trend_viewmodel.dart';
+import '../../models/aral_progress.dart' show AralLearnerProgress;
 import '../../models/trend_chart.dart';
 import 'trend_command_helpers.dart';
 
@@ -77,6 +78,24 @@ void registerTrendAdminCommands(ConsoleRegistry registry, TrendViewModel vm) {
     final c = await vm.aralExits(scope, args[1], sex: o.sex ?? NlaSex.total, asOf: o.asOf);
     if (c.xLabels.isEmpty) return '${c.title}\n  No Phil-IRI results yet.';
     return trendTable(c, (v) => '$v');
+  });
+
+  add('trend-aral-progress',
+      'trend-aral-progress $_scopeHelp <year> crla|phil-iri [asof=YYYY-MM-DD] — % of ARAL class learners up / same / '
+          'down since their ARAL start, per round',
+      (args) async {
+    const usage = 'Usage: trend-aral-progress $_scopeHelp <year> crla|phil-iri [asof=YYYY-MM-DD]';
+    if (args.length < 3) throw const TrendUsage(usage);
+    final scope = trendScope(args[0], usage);
+    final instrument = switch (args[2].trim().toLowerCase()) {
+      'crla' => AralLearnerProgress.crla,
+      'phil-iri' => AralLearnerProgress.philIri,
+      _ => throw const TrendUsage(usage),
+    };
+    final o = trendParse(args.sublist(3), allowSex: false, usage: usage);
+    final c = await vm.aralProgress(scope, args[1], instrument: instrument, asOf: o.asOf);
+    if (c.xLabels.isEmpty) return '${c.title}\n  No ARAL class learner has a result after their start yet.';
+    return trendTable(c, (v) => '$v%');
   });
 }
 

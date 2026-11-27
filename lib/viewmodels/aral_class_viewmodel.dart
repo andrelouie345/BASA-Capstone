@@ -30,6 +30,7 @@ import '../core/console/logger.dart';
 import '../core/models/aral_class.dart';
 import '../core/models/aral_enrollment.dart';
 import '../core/models/aral_progress.dart';
+import '../core/models/aral_session.dart' show AralMark;
 import '../core/models/crla_assessment.dart' show CrlaRound;
 import '../core/models/crla_result.dart';
 import '../core/models/phil_iri_assessment.dart' show PhilIriRound;
@@ -39,7 +40,10 @@ import '../core/repositories/crla_result_repository.dart';
 import '../core/services/calendar_rules.dart' show calendarDate;
 import '../core/services/phil_iri_results.dart' show PhilIriRoundView, PhilIriRoundStatus;
 import '../core/services/phil_iri_rules.dart' show PhilIriLevel;
+import 'aral_checkin_viewmodel.dart';
 import 'phil_iri_viewmodel.dart';
+import '../core/services/aral_checkin_rules.dart' show aralCheckinCheckpoints;
+import '../core/services/aral_effectiveness_rules.dart';
 import '../core/models/user_role.dart';
 import '../core/repositories/aral_class_repository.dart';
 import '../core/repositories/aral_enrollment_repository.dart';
@@ -147,8 +151,10 @@ class AralClassViewModel {
     required AralSettingRepository localSettings,
     required CrlaResultRepository crlaResults,
     required PhilIriViewModel philIri,
+    required AralCheckinViewModel checkins,
     Logger? logger,
   })  : _auth = auth,
+        _checkins = checkins,
         _crlaResults = crlaResults,
         _philIri = philIri,
         _localSettings = localSettings,
@@ -419,10 +425,13 @@ class AralClassViewModel {
   /// by name: their ARAL starting round and profile, their latest round after
   /// it with a result of their own, and the change (profile step; the numbers
   /// beside it). Values follow the school's values_aral switch; the rows carry
-  /// no carried/actual wording. [asOf] YYYY-MM-DD, default today.
-  Future<List<AralLearnerProgress>> classProgress(int classId, {String? asOf}) async {
+  /// no carried/actual wording. [asOf] YYYY-MM-DD, default today. [atRound]
+  /// (a CRLA or Phil-IRI round name; the progress trend, spec 2026-11-27 ARAL
+  /// effectiveness D6): the change from the start to that round only; a round
+  /// of the other instrument, or not after the start, is "not assessed yet".
+  Future<List<AralLearnerProgress>> classProgress(int classId, {String? asOf, String? atRound}) async {
     _requireSignIn();
-    _log('classProgress($classId)');
+    _log('classProgress($classId${atRound == null ? '' : ', atRound: $atRound'})');
     final c = await _readable(classId);
     final day = asOf ?? calendarDate(DateTime.now());
     final values = await _philIri.valueSource(c.schoolId, PhilIriValueList.aral);
@@ -436,7 +445,9 @@ class AralClassViewModel {
         for (final s in await _students.getBySection(e.sectionId)) s.id!: s,
       })[e.studentId];
       final name = st == null ? 'Learner ${e.studentId}' : '${st.lastName.toUpperCase()}, ${st.firstName}';
-      out.add(grade <= 3 ? await _crlaProgress(e, grade, name, day) : await _philIriProgress(e, grade, name, day, values));
+      out.add(grade <= 3
+          ? await _crlaProgress(e, grade, name, day, atRound)
+          : await _philIriProgress(e, grade, name, day, values, atRound));
     }
     out.sort((a, b) => a.learnerName.compareTo(b.learnerName));
     return out;
@@ -452,7 +463,7 @@ class AralClassViewModel {
                   ? AralProgressChange.down
                   : AralProgressChange.same;
 
-  Future<AralLearnerProgress> _crlaProgress(AralEnrollment e, int grade, String name, String day) async {
+  Future<AralLearnerProgress> _crlaProgress(AralEnrollment e, int grade, String name, String day, String? atRound) async {
     final results = (await _crlaResults.getByStudent(e.studentId)).where((r) => r.schoolYear == e.schoolYear).toList();
     final start = CrlaRound.values.where((r) => r.name == e.basisRound).firstOrNull ??
         (grade == 1 ? CrlaRound.mosy : CrlaRound.bosy);
@@ -471,7 +482,7 @@ class AralClassViewModel {
     final s = at(start);
     CrlaRound? latestRound;
     CrlaResult? latest;
-    for (final r in CrlaRound.values.where((r) => r.index > start.index)) {
+    for (final r in CrlaRound.values.where((r) => r.index > start.index && (atRound == null || r.name == atRound))) {
       final x = at(r);
       if (x != null) (latestRound, latest) = (r, x);
     }
@@ -486,6 +497,7 @@ class AralClassViewModel {
       latestRound: latestRound?.name,
       latestProfile: latest?.readingProfile,
       latestNumbers: numbers(latest),
+      latestAssessedOn: latest?.assessedAt.substring(0, 10),
       change: _change(rank(s), rank(latest)),
     );
   }
@@ -501,7 +513,7 @@ class AralClassViewModel {
       };
 
   Future<AralLearnerProgress> _philIriProgress(
-      AralEnrollment e, int grade, String name, String day, PhilIriValues values) async {
+      AralEnrollment e, int grade, String name, String day, PhilIriValues values, String? atRound) async {
     final res = await _philIri.reportResults(
         studentId: e.studentId, sectionId: e.sectionId, schoolYear: e.schoolYear, asOf: day);
     final start = PhilIriRound.values.where((r) => r.name == e.basisRound).firstOrNull ??
@@ -516,7 +528,7 @@ class AralClassViewModel {
     final s = startHas ? res.view(start, values) : null;
     // The latest: an assessed round after the start, whatever the values.
     PhilIriRound? latestRound;
-    for (final r in PhilIriRound.values.where((r) => r.index > start.index)) {
+    for (final r in PhilIriRound.values.where((r) => r.index > start.index && (atRound == null || r.name == atRound))) {
       if (assessed(r)) latestRound = r;
     }
     final latest = latestRound == null ? null : res.view(latestRound, values);
@@ -538,8 +550,58 @@ class AralClassViewModel {
       latestRound: latestRound?.name,
       latestProfile: latest?.profile?.label,
       latestNumbers: numbers(latest),
+      latestAssessedOn: latestRound == null ? null : res.sessions[latestRound]!.assessedAt.substring(0, 10),
       change: _change(_philIriRank(s?.profile), _philIriRank(latest?.profile)),
     );
+  }
+
+  // ---- No improvement (spec 2026-11-27 ARAL effectiveness D2-D4) ----
+
+  final AralCheckinViewModel _checkins;
+
+  /// The class's learners active on [asOf] (YYYY-MM-DD, default today) who
+  /// are not improving, by name, each with their reasons
+  /// (`aralNoImprovementReasons`): same or down since their ARAL start after
+  /// the school's first check-in number of sessions attended (present, in any
+  /// class, on or before the latest round), or their latest complete check-in
+  /// by then below the pass mark. Nothing is stored: a newer round going up,
+  /// a passed check-in or an exit clears it.
+  Future<List<AralNoImprovement>> noImprovement(int classId, {String? asOf}) async {
+    _requireSignIn();
+    _log('noImprovement($classId)');
+    final c = await _readable(classId);
+    final day = asOf ?? calendarDate(DateTime.now());
+    final after = (await aralLocalRuleSettings(_localSettings, c.schoolId)).checkinAfterSessions;
+    final heldOn = <int, String?>{};
+    final out = <AralNoImprovement>[];
+    for (final p in await classProgress(classId, asOf: day)) {
+      if (!aralActiveOn(p.enrollment, day)) continue;
+      var attended = 0;
+      final latestOn = p.latestAssessedOn;
+      if (latestOn != null) {
+        for (final a in await _sessions.getAttendanceForEnrollment(p.enrollment.id!)) {
+          if (a.mark != AralMark.present) continue;
+          final held = heldOn.containsKey(a.sessionId)
+              ? heldOn[a.sessionId]
+              : (heldOn[a.sessionId] = (await _sessions.findSession(a.sessionId))?.heldOn);
+          if (held != null && held.compareTo(latestOn) <= 0) attended++;
+        }
+      }
+      final checkins = await _checkins.learnerCheckins(p.enrollment.id!);
+      final latest = aralLatestCheckin(checkins.results.where((r) => r.checkin.takenOn.compareTo(day) <= 0));
+      final reasons = aralNoImprovementReasons(p,
+          attendedBeforeLatest: attended,
+          minAttended: after.first,
+          latestCheckin: latest == null
+              ? null
+              : AralCheckinOutcome(
+                  afterSession: after[aralCheckinCheckpoints.indexOf(latest.tool.checkpoint)],
+                  score: latest.score,
+                  passPct: latest.passPct,
+                  complete: latest.complete));
+      if (reasons.isNotEmpty) out.add(AralNoImprovement(p, reasons));
+    }
+    return out;
   }
 
   Future<AralClass> _readable(int classId) async {

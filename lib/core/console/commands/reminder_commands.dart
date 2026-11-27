@@ -34,7 +34,8 @@ String coordinatorRemindersText(List<SchoolReminders> schools) {
     for (final n in s.aral) {
       out.write('\n  [ARAL] ${n.message}');
       for (final l in n.learners) {
-        out.write('\n      ${l.lrn.isEmpty ? '(no LRN)' : l.lrn}  ${l.name}  (ARAL #${l.enrollmentId})');
+        out.write('\n      ${l.lrn.isEmpty ? '(no LRN)' : l.lrn}  ${l.name}  (ARAL #${l.enrollmentId})'
+            '${l.reasons.isEmpty ? '' : ': ${l.reasons.join('; ')}'}');
       }
     }
   }
@@ -51,6 +52,7 @@ String tutorRemindersText(TutorReminders t) {
     final tag = switch (r.kind) {
       TutorReminderKind.overdueAssessment => 'OVERDUE',
       TutorReminderKind.checkinDue => 'CHECK-IN',
+      TutorReminderKind.noImprovement => 'NO IMPROVEMENT',
       TutorReminderKind.openAssessment => 'IN PROGRESS',
       TutorReminderKind.noIrip => 'NO IRIP',
       TutorReminderKind.noSessionLately => 'NO SESSION',
@@ -60,7 +62,8 @@ String tutorRemindersText(TutorReminders t) {
     out.write('\n  [$tag] ${r.message}');
     for (final l in r.learners) {
       out.write('\n      ${l.lrn.isEmpty ? '(no LRN)' : l.lrn}  ${l.name}'
-          '${l.enrollmentId == null ? '' : '  (ARAL #${l.enrollmentId})'}');
+          '${l.enrollmentId == null ? '' : '  (ARAL #${l.enrollmentId})'}'
+          '${l.reasons.isEmpty ? '' : ': ${l.reasons.join('; ')}'}');
     }
   }
   return out.toString();

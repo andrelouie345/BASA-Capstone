@@ -252,9 +252,22 @@ TutorVms wireTutor(AppContext ctx, SharedVms s) {
   );
   vms.register('AralViewModel', aralVm);
 
+  final aralCheckinVm = AralCheckinViewModel(
+    auth: authVm,
+    checkins: AralCheckinRepositorySqlite(db),
+    roster: AralEnrollmentRepositorySqlite(db),
+    localSettings: AralSettingRepositorySqlite(db),
+    cloudSettings: (client) => AralSettingRepositorySupabase(client),
+    sections: SectionRepositorySqlite(db),
+    students: StudentRepositorySqlite(db),
+    logger: session,
+  );
+  vms.register('AralCheckinViewModel', aralCheckinVm);
+
   final aralClassVm = AralClassViewModel(
     crlaResults: CrlaResultRepositorySqlite(db),
     philIri: philIriVm,
+    checkins: aralCheckinVm,
     auth: authVm,
     classes: AralClassRepositorySqlite(db),
     roster: AralEnrollmentRepositorySqlite(db),
@@ -289,17 +302,6 @@ TutorVms wireTutor(AppContext ctx, SharedVms s) {
   vms.register('AralIripViewModel', aralIripVm);
 
   // Check-ins are local; the cut-off is set online and mirrored locally.
-  final aralCheckinVm = AralCheckinViewModel(
-    auth: authVm,
-    checkins: AralCheckinRepositorySqlite(db),
-    roster: AralEnrollmentRepositorySqlite(db),
-    localSettings: AralSettingRepositorySqlite(db),
-    cloudSettings: (client) => AralSettingRepositorySupabase(client),
-    sections: SectionRepositorySqlite(db),
-    students: StudentRepositorySqlite(db),
-    logger: session,
-  );
-  vms.register('AralCheckinViewModel', aralCheckinVm);
 
   final aralMaterialVm = AralMaterialViewModel(
     auth: authVm,
@@ -366,6 +368,7 @@ TutorVms wireTutor(AppContext ctx, SharedVms s) {
     checkins: AralCheckinRepositorySqlite(db),
     aralSettings: AralSettingRepositorySqlite(db),
     classes: AralClassRepositorySqlite(db),
+    aralClasses: aralClassVm,
     logger: session,
   );
   vms.register('ReminderViewModel', reminderVm);
@@ -380,6 +383,7 @@ TutorVms wireTutor(AppContext ctx, SharedVms s) {
     nla: nlaReportVm,
     aral: aralSessionVm,
     aralSessions: AralSessionRepositorySqlite(db),
+    aralClasses: aralClassVm,
     logger: session,
   );
   vms.register('TrendViewModel', trendVm);

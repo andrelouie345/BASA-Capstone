@@ -55,6 +55,7 @@ import '../core/services/phil_iri_rules.dart' show philIriGradeOf;
 import '../core/services/calendar_rules.dart';
 import '../core/services/normalizers.dart';
 import 'auth_viewmodel.dart';
+import 'aral_class_viewmodel.dart';
 import 'nla_report_viewmodel.dart';
 import 'phil_iri_viewmodel.dart' show PhilIriReportResults;
 import 'report_settings_viewmodel.dart';
@@ -135,7 +136,9 @@ class SchoolReminders {
 /// (ARAL memo settings; 0 = no minimum). fewSessionsThisWeek: from
 /// Wednesday, a class with active learners that held fewer sessions this
 /// Monday-Friday week than the school's class_min_sessions_per_week.
-enum AralClassNoticeKind { waiting, programMismatch, otherGrade, noTutor, overMax, underMin, fewSessionsThisWeek }
+/// noImprovement: a class with learners not improving (spec 2026-11-27 ARAL
+/// effectiveness D1; `AralClassViewModel.noImprovement`), with or without a tutor.
+enum AralClassNoticeKind { waiting, programMismatch, otherGrade, noTutor, overMax, underMin, fewSessionsThisWeek, noImprovement }
 
 /// An ARAL class matter for the coordinator.
 class AralClassNotice {
@@ -155,10 +158,20 @@ class AralClassNotice {
   List<int> get enrollmentIds => [for (final l in learners) l.enrollmentId!];
 }
 
-/// In display order (spec D3): overdue assessments, check-ins due, open-round
-/// assessments, learners without a GST (BOSY; spec 2026-11-09 D13), no IRIP,
-/// no session lately.
-enum TutorReminderKind { overdueAssessment, checkinDue, openAssessment, noGst, noIrip, noSessionLately, fewSessionsThisWeek }
+/// In display order (spec D3): overdue assessments, check-ins due, learners
+/// with no improvement (per own class; spec 2026-11-27 ARAL effectiveness D1),
+/// open-round assessments, learners without a GST (BOSY; spec 2026-11-09
+/// D13), no IRIP, no session lately.
+enum TutorReminderKind {
+  overdueAssessment,
+  checkinDue,
+  noImprovement,
+  openAssessment,
+  noGst,
+  noIrip,
+  noSessionLately,
+  fewSessionsThisWeek
+}
 
 class ReminderLearner {
   final int studentId;
@@ -166,7 +179,14 @@ class ReminderLearner {
   final String name; // "LAST, First"
   final int? enrollmentId; // the ARAL roster row (check-in / IRIP reminders)
 
-  const ReminderLearner(this.studentId, this.lrn, this.name, [this.enrollmentId]);
+  /// No-improvement lines only: why the learner is flagged, in plain words
+  /// (one or two); empty everywhere else.
+  final List<String> reasons;
+
+  const ReminderLearner(this.studentId, this.lrn, this.name, [this.enrollmentId]) : reasons = const [];
+
+  /// A learner of a no-improvement line or notice.
+  const ReminderLearner.flagged(this.studentId, this.lrn, this.name, int this.enrollmentId, this.reasons);
 }
 
 class TutorReminder {
@@ -228,6 +248,7 @@ class ReminderViewModel {
   final AralCheckinRepository _checkins;
   final AralSettingRepository _aralSettings;
   final AralClassRepository _classes;
+  final AralClassViewModel _aralClasses;
 
   ReminderViewModel({
     required AuthViewModel auth,
@@ -246,8 +267,10 @@ class ReminderViewModel {
     required AralCheckinRepository checkins,
     required AralSettingRepository aralSettings,
     required AralClassRepository classes,
+    required AralClassViewModel aralClasses,
     Logger? logger,
   })  : _auth = auth,
+        _aralClasses = aralClasses,
         _calendar = calendar,
         _reports = reports,
         _reportSettings = reportSettings,
@@ -450,8 +473,30 @@ class ReminderViewModel {
               'Class "${c.className}" has ${count(placed[c.id]!)}, fewer than ${rules.classMinLearners}: '
               'combine it with the nearest level of the same grade if there is one.',
               aralClass: c),
+      for (final c in byName)
+        if (placed.containsKey(c.id))
+          if (await _noImprovementLearners(c.id!, day, (e) async => (await named([e])).single) case final flagged
+              when flagged.isNotEmpty)
+            AralClassNotice(AralClassNoticeKind.noImprovement, _noImprovementLine(c, flagged.length),
+                learners: flagged, aralClass: c),
     ];
   }
+
+  /// The class's learners with no improvement on [day], by name, with their
+  /// reasons; [named] gives a roster row its learner (LRN and name).
+  Future<List<ReminderLearner>> _noImprovementLearners(
+      int classId, String day, Future<ReminderLearner> Function(AralEnrollment e) named) async {
+    final out = <ReminderLearner>[];
+    for (final f in await _aralClasses.noImprovement(classId, asOf: day)) {
+      final l = await named(f.progress.enrollment);
+      out.add(ReminderLearner.flagged(l.studentId, l.lrn, l.name, f.progress.enrollment.id!,
+          [for (final r in f.reasons) r.message]));
+    }
+    return out..sort(_byName);
+  }
+
+  static String _noImprovementLine(AralClass c, int n) =>
+      'Class "${c.className}": ${n == 1 ? '1 learner shows' : '$n learners show'} no improvement.';
 
   /// Reminders for tutor [tutorId] in [year] as of [today] (default now), from
   /// this device's copy. Callers: the tutor themself, an admin/coordinator of
@@ -722,6 +767,15 @@ class ReminderViewModel {
           aralClass: cls,
         ));
       }
+    }
+
+    // 2b. Learners with no improvement, per own class (spec 2026-11-27 ARAL
+    // effectiveness D1): the class's learners, whatever this device's roster.
+    for (final cls in classes) {
+      final flagged = await _noImprovementLearners(cls.id!, day, rosterLearner);
+      if (flagged.isEmpty) continue;
+      out.add(TutorReminder(TutorReminderKind.noImprovement, _noImprovementLine(cls, flagged.length), flagged,
+          aralClass: cls));
     }
 
     // 3. Active ARAL learners without an IRIP.
