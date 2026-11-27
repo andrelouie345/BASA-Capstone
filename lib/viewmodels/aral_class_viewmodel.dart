@@ -29,6 +29,17 @@
 import '../core/console/logger.dart';
 import '../core/models/aral_class.dart';
 import '../core/models/aral_enrollment.dart';
+import '../core/models/aral_progress.dart';
+import '../core/models/crla_assessment.dart' show CrlaRound;
+import '../core/models/crla_result.dart';
+import '../core/models/phil_iri_assessment.dart' show PhilIriRound;
+import '../core/models/report_setting.dart' show PhilIriValues, PhilIriValueList;
+import '../core/models/student.dart';
+import '../core/repositories/crla_result_repository.dart';
+import '../core/services/calendar_rules.dart' show calendarDate;
+import '../core/services/phil_iri_results.dart' show PhilIriRoundView, PhilIriRoundStatus;
+import '../core/services/phil_iri_rules.dart' show PhilIriLevel;
+import 'phil_iri_viewmodel.dart';
 import '../core/models/user_role.dart';
 import '../core/repositories/aral_class_repository.dart';
 import '../core/repositories/aral_enrollment_repository.dart';
@@ -134,8 +145,12 @@ class AralClassViewModel {
     required StudentRepository students,
     required UserRepository users,
     required AralSettingRepository localSettings,
+    required CrlaResultRepository crlaResults,
+    required PhilIriViewModel philIri,
     Logger? logger,
   })  : _auth = auth,
+        _crlaResults = crlaResults,
+        _philIri = philIri,
         _localSettings = localSettings,
         _classes = classes,
         _roster = roster,
@@ -393,6 +408,138 @@ class AralClassViewModel {
     final grade = int.tryParse(section?.gradeLevel ?? '') ?? 0;
     final s = (await _students.getBySection(e.sectionId)).where((s) => s.id == e.studentId).firstOrNull;
     return (grade, s == null ? 'Learner ${e.studentId}' : '${s.lastName}, ${s.firstName}');
+  }
+
+  // ---- Class progress (spec 2026-11-27 ARAL class tutor D2) ----
+
+  final CrlaResultRepository _crlaResults;
+  final PhilIriViewModel _philIri;
+
+  /// Each learner placed in the class this school year (active and exited),
+  /// by name: their ARAL starting round and profile, their latest round after
+  /// it with a result of their own, and the change (profile step; the numbers
+  /// beside it). Values follow the school's values_aral switch; the rows carry
+  /// no carried/actual wording. [asOf] YYYY-MM-DD, default today.
+  Future<List<AralLearnerProgress>> classProgress(int classId, {String? asOf}) async {
+    _requireSignIn();
+    _log('classProgress($classId)');
+    final c = await _readable(classId);
+    final day = asOf ?? calendarDate(DateTime.now());
+    final values = await _philIri.valueSource(c.schoolId, PhilIriValueList.aral);
+    final learnersOf = <int, Map<int, Student>>{};
+    final out = <AralLearnerProgress>[];
+    for (final e in await _roster.getByClass(classId)) {
+      if (e.schoolYear != c.schoolYear) continue;
+      final grade = int.tryParse((await _sections.getById(e.sectionId))?.gradeLevel ?? '');
+      if (grade == null) continue;
+      final st = (learnersOf[e.sectionId] ??= {
+        for (final s in await _students.getBySection(e.sectionId)) s.id!: s,
+      })[e.studentId];
+      final name = st == null ? 'Learner ${e.studentId}' : '${st.lastName.toUpperCase()}, ${st.firstName}';
+      out.add(grade <= 3 ? await _crlaProgress(e, grade, name, day) : await _philIriProgress(e, grade, name, day, values));
+    }
+    out.sort((a, b) => a.learnerName.compareTo(b.learnerName));
+    return out;
+  }
+
+  static AralProgressChange _change(int? start, int? latest) => start == null
+      ? AralProgressChange.noStartingResult
+      : latest == null
+          ? AralProgressChange.notAssessedYet
+          : latest > start
+              ? AralProgressChange.up
+              : latest < start
+                  ? AralProgressChange.down
+                  : AralProgressChange.same;
+
+  Future<AralLearnerProgress> _crlaProgress(AralEnrollment e, int grade, String name, String day) async {
+    final results = (await _crlaResults.getByStudent(e.studentId)).where((r) => r.schoolYear == e.schoolYear).toList();
+    final start = CrlaRound.values.where((r) => r.name == e.basisRound).firstOrNull ??
+        (grade == 1 ? CrlaRound.mosy : CrlaRound.bosy);
+    CrlaResult? at(CrlaRound r) => aralCrlaLearnerResult(results, r, day, grade: grade);
+    int? rank(CrlaResult? r) {
+      final i = r == null ? -1 : aralCrlaProfileOrder.indexOf(r.readingProfile!);
+      return i < 0 ? null : i;
+    }
+
+    AralProgressNumbers? numbers(CrlaResult? r) => r == null
+        ? null
+        : AralProgressNumbers(
+            correctWordsPct: r.pctCorrectWordsRead == null ? null : r.pctCorrectWordsRead! * 100,
+            wpm: r.wpm,
+            comprehension: r.comprehensionCorrect?.toDouble());
+    final s = at(start);
+    CrlaRound? latestRound;
+    CrlaResult? latest;
+    for (final r in CrlaRound.values.where((r) => r.index > start.index)) {
+      final x = at(r);
+      if (x != null) (latestRound, latest) = (r, x);
+    }
+    return AralLearnerProgress(
+      enrollment: e,
+      learnerName: name,
+      grade: grade,
+      instrument: AralLearnerProgress.crla,
+      startRound: start.name,
+      startProfile: s?.readingProfile,
+      startNumbers: numbers(s),
+      latestRound: latestRound?.name,
+      latestProfile: latest?.readingProfile,
+      latestNumbers: numbers(latest),
+      change: _change(rank(s), rank(latest)),
+    );
+  }
+
+  /// Phil-IRI profile steps: Struggling / Non-Reader 0, Frustration 1,
+  /// Instructional 2, Independent 3.
+  static int? _philIriRank(PhilIriLevel? p) => switch (p) {
+        PhilIriLevel.struggling || PhilIriLevel.nonReader => 0,
+        PhilIriLevel.frustration => 1,
+        PhilIriLevel.instructional => 2,
+        PhilIriLevel.independent => 3,
+        null => null,
+      };
+
+  Future<AralLearnerProgress> _philIriProgress(
+      AralEnrollment e, int grade, String name, String day, PhilIriValues values) async {
+    final res = await _philIri.reportResults(
+        studentId: e.studentId, sectionId: e.sectionId, schoolYear: e.schoolYear, asOf: day);
+    final start = PhilIriRound.values.where((r) => r.name == e.basisRound).firstOrNull ??
+        (e.basisRound == 'mosy' ? PhilIriRound.mosy1 : PhilIriRound.bosy);
+    // A round of the learner's own that is assessed (words read, time and
+    // comprehension), as reminders and progress count it: a reading saved
+    // with no answers or a comprehension-only import is not (final review I2).
+    bool assessed(PhilIriRound r) => res.sessions.containsKey(r) && res.status(r) == PhilIriRoundStatus.assessed;
+    // The start: under carried the round's counted result (a GST-only BOSY
+    // counts), under actual an assessed round only (never the stand-in).
+    final startHas = values == PhilIriValues.carried ? res.counted.contains(start) : assessed(start);
+    final s = startHas ? res.view(start, values) : null;
+    // The latest: an assessed round after the start, whatever the values.
+    PhilIriRound? latestRound;
+    for (final r in PhilIriRound.values.where((r) => r.index > start.index)) {
+      if (assessed(r)) latestRound = r;
+    }
+    final latest = latestRound == null ? null : res.view(latestRound, values);
+    AralProgressNumbers? numbers(PhilIriRoundView? v) => v == null
+        ? null
+        : AralProgressNumbers(
+            // Phil-IRI keeps scores as fractions; the progress row shows %.
+            correctWordsPct: v.wordReadingScore == null ? null : v.wordReadingScore! * 100,
+            wpm: v.wordsPerMinute,
+            comprehension: v.comprehensionScore == null ? null : v.comprehensionScore! * 100);
+    return AralLearnerProgress(
+      enrollment: e,
+      learnerName: name,
+      grade: grade,
+      instrument: AralLearnerProgress.philIri,
+      startRound: start.name,
+      startProfile: s?.profile?.label,
+      startNumbers: numbers(s),
+      latestRound: latestRound?.name,
+      latestProfile: latest?.profile?.label,
+      latestNumbers: numbers(latest),
+      change: _change(_philIriRank(s?.profile), _philIriRank(latest?.profile)),
+    );
   }
 
   Future<AralClass> _readable(int classId) async {

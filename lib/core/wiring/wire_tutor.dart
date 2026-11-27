@@ -253,6 +253,8 @@ TutorVms wireTutor(AppContext ctx, SharedVms s) {
   vms.register('AralViewModel', aralVm);
 
   final aralClassVm = AralClassViewModel(
+    crlaResults: CrlaResultRepositorySqlite(db),
+    philIri: philIriVm,
     auth: authVm,
     classes: AralClassRepositorySqlite(db),
     roster: AralEnrollmentRepositorySqlite(db),
