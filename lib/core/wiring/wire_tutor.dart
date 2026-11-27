@@ -57,6 +57,7 @@ import '../data/local/crla_part2_fluency_repository_sqlite.dart';
 import '../data/local/crla_result_repository_sqlite.dart';
 import '../data/local/crla_story_repository_sqlite.dart';
 import '../data/local/crla_threshold_repository_sqlite.dart';
+import '../data/local/crla_digitized_repository_sqlite.dart';
 import '../data/local/phil_iri_assessment_repository_sqlite.dart';
 import '../data/local/phil_iri_collection_repository_sqlite.dart';
 import '../data/local/phil_iri_gst_repository_sqlite.dart';
@@ -174,6 +175,7 @@ TutorVms wireTutor(AppContext ctx, SharedVms s) {
     sections: SectionRepositorySqlite(db),
     schools: SchoolRepositorySqlite(db),
     thresholds: CrlaThresholdRepositorySqlite(db),
+    digitized: CrlaDigitizedRepositorySqlite(db),
     auth: authVm,
     logger: session,
   );
@@ -407,6 +409,9 @@ TutorVms wireTutor(AppContext ctx, SharedVms s) {
     logger: session,
   );
   vms.register('DashboardViewModel', dashboardVm);
+
+  // Digitized CRLA: an unfinished story timing is not sent (final review I2).
+  s.syncVm.uploadChecks.add(crlaVm.unfinishedTimingMessage);
 
   return TutorVms(
     crlaVm: crlaVm,
