@@ -10,8 +10,10 @@ import '../../../viewmodels/crla_viewmodel.dart';
 import '../../models/crla_assessment.dart' show CrlaRound;
 import '../../models/crla_result.dart';
 import '../../models/crla_variant.dart';
+import 'crla_digitized_commands.dart';
 
 void registerCrlaCommands(ConsoleRegistry registry, AuthViewModel authVm, CrlaViewModel vm) {
+  registerCrlaDigitizedCommands(registry, authVm, vm); // digitized CRLA (2026-11-27)
   registry.register(ConsoleCommand(
     name: 'crla-start',
     description: 'crla-start <studentId> <sectionId> <schoolYear> <mt|fil|eng> [bosy|mosy|eosy] [language] '
