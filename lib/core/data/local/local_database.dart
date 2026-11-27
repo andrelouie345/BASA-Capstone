@@ -27,6 +27,16 @@ class LocalDatabase {
     _db = await databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
+        // Writes go through a write-ahead log, synced at checkpoints (owner
+        // 2026-11-27): one commit per write cost ~340 ms on the dev PC in the
+        // default rollback journal with full sync, so a tap took about a
+        // second. WAL + NORMAL never corrupts the database; a power cut can
+        // lose the last write or two. The data-folder move (wiring/data_dir.dart)
+        // already carries the -wal and -shm side files.
+        onConfigure: (db) async {
+          await db.rawQuery('PRAGMA journal_mode = WAL');
+          await db.execute('PRAGMA synchronous = NORMAL');
+        },
         // v15: Phil-IRI passage test_type allows 'mosy'.
         // v16: Phil-IRI reading trigger checks the round's test type (no table
         // change; the bump makes onUpgrade recreate the triggers).

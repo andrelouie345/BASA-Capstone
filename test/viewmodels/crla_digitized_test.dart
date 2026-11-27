@@ -392,7 +392,7 @@ void main() {
     expect(rd.readingProfile, isNotNull);
     expect((rd.part1ReadingLevel, rd.wordsRead, rd.wpm, rd.readingProfile),
         (rt.part1ReadingLevel, rt.wordsRead, rt.wpm, rt.readingProfile));
-  }, timeout: const Timeout(Duration(minutes: 3))); // ~40 marks; each write commits to disk on its own
+  });
 
   test('discarding (removeAttempt) leaves no evidence', () async {
     final started = await vm.startAssessment(
