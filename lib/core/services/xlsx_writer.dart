@@ -38,12 +38,19 @@ class XlsxSheetSpec {
   /// Excel's default.
   final List<double>? columnWidths;
 
+  /// Excel's printed page footer (every printed or saved-as-PDF page). [left]
+  /// is plain text (every `&` written as `&&`, so a name can't become a code);
+  /// [right] is written as given, for Excel codes like `Page &P of &N`. Null
+  /// = no footer.
+  final ({String left, String right})? printFooter;
+
   const XlsxSheetSpec({
     required this.name,
     required this.cells,
     this.textColumns = const {},
     this.listValidations = const {},
     this.columnWidths,
+    this.printFooter,
   });
 }
 
@@ -284,6 +291,12 @@ String _sheet(XlsxSheetSpec spec) {
             }, nest: () => b.element('formula1', nest: e.value));
           }
         });
+      }
+      final footer = spec.printFooter;
+      if (footer != null) {
+        // After dataValidations (CT_Worksheet order: ... pageMargins, pageSetup, headerFooter).
+        b.element('headerFooter',
+            nest: () => b.element('oddFooter', nest: '&L${footer.left.replaceAll('&', '&&')}&R${footer.right}'));
       }
     });
   });

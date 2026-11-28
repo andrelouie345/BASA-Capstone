@@ -140,6 +140,7 @@ db-delete
 db-list
 db-use
 export-section
+export-table
 flt-counts
 get-text
 help

@@ -101,6 +101,8 @@ run aral-checkin-report {school}
 refuse Usage: aral-checkin-report <schoolId> <schoolYear> [sectionId]
 run aral-export-checkins {school} {year} "{rundir}/a4b_checkins.csv"
 expect Wrote
+run export-table "{rundir}/a4b_checkins.csv" "{rundir}/a4b_checkins.xlsx" ARAL check-in report year={year}
+expect~ Wrote \d+ rows? to
 run aral-export-checkins {school} {year} "{rundir}/a4b_checkins_g7.csv" {sec_g7}
 expect Wrote
 run aral-export-checkins {schoolB} {year} "{rundir}/a4b_checkins_b.csv"

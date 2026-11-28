@@ -23,6 +23,7 @@ import '../../viewmodels/reminder_viewmodel.dart';
 import '../../viewmodels/report_settings_viewmodel.dart';
 import '../../viewmodels/round_calendar_viewmodel.dart';
 import '../../viewmodels/srp_viewmodel.dart';
+import '../../viewmodels/table_export_viewmodel.dart';
 import '../../viewmodels/trend_viewmodel.dart';
 import '../console/commands/aral_checkin_commands.dart';
 import '../console/commands/aral_class_commands.dart';
@@ -40,6 +41,7 @@ import '../console/commands/phil_iri_commands.dart';
 import '../console/commands/phil_iri_content_commands.dart';
 import '../console/commands/reminder_commands.dart';
 import '../console/commands/srp_commands.dart';
+import '../console/commands/table_export_commands.dart';
 import '../console/commands/trend_commands.dart';
 import '../data/local/aral_checkin_repository_sqlite.dart';
 import '../data/local/aral_class_repository_sqlite.dart';
@@ -102,6 +104,7 @@ class TutorVms {
   final NlaReportViewModel nlaReportVm;
   final ReminderViewModel reminderVm;
   final TrendViewModel trendVm;
+  final TableExportViewModel tableExportVm;
   final SrpViewModel srpVm;
   final DashboardViewModel dashboardVm;
 
@@ -123,6 +126,7 @@ class TutorVms {
     required this.nlaReportVm,
     required this.reminderVm,
     required this.trendVm,
+    required this.tableExportVm,
     required this.srpVm,
     required this.dashboardVm,
   });
@@ -155,6 +159,7 @@ AppViewModels appViewModels(AppContext ctx, SharedVms s, TutorVms t) => AppViewM
       nlaReport: t.nlaReportVm,
       reminders: t.reminderVm,
       trend: t.trendVm,
+      tableExport: t.tableExportVm,
       srp: t.srpVm,
       dashboard: t.dashboardVm,
     );
@@ -388,6 +393,9 @@ TutorVms wireTutor(AppContext ctx, SharedVms s) {
   );
   vms.register('TrendViewModel', trendVm);
 
+  final tableExportVm = TableExportViewModel(auth: authVm, logger: session);
+  vms.register('TableExportViewModel', tableExportVm);
+
   final srpVm = SrpViewModel(
     reports: nlaReportVm,
     students: StudentRepositorySqlite(db),
@@ -437,6 +445,7 @@ TutorVms wireTutor(AppContext ctx, SharedVms s) {
     nlaReportVm: nlaReportVm,
     reminderVm: reminderVm,
     trendVm: trendVm,
+    tableExportVm: tableExportVm,
     srpVm: srpVm,
     dashboardVm: dashboardVm,
   );
@@ -460,6 +469,7 @@ void registerTutorCommands(AppContext ctx, SharedVms s, TutorVms t) {
   registerCalendarCommands(r, t.calendarVm);
   registerReminderCommands(r, t.reminderVm, () => authVm.currentUser?.id);
   registerTrendCommands(r, t.trendVm);
+  registerTableExportCommands(r, t.tableExportVm);
   registerSrpCommands(r, t.srpVm);
   registerDashboardCommands(r, t.dashboardVm);
 }

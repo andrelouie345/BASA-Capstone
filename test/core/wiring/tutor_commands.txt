@@ -85,6 +85,7 @@ db-delete
 db-list
 db-use
 export-section
+export-table
 get-text
 help
 list-sections
