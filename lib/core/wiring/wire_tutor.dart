@@ -23,6 +23,7 @@ import '../../viewmodels/reminder_viewmodel.dart';
 import '../../viewmodels/report_settings_viewmodel.dart';
 import '../../viewmodels/round_calendar_viewmodel.dart';
 import '../../viewmodels/srp_viewmodel.dart';
+import '../../viewmodels/table_export_viewmodel.dart';
 import '../../viewmodels/trend_viewmodel.dart';
 import '../console/commands/aral_checkin_commands.dart';
 import '../console/commands/aral_class_commands.dart';
@@ -40,6 +41,7 @@ import '../console/commands/phil_iri_commands.dart';
 import '../console/commands/phil_iri_content_commands.dart';
 import '../console/commands/reminder_commands.dart';
 import '../console/commands/srp_commands.dart';
+import '../console/commands/table_export_commands.dart';
 import '../console/commands/trend_commands.dart';
 import '../data/local/aral_checkin_repository_sqlite.dart';
 import '../data/local/aral_class_repository_sqlite.dart';
@@ -57,6 +59,7 @@ import '../data/local/crla_part2_fluency_repository_sqlite.dart';
 import '../data/local/crla_result_repository_sqlite.dart';
 import '../data/local/crla_story_repository_sqlite.dart';
 import '../data/local/crla_threshold_repository_sqlite.dart';
+import '../data/local/crla_digitized_repository_sqlite.dart';
 import '../data/local/phil_iri_assessment_repository_sqlite.dart';
 import '../data/local/phil_iri_collection_repository_sqlite.dart';
 import '../data/local/phil_iri_gst_repository_sqlite.dart';
@@ -101,6 +104,7 @@ class TutorVms {
   final NlaReportViewModel nlaReportVm;
   final ReminderViewModel reminderVm;
   final TrendViewModel trendVm;
+  final TableExportViewModel tableExportVm;
   final SrpViewModel srpVm;
   final DashboardViewModel dashboardVm;
 
@@ -122,6 +126,7 @@ class TutorVms {
     required this.nlaReportVm,
     required this.reminderVm,
     required this.trendVm,
+    required this.tableExportVm,
     required this.srpVm,
     required this.dashboardVm,
   });
@@ -154,6 +159,7 @@ AppViewModels appViewModels(AppContext ctx, SharedVms s, TutorVms t) => AppViewM
       nlaReport: t.nlaReportVm,
       reminders: t.reminderVm,
       trend: t.trendVm,
+      tableExport: t.tableExportVm,
       srp: t.srpVm,
       dashboard: t.dashboardVm,
     );
@@ -174,6 +180,7 @@ TutorVms wireTutor(AppContext ctx, SharedVms s) {
     sections: SectionRepositorySqlite(db),
     schools: SchoolRepositorySqlite(db),
     thresholds: CrlaThresholdRepositorySqlite(db),
+    digitized: CrlaDigitizedRepositorySqlite(db),
     auth: authVm,
     logger: session,
   );
@@ -250,7 +257,22 @@ TutorVms wireTutor(AppContext ctx, SharedVms s) {
   );
   vms.register('AralViewModel', aralVm);
 
+  final aralCheckinVm = AralCheckinViewModel(
+    auth: authVm,
+    checkins: AralCheckinRepositorySqlite(db),
+    roster: AralEnrollmentRepositorySqlite(db),
+    localSettings: AralSettingRepositorySqlite(db),
+    cloudSettings: (client) => AralSettingRepositorySupabase(client),
+    sections: SectionRepositorySqlite(db),
+    students: StudentRepositorySqlite(db),
+    logger: session,
+  );
+  vms.register('AralCheckinViewModel', aralCheckinVm);
+
   final aralClassVm = AralClassViewModel(
+    crlaResults: CrlaResultRepositorySqlite(db),
+    philIri: philIriVm,
+    checkins: aralCheckinVm,
     auth: authVm,
     classes: AralClassRepositorySqlite(db),
     roster: AralEnrollmentRepositorySqlite(db),
@@ -285,17 +307,6 @@ TutorVms wireTutor(AppContext ctx, SharedVms s) {
   vms.register('AralIripViewModel', aralIripVm);
 
   // Check-ins are local; the cut-off is set online and mirrored locally.
-  final aralCheckinVm = AralCheckinViewModel(
-    auth: authVm,
-    checkins: AralCheckinRepositorySqlite(db),
-    roster: AralEnrollmentRepositorySqlite(db),
-    localSettings: AralSettingRepositorySqlite(db),
-    cloudSettings: (client) => AralSettingRepositorySupabase(client),
-    sections: SectionRepositorySqlite(db),
-    students: StudentRepositorySqlite(db),
-    logger: session,
-  );
-  vms.register('AralCheckinViewModel', aralCheckinVm);
 
   final aralMaterialVm = AralMaterialViewModel(
     auth: authVm,
@@ -362,6 +373,7 @@ TutorVms wireTutor(AppContext ctx, SharedVms s) {
     checkins: AralCheckinRepositorySqlite(db),
     aralSettings: AralSettingRepositorySqlite(db),
     classes: AralClassRepositorySqlite(db),
+    aralClasses: aralClassVm,
     logger: session,
   );
   vms.register('ReminderViewModel', reminderVm);
@@ -376,9 +388,13 @@ TutorVms wireTutor(AppContext ctx, SharedVms s) {
     nla: nlaReportVm,
     aral: aralSessionVm,
     aralSessions: AralSessionRepositorySqlite(db),
+    aralClasses: aralClassVm,
     logger: session,
   );
   vms.register('TrendViewModel', trendVm);
+
+  final tableExportVm = TableExportViewModel(auth: authVm, logger: session);
+  vms.register('TableExportViewModel', tableExportVm);
 
   final srpVm = SrpViewModel(
     reports: nlaReportVm,
@@ -408,6 +424,9 @@ TutorVms wireTutor(AppContext ctx, SharedVms s) {
   );
   vms.register('DashboardViewModel', dashboardVm);
 
+  // Digitized CRLA: an unfinished story timing is not sent (final review I2).
+  s.syncVm.uploadChecks.add(crlaVm.unfinishedTimingMessage);
+
   return TutorVms(
     crlaVm: crlaVm,
     crlaExportVm: crlaExportVm,
@@ -426,6 +445,7 @@ TutorVms wireTutor(AppContext ctx, SharedVms s) {
     nlaReportVm: nlaReportVm,
     reminderVm: reminderVm,
     trendVm: trendVm,
+    tableExportVm: tableExportVm,
     srpVm: srpVm,
     dashboardVm: dashboardVm,
   );
@@ -449,6 +469,7 @@ void registerTutorCommands(AppContext ctx, SharedVms s, TutorVms t) {
   registerCalendarCommands(r, t.calendarVm);
   registerReminderCommands(r, t.reminderVm, () => authVm.currentUser?.id);
   registerTrendCommands(r, t.trendVm);
+  registerTableExportCommands(r, t.tableExportVm);
   registerSrpCommands(r, t.srpVm);
   registerDashboardCommands(r, t.dashboardVm);
 }

@@ -41,7 +41,7 @@ String normalizeHeader(String h) => h.toLowerCase().replaceAll(RegExp(r'[^a-z0-9
   if (lower.endsWith('.xlsx')) {
     grid = _xlsxGrid(bytes);
   } else if (lower.endsWith('.csv')) {
-    grid = _csvGrid(utf8.decode(bytes, allowMalformed: true));
+    grid = csvGrid(utf8.decode(bytes, allowMalformed: true));
   } else {
     throw const TableReadException('Use a .csv or .xlsx file.');
   }
@@ -88,7 +88,7 @@ List<List<String>> _xlsxGrid(List<int> bytes) {
 }
 
 /// RFC 4180-ish: quoted fields, doubled quotes, CR/LF line ends, a UTF-8 BOM.
-List<List<String>> _csvGrid(String text) {
+List<List<String>> csvGrid(String text) {
   if (text.startsWith('﻿')) text = text.substring(1);
   final rows = <List<String>>[];
   var row = <String>[];

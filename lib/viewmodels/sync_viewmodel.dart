@@ -283,10 +283,19 @@ class SyncViewModel {
   /// Sends everything [preview] lists as one upload. The device owner only;
   /// refused while a problem is unresolved. Applied at once when the school
   /// auto-approves or the uploader is an admin/coordinator.
+  /// Checks other modules add (wiring): a message = not sent, say why. The
+  /// digitized CRLA one names learners whose story timing isn't finished
+  /// (final review I2: the server would refuse or mis-score them).
+  final uploadChecks = <Future<String?> Function()>[];
+
   Future<SyncUploadResult> upload() async {
     _log('upload()');
     _guard();
     await _requireOwner();
+    for (final check in uploadChecks) {
+      final refusal = await check();
+      if (refusal != null) throw ViewModelException(refusal);
+    }
     final p = await preview();
     if (p.package.isEmpty) throw ViewModelException('Nothing to send: all your work is on the server or waiting for approval.');
     if (p.problems.isNotEmpty) {

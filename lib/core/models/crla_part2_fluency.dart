@@ -12,6 +12,9 @@ class CrlaPart2Fluency {
   final int? learnerExperienceRating;   // 1-5
   final int? observationLevel;          // 1-4
   final String? remarks;
+  /// Digitized: the last word the learner reached when the timer stopped at
+  /// the grade's limit (0-based); null = the whole story (v51, spec D6).
+  final int? lastWordReached;
 
   CrlaPart2Fluency({
     required this.assessmentId,
@@ -25,6 +28,7 @@ class CrlaPart2Fluency {
     this.learnerExperienceRating,
     this.observationLevel,
     this.remarks,
+    this.lastWordReached,
   });
 
   Map<String, Object?> toMap() => {
@@ -38,6 +42,7 @@ class CrlaPart2Fluency {
         'learner_experience_rating': learnerExperienceRating,
         'observation_level': observationLevel,
         'remarks': remarks,
+        'last_word_reached': lastWordReached,
       };
 
   factory CrlaPart2Fluency.fromMap(Map<String, Object?> m) => CrlaPart2Fluency(
@@ -52,5 +57,6 @@ class CrlaPart2Fluency {
         learnerExperienceRating: m['learner_experience_rating'] as int?,
         observationLevel: m['observation_level'] as int?,
         remarks: m['remarks'] as String?,
+        lastWordReached: (m['last_word_reached'] as num?)?.toInt(),
       );
 }

@@ -1,0 +1,141 @@
+# T7 Digitized CRLA (spec docs/superpowers/specs/2026-11-27-crla-digitized-design.md)
+# as tutor1 on the G2 section: the Region X Tagalog Grade 2 form (story 1
+# "Isang Kakaibang Araw", 96 words, 6 questions, time limit 2:00), two BOSY
+# retakes, uploaded and approved (the server re-checks the totals against the
+# marks at the end of the upload, crla_digitized_check).
+# Needs migration 20261127010000 and supabase/seeds/crla_content_region10.sql
+# on the dev project. Runs after the ARAL batches: the retakes become the
+# learners' latest CRLA, which the ARAL batches read.
+#
+#   A s_g2_1  Task 1 6 right -> Task 2 low 3 right; Task 1 item 7 re-marked
+#             right (confirm) -> Task 2 high, all wrong -> Part 1 7 + 10 + 0 = 17
+#             Light Refresher; story 1 timed 09:00:00-09:01:30 with a 10 s pause
+#             = 80 s, miscues at words 3 and 10, word 5 self-corrected -> 96 - 2 =
+#             94 words, wpm 94 / 80 s = 70.5; answers 4 right, 1 wrong, 1 not
+#             asked -> 4.
+#   B s_g2_2  story 1 started long ago -> stopped by itself at 2:00; last word
+#             59 (after removing a mark on word 70) -> 60 words read.
+
+device t7-phone tutor fresh
+as tutor1
+run pull-cloud yes
+expect users:
+
+# --- A: Part 1 marked item by item -------------------------------------------
+run crla-start {s_g2_1} {sec_g2} {year} fil bosy Tagalog
+capture t7_a = Started assessment (-?\d+)
+run crla-form {t7_a}
+expect Grade 2 Tagalog (fil) · time limit 2:00
+expect Story 1 · Isang Kakaibang Araw · 96 words
+expect Q1 (after sentence
+run crla-mark {t7_a} task2_low 1 right
+refuse Finish Task 1 first.
+run crla-mark {t7_a} task1 1 right
+run crla-mark {t7_a} task1 2 right
+run crla-mark {t7_a} task1 3 right
+run crla-mark {t7_a} task1 4 right
+run crla-mark {t7_a} task1 5 right
+run crla-mark {t7_a} task1 6 self
+expect Task 1 6 (not done)
+run crla-task-done {t7_a} task1
+expect Marked in BASA · Task 1 6 · Task 2 (low) -
+run crla-mark {t7_a} task2_high 1 right
+refuse This Task 2 is not the one Task 1 leads to.
+run crla-mark {t7_a} task2_low 1 right
+run crla-mark {t7_a} task2_low 2 right
+run crla-mark {t7_a} task2_low 3 right
+run crla-mark {t7_a} task2_low 4 right
+expect Task 2 (low) 4
+run crla-unmark {t7_a} task2_low 4
+expect Task 2 (low) 3
+sql select total_score from crla_part1_standard where assessment_id = {t7_a} => 9
+run crla-mark {t7_a} task1 7 right
+refuse This changes which Task 2 is given; confirm to clear its marks.
+run crla-mark {t7_a} task1 7 right confirm
+expect Task 1 7 · Task 2 (high) -
+sql select count(*) from crla_part1_marks where assessment_id = {t7_a} and task = 'task2_low' => 0
+run crla-task-done {t7_a} task2_high
+expect Task 1 7 · Task 2 (high) 0
+sql select total_score from crla_part1_standard where assessment_id = {t7_a} => 17
+sql select reading_level from crla_part1_standard where assessment_id = {t7_a} => Light Refresher
+run crla-part1 {t7_a} 8 9
+refuse This attempt is marked in BASA; change its marks instead of typing totals.
+
+# --- A: the story, word by word, timed ---------------------------------------
+run crla-word {t7_a} 3
+refuse Start the timer on a story first.
+run crla-timer-start {t7_a} 1 2026-11-27T09:00:00+08:00
+expect story 1 timer running
+run crla-word {t7_a} 3
+run crla-word {t7_a} 10
+run crla-word {t7_a} 5 self
+expect miscues 2
+run crla-timer-pause {t7_a} 2026-11-27T09:00:30+08:00
+expect timer paused
+run crla-timer-resume {t7_a} 2026-11-27T09:00:40+08:00
+run crla-timer-stop {t7_a} 2026-11-27T09:01:30+08:00
+expect timer stopped 1:20 (limit 2:00) · miscues 2 · words read 94
+run crla-timer-stop {t7_a} 2026-11-27T09:01:40+08:00
+refuse The timer is already stopped.
+run crla-timer-start {t7_a} 2 2026-11-27T09:02:00+08:00
+refuse This attempt is marked on its other story.
+run crla-answer {t7_a} 1 right
+run crla-answer {t7_a} 2 right
+run crla-answer {t7_a} 3 right
+run crla-answer {t7_a} 4 right
+run crla-answer {t7_a} 5 wrong
+run crla-answer {t7_a} 6 na
+expect comprehension 4
+run crla-answer {t7_a} 7 right
+refuse This story has no question 7.
+run crla-observe {t7_a} experience=4 observation=2 remarks=ZZ T7 read slowly at first
+expect experience 4, observation 2, remarks ZZ T7 read slowly at first.
+sql select words_read from crla_part2_fluency where assessment_id = {t7_a} => 94
+sql select time_seconds from crla_part2_fluency where assessment_id = {t7_a} => 20
+sql select comprehension_correct from crla_part2_fluency where assessment_id = {t7_a} => 4
+run crla-results assessment {t7_a}
+expect P1 17 Light Refresher | P2 story 1 wpm 70.5 comp 4 words 97.9%
+run crla-digitized {t7_a}
+expect   task1 6: self-corrected
+expect   word 5: self_corrected
+expect   Q6: not_asked
+
+# --- B: the timer stops itself at the limit -----------------------------------
+run crla-start {s_g2_2} {sec_g2} {year} fil bosy Tagalog
+capture t7_b = Started assessment (-?\d+)
+run crla-timer-start {t7_b} 1 2026-11-01T08:00:00+08:00
+run crla-timer-reset {t7_b} 2026-11-01T08:00:20+08:00
+expect story 1 timer none
+run crla-timer-start {t7_b} 1 2026-11-01T08:00:30+08:00
+run crla-word {t7_b} 70
+run crla-timer {t7_b}
+expect timer stopped 2:00 (limit 2:00)
+expect Tap the last word the learner reached (crla-last-word).
+sql select count(*) from crla_part2_fluency where assessment_id = {t7_b} => 0
+run crla-last-word {t7_b} 59
+refuse A word after the last word reached is marked; remove that mark first.
+run crla-word {t7_b} 70
+run crla-last-word {t7_b} 59
+expect words read 60 · comprehension 0 · last word 59
+run crla-word {t7_b} 61
+refuse That word is after the last word reached.
+sql select time_minutes from crla_part2_fluency where assessment_id = {t7_b} => 2
+sql select last_word_reached from crla_part2_fluency where assessment_id = {t7_b} => 59
+
+# --- Upload, approved: the server accepts the marks and totals ----------------
+run sync-upload yes
+expect waiting for approval.
+capture t7_up = Upload (\d+) sent
+
+device t7-pc admin fresh
+as coord
+run sync-approve {t7_up}
+expect Upload {t7_up} applied.
+
+device t7-phone tutor
+run sync-status
+expect Upload {t7_up} applied
+sql select count(*) from crla_part1_marks where id < 0 => 0
+sql select count(*) from crla_timer_events where id < 0 => 0
+# The server's copies came back (A: 10 Task 1 + 10 Task 2 high marks).
+sql select count(*) from crla_part1_marks => 20

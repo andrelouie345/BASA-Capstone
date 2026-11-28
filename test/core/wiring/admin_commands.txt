@@ -18,6 +18,7 @@ aral-class-add
 aral-class-delete
 aral-class-edit
 aral-class-place
+aral-class-progress
 aral-class-sessions
 aral-class-show
 aral-class-summary
@@ -58,6 +59,7 @@ aral-material-school-link
 aral-material-set
 aral-materials
 aral-move
+aral-no-improvement
 aral-notes
 aral-placement
 aral-propose
@@ -102,10 +104,16 @@ config-set-cloud-url
 config-set-lan-key
 config-set-lan-url
 config-show
+crla-answer
 crla-attempt-stories
+crla-digitized
 crla-export
+crla-form
 crla-import
 crla-import-preview
+crla-last-word
+crla-mark
+crla-observe
 crla-part1
 crla-part2
 crla-regenerate
@@ -113,9 +121,18 @@ crla-remove
 crla-results
 crla-start
 crla-stories
+crla-task-done
 crla-threshold-reset
 crla-threshold-set
 crla-thresholds
+crla-timer
+crla-timer-pause
+crla-timer-reset
+crla-timer-resume
+crla-timer-start
+crla-timer-stop
+crla-unmark
+crla-word
 dashboard
 dashboard-years
 db-add
@@ -123,6 +140,7 @@ db-delete
 db-list
 db-use
 export-section
+export-table
 flt-counts
 get-text
 help
@@ -271,6 +289,7 @@ theme-show
 transfer-conflicts
 trend-aral-activity
 trend-aral-exits
+trend-aral-progress
 trend-bands
 trend-completion
 trend-crla-profiles

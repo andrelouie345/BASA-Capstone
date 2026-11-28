@@ -32,6 +32,47 @@ Calls:
 Errors: class full, other grade without confirmation, adviser rule, sessions exist on delete (ViewModelException); other errors: the error rule in `common.md`.
 Console: `aral-classes`, `aral-class-show`, `aral-class-summary`, `aral-class-add`, `aral-class-edit`, `aral-class-delete`, `aral-class-place`, `aral-class-unplace`
 
+### Class progress (2026-11-27)
+Build: both    Roles: the class's tutor / coordinator / admin
+Spec: `docs/superpowers/specs/2026-11-27-aral-class-tutor-design.md` (D2).
+Purpose: per class, how each learner has moved since they entered ARAL ("has ARAL helped so far?"). One row per learner
+placed in the class this year, exited ones marked.
+```
+ARAL-R-G7-01                                    as of 27 Nov 2026
+CRUZ, Ana     G7 Phil-IRI  BOSY Frustration  -> MOSY #1 Instructional   Up
+              comprehension 50% -> 70%, wpm 62 -> 80
+REYES, Ben    G7 Phil-IRI  BOSY Frustration  -> -                       Not assessed yet
+```
+Calls:
+- `AralClassViewModel.classProgress(classId, asOf:)` → `List<AralLearnerProgress>` (`core/models/aral_progress.dart`), by
+  name: `learnerName`, `grade`, `instrument` (CRLA / Phil-IRI), `startRoundLabel` + `startProfile` + `startNumbers`,
+  `latestRoundLabel` + `latestProfile` + `latestNumbers` (null = nothing after the start), `change`
+  (`AralProgressChange`: up / same / down / not assessed yet / no starting result, `label` to show), `exited`.
+- Numbers (`AralProgressNumbers`): CRLA correct words %, wpm, comprehension (questions right); Phil-IRI word
+  recognition %, wpm, comprehension %. Any may be null: show "-".
+- The change is by reading profile (the official step); show the numbers under it so a learner who improved inside one
+  profile isn't read as "no progress". Never label values carried/actual on this screen.
+Errors: a tutor's class not theirs (ViewModelException); other errors: the error rule in `common.md`.
+Console: `aral-class-progress`
+
+### No improvement (beside class progress)
+Build: both    Roles: the class tutor; admin / coordinator of the school
+Purpose: the class's learners who show no improvement, with the reason, so the tutor can adjust the IRIP.
+```
+ARAL-R-G7-01: 2 learners with no improvement
+CRUZ, Ana | Grade 7 Phil-IRI | Same since BOSY: Frustration -> Frustration (MOSY #1)
+REYES, Ben | Grade 7 Phil-IRI | Check-in after session 16: 50%, pass mark 75%
+```
+Calls:
+- `AralClassViewModel.noImprovement(classId, asOf:)` -> `List<AralNoImprovement>` (`core/models/aral_progress.dart`),
+  by name: `progress` (the learner's `AralLearnerProgress`, as on class progress), `reasons`
+  (`List<AralNoImprovementReason>`: `kind` round / checkin, `message` to show; one learner can have both).
+- A learner is listed when (a) their latest round is Same or Down since their ARAL start after at least the school's
+  first check-in point (16) of sessions attended (present only) up to that round's date, or (b) their latest complete
+  check-in is below the pass mark. Exited learners are not listed. Empty list = show "No learner needs attention".
+Errors: a tutor's class not theirs (ViewModelException); other errors: the error rule in `common.md`.
+Console: `aral-no-improvement`
+
 ### Sessions and attendance
 Build: both    Roles: the class tutor (write); others read
 Purpose: log a session for a class, mark attendance on its sheet, edit/delete, see a learner's attendance and a tutor's summary.
