@@ -91,6 +91,23 @@ void main() {
     expect(sheet, contains('<oddFooter>&amp;L$_footer&amp;RPage &amp;P of &amp;N</oddFooter>'));
   });
 
+  test('header row prints on every page (final review I3)', () async {
+    final zip = ZipDecoder().decodeBytes(await t.tableExportVm.xlsx(_table, now: _now));
+    final wb = utf8.decode(zip.findFile('xl/workbook.xml')!.content as List<int>);
+    expect(wb, contains("'Section roster'!\$6:\$6"));
+  });
+
+  test('NaN and infinity are empty cells; apostrophes at the title ends are dropped (final review)', () async {
+    const table = ExportTable("'Quoted'", columns: [ExportColumn('Rate', kind: ExportColumnKind.number)], rows: [
+      [double.nan],
+      [double.infinity],
+      [0.5],
+    ]);
+    final b = book(await t.tableExportVm.xlsx(table, now: _now));
+    expect(b.hasSheet('Quoted'), isTrue);
+    expect([b.read('Quoted', 'A4'), b.read('Quoted', 'A5'), b.read('Quoted', 'A6')], [null, null, 0.5]);
+  });
+
   test('title with forbidden characters', () async {
     const table = ExportTable('Grade 7/8: Rizal [A]', columns: [ExportColumn('Name')]);
     final b = book(await t.tableExportVm.xlsx(table, now: _now));

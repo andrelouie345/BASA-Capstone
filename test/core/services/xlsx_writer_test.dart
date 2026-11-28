@@ -10,6 +10,7 @@ import 'package:archive/archive.dart';
 import 'package:basa_capstone/core/services/xlsx_cells.dart';
 import 'package:basa_capstone/core/services/xlsx_writer.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:xml/xml.dart';
 
 List<XlsxSheetSpec> _sample() => [
       XlsxSheetSpec(
@@ -62,6 +63,26 @@ void main() {
     expect(cells.containsKey('D3'), isFalse); // null = no value
     expect(wb.read('Codes', 'A7'), 'EOSY');
     expect(wb.read('Instructions', 'A1'), 'One row per reading.');
+  });
+
+  test('control characters never reach the XML (final review I1)', () {
+    final bytes = writeXlsx([const XlsxSheetSpec(name: 'S', cells: {'A1': 'A\u000bB\u0001C\u001f'})]);
+    expect(() => XmlDocument.parse(_entry(bytes, 'xl/worksheets/sheet1.xml')), returnsNormally);
+    expect(XlsxWorkbook.decode(bytes).read('S', 'A1'), 'A\nBC');
+  });
+
+  test('print title row repeats on every printed page (final review I3)', () {
+    final wb = _entry(
+        writeXlsx([
+          const XlsxSheetSpec(name: 'Section roster', cells: {'A1': 'x'}, printTitleRow: 6),
+          const XlsxSheetSpec(name: "Teachers' list", cells: {'A1': 'x'}, printTitleRow: 3),
+          const XlsxSheetSpec(name: 'Plain', cells: {'A1': 'x'}),
+        ]),
+        'xl/workbook.xml');
+    expect(wb, contains(r'''<definedName name="_xlnm.Print_Titles" localSheetId="0">'Section roster'!$6:$6</definedName>'''));
+    expect(wb, contains(r'''<definedName name="_xlnm.Print_Titles" localSheetId="1">'Teachers'' list'!$3:$3</definedName>'''));
+    expect(RegExp('_xlnm.Print_Titles').allMatches(wb).length, 2);
+    expect(_entry(writeXlsx(_sample()), 'xl/workbook.xml'), isNot(contains('definedNames')));
   });
 
   test('print footer', () {

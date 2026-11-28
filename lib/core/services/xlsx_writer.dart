@@ -44,6 +44,10 @@ class XlsxSheetSpec {
   /// = no footer.
   final ({String left, String right})? printFooter;
 
+  /// A row (from 1) Excel prints at the top of every page (print titles),
+  /// e.g. a table's header row. Null = none.
+  final int? printTitleRow;
+
   const XlsxSheetSpec({
     required this.name,
     required this.cells,
@@ -51,6 +55,7 @@ class XlsxSheetSpec {
     this.listValidations = const {},
     this.columnWidths,
     this.printFooter,
+    this.printTitleRow,
   });
 }
 
@@ -152,6 +157,18 @@ String _workbook(List<XlsxSheetSpec> sheets) => _doc((b) {
             });
           }
         });
+        // Print titles: a sheet name is always quoted, an apostrophe in it doubled.
+        final titled = [for (var i = 0; i < sheets.length; i++) if (sheets[i].printTitleRow != null) i];
+        if (titled.isNotEmpty) {
+          b.element('definedNames', nest: () {
+            for (final i in titled) {
+              final row = sheets[i].printTitleRow!;
+              b.element('definedName',
+                  attributes: {'name': '_xlnm.Print_Titles', 'localSheetId': '$i'},
+                  nest: "'${sheets[i].name.replaceAll("'", "''")}'!\$$row:\$$row");
+            }
+          });
+        }
       });
     });
 
@@ -216,6 +233,13 @@ String _styles() => _doc((b) {
 
 String _width(double w) => w == w.truncateToDouble() ? '${w.toInt()}' : '$w';
 
+/// Text Excel can hold: XML 1.0 has no control characters but tab and line
+/// breaks, so a vertical tab (Word's manual line break) becomes a line break
+/// and the others are dropped (final review I1: one pasted character would
+/// make Excel repair the file and drop content).
+String xlsxSafeText(String v) =>
+    v.replaceAll('\u000b', '\n').replaceAll(RegExp('[\u0000-\u0008\u000c\u000e-\u001f\ufffe\uffff]'), '');
+
 String _sheet(XlsxSheetSpec spec) {
   // row -> (col -> value), both sorted: Excel refuses cells out of order.
   final rows = <int, Map<int, Object>>{};
@@ -267,7 +291,7 @@ String _sheet(XlsxSheetSpec spec) {
               if (v is String) {
                 b.element('c', attributes: {...attrs, 't': 'inlineStr'}, nest: () {
                   b.element('is', nest: () {
-                    b.element('t', attributes: {'xml:space': 'preserve'}, nest: v);
+                    b.element('t', attributes: {'xml:space': 'preserve'}, nest: xlsxSafeText(v));
                   });
                 });
               } else if (v is bool) {
@@ -296,7 +320,7 @@ String _sheet(XlsxSheetSpec spec) {
       if (footer != null) {
         // After dataValidations (CT_Worksheet order: ... pageMargins, pageSetup, headerFooter).
         b.element('headerFooter',
-            nest: () => b.element('oddFooter', nest: '&L${footer.left.replaceAll('&', '&&')}&R${footer.right}'));
+            nest: () => b.element('oddFooter', nest: xlsxSafeText('&L${footer.left.replaceAll('&', '&&')}&R${footer.right}')));
       }
     });
   });

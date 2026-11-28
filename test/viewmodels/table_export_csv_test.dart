@@ -49,6 +49,14 @@ void main() {
     expect(table.rows.last, ['5', 2.5, 0.5]);
   });
 
+  test('a value past the header width is refused; trailing empties are fine (final review I2)', () {
+    expect(() => t.tableExportVm.tableFromCsv('A,B\n1,2,3\n', 'X'),
+        throwsA(isA<ViewModelException>().having((e) => e.message, 'message', 'A row has more values than the table has columns.')));
+    expect(t.tableExportVm.tableFromCsv('A,B\n1,2,,\n', 'X').rows, [
+      [1, 2]
+    ]);
+  });
+
   test('signed out', () async {
     await ctx.authVm.signOut();
     expect(() => t.tableExportVm.tableFromCsv('A\n1\n', 'X'),

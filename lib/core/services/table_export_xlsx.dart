@@ -21,6 +21,7 @@ List<int> buildTableXlsx(ExportTable t, {required String footer}) {
     line(f);
   }
   r++; // empty row
+  final headerRow = r;
   for (var c = 0; c < t.columns.length; c++) {
     cells['${_col(c)}$r'] = t.columns[c].label;
   }
@@ -29,7 +30,8 @@ List<int> buildTableXlsx(ExportTable t, {required String footer}) {
   for (final row in rows) {
     for (var c = 0; c < row.length; c++) {
       final v = row[c];
-      if (v == null) continue;
+      // Null, or a number Excel can't hold (NaN or infinity, e.g. a 0/0 rate): an empty cell.
+      if (v == null || (v is double && !v.isFinite)) continue;
       cells['${_col(c)}$r'] = t.columns[c].kind == ExportColumnKind.number && v is num ? v : '$v';
     }
     r++;
@@ -53,6 +55,7 @@ List<int> buildTableXlsx(ExportTable t, {required String footer}) {
       },
       columnWidths: widths,
       printFooter: (left: footer, right: 'Page &P of &N'),
+      printTitleRow: headerRow,
     ),
   ]);
 }
@@ -75,10 +78,11 @@ String? exportPlaceLine(ExportTable t) => switch ((t.school, t.schoolYear)) {
     };
 
 /// Excel's sheet name: `[ ] : * ? / \` removed, spaces collapsed, at most 31
-/// characters, "Export" when nothing is left.
+/// characters, no apostrophe at either end (Excel refuses one), "Export" when
+/// nothing is left.
 String exportSheetName(String title) {
   final name = title.replaceAll(RegExp(r'[\[\]:*?/\\]'), '').replaceAll(RegExp(r'\s+'), ' ').trim();
-  final cut = name.length > 31 ? name.substring(0, 31).trim() : name;
+  final cut = (name.length > 31 ? name.substring(0, 31) : name).replaceAll(RegExp(r"^[\s']+|[\s']+$"), '');
   return cut.isEmpty ? 'Export' : cut;
 }
 
