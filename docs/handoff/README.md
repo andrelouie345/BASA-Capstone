@@ -1,5 +1,7 @@
 # Start here: building BASA's screens
 
+**Reviewing the screens against the advisor's requests:** say "Let's start, check the readmes for the frontend work" to your Claude; it follows `frontend-review.md` (the requests and screenshots stay in the team's Drive folder, outside the repo).
+
 This guide is for the UI team and for the Claude Code you work with. The backend (models, ViewModels, database, sync) is done and tested. Your job is the screens. Everything a screen needs is already a ViewModel call.
 
 ## What BASA is

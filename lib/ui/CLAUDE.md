@@ -1,5 +1,7 @@
 # lib/ui — rules for screens
 
+**Frontend review session:** when someone says "Let's start, check the readmes for the frontend work" (or asks to start the frontend review), follow `docs/handoff/frontend-review.md` step by step.
+
 For the UI team and their Claude Code. Start with `docs/handoff/README.md` (the start-here guide); what each screen needs is in `docs/handoff/screens/`, the list of screens in `docs/handoff/checklist.md`. The backend (models, ViewModels, database, sync, console) is not built here: if a screen needs something no ViewModel offers, ask the backend owner, don't work around it.
 
 ## Fixed rules (the backend depends on them)

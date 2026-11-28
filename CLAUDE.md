@@ -2,6 +2,8 @@
 
 Flutter/Dart reading-assessment app for tutors (DepEd ARAL-Reading program, Phil-IRI / CRLA instruments; CRLA is administered to Grades 1–3 only). Capstone project, team of several; **the backend owner (not the GitHub repo owner) works on the backend only** (models, repositories, ViewModels, console, SQL). Groupmates own UI — do not build or restyle UI unless explicitly asked.
 
+**Frontend team:** when someone says "Let's start, check the readmes for the frontend work" (or asks to start the frontend review), follow `docs/handoff/frontend-review.md` step by step.
+
 > These guides were assembled from working notes, not generated from the code. If anything here disagrees with the repo, the repo wins: tell the user about the mismatch and fix the doc.
 
 ## Stack
