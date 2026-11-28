@@ -169,8 +169,9 @@ class _CrlaEntryScreenState extends State<CrlaEntryScreen> {
               await vms.crla.form(widget.assessmentId);
               final marks = await vms.crla.digitized(widget.assessmentId);
               markable = marks.isDigitized || (r?.part1TotalScore == null && r?.storyNo == null);
-            } on ViewModelException catch (e) {
-              debugPrint('CrlaEntry: not markable: ${e.message}');
+            } catch (e) {
+              // Never breaks the entry screen: no form, or any other failure, just hides the button.
+              debugPrint('CrlaEntry: not markable: $e');
             }
           }
           return (a, r, stories, markable);

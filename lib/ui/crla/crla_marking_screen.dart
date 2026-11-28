@@ -49,12 +49,16 @@ enum _ItemMark { right, wrong, self }
 class _CrlaMarkingScreenState extends State<CrlaMarkingScreen> {
   int _reload = 0;
   int? _pickedStory;
+  // One marking call at a time: a quick double tap must not mark and unmark.
+  bool _busy = false;
   void _again() => setState(() => _reload++);
 
   int get _id => widget.assessmentId;
 
   /// Runs a marking call; the Task 2 switch is confirmed, then repeated.
   Future<void> _mark(Future<CrlaDigitizedState> Function(CrlaViewModel vm, bool confirmed) call) async {
+    if (_busy) return;
+    _busy = true;
     final crla = vmsOf(context).crla;
     try {
       await call(crla, false);
@@ -69,8 +73,22 @@ class _CrlaMarkingScreenState extends State<CrlaMarkingScreen> {
       }
     } catch (e) {
       if (mounted) await runAction(context, () => Future<void>.error(e), where: 'CrlaMarking');
+    } finally {
+      _busy = false;
     }
     if (mounted) _again();
+  }
+
+  /// "Done": the items not marked count as wrong, so ask first when there are any.
+  Future<void> _done(CrlaTask task, int unmarked) async {
+    if (unmarked > 0) {
+      final ok = await confirm(context,
+          title: 'Done with ${task == CrlaTask.task1 ? 'Task 1' : 'Task 2'}?',
+          body: unmarked == 1 ? '1 item not marked will count as wrong.' : '$unmarked items not marked will count as wrong.',
+          action: 'Done');
+      if (!ok || !mounted) return;
+    }
+    await _mark((vm, _) => vm.closeTask(_id, task));
   }
 
   Future<void> _item(CrlaTask task, int itemNo, _ItemMark? current, _ItemMark tapped) => _mark((vm, ok) => current == tapped
@@ -134,6 +152,8 @@ class _CrlaMarkingScreenState extends State<CrlaMarkingScreen> {
             ),
           );
           final part1 = _part1(context, d);
+          // Task 1 ended the test (no Task 2): no story, as on paper (owner, 2026-11-28).
+          if (s.task1Done && s.task2 == null) return PageBody(maxWidth: 1200, children: [header, part1]);
           final part2 = _part2(context, d);
           return PageBody(maxWidth: 1200, children: [
             header,
@@ -177,7 +197,7 @@ class _CrlaMarkingScreenState extends State<CrlaMarkingScreen> {
             Align(
               alignment: Alignment.centerRight,
               child: FilledButton.tonal(
-                onPressed: () => _mark((vm, _) => vm.closeTask(_id, t)),
+                onPressed: () => _done(t, items.where((i) => !marks.containsKey((t, i.itemNo))).length),
                 child: Text('Done with ${t == CrlaTask.task1 ? 'Task 1' : 'Task 2'}'),
               ),
             ),
@@ -410,11 +430,17 @@ class _StoryClockState extends State<_StoryClock> {
     _sync();
   }
 
+  bool _ticking = false;
+
   @override
   void didUpdateWidget(_StoryClock old) {
     super.didUpdateWidget(old);
-    _s = widget.state;
-    _sync();
+    // A rebuild (keyboard, rotation, resize) mustn't put the clock back to the
+    // last load's value or restart the ticker; only a new state does.
+    if (!identical(old.state, widget.state)) {
+      _s = widget.state;
+      _sync();
+    }
   }
 
   @override
@@ -429,7 +455,8 @@ class _StoryClockState extends State<_StoryClock> {
   }
 
   Future<void> _refresh() async {
-    if (!mounted) return;
+    if (!mounted || _ticking) return; // the last tick is still on its way
+    _ticking = true;
     final crla = vmsOf(context).crla;
     try {
       final s = await crla.storyTimer(widget.assessmentId);
@@ -442,11 +469,14 @@ class _StoryClockState extends State<_StoryClock> {
       }
     } catch (e) {
       debugPrint('CrlaMarking timer: $e');
+    } finally {
+      _ticking = false;
     }
   }
 
   Future<void> _restart() async {
-    if (!await confirm(context, title: 'Time this story again?', body: 'The first timing stays in the record.', action: 'Restart')) {
+    if (!await confirm(context, title: 'Time this story again?', body: 'The first timing stays in the record.', action: 'Restart') ||
+        !mounted) {
       return;
     }
     await widget.run((vm, _) => vm.resetStoryTimer(widget.assessmentId));

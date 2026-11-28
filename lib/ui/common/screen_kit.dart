@@ -56,8 +56,11 @@ class _LoadViewState<T> extends State<LoadView<T>> {
   Future<void> _load() async {
     if (!mounted) return;
     final vms = BasaScope.of(context);
+    // The spinner only on the first load (or after an error): a reload after
+    // an action keeps the page as it is until the new data is in, so marking
+    // a word mid-reading doesn't blink the screen (digitized screens review C1).
     setState(() {
-      _loading = true;
+      _loading = _data == null || _error != null;
       _error = null;
     });
     try {

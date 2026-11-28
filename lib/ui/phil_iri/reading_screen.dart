@@ -212,7 +212,19 @@ class _PhilIriReadingScreenState extends State<PhilIriReadingScreen> {
                 : FilledButton.tonalIcon(onPressed: () => _timing(r), icon: const Icon(Icons.timer_outlined), label: const Text('Enter the time')),
             children: [
               if (d.timer != null) ...[
-                _TimerBar(readingId: r.id!, state: d.timer!, oneMinute: oneMinute, header: d.header, onChanged: _again),
+                _TimerBar(
+                  readingId: r.id!,
+                  state: d.timer!,
+                  oneMinute: oneMinute,
+                  header: d.header,
+                  onChanged: _again,
+                  // A time typed in (paper testing) that Start would replace.
+                  typed: d.timer!.events.isNotEmpty
+                      ? null
+                      : oneMinute
+                          ? (r.wordsRead == null ? null : '${r.wordsRead} words')
+                          : (r.readingSeconds == null ? null : '${r.readingSeconds} s'),
+                ),
                 const SizedBox(height: 12),
               ],
               if (d.timer?.minuteEndNeeded == true)
@@ -401,7 +413,9 @@ class _TimerBar extends StatefulWidget {
   final bool oneMinute;
   final String header;
   final VoidCallback onChanged;
-  const _TimerBar({required this.readingId, required this.state, required this.oneMinute, required this.header, required this.onChanged});
+  final String? typed;
+  const _TimerBar(
+      {required this.readingId, required this.state, required this.oneMinute, required this.header, required this.onChanged, this.typed});
 
   @override
   State<_TimerBar> createState() => _TimerBarState();
@@ -417,11 +431,17 @@ class _TimerBarState extends State<_TimerBar> {
     _sync();
   }
 
+  bool _ticking = false;
+
   @override
   void didUpdateWidget(_TimerBar old) {
     super.didUpdateWidget(old);
-    _s = widget.state;
-    _sync();
+    // A rebuild (keyboard, rotation, resize) mustn't put the clock back to the
+    // last load's value or restart the ticker; only a new state does.
+    if (!identical(old.state, widget.state)) {
+      _s = widget.state;
+      _sync();
+    }
   }
 
   @override
@@ -436,7 +456,8 @@ class _TimerBarState extends State<_TimerBar> {
   }
 
   Future<void> _refresh() async {
-    if (!mounted) return;
+    if (!mounted || _ticking) return; // the last tick is still on its way
+    _ticking = true;
     final vm = vmsOf(context).philIri;
     try {
       final s = await vm.timer(widget.readingId);
@@ -449,7 +470,19 @@ class _TimerBarState extends State<_TimerBar> {
       }
     } catch (e) {
       debugPrint('PhilIriReading timer: $e');
+    } finally {
+      _ticking = false;
     }
+  }
+
+  /// Start; on a reading timed on paper, ask first: the timer replaces the typed time.
+  Future<void> _start() async {
+    final typed = widget.typed;
+    if (typed != null &&
+        (!await confirm(context, title: 'Start the timer?', body: 'This replaces the typed time ($typed).', action: 'Start') || !mounted)) {
+      return;
+    }
+    await _act((vm) => vm.startTimer(widget.readingId));
   }
 
   Future<void> _act(Future<PhilIriTimerState> Function(PhilIriViewModel vm) call) async {
@@ -475,7 +508,7 @@ class _TimerBarState extends State<_TimerBar> {
     final id = widget.readingId;
     final buttons = switch (_s.status) {
       PhilIriTimerStatus.none => [
-          FilledButton.icon(onPressed: () => _act((vm) => vm.startTimer(id)), icon: const Icon(Icons.play_arrow), label: const Text('Start')),
+          FilledButton.icon(onPressed: _start, icon: const Icon(Icons.play_arrow), label: const Text('Start')),
         ],
       PhilIriTimerStatus.running => [
           FilledButton.tonalIcon(onPressed: () => _act((vm) => vm.pauseTimer(id)), icon: const Icon(Icons.pause), label: const Text('Pause')),

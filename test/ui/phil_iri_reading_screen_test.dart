@@ -12,6 +12,7 @@ import 'package:basa_capstone/core/wiring/wire_shared.dart';
 import 'package:basa_capstone/core/wiring/wire_tutor.dart';
 import 'package:basa_capstone/ui/basa_scope.dart';
 import 'package:basa_capstone/ui/phil_iri/reading_screen.dart';
+import 'package:basa_capstone/ui/common/screen_kit.dart' show LoadingNote;
 import 'package:basa_capstone/ui/theme/basa_theme.dart';
 import 'package:basa_capstone/viewmodels/app_viewmodels.dart';
 import 'package:flutter/material.dart';
@@ -237,5 +238,49 @@ void main() {
       final rows = await tester.runAsync(() => _t.philIriVm.readings(r.session));
       expect(rows!.single.wordsRead, isNotNull);
     });
+  });
+
+  // Final review C1: marking a miscue keeps the page where it is.
+  testWidgets('marking a late word keeps the scroll position', (tester) async {
+    final r = (await tester.runAsync(_reading))!;
+    await _open(tester, r);
+    final word = find.text('nets');
+    await tester.ensureVisible(word);
+    await tester.pump();
+    final before = tester.state<ScrollableState>(find.ancestor(of: word, matching: find.byType(Scrollable)).first).position.pixels;
+    expect(before, greaterThan(0));
+    await tester.tap(word);
+    await _settle(tester);
+    await tester.tap(find.text('Done'));
+    // No spinner in place of the page while the miscue is saved (no blink).
+    for (var i = 0; i < 6; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 30)));
+      await tester.pump(const Duration(milliseconds: 20));
+      expect(find.byType(LoadingNote), findsNothing);
+    }
+    await _settle(tester);
+    expect(tester.state<ScrollableState>(find.ancestor(of: find.text('nets'), matching: find.byType(Scrollable)).first).position.pixels,
+        before);
+  });
+
+  // Final review I2: Start on a reading timed on paper asks before it replaces the typed time.
+  testWidgets('start on a typed time asks first', (tester) async {
+    final r = (await tester.runAsync(() async {
+      final r = await _reading();
+      await _t.philIriVm.saveTiming(r.reading, readingSeconds: 80);
+      return r;
+    }))!;
+    await _open(tester, r);
+    final start = find.ancestor(of: find.text('Start'), matching: find.byWidgetPredicate((w) => w is ButtonStyleButton)).first;
+    await tester.ensureVisible(start);
+    await tester.pump();
+    await tester.tap(start);
+    await _settle(tester);
+    expect(find.text('This replaces the typed time (80 s).'), findsOneWidget);
+    await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.text('Cancel')));
+    await _settle(tester);
+    final rows = await tester.runAsync(() => _t.philIriVm.readings(r.session));
+    expect(rows!.single.readingSeconds, 80);
+    expect((await tester.runAsync(() => _t.philIriVm.timer(r.reading)))!.events, isEmpty);
   });
 }

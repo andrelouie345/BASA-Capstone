@@ -11,6 +11,7 @@ import 'package:basa_capstone/core/wiring/wire_tutor.dart';
 import 'package:basa_capstone/ui/basa_scope.dart';
 import 'package:basa_capstone/ui/crla/crla_entry_screen.dart';
 import 'package:basa_capstone/ui/crla/crla_marking_screen.dart';
+import 'package:basa_capstone/ui/common/screen_kit.dart' show LoadingNote;
 import 'package:basa_capstone/ui/theme/basa_theme.dart';
 import 'package:basa_capstone/viewmodels/app_viewmodels.dart';
 import 'package:flutter/material.dart';
@@ -20,7 +21,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import '../helpers/offline_owner.dart';
 
 const _school = 9901;
-const _g2 = 9902, _g1 = 9903;
+const _g2 = 9902, _g1 = 9903, _g3 = 9904;
 const _year = '2026-2027';
 
 late AppContext _ctx;
@@ -35,14 +36,14 @@ Future<void> _settle(WidgetTester tester) async {
   }
 }
 
-/// A pulled Filipino MOSY attempt of a new learner in [section].
-Future<int> _attempt({int section = _g2}) async {
+/// A pulled MOSY attempt of a new learner in [section] (Filipino, or English).
+Future<int> _attempt({int section = _g2, bool english = false}) async {
   final s = ++_nextStudent, id = ++_nextId;
   await _ctx.localDb.insert('students', {'id': s, 'lrn': '9999999$s', 'last_name': 'CRUZ', 'first_name': 'Ana', 'school_id': _school});
   await _ctx.localDb.insert('enrollments', {'student_id': s, 'section_id': section, 'school_year': _year, 'status': 'active'});
   await _ctx.localDb.insert('crla_assessments', {
     'id': id, 'student_id': s, 'school_id': _school, 'section_id': section, 'school_year': _year,
-    'subject_variant': 'fil', 'language': 'Tagalog', 'round': 'mosy', 'attempt_no': 1, 'assessed_at': '2026-11-28',
+    'subject_variant': english ? 'eng' : 'fil', 'language': english ? 'English' : 'Tagalog', 'round': 'mosy', 'attempt_no': 1, 'assessed_at': '2026-11-28',
     'origin': 'cloud', 'row_version': 1,
   });
   return id;
@@ -79,7 +80,7 @@ void main() {
     _vms = appViewModels(_ctx, s, _t);
     final db = _ctx.localDb;
     await db.insert('schools', {'id': _school, 'school_id': 'ZZCMU', 'school_name': 'ZZ CRLA marking', 'region_id': 10});
-    for (final (id, grade) in [(_g2, '2'), (_g1, '1')]) {
+    for (final (id, grade) in [(_g2, '2'), (_g1, '1'), (_g3, '3')]) {
       await db.insert('sections', {'id': id, 'school_id': _school, 'school_year': _year, 'grade_level': grade, 'section_name': 'S$id'});
     }
     // Region 10, Tagalog Grade 2 only (Grade 1 has no form): Task 1, Task 2 low and high, 10 items each.
@@ -90,6 +91,17 @@ void main() {
             {'id': ++item, 'region_id': 10, 'language': 'Tagalog', 'grade': 2, 'task': task, 'item_no': n, 'text': '$task-$n'});
       }
     }
+    // English Grade 3: Task 1 + Task 2 and a story (English Task 1 = 0 ends the test).
+    for (final task in ['task1', 'task2']) {
+      for (var n = 1; n <= 10; n++) {
+        await db.insert('crla_part1_items',
+            {'id': ++item, 'region_id': 10, 'language': 'English', 'grade': 3, 'task': task, 'item_no': n, 'text': 'e$task-$n'});
+      }
+    }
+    await db.insert('crla_stories', {
+      'id': 9903, 'region_id': 10, 'language': 'English', 'grade': 3, 'story_no': 1, 'title': 'The Ten', 'word_count': 10,
+      'body': [for (var w = 0; w < 10; w++) 'e$w'].join(' '),
+    });
     await db.insert('crla_stories', {
       'id': 9902, 'region_id': 10, 'language': 'Tagalog', 'grade': 2, 'story_no': 1, 'title': 'Ang Dalawampu', 'word_count': 20,
       'body': '${[for (var w = 0; w < 10; w++) 't$w'].join(' ')}\n${[for (var w = 10; w < 20; w++) 't$w'].join(' ')}',
@@ -124,6 +136,8 @@ void main() {
     await _tap(tester, find.byKey(const Key('item-task1-2-wrong')));
     expect(find.textContaining('1/10'), findsWidgets);
     await _tap(tester, _button('Done with Task 1'));
+    expect(find.text('8 items not marked will count as wrong.'), findsOneWidget);
+    await _tap(tester, find.descendant(of: find.byType(AlertDialog), matching: find.text('Done')));
     final s = await _state(tester, a);
     expect((s.task1Done, s.task1Score, s.task2), (true, 1, CrlaTask.task2Low));
     expect(find.textContaining('Task 2 low'), findsWidgets);
@@ -185,5 +199,63 @@ void main() {
     expect(find.text('Start the timer on a story first.'), findsOneWidget);
     await _tap(tester, _button('Start'));
     expect(_button('Pause'), findsOneWidget);
+  });
+
+  // Final review C1: marking keeps the page where it is (no spinner, no jump to the top).
+  testWidgets('marking a late word keeps the scroll position', (tester) async {
+    final a = (await tester.runAsync(_attempt))!;
+    await _open(tester, CrlaMarkingScreen(assessmentId: a));
+    await _tap(tester, _button('Start'));
+    final word = find.text('t15');
+    await tester.ensureVisible(word);
+    await tester.pump();
+    final scroll = find.ancestor(of: word, matching: find.byType(Scrollable)).first;
+    final before = tester.state<ScrollableState>(scroll).position.pixels;
+    expect(before, greaterThan(0));
+    await tester.tap(word);
+    // No spinner in place of the page while the mark is saved (no blink).
+    for (var i = 0; i < 6; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 30)));
+      await tester.pump(const Duration(milliseconds: 20));
+      expect(find.byType(LoadingNote), findsNothing);
+    }
+    await _settle(tester);
+    expect(tester.state<ScrollableState>(find.ancestor(of: find.text('t15'), matching: find.byType(Scrollable)).first).position.pixels,
+        before);
+    expect((await _state(tester, a)).miscues, 1);
+  });
+
+  // Final review (re-graded): a stray "Done" doesn't fill Task 1 with wrongs.
+  testWidgets('done with unmarked items asks first', (tester) async {
+    final a = (await tester.runAsync(_attempt))!;
+    await _open(tester, CrlaMarkingScreen(assessmentId: a));
+    await _tap(tester, _button('Done with Task 1'));
+    expect(find.text('10 items not marked will count as wrong.'), findsOneWidget);
+    await _tap(tester, find.descendant(of: find.byType(AlertDialog), matching: find.text('Cancel')));
+    expect((await _state(tester, a)).task1Done, isFalse);
+  });
+
+  // Review focus: an attempt with typed totals can't be marked.
+  testWidgets('typed totals: no Mark in BASA', (tester) async {
+    final a = (await tester.runAsync(() async {
+      final a = await _attempt();
+      await _t.crlaVm.savePart1Standard(assessmentId: a, task1Score: 5, task2LowScore: 3);
+      return a;
+    }))!;
+    await _open(tester, CrlaEntryScreen(assessmentId: a));
+    expect(_button('Mark in BASA'), findsNothing);
+  });
+
+  // Owner 2026-11-28: when Task 1 ends the test, Part 2 is hidden (as on paper).
+  testWidgets('test ends at Task 1: no Part 2', (tester) async {
+    final a = (await tester.runAsync(() async {
+      final a = await _attempt(section: _g3, english: true);
+      await _t.crlaVm.closeTask(a, CrlaTask.task1); // nothing right: English Task 1 = 0
+      return a;
+    }))!;
+    await _open(tester, CrlaMarkingScreen(assessmentId: a));
+    expect(find.text('No Task 2: the test ends at Task 1.'), findsOneWidget);
+    expect(_button('Start'), findsNothing);
+    expect(find.text('e3'), findsNothing);
   });
 }
