@@ -94,6 +94,7 @@ time limit: the whole story counts.", "This attempt is already on the server: ch
 removing it.", the timer's order and clock refusals, the pending-upload lock. Sending (`SyncViewModel.upload`) refuses
 while a story timing isn't finished and names the learners ("Finish the CRLA story timing of ... first (stop the timer,
 or tap the last word reached), then send."): show it as is.
+Built 2026-11-28: `lib/ui/crla/crla_marking_screen.dart` (`CrlaMarkingScreen`), opened with "Mark in BASA" from `CrlaEntryScreen` where the form exists and the attempt has no typed totals; tests `test/ui/crla_marking_screen_test.dart`. **No learner side** (reading coordinator, 2026-11-28: the assessor must not show any action a learner might feel judged by): the layout sketch above is the assessor's two columns, not a split screen for the learner.
 Console: `crla-form`, `crla-digitized`, `crla-mark`, `crla-unmark`, `crla-task-done`, `crla-word`, `crla-timer-start`,
 `crla-timer-pause`, `crla-timer-resume`, `crla-timer-stop`, `crla-timer-reset`, `crla-timer`, `crla-last-word`,
 `crla-answer`, `crla-observe`

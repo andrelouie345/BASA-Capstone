@@ -10,6 +10,7 @@ import '../../core/models/crla_result.dart';
 import '../../core/models/crla_story.dart';
 import '../../viewmodels/viewmodel_exception.dart';
 import '../common/screen_kit.dart';
+import 'crla_marking_screen.dart';
 import 'crla_section_screen.dart';
 import 'crla_story_help_screen.dart';
 
@@ -146,7 +147,7 @@ class _CrlaEntryScreenState extends State<CrlaEntryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('CRLA attempt')),
-      body: LoadView<(CrlaAssessment?, CrlaResult?, List<CrlaStory>)>(
+      body: LoadView<(CrlaAssessment?, CrlaResult?, List<CrlaStory>, bool)>(
         where: 'CrlaEntry',
         reloadKey: _reload,
         load: (vms) async {
@@ -160,10 +161,22 @@ class _CrlaEntryScreenState extends State<CrlaEntryScreen> {
               debugPrint('CrlaEntry: no story list: ${e.message}');
             }
           }
-          return (a, r, stories);
+          // "Mark in BASA" where the region has a digitized form, unless the
+          // attempt already has typed totals (it can't be marked then).
+          var markable = false;
+          if (a != null) {
+            try {
+              await vms.crla.form(widget.assessmentId);
+              final marks = await vms.crla.digitized(widget.assessmentId);
+              markable = marks.isDigitized || (r?.part1TotalScore == null && r?.storyNo == null);
+            } on ViewModelException catch (e) {
+              debugPrint('CrlaEntry: not markable: ${e.message}');
+            }
+          }
+          return (a, r, stories, markable);
         },
         builder: (context, data, _) {
-          final (a, r, stories) = data;
+          final (a, r, stories, markable) = data;
           if (a == null) return const EmptyNote('This attempt is not on this device.');
           String v(Object? x) => x == null ? '—' : '$x';
           final theme = Theme.of(context);
@@ -195,9 +208,10 @@ class _CrlaEntryScreenState extends State<CrlaEntryScreen> {
             icon: Icons.menu_book_outlined,
             trailing: Row(mainAxisSize: MainAxisSize.min, children: [
               doneChip(part2Done),
-              TextButton.icon(
+              // An icon button so the header fits a phone (it overflowed at 400 px).
+              IconButton(
                 icon: const Icon(Icons.help_outline),
-                label: const Text('Help'),
+                tooltip: 'Help',
                 onPressed: () => CrlaStoryHelpScreen.open(context),
               ),
               const SizedBox(width: 4),
@@ -256,6 +270,18 @@ class _CrlaEntryScreenState extends State<CrlaEntryScreen> {
                 ),
               ),
               _ProfileCard(profile: profile),
+              if (markable)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton.icon(
+                    onPressed: () async {
+                      await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => CrlaMarkingScreen(assessmentId: a.id!)));
+                      if (mounted) setState(() => _reload++);
+                    },
+                    icon: const Icon(Icons.touch_app_outlined),
+                    label: const Text('Mark in BASA'),
+                  ),
+                ),
               LayoutBuilder(
                 builder: (context, c) => c.maxWidth >= 1000
                     ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [

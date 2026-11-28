@@ -75,6 +75,7 @@ timer's last tap; check the device clock.", "This reading is timed in BASA; rest
 typed time field is refused once timed), "Stop the reading timer before completing the session.", "The one-minute
 timer stops by itself at 60 seconds.".
 Typed timing (`saveTiming`) stays for readings without a timer (schools that test on paper).
+Built 2026-11-28 in `lib/ui/phil_iri/reading_screen.dart` (`_TimerBar`, `_MiscueDrawer`); tests `test/ui/phil_iri_reading_screen_test.dart`. The screen is the assessor's only (tutor, coordinator or admin): no learner side (reading coordinator, 2026-11-28).
 Console: `phil-iri-timer-start|pause|resume|stop|reset <readingId> [time]`, `phil-iri-timer <readingId>`,
 `phil-iri-minute-end <readingId> <wordIndex>`.
 

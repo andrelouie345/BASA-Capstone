@@ -2,6 +2,8 @@
 // One passage reading of a Phil-IRI session: its timing, miscues marked on
 // the passage's words (tap a word), observations, the comprehension answers,
 // and the result computed from what is saved (after every save).
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/models/phil_iri_answer.dart';
@@ -9,7 +11,9 @@ import '../../core/models/phil_iri_miscue.dart';
 import '../../core/models/phil_iri_passage.dart';
 import '../../core/models/phil_iri_question.dart';
 import '../../core/models/phil_iri_reading.dart';
+import '../../core/models/phil_iri_timer_event.dart';
 import '../../core/models/phil_iri_types.dart';
+import '../../viewmodels/phil_iri_viewmodel.dart';
 import '../common/screen_kit.dart';
 import 'session_screen.dart';
 
@@ -36,7 +40,12 @@ class _ReadingData {
   final List<PhilIriAnswer> answers;
   final PhilIriPassageResult? result;
   final String? resultNote;
-  const _ReadingData(this.reading, this.passage, this.miscues, this.questions, this.answers, this.result, this.resultNote);
+  /// The reading's timer (null for an Untitled imported reading: no timer).
+  final PhilIriTimerState? timer;
+  /// "Grade 7 · MOSY #1" for the timer bar.
+  final String header;
+  const _ReadingData(this.reading, this.passage, this.miscues, this.questions, this.answers, this.result, this.resultNote,
+      this.timer, this.header);
 }
 
 class _PhilIriReadingScreenState extends State<PhilIriReadingScreen> {
@@ -65,7 +74,14 @@ class _PhilIriReadingScreenState extends State<PhilIriReadingScreen> {
   }
 
   Future<void> _word(int index, String word, PhilIriMiscue? existing) async {
-    final r = await showDialog<_MiscueChoice>(context: context, builder: (_) => _MiscueDialog(word: word, existing: existing));
+    // The miscue drawer slides up from the bottom; tapping outside closes it
+    // without a change (owner, 2026-11-28).
+    final r = await showModalBottomSheet<_MiscueChoice>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _MiscueDrawer(word: word, existing: existing),
+    );
     if (r == null || !mounted) return;
     final vm = vmsOf(context).philIri;
     if (r.remove) {
@@ -90,6 +106,13 @@ class _PhilIriReadingScreenState extends State<PhilIriReadingScreen> {
         where: 'PhilIriReading',
       );
     }
+    _again();
+  }
+
+  /// One minute: the word the learner reached when the timer stopped at 60 s.
+  Future<void> _minuteEnd(int index) async {
+    final vm = vmsOf(context).philIri;
+    await runAction(context, () => vm.setMinuteEnd(widget.readingId, index), done: 'Last word saved.', where: 'PhilIriReading');
     _again();
   }
 
@@ -140,24 +163,33 @@ class _PhilIriReadingScreenState extends State<PhilIriReadingScreen> {
           final passageId = reading.passageId;
           final passage = passageId == null ? null : await vm.passage(passageId);
           if (passageId != null && passage == null) return null;
+          // timer() also adds the one-minute stop when it is due (the app may have been closed),
+          // so the reading is read again after it.
+          final timer = passage == null ? null : await vm.timer(reading.id!);
+          final session = await vm.getSession(widget.assessmentId);
+          final current = timer == null
+              ? reading
+              : (await vm.readings(widget.assessmentId)).where((r) => r.id == widget.readingId).firstOrNull ?? reading;
           PhilIriPassageResult? result;
           String? note;
-          if (reading.isTimed) {
+          if (current.isTimed) {
             try {
-              result = await vm.scoreReading(reading.id!);
+              result = await vm.scoreReading(current.id!);
             } catch (e) {
               note = e.toString();
               debugPrint('PhilIriReading: $e');
             }
           }
           return _ReadingData(
-            reading,
+            current,
             passage,
             await vm.miscues(reading.id!),
             passage == null ? const <PhilIriQuestion>[] : await vm.questions(passage.id!),
             await vm.answers(reading.id!),
             result,
             note,
+            timer,
+            [if (passage != null) 'Grade ${passage.level}', if (session != null) session.round.label].join(' · '),
           );
         },
         builder: (context, d, _) {
@@ -174,10 +206,29 @@ class _PhilIriReadingScreenState extends State<PhilIriReadingScreen> {
           final summary = SectionCard(
             title: passage?.title ?? 'Untitled',
             icon: Icons.menu_book_outlined,
-            trailing: passage == null
+            // Typed time only for a reading never timed in BASA (paper testing).
+            trailing: passage == null || (d.timer != null && (d.timer!.status != PhilIriTimerStatus.none || d.timer!.events.isNotEmpty))
                 ? null
                 : FilledButton.tonalIcon(onPressed: () => _timing(r), icon: const Icon(Icons.timer_outlined), label: const Text('Enter the time')),
             children: [
+              if (d.timer != null) ...[
+                _TimerBar(readingId: r.id!, state: d.timer!, oneMinute: oneMinute, header: d.header, onChanged: _again),
+                const SizedBox(height: 12),
+              ],
+              if (d.timer?.minuteEndNeeded == true)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: colors.tertiaryContainer, borderRadius: BorderRadius.circular(12)),
+                  child: Row(children: [
+                    Icon(Icons.touch_app_outlined, color: colors.onTertiaryContainer),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text('Tap the last word the learner read',
+                          style: theme.textTheme.titleSmall?.copyWith(color: colors.onTertiaryContainer)),
+                    ),
+                  ]),
+                ),
               if (passage == null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
@@ -259,7 +310,7 @@ class _PhilIriReadingScreenState extends State<PhilIriReadingScreen> {
                       runSpacing: 6,
                       children: [
                         for (var i = 0; i < words.length; i++)
-                          _WordTarget(word: words[i], miscue: byWord[i], onTap: () => _word(i, words[i], byWord[i])),
+                          _WordTarget(word: words[i], miscue: byWord[i], onTap: () => d.timer?.minuteEndNeeded == true ? _minuteEnd(i) : _word(i, words[i], byWord[i])),
                       ],
                     ),
                     if (d.miscues.isNotEmpty) ...[
@@ -335,6 +386,130 @@ class _PhilIriReadingScreenState extends State<PhilIriReadingScreen> {
             return PageBody(children: [summary, ?result, ?noResult, ?miscues, observations, ?comprehension]);
           });
         },
+      ),
+    );
+  }
+}
+
+/// The reading timer (handoff phil-iri.md, Timed reading): the clock and the
+/// buttons for its state. While it runs it asks the ViewModel once a second
+/// for the clock; when the timer has stopped (a one-minute reading at 60 s)
+/// the whole reading reloads.
+class _TimerBar extends StatefulWidget {
+  final int readingId;
+  final PhilIriTimerState state;
+  final bool oneMinute;
+  final String header;
+  final VoidCallback onChanged;
+  const _TimerBar({required this.readingId, required this.state, required this.oneMinute, required this.header, required this.onChanged});
+
+  @override
+  State<_TimerBar> createState() => _TimerBarState();
+}
+
+class _TimerBarState extends State<_TimerBar> {
+  late PhilIriTimerState _s = widget.state;
+  Timer? _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(_TimerBar old) {
+    super.didUpdateWidget(old);
+    _s = widget.state;
+    _sync();
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  void _sync() {
+    _tick?.cancel();
+    _tick = _s.status == PhilIriTimerStatus.running ? Timer.periodic(const Duration(seconds: 1), (_) => _refresh()) : null;
+  }
+
+  Future<void> _refresh() async {
+    if (!mounted) return;
+    final vm = vmsOf(context).philIri;
+    try {
+      final s = await vm.timer(widget.readingId);
+      if (!mounted) return;
+      if (s.status != PhilIriTimerStatus.running) {
+        _tick?.cancel();
+        widget.onChanged();
+      } else {
+        setState(() => _s = s);
+      }
+    } catch (e) {
+      debugPrint('PhilIriReading timer: $e');
+    }
+  }
+
+  Future<void> _act(Future<PhilIriTimerState> Function(PhilIriViewModel vm) call) async {
+    final vm = vmsOf(context).philIri;
+    final r = await runAction(context, () => call(vm), where: 'PhilIriReading');
+    if (r != null && mounted) widget.onChanged();
+  }
+
+  Future<void> _restart() async {
+    if (!await confirm(context, title: 'Time this reading again?', body: 'The first timing stays in the record.', action: 'Restart')) {
+      return;
+    }
+    if (mounted) await _act((vm) => vm.resetTimer(widget.readingId));
+  }
+
+  static String _clock(Duration d) =>
+      '${d.inMinutes.toString().padLeft(2, '0')}:${(d.inSeconds % 60).toString().padLeft(2, '0')}';
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final id = widget.readingId;
+    final buttons = switch (_s.status) {
+      PhilIriTimerStatus.none => [
+          FilledButton.icon(onPressed: () => _act((vm) => vm.startTimer(id)), icon: const Icon(Icons.play_arrow), label: const Text('Start')),
+        ],
+      PhilIriTimerStatus.running => [
+          FilledButton.tonalIcon(onPressed: () => _act((vm) => vm.pauseTimer(id)), icon: const Icon(Icons.pause), label: const Text('Pause')),
+          // A one-minute reading stops by itself at 60 s.
+          if (!widget.oneMinute)
+            FilledButton.icon(onPressed: () => _act((vm) => vm.stopTimer(id)), icon: const Icon(Icons.stop), label: const Text('Stop')),
+        ],
+      PhilIriTimerStatus.paused => [
+          FilledButton.tonalIcon(onPressed: () => _act((vm) => vm.resumeTimer(id)), icon: const Icon(Icons.play_arrow), label: const Text('Resume')),
+          if (!widget.oneMinute)
+            FilledButton.icon(onPressed: () => _act((vm) => vm.stopTimer(id)), icon: const Icon(Icons.stop), label: const Text('Stop')),
+        ],
+      PhilIriTimerStatus.stopped => [
+          OutlinedButton.icon(onPressed: _restart, icon: const Icon(Icons.replay), label: const Text('Restart')),
+        ],
+    };
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: colors.surfaceContainerHigh, borderRadius: BorderRadius.circular(12)),
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            if (widget.header.isNotEmpty)
+              Text(widget.header, style: theme.textTheme.labelMedium?.copyWith(color: colors.onSurfaceVariant)),
+            Text(_clock(_s.elapsed), style: theme.textTheme.headlineMedium?.copyWith(fontFeatures: const [FontFeature.tabularFigures()])),
+            if (_s.events.isNotEmpty)
+              Text(_s.timedInBasa ? 'Timed in BASA' : 'Time typed in',
+                  style: theme.textTheme.labelSmall?.copyWith(color: colors.onSurfaceVariant)),
+          ]),
+          ...buttons,
+        ],
       ),
     );
   }
@@ -418,16 +593,16 @@ class _MiscueChoice {
   const _MiscueChoice({this.remove = false, this.type, this.spoken, this.selfCorrected = false});
 }
 
-class _MiscueDialog extends StatefulWidget {
+class _MiscueDrawer extends StatefulWidget {
   final String word;
   final PhilIriMiscue? existing;
-  const _MiscueDialog({required this.word, this.existing});
+  const _MiscueDrawer({required this.word, this.existing});
 
   @override
-  State<_MiscueDialog> createState() => _MiscueDialogState();
+  State<_MiscueDrawer> createState() => _MiscueDrawerState();
 }
 
-class _MiscueDialogState extends State<_MiscueDialog> {
+class _MiscueDrawerState extends State<_MiscueDrawer> {
   late PhilIriMiscueType _type = widget.existing?.type ?? PhilIriMiscueType.mispronunciation;
   late bool _self = widget.existing?.selfCorrected ?? false;
   late final _spoken = TextEditingController(text: widget.existing?.spokenText ?? '');
@@ -440,14 +615,18 @@ class _MiscueDialogState extends State<_MiscueDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text('“${widget.word}”'),
-      content: SizedBox(
-        width: 400,
+    final theme = Theme.of(context);
+    return SafeArea(
+      child: Padding(
+        // Keeps the "said" field above the keyboard.
+        padding: EdgeInsets.fromLTRB(20, 0, 20, 16 + MediaQuery.viewInsetsOf(context).bottom),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Text('“${widget.word}”', style: theme.textTheme.titleLarge),
+              const SizedBox(height: 12),
               Wrap(spacing: 6, runSpacing: 6, children: [
                 for (final t in PhilIriMiscueType.values)
                   ChoiceChip(label: Text(t.label), selected: _type == t, onSelected: (_) => setState(() => _type = t)),
@@ -460,23 +639,28 @@ class _MiscueDialogState extends State<_MiscueDialog> {
                 onChanged: (v) => setState(() => _self = v ?? false),
                 title: const Text('Self-corrected (recorded, not counted)'),
               ),
+              const SizedBox(height: 8),
+              Row(children: [
+                if (widget.existing != null)
+                  TextButton.icon(
+                    onPressed: () => Navigator.of(context).pop(const _MiscueChoice(remove: true)),
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('Remove miscue'),
+                  ),
+                const Spacer(),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(_MiscueChoice(
+                    type: _type,
+                    spoken: _spoken.text.trim().isEmpty ? null : _spoken.text.trim(),
+                    selfCorrected: _self,
+                  )),
+                  child: const Text('Done'),
+                ),
+              ]),
             ],
           ),
         ),
       ),
-      actions: [
-        if (widget.existing != null)
-          TextButton(onPressed: () => Navigator.of(context).pop(const _MiscueChoice(remove: true)), child: const Text('Remove')),
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(_MiscueChoice(
-            type: _type,
-            spoken: _spoken.text.trim().isEmpty ? null : _spoken.text.trim(),
-            selfCorrected: _self,
-          )),
-          child: const Text('Save'),
-        ),
-      ],
     );
   }
 }

@@ -88,3 +88,5 @@ The debug console (`lib/ui/debug/`) is a developer tool, not an app screen: leav
 | 69 | Tutor type (Users) and section adviser (Sections) | screen part | admin (set) / both (adviser shown) | [admin.md](screens/admin.md#users) | Ethan | in progress |
 | 70 | ARAL class session type and suggested class names | screen part | both (view) / admin (edit) | [aral.md](screens/aral.md#classes) | Ethan | in progress |
 | 71 | ARAL Forms 1, 2 and 4 (Reading; also in the hub) | screen | admin | [aral.md](screens/aral.md#aral-forms-1-2-and-4-reading) | Ethan | in progress |
+| 72 | Timed reading: timer bar and miscue drawer on the reading screen (digitized Phil-IRI) | screen part | both | [phil-iri.md](screens/phil-iri.md#timed-reading-the-digitized-oral-reading-2026-11-26-consultation-item-m1-01) | Ethan | pushed |
+| 73 | Digitized CRLA marking ("Mark in BASA" from the attempt) | screen | both | [crla.md](screens/crla.md#digitized-crla-mark-it-in-basa-2026-11-27-consultation-item-m1-02) | Ethan | pushed |

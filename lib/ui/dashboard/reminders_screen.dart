@@ -130,6 +130,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
 IconData _icon(TutorReminderKind k) => switch (k) {
   TutorReminderKind.overdueAssessment => Icons.warning_amber,
   TutorReminderKind.checkinDue => Icons.checklist,
+  TutorReminderKind.noImprovement => Icons.trending_flat,
   TutorReminderKind.openAssessment => Icons.fact_check_outlined,
   TutorReminderKind.noGst => Icons.assignment_late_outlined,
   TutorReminderKind.noIrip => Icons.flag_outlined,
@@ -233,7 +234,8 @@ class _SectionProgress extends StatelessWidget {
   }
 }
 
-/// The learners a reminder concerns, as small chips.
+/// The learners a reminder concerns, as small chips; a no-improvement
+/// reminder's learners carry their reasons (docs/handoff/screens/dashboard.md).
 class _LearnerChips extends StatelessWidget {
   final List<ReminderLearner> learners;
   const _LearnerChips(this.learners);
@@ -251,7 +253,7 @@ class _LearnerChips extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(color: colors.surfaceContainerHigh, borderRadius: BorderRadius.circular(8)),
-            child: Text('${l.name} (${l.lrn})', style: theme.textTheme.labelSmall?.copyWith(color: colors.onSurfaceVariant)),
+            child: Text('${l.name} (${l.lrn})${l.reasons.isEmpty ? '' : ': ${l.reasons.join('; ')}'}', style: theme.textTheme.labelSmall?.copyWith(color: colors.onSurfaceVariant)),
           ),
       ],
     );
