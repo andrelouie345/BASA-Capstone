@@ -13,7 +13,9 @@ assessment, not only recording it.
 
 ## Decisions (owner)
 
-- **Tutor-only screens.** No split screen and no learner side (reading coordinator, 2026-11-28: showing the
+- **Assessor-only screens** (whoever gives the test holds the screen: a tutor, coordinator or admin; both builds,
+  same roles as the backend: tutors for their own sections and ARAL class learners, coordinators and admins of the
+  school). No split screen and no learner side (reading coordinator, 2026-11-28: showing the
   learner the screen is a very bad idea; the tutor must not show any action a learner might feel judged or pressured
   by). The learner reads the printed copy; the screen shows the text so the tutor can follow and mark.
 - **Phil-IRI miscue = tap the word, a drawer slides up** (bottom sheet) with the miscue types, Self-corrected,
@@ -52,7 +54,7 @@ Calls are `PhilIriViewModel` (handoff `docs/handoff/screens/phil-iri.md`, *Timed
 
 ## CRLA marking screen (M1-02)
 
-Calls are `CrlaViewModel` (handoff `docs/handoff/screens/crla.md`, *Digitized CRLA*). Tutor-only; phone = one
+Calls are `CrlaViewModel` (handoff `docs/handoff/screens/crla.md`, *Digitized CRLA*). Assessor-only; phone = one
 scrolling page (Part 1, then Part 2); wide = two columns (Part 1 left, Part 2 right).
 
 - **Opening it:** `CrlaEntryScreen` asks `form(assessmentId)`; when it returns a form and the attempt isn't typed
@@ -84,7 +86,8 @@ scrolling page (Part 1, then Part 2); wide = two columns (Part 1 left, Part 2 ri
 - `lib/ui/` rules (`lib/ui/CLAUDE.md`): ViewModels through `vmsOf(context)` / the scope, no services or data imports
   (`check_vm_boundary`), theme colours only, `screen_kit.dart` helpers (`LoadView`, `runAction`, `confirm`), Andre's
   style; don't reformat lines not changed.
-- Both builds (tutor and admin); no admin calls.
+- Both builds (tutor and admin; coordinators use the admin build); no admin-only calls, so the same screens compile
+  into the tutor build.
 - Tests: widget tests for both screens with seeded data (pattern of `test/ui/screens_data_test.dart`): timer bar
   states and buttons, the drawer (open on tap, closes on outside tap with no change), last-word banner; CRLA Part 1
   marking, Task 2 confirm, word toggle, last word, question marks; `screens_smoke_test` stays green.
