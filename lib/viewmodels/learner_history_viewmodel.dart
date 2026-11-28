@@ -18,6 +18,7 @@ import '../core/console/logger.dart';
 import '../core/models/aral_enrollment.dart';
 import '../core/models/crla_assessment.dart' show CrlaRound;
 import '../core/models/crla_result.dart';
+import '../core/services/crla_rules.dart' show crlaLatestAttempt;
 import '../core/models/enrollment_move.dart';
 import '../core/models/student.dart';
 import '../core/models/user.dart';
@@ -348,19 +349,14 @@ class LearnerHistoryViewModel {
     }
   }
 
-  /// Latest attempt per round and test (subject variant; attempt numbers count
-  /// per variant): highest attempt number, then the latest date.
+  /// Latest attempt per round and test (subject variant): crlaLatestAttempt
+  /// (date, then attempt number; attempt numbers restart per section).
   Map<CrlaRound, Map<String, String?>> _crlaByRound(Iterable<CrlaResult> results) {
-    final latest = <(CrlaRound, String), CrlaResult>{};
+    final groups = <(CrlaRound, String), List<CrlaResult>>{};
     for (final r in results) {
-      final key = (r.round, r.subjectVariant);
-      final prev = latest[key];
-      if (prev == null ||
-          r.attemptNo > prev.attemptNo ||
-          (r.attemptNo == prev.attemptNo && r.assessedAt.compareTo(prev.assessedAt) > 0)) {
-        latest[key] = r;
-      }
+      (groups[(r.round, r.subjectVariant)] ??= []).add(r);
     }
+    final latest = {for (final e in groups.entries) e.key: crlaLatestAttempt(e.value)!};
     const order = ['mt', 'fil', 'eng'];
     int rank(String variant) => order.contains(variant) ? order.indexOf(variant) : order.length;
     final out = <CrlaRound, Map<String, String?>>{};

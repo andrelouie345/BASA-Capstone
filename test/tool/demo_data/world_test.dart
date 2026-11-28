@@ -22,7 +22,13 @@ void main() {
     // 2026-2027: one per grade + HS Grade 8 - Narra.
     expect(w.sections.where((s) => s.year == DemoYear.y2026), hasLength(11));
     expect(w.sections.where((s) => s.year == DemoYear.y2026 && s.grade == 8).map((s) => s.name),
-        containsAll(['Grade 8 - Narra']));
+        unorderedEquals(['Acacia', 'Narra']));
+    // Names as a real SF1 writes them: the grade is not part of the name
+    // (screens show "Grade 8 · Acacia"; walkthrough finding 1).
+    for (final s in w.sections) {
+      expect(s.name, isNot(startsWith('Grade')));
+      expect(demoOldSectionName(s), 'Grade ${s.grade} - ${s.name}');
+    }
     for (final s in w.sections) {
       expect(w.inSection(s).length, inInclusiveRange(36, 44), reason: '${s.year.label} ${s.name}');
       expect(s.schoolCode, s.grade <= 6 ? 'NCES-DEMO' : 'NCHS-DEMO');

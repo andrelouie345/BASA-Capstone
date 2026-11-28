@@ -24,6 +24,7 @@
 // and a class with no session for more than idle_session_days. Nothing dated
 // after today counts.
 import '../core/console/logger.dart';
+import '../core/models/crla_result.dart';
 import '../core/models/assessment_calendar.dart';
 import '../core/models/crla_assessment.dart' show CrlaRound;
 import '../core/models/phil_iri_assessment.dart' show PhilIriRound;
@@ -54,6 +55,7 @@ import '../core/services/phil_iri_rules.dart' show philIriGradeOf;
 import '../core/services/calendar_rules.dart';
 import '../core/services/normalizers.dart';
 import 'auth_viewmodel.dart';
+import 'aral_class_viewmodel.dart';
 import 'nla_report_viewmodel.dart';
 import 'phil_iri_viewmodel.dart' show PhilIriReportResults;
 import 'report_settings_viewmodel.dart';
@@ -134,7 +136,9 @@ class SchoolReminders {
 /// (ARAL memo settings; 0 = no minimum). fewSessionsThisWeek: from
 /// Wednesday, a class with active learners that held fewer sessions this
 /// Monday-Friday week than the school's class_min_sessions_per_week.
-enum AralClassNoticeKind { waiting, programMismatch, otherGrade, noTutor, overMax, underMin, fewSessionsThisWeek }
+/// noImprovement: a class with learners not improving (spec 2026-11-27 ARAL
+/// effectiveness D1; `AralClassViewModel.noImprovement`), with or without a tutor.
+enum AralClassNoticeKind { waiting, programMismatch, otherGrade, noTutor, overMax, underMin, fewSessionsThisWeek, noImprovement }
 
 /// An ARAL class matter for the coordinator.
 class AralClassNotice {
@@ -154,10 +158,20 @@ class AralClassNotice {
   List<int> get enrollmentIds => [for (final l in learners) l.enrollmentId!];
 }
 
-/// In display order (spec D3): overdue assessments, check-ins due, open-round
-/// assessments, learners without a GST (BOSY; spec 2026-11-09 D13), no IRIP,
-/// no session lately.
-enum TutorReminderKind { overdueAssessment, checkinDue, openAssessment, noGst, noIrip, noSessionLately, fewSessionsThisWeek }
+/// In display order (spec D3): overdue assessments, check-ins due, learners
+/// with no improvement (per own class; spec 2026-11-27 ARAL effectiveness D1),
+/// open-round assessments, learners without a GST (BOSY; spec 2026-11-09
+/// D13), no IRIP, no session lately.
+enum TutorReminderKind {
+  overdueAssessment,
+  checkinDue,
+  noImprovement,
+  openAssessment,
+  noGst,
+  noIrip,
+  noSessionLately,
+  fewSessionsThisWeek
+}
 
 class ReminderLearner {
   final int studentId;
@@ -165,7 +179,14 @@ class ReminderLearner {
   final String name; // "LAST, First"
   final int? enrollmentId; // the ARAL roster row (check-in / IRIP reminders)
 
-  const ReminderLearner(this.studentId, this.lrn, this.name, [this.enrollmentId]);
+  /// No-improvement lines only: why the learner is flagged, in plain words
+  /// (one or two); empty everywhere else.
+  final List<String> reasons;
+
+  const ReminderLearner(this.studentId, this.lrn, this.name, [this.enrollmentId]) : reasons = const [];
+
+  /// A learner of a no-improvement line or notice.
+  const ReminderLearner.flagged(this.studentId, this.lrn, this.name, int this.enrollmentId, this.reasons);
 }
 
 class TutorReminder {
@@ -227,6 +248,7 @@ class ReminderViewModel {
   final AralCheckinRepository _checkins;
   final AralSettingRepository _aralSettings;
   final AralClassRepository _classes;
+  final AralClassViewModel _aralClasses;
 
   ReminderViewModel({
     required AuthViewModel auth,
@@ -245,8 +267,10 @@ class ReminderViewModel {
     required AralCheckinRepository checkins,
     required AralSettingRepository aralSettings,
     required AralClassRepository classes,
+    required AralClassViewModel aralClasses,
     Logger? logger,
   })  : _auth = auth,
+        _aralClasses = aralClasses,
         _calendar = calendar,
         _reports = reports,
         _reportSettings = reportSettings,
@@ -449,8 +473,30 @@ class ReminderViewModel {
               'Class "${c.className}" has ${count(placed[c.id]!)}, fewer than ${rules.classMinLearners}: '
               'combine it with the nearest level of the same grade if there is one.',
               aralClass: c),
+      for (final c in byName)
+        if (placed.containsKey(c.id))
+          if (await _noImprovementLearners(c.id!, day, (e) async => (await named([e])).single) case final flagged
+              when flagged.isNotEmpty)
+            AralClassNotice(AralClassNoticeKind.noImprovement, _noImprovementLine(c, flagged.length),
+                learners: flagged, aralClass: c),
     ];
   }
+
+  /// The class's learners with no improvement on [day], by name, with their
+  /// reasons; [named] gives a roster row its learner (LRN and name).
+  Future<List<ReminderLearner>> _noImprovementLearners(
+      int classId, String day, Future<ReminderLearner> Function(AralEnrollment e) named) async {
+    final out = <ReminderLearner>[];
+    for (final f in await _aralClasses.noImprovement(classId, asOf: day)) {
+      final l = await named(f.progress.enrollment);
+      out.add(ReminderLearner.flagged(l.studentId, l.lrn, l.name, f.progress.enrollment.id!,
+          [for (final r in f.reasons) r.message]));
+    }
+    return out..sort(_byName);
+  }
+
+  static String _noImprovementLine(AralClass c, int n) =>
+      'Class "${c.className}": ${n == 1 ? '1 learner shows' : '$n learners show'} no improvement.';
 
   /// Reminders for tutor [tutorId] in [year] as of [today] (default now), from
   /// this device's copy. Callers: the tutor themself, an admin/coordinator of
@@ -523,6 +569,43 @@ class ReminderViewModel {
 
     final out = <TutorReminder>[];
 
+    // MOSY and EOSY of a learner active in an ARAL class with a tutor are the
+    // class tutor's (spec 2026-11-27 ARAL class tutor D1; the reading
+    // coordinator's rule): they leave the section lines (1) and go on the class
+    // lines (1b). BOSY stays with the section's tutors.
+    bool classTutorsRound(String round) => round != 'bosy';
+    // One Phil-IRI result per learner and section, and one CRLA list per
+    // section, for the whole call: the section and class lines share them
+    // (final review I4; a tutor's phone reads these per dashboard load).
+    final philIriOf = <(int, int), PhilIriReportResults>{};
+    Future<PhilIriReportResults> philIriResults(int studentId, int sectionId) async =>
+        philIriOf[(studentId, sectionId)] ??=
+            await _reports.learnerResults(studentId: studentId, sectionId: sectionId, schoolYear: year, asOf: day);
+    final crlaOf = <int, List<CrlaResult>>{};
+    Future<List<CrlaResult>> crlaResults(int sectionId) async =>
+        crlaOf[sectionId] ??= await _crlaResults.getBySection(sectionId, schoolYear: year);
+    Future<bool> assessedIn(CalendarInstrument instrument, int studentId, int sectionId, String round) async {
+      if (instrument == CalendarInstrument.philIri) {
+        return NlaReportViewModel.assessedIn(await philIriResults(studentId, sectionId))
+            .contains(PhilIriRound.values.byName(round));
+      }
+      return (await crlaResults(sectionId))
+          .any((r) => r.studentId == studentId && r.round.name == round && _day(r.assessedAt).compareTo(day) <= 0);
+    }
+    final classById = <int, AralClass?>{};
+    Future<Set<int>> handedOver(int sectionId) async {
+      final ids = <int>{};
+      for (final e in await _roster.getBySection(sectionId, schoolYear: year)) {
+        if (e.classId == null || !aralActiveOn(e, day)) continue;
+        final c = classById.containsKey(e.classId) ? classById[e.classId] : (classById[e.classId!] = await _classes.findById(e.classId!));
+        // A class not on this device is another tutor's (a tutor's device
+        // holds only their own classes); a class without a tutor keeps its
+        // learners with the section's tutors.
+        if (c == null || c.tutorId != null) ids.add(e.studentId);
+      }
+      return ids;
+    }
+
     // 1. Learners not assessed, per assigned section of the year and per
     // scheduled round that is open or closed.
     for (final s in sections) {
@@ -535,18 +618,22 @@ class ReminderViewModel {
       } else {
         continue;
       }
-      final learners = await sectionLearners(s.id!);
-      if (learners.isEmpty) continue;
+      final all = await sectionLearners(s.id!);
+      if (all.isEmpty) continue;
+      final handed = await handedOver(s.id!);
       Map<int, PhilIriReportResults>? philIri; // per learner, computed once per section
       for (final entry in await _calendar.scheduledRounds(s.schoolId, year, instrument)) {
         final w = entry.window;
         final status = _calendar.status(w, today: today);
         if (status == RoundStatus.upcoming) continue;
+        final learners = classTutorsRound(w.round)
+            ? {for (final e in all.entries) if (!handed.contains(e.key)) e.key: e.value}
+            : all;
+        if (learners.isEmpty) continue;
         final Set<int> assessed;
         if (instrument == CalendarInstrument.philIri) {
           philIri ??= {
-            for (final id in learners.keys)
-              id: await _reports.learnerResults(studentId: id, sectionId: s.id!, schoolYear: year, asOf: day),
+            for (final id in all.keys) id: await philIriResults(id, s.id!),
           };
           final round = PhilIriRound.values.byName(w.round);
           assessed = {
@@ -600,6 +687,47 @@ class ReminderViewModel {
       }
     }
 
+    // 1b. Per class of the tutor: its active learners not assessed in a MOSY
+    // or EOSY round that is open or closed, per instrument (by each learner's
+    // section grade; a mixed-grade class can get both); assessed as on their
+    // section's line.
+    for (final cls in classes) {
+      final byInstrument = <CalendarInstrument, List<AralEnrollment>>{};
+      for (final e in roster.where((e) => e.classId == cls.id)) {
+        final sec = await _sections.getById(e.sectionId);
+        final instrument = sec == null ? null : _instrumentOf(sec.gradeLevel);
+        if (instrument != null) (byInstrument[instrument] ??= []).add(e);
+      }
+      for (final MapEntry(key: instrument, value: members) in byInstrument.entries) {
+        for (final entry in await _calendar.scheduledRounds(cls.schoolId, year, instrument)) {
+          final w = entry.window;
+          if (!classTutorsRound(w.round)) continue;
+          final status = _calendar.status(w, today: today);
+          if (status == RoundStatus.upcoming) continue;
+          final missing = <ReminderLearner>[
+            for (final e in members)
+              if (!await assessedIn(instrument, e.studentId, e.sectionId, w.round)) await rosterLearner(e),
+          ]..sort(_byName);
+          if (missing.isEmpty) continue;
+          final closed = status == RoundStatus.closed;
+          final days = closed ? _daysBetween(w.closesOn!, day) : _daysBetween(day, w.closesOn!);
+          final when = closed
+              ? 'closed ${_n(days)} ago'
+              : (days == 0 ? 'closes today' : 'closes in ${_n(days)}');
+          out.add(TutorReminder(
+            closed ? TutorReminderKind.overdueAssessment : TutorReminderKind.openAssessment,
+            '${instrument.label} ${roundLabel(w.round)} $when: ${missing.length} of ${members.length} '
+            'learner${members.length == 1 ? '' : 's'} of ARAL class ${cls.className} not assessed.',
+            missing,
+            instrument: instrument,
+            window: w,
+            days: days,
+            aralClass: cls,
+          ));
+        }
+      }
+    }
+
     // 2. Check-ins due, per class: after the class's first / second check-in
     // session (the school's checkin_after_sessions, default 16 and 32; the
     // tools and saved check-ins keep the checkpoint ids 16 and 32), active
@@ -639,6 +767,15 @@ class ReminderViewModel {
           aralClass: cls,
         ));
       }
+    }
+
+    // 2b. Learners with no improvement, per own class (spec 2026-11-27 ARAL
+    // effectiveness D1): the class's learners, whatever this device's roster.
+    for (final cls in classes) {
+      final flagged = await _noImprovementLearners(cls.id!, day, rosterLearner);
+      if (flagged.isEmpty) continue;
+      out.add(TutorReminder(TutorReminderKind.noImprovement, _noImprovementLine(cls, flagged.length), flagged,
+          aralClass: cls));
     }
 
     // 3. Active ARAL learners without an IRIP.
@@ -767,6 +904,14 @@ class ReminderViewModel {
   /// crla_results row of [round] in that section dated on or before [asOf]
   /// (several attempts count once). The one CRLA "assessed" test of the
   /// coordinator and tutor reminders.
+  /// The instrument of a section's grade: Phil-IRI (Grades 4-10), CRLA
+  /// (Grades 1-3), else none.
+  static CalendarInstrument? _instrumentOf(String gradeLevel) {
+    if (philIriGradeOf(gradeLevel) != null) return CalendarInstrument.philIri;
+    final grade = int.tryParse(gradeLevel);
+    return grade != null && grade >= 1 && grade <= 3 ? CalendarInstrument.crla : null;
+  }
+
   Future<Set<int>> _crlaAssessed(int sectionId, String year, CrlaRound round, String asOf, Set<int> learners) async => {
         for (final r in await _crlaResults.getBySection(sectionId, schoolYear: year))
           if (r.round == round && learners.contains(r.studentId) && _day(r.assessedAt).compareTo(asOf) <= 0)

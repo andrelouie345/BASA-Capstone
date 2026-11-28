@@ -23,11 +23,17 @@ const pullOrder = <String, String>{
   // v44: section move history (SF1 leavers); read-only on the device, not synced.
   'enrollment_moves': 'id',
   'crla_stories': 'id',
+  'crla_part1_items': 'id', // v51: digitized CRLA content
+  'crla_story_questions': 'id', // v51
   'crla_thresholds': 'id',
   'crla_assessments': 'id',
   'crla_part1_standard': 'assessment_id',
   'crla_part1_english': 'assessment_id',
   'crla_part2_fluency': 'assessment_id',
+  'crla_part1_marks': 'id', // v51: digitized CRLA evidence
+  'crla_part2_word_marks': 'id', // v51: digitized CRLA evidence
+  'crla_part2_answers': 'id', // v51: digitized CRLA evidence
+  'crla_timer_events': 'id', // v51: digitized CRLA evidence
   'phil_iri_collections': 'id',
   'phil_iri_rubric_criteria': 'id',
   'phil_iri_passages': 'id',
@@ -93,11 +99,17 @@ const pullClearOrder = [
   'phil_iri_passages',
   'phil_iri_rubric_criteria',
   'phil_iri_collections',
+  'crla_timer_events',
+  'crla_part2_answers',
+  'crla_part2_word_marks',
+  'crla_part1_marks',
   'crla_part2_fluency',
   'crla_part1_english',
   'crla_part1_standard',
   'crla_assessments',
   'crla_thresholds',
+  'crla_story_questions',
+  'crla_part1_items',
   'crla_stories',
   'import_conflicts',
   'report_settings',
@@ -118,6 +130,10 @@ const syncedTables = <String, String>{
   'crla_part1_standard': 'assessment_id',
   'crla_part1_english': 'assessment_id',
   'crla_part2_fluency': 'assessment_id',
+  'crla_part1_marks': 'id', // v51: digitized CRLA evidence
+  'crla_part2_word_marks': 'id', // v51: digitized CRLA evidence
+  'crla_part2_answers': 'id', // v51: digitized CRLA evidence
+  'crla_timer_events': 'id', // v51: digitized CRLA evidence
   'phil_iri_gst_results': 'id',
   'phil_iri_assessments': 'id',
   'phil_iri_readings': 'id',
@@ -142,6 +158,10 @@ const syncedParents = <String, (String, String)>{
   'crla_part1_standard': ('crla_assessments', 'assessment_id'),
   'crla_part1_english': ('crla_assessments', 'assessment_id'),
   'crla_part2_fluency': ('crla_assessments', 'assessment_id'),
+  'crla_part1_marks': ('crla_assessments', 'assessment_id'),
+  'crla_part2_word_marks': ('crla_assessments', 'assessment_id'),
+  'crla_part2_answers': ('crla_assessments', 'assessment_id'),
+  'crla_timer_events': ('crla_assessments', 'assessment_id'),
   'phil_iri_readings': ('phil_iri_assessments', 'assessment_id'),
   'phil_iri_rubric_scores': ('phil_iri_assessments', 'assessment_id'),
   'phil_iri_miscues': ('phil_iri_readings', 'reading_id'),

@@ -30,6 +30,7 @@ import 'srp_viewmodel.dart';
 import 'student_viewmodel.dart';
 import 'sync_viewmodel.dart';
 import 'theme_settings_viewmodel.dart';
+import 'table_export_viewmodel.dart';
 import 'trend_viewmodel.dart';
 
 class AppViewModels {
@@ -66,6 +67,7 @@ class AppViewModels {
   final NlaReportViewModel nlaReport;
   final ReminderViewModel reminders;
   final TrendViewModel trend;
+  final TableExportViewModel tableExport;
   final SrpViewModel srp;
   final DashboardViewModel dashboard;
 
@@ -94,6 +96,7 @@ class AppViewModels {
     required this.nlaReport,
     required this.reminders,
     required this.trend,
+    required this.tableExport,
     required this.srp,
     required this.dashboard,
   });

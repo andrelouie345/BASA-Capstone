@@ -10,6 +10,8 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'build_args.dart';
 import 'phases/aral.dart';
 import 'phases/crla.dart';
+import 'phases/crla_digitized.dart';
+import 'phases/fixes.dart';
 import 'phases/leftovers.dart';
 import 'phases/next_year.dart';
 import 'phases/phil_iri.dart';
@@ -32,6 +34,8 @@ final List<DemoStep> demoSteps = [
   (name: aralStep(DemoYear.y2025), run: (s, st, w, today) => runAral(s, st, w, DemoYear.y2025, today: today)),
   ...nextYearParts,
   ...leftoverParts,
+  ...fixParts,
+  (name: crlaDigitizedStep, run: runCrlaDigitized), // CRLA digitized plan Task 7
 ];
 
 Future<void> main(List<String> args) async {

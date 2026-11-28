@@ -18,6 +18,12 @@ void main() {
     expect(lines.every((l) => l.checks.isNotEmpty), isTrue);
   });
 
+  test('the CRLA row checks the attempts marked in BASA (digitized, at least 10)', () {
+    final crla = coverageRows.singleWhere((r) => r.area == 'CRLA');
+    final digitized = crla.checks.singleWhere((c) => c.key == 'crla.digitized');
+    expect(digitized.min, 10);
+  });
+
   test('a count below its minimum, or missing, makes that line GAP', () {
     final counts = enough();
     final idle = coverageChecks.singleWhere((c) => c.key == 'aral.idleClasses');

@@ -115,9 +115,15 @@ const _sectionNames = {
   1: 'Sampaguita', 2: 'Gumamela', 3: 'Rosal', 4: 'Ilang-Ilang', 5: 'Orchid',
   6: 'Dahlia', 7: 'Molave', 8: 'Acacia', 9: 'Mahogany', 10: 'Yakal',
 };
-const demoNarraSection = 'Grade 8 - Narra';
+const demoNarraSection = 'Narra';
 
-String demoSectionName(int grade) => 'Grade $grade - ${_sectionNames[grade]}';
+/// A grade's section name as a real SF1 writes it ("Acacia"): screens show
+/// it as "Grade 8 · Acacia" (walkthrough finding 1, 2026-11-27).
+String demoSectionName(int grade) => _sectionNames[grade]!;
+
+/// The name the demo gave sections before 2026-11-27 ("Grade 8 - Acacia"),
+/// renamed on the server by the `fixes.section-names` step.
+String demoOldSectionName(DemoSection s) => 'Grade ${s.grade} - ${s.name}';
 
 /// The section's short key in step names, ids and SF1 file names: `G<grade>`
 /// for a grade's own section (the 2025-2026 keys), `G8N` for Grade 8 - Narra,

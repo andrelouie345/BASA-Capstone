@@ -26,3 +26,16 @@ bool looksLikeDateArg(String raw) => RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(raw
 
 /// The refusal for a YYYY-MM-DD token that is not a real date (F22).
 String notARealDateMessage(String raw) => '"${raw.trim()}" is not a real date (YYYY-MM-DD)';
+
+/// [raw] as a time when it is a real YYYY-MM-DDTHH:MM:SS (optionally with
+/// fractions and a Z or +HH:MM offset), else null. For timer taps given in
+/// the console (digitized CRLA); DateTime.tryParse alone rolls 25:00 over.
+DateTime? strictTimeArg(String raw) {
+  final s = raw.trim();
+  final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(\.\d+)?(Z|[+-]\d{2}:\d{2})?$').firstMatch(s);
+  final parsed = m == null ? null : DateTime.tryParse(s);
+  if (m == null || parsed == null || int.parse(m[4]!) > 23 || int.parse(m[5]!) > 59 || int.parse(m[6]!) > 59) {
+    return null;
+  }
+  return strictDateArg('${m[1]}-${m[2]}-${m[3]}') == null ? null : parsed;
+}

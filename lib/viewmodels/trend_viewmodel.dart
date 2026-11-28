@@ -36,7 +36,13 @@
 //    attendance point. Scope tutor (one series), school (one per tutor +
 //    "School total"), region (one per school + "Region total"); not section.
 //  * Every trend but ARAL activity refuses the tutor scope.
+//
+// ARAL progress (spec 2026-11-27 ARAL effectiveness D5): per round after BOSY,
+// the share of ARAL class learners (one per roster row) up / same / down from
+// their ARAL start to that round, read from AralClassViewModel.classProgress
+// (atRound), the rows the no-improvement alerts read. No attendance minimum.
 import '../core/console/logger.dart';
+import '../core/models/aral_progress.dart';
 import '../core/models/aral_session.dart';
 import '../core/models/crla_assessment.dart' show CrlaRound;
 import '../core/models/crla_result.dart';
@@ -56,6 +62,7 @@ import '../core/services/auth_messages.dart';
 import '../core/services/calendar_rules.dart' show calendarDate;
 import '../core/services/nla_form2b.dart';
 import '../core/services/normalizers.dart';
+import 'aral_class_viewmodel.dart';
 import 'aral_session_viewmodel.dart';
 import 'auth_viewmodel.dart';
 import 'nla_report_viewmodel.dart';
@@ -78,6 +85,7 @@ class TrendViewModel {
   final NlaReportViewModel _nla;
   final AralSessionViewModel _aral;
   final AralSessionRepository _aralSessions;
+  final AralClassViewModel _aralClasses;
 
   TrendViewModel({
     required AuthViewModel auth,
@@ -89,8 +97,10 @@ class TrendViewModel {
     required NlaReportViewModel nla,
     required AralSessionViewModel aral,
     required AralSessionRepository aralSessions,
+    required AralClassViewModel aralClasses,
     Logger? logger,
   })  : _auth = auth,
+        _aralClasses = aralClasses,
         _schools = schools,
         _sections = sections,
         _students = students,
@@ -139,6 +149,47 @@ class TrendViewModel {
             [for (final r in rounds) r == PhilIriRound.bosy ? null : nlaValue(total.band(r, NlaBand.glr), sex)]),
       ],
     );
+  }
+
+  /// ARAL class learners up / same / down since their ARAL start, per round
+  /// after BOSY of [instrument] (`AralLearnerProgress.crla` or `.philIri`), as
+  /// % of the learners with a result in that round (n in the x label); rounds
+  /// nobody in the scope has are left out. As of [asOf] (default today).
+  Future<TrendChart> aralProgress(TrendScope scope, String schoolYear,
+      {required String instrument, DateTime? asOf}) async {
+    _log('aralProgress(${_scopeLog(scope)}, $schoolYear, $instrument, asOf: $asOf)');
+    final rounds = switch (instrument) {
+      AralLearnerProgress.crla => [for (final r in CrlaRound.values) if (r != CrlaRound.bosy) r.name],
+      AralLearnerProgress.philIri => [for (final r in PhilIriRound.values) if (r != PhilIriRound.bosy) r.name],
+      _ => throw const ViewModelException('The instrument is CRLA or Phil-IRI.'),
+    };
+    final year = _year(schoolYear);
+    final target = await _resolve(scope, year);
+    final day = calendarDate(asOf ?? DateTime.now());
+    final classes = [
+      for (final school in target.schools) ...await _aralClasses.classes(schoolId: school.id!, schoolYear: year),
+    ];
+    const counted = {AralProgressChange.up, AralProgressChange.same, AralProgressChange.down};
+    final labels = <String>[];
+    final shares = {for (final c in counted) c: <num?>[]};
+    for (final round in rounds) {
+      final change = <int, AralProgressChange>{}; // roster row -> change
+      for (final c in classes) {
+        for (final p in await _aralClasses.classProgress(c.id!, asOf: day, atRound: round)) {
+          if (p.instrument != instrument || !counted.contains(p.change)) continue;
+          if (target.sectionIds != null && !target.sectionIds!.contains(p.enrollment.sectionId)) continue;
+          change[p.enrollment.id!] = p.change;
+        }
+      }
+      final n = change.length;
+      if (n == 0) continue;
+      labels.add('${AralLearnerProgress.roundLabel(round)} (n = $n)');
+      for (final c in counted) {
+        shares[c]!.add(double.parse((change.values.where((x) => x == c).length * 100 / n).toStringAsFixed(1)));
+      }
+    }
+    return TrendChart('ARAL progress since the start ($instrument) — ${target.name} — $year', labels,
+        [for (final c in counted) TrendSeries(c.label, shares[c]!)]);
   }
 
   /// The NLA report's total over the scope's schools (summed for the region).

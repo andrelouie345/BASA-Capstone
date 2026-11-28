@@ -10,6 +10,7 @@ import 'package:basa_capstone/core/models/aral_irip.dart';
 import 'package:basa_capstone/core/models/aral_session.dart';
 import 'package:basa_capstone/core/models/assessment_calendar.dart' show CalendarInstrument;
 import 'package:basa_capstone/core/models/crla_assessment.dart' show CrlaRound;
+import 'package:basa_capstone/core/models/crla_marks.dart' show CrlaTask, CrlaAnswerMark;
 import 'package:basa_capstone/core/models/sync_upload.dart' show SyncChoice;
 import 'package:basa_capstone/core/models/phil_iri_assessment.dart' show PhilIriRound;
 import 'package:basa_capstone/core/models/phil_iri_gst_result.dart';
@@ -59,6 +60,23 @@ void main() {
       'loadStories': () => vm.loadStories(13),
       'storiesForAttempt': () => vm.storiesForAttempt(1),
       'removeAttempt': () => vm.removeAttempt(-1),
+      // Digitized CRLA (2026-11-27)
+      'form': () => vm.form(1),
+      'digitized': () => vm.digitized(1),
+      'markItem': () => vm.markItem(1, CrlaTask.task1, 1, correct: true),
+      'unmarkItem': () => vm.unmarkItem(1, CrlaTask.task1, 1),
+      'closeTask': () => vm.closeTask(1, CrlaTask.task1),
+      'toggleWord': () => vm.toggleWord(1, 0),
+      'answerQuestion': () => vm.answerQuestion(1, 1, CrlaAnswerMark.correct),
+      'startStoryTimer': () => vm.startStoryTimer(1, 1),
+      'pauseStoryTimer': () => vm.pauseStoryTimer(1),
+      'resumeStoryTimer': () => vm.resumeStoryTimer(1),
+      'stopStoryTimer': () => vm.stopStoryTimer(1),
+      'resetStoryTimer': () => vm.resetStoryTimer(1),
+      'storyTimer': () => vm.storyTimer(1),
+      'setLastWordReached': () => vm.setLastWordReached(1, 0),
+      'saveObservation': () => vm.saveObservation(1, observationLevel: 2),
+      'unfinishedTimingMessage': () => vm.unfinishedTimingMessage(),
     };
     for (final e in calls.entries) {
       await expectLater(e.value(), _refused, reason: e.key);
@@ -95,6 +113,8 @@ void main() {
       'aral.learnerNames': () => aral.learnerNames(1),
       'class.classes': () => cls.classes(schoolId: 1),
       'class.getClass': () => cls.getClass(1),
+      'class.classProgress': () => cls.classProgress(1),
+      'class.noImprovement': () => cls.noImprovement(1),
       'class.createClass': () => cls.createClass(
           schoolId: 1, schoolYear: y, className: 'x', gradeLevel: 1, program: AralClassProgram.ks1),
       'class.editClass': () => cls.editClass(const AralClass(

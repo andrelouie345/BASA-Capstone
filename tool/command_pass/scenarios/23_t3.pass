@@ -133,6 +133,11 @@ expect fil 4
 expect ZZTESTC, Learner003 (MT): the sheet can't show BASA's 40 words read
 run export-section {sec_g2} "{rundir}/t3_g2.csv"
 expect Exported 4 students to
+# Table export (spec 2026-11-28, Excel only): the CSV just written as BASA's .xlsx.
+run export-table "{rundir}/t3_g2.csv" "{rundir}/t3_g2.xlsx" Grade 2 roster year={year}
+expect Wrote 4 rows to
+run export-table "{rundir}/t3_g2.csv" "{rundir}/t3_g2.pdf" Grade 2 roster
+refuse Use an output file ending in .xlsx.
 # An unwritable path (no such folder) must be refused, not crash.
 run export-section {sec_g2} "{rundir}/no-such-folder/t3_g2.csv"
 refuse Couldn't write

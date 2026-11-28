@@ -17,6 +17,7 @@
 //    refresher bands and the reading-profile bands. The defaults reproduce
 //    the DepEd scoresheet formulas exactly, gaps included (owner, 2026-10-15:
 //    CRLA follows the baseline).
+import '../models/crla_result.dart';
 
 const crlaGrades = {1, 2, 3};
 
@@ -306,4 +307,25 @@ String? crlaReadingProfile({
   if ((p >= mid && p < below && comp >= c.d2 + 1) || (p > top && comp <= c.g - 1)) return crlaTransitioning;
   if (p > top && comp >= c.g) return crlaAtGradeLevel;
   return null;
+}
+
+/// The latest of [results] (spec 2026-11-27 ARAL class tutor D3): the latest
+/// assessed date, then the highest attempt number, then the later-made row (a
+/// row made on this device, id < 0, is later than any pulled one; the device
+/// counts down). attempt_no restarts per section, so it alone would pick an
+/// old section's attempt for a learner moved mid-year. Null when empty.
+CrlaResult? crlaLatestAttempt(Iterable<CrlaResult> results) {
+  int made(CrlaResult r) => r.assessmentId < 0 ? (1 << 40) - r.assessmentId : r.assessmentId;
+  int compare(CrlaResult a, CrlaResult b) {
+    final day = a.assessedAt.substring(0, 10).compareTo(b.assessedAt.substring(0, 10));
+    if (day != 0) return day;
+    if (a.attemptNo != b.attemptNo) return a.attemptNo.compareTo(b.attemptNo);
+    return made(a).compareTo(made(b));
+  }
+
+  CrlaResult? latest;
+  for (final r in results) {
+    if (latest == null || compare(r, latest) > 0) latest = r;
+  }
+  return latest;
 }

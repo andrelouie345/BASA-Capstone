@@ -56,8 +56,8 @@ void main() {
   PhilIriTimerEvent tap(int readingId, int seq, PhilIriTimerKind kind, int seconds) =>
       PhilIriTimerEvent(readingId: readingId, seq: seq, kind: kind, at: t0.add(Duration(seconds: seconds)));
 
-  test('the database is v50 and has the table', () async {
-    expect((await db.rawQuery('PRAGMA user_version')).first.values.first, 50);
+  test('the database is v51 (v50 timer rules, v51 digitized CRLA) and has the table', () async {
+    expect((await db.rawQuery('PRAGMA user_version')).first.values.first, 51);
     final cols = {for (final c in await db.rawQuery('PRAGMA table_info(phil_iri_reading_timer_events)')) c['name']};
     expect(cols, containsAll(['id', 'reading_id', 'seq', 'kind', 'at', 'created_by', 'row_version']));
   });
