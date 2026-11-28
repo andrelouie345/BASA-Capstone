@@ -81,5 +81,21 @@ Calls:
   choice of package).
 - The footer is written by the ViewModel from the signed-in user and the device clock; a screen never types it.
 - DepEd forms keep their own export buttons (CRLA2 scoresheet, ARAL Forms 1/2/4, Phil-IRI scoresheet template).
+- **Excel only on screens (owner 2026-11-28): no screen offers a CSV download.** A CSV opened in Excel turns a
+  12-digit LRN into `9.99E+11`. Every report that has a CSV method today is exported as Excel by passing its CSV
+  text through two calls: `final t = tableExport.tableFromCsv(csv, '<title>', school:, schoolYear:, filters:);`
+  then `tableExport.xlsx(t)`. The LRN column stays text and the file gets the footer. The CSV methods stay (BASA's
+  imports and the console use them); only the screens stop handing out `.csv` files. The reports to switch:
+  - `StudentViewModel.rosterCsv(sectionId)`: section roster
+  - `AralViewModel.rosterCsv(...)`: ARAL roster
+  - `AralReportViewModel.implementationReportCsv(...)`: ARAL implementation report (the DepEd-layout `.xlsx` stays
+    as its own button)
+  - `AralCheckinViewModel.checkinReportCsv(...)`: check-in report
+  - `nlaReportCsv(report, filter)`, `progressReportCsv(report, ...)`, `bosyMasterlistCsv(list)`
+    (`nla_report_viewmodel.dart`): NLA Form 2b, progress monitoring, BOSY masterlist
+  - `srpListCsv(list, ...)`, `srpClassesCsv(classes)` (`srp_viewmodel.dart`): SRP candidates and classes
+  - `philIriRankingCsv(r)` (admin build): Phil-IRI ranking
+  Checked 2026-11-28 on the command pass's files: each is one table (header row + rows, a "SCHOOL TOTAL" row
+  included) and converts cleanly. A list with no CSV method (users, schools, ...) builds its `ExportTable` directly.
 Errors: `ViewModelException` (e.g. "A row has more values than the table has columns."): show `message`.
 Console: `export-table` (turns any CSV the console wrote into this Excel file).
